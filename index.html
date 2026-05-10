@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v17.2 ERP</title>
+    <title>Электрик PRO v17.3 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -130,7 +130,6 @@
         .act-item-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
         .editable-name { cursor: pointer; color: var(--primary); border-bottom: 1px dashed var(--primary); }
 
-        #chart-container { background: rgba(255,255,255,0.7); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
@@ -241,7 +240,7 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.2</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.3</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
@@ -304,7 +303,7 @@
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
         <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)">
-        <p style="font-size:10px; color:var(--gray); margin-top:0;">*Если вы Админ, этот ключ применится ко всем мастерам</p>
+        <p style="font-size:10px; color:var(--gray); margin-top:0;">*Если вы Админ, ключ применится всем мастерам штата</p>
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
@@ -352,12 +351,14 @@
         <div class="close-x" onclick="closeModal('buhModal')">×</div>
         <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;"> Бухгалтерия</h2>
         
-        <div id="chart-container">
+        <div style="background:rgba(255,255,255,0.7); border-radius:12px; padding:10px; margin-bottom:15px; border:1px solid var(--border);">
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <select id="chart-period" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="month">Дни (Месяц)</option><option value="year">Месяцы (Год)</option><option value="all">Всё время</option></select>
                 <select id="chart-type" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="bar">Столбцы</option><option value="line">Линия</option></select>
             </div>
-            <canvas id="buhChart" width="100" height="50"></canvas>
+            <div style="position:relative; height: 220px; width: 100%;">
+                <canvas id="buhChart"></canvas>
+            </div>
         </div>
 
         <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius: 12px; font-size: 13px; font-weight:600; border:1px solid var(--border);">
@@ -487,7 +488,7 @@
             <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Корпус:</label><select id="cfg-brand-box"><option>Tekfor</option><option>ABB</option><option>Schneider</option><option>IEK</option></select></div>
             <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Автоматы:</label><select id="cfg-brand-auto"><option>IEK</option><option>ABB</option><option>Schneider</option></select></div>
         </div>
-        <select id="cfg-phase" style="margin-bottom:10px;"><option value="1">220В (1 фаза)</option><option value="3">380B (3 phase)</option></select>
+        <select id="cfg-phase" style="margin-bottom:10px;"><option value="1">220В (1 фаза)</option><option value="3">380B (3 фазы)</option></select>
         
         <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; margin-bottom: 10px;">
             <div class="mech-row"><span>Комнаты (шт)</span><div class="counter-box"><button class="c-btn" onclick="modV('rms',-1)">-</button><span id="v-rms" class="c-val">1</span><button class="c-btn" onclick="modV('rms', 1)">+</button></div></div>
@@ -911,13 +912,21 @@ async function saveApiKey(val) {
     if(db && appUser && appUser.uid) { 
         try { 
             await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); 
-            // Сохраняем в глобальную конфигу, если это админ
+            // Сохраняем в глобальную конфигу и принудительно рассылаем
             if (appUser.role === 'admin') {
                 await db.collection('settings').doc('global_config').set({geminiKey: GEMINI_API_KEY}, {merge: true});
+                const snap = await db.collection('users').get();
+                let batch = db.batch();
+                snap.forEach(doc => { batch.update(doc.ref, {geminiKey: GEMINI_API_KEY}); });
+                await batch.commit();
+                showToast("🔑 Ключ отправлен всем мастерам!"); 
+            } else {
+                showToast("🔑 Ключ сохранен!"); 
             }
-        } catch(e){} 
+        } catch(e){ showToast("Ошибка синхронизации ключа"); } 
+    } else {
+        showToast("🔑 Ключ сохранен локально!");
     }
-    showToast("🔑 Ключ сохранен!"); 
 }
 
 function saveQRs() { 
@@ -1610,15 +1619,27 @@ function renderChart() {
     let grouped = {};
 
     viewHDB.forEach(h => {
-        let dParts = h.date.split('.'); 
-        if(dParts.length !== 3) return;
-        let key = '';
-        if(period === 'year') key = `${dParts[1]}.${dParts[2]}`; 
-        else if(period === 'all') key = dParts[2]; 
-        else key = `${dParts[0]}.${dParts[1]}`; 
+        if(!h.date) return;
+        let dString = h.date;
+        let key = dString; 
+        
+        let dParts = dString.split(/[\.\-\/]/);
+        if(dParts.length >= 3) {
+            let year = dParts.find(p => p.length === 4) || dParts[2];
+            let month = dParts[1];
+            let day = dParts[0];
+            
+            if (year.length !== 4) { 
+                if(dParts[0].length === 4) { year = dParts[0]; month = dParts[1]; day = dParts[2]; }
+            }
+            
+            if(period === 'year') key = `${month}.${year}`; 
+            else if(period === 'all') key = year; 
+            else key = `${day}.${month}`; 
+        }
 
         if(!grouped[key]) grouped[key] = 0;
-        grouped[key] += h.total;
+        grouped[key] += (h.total || 0);
     });
 
     let sortedKeys = Object.keys(grouped).sort();
@@ -1628,7 +1649,7 @@ function renderChart() {
         type: type,
         data: {
             labels: sortedKeys,
-            datasets: [{ label: 'Доход (₽)', data: data, backgroundColor: '#4F46E5', borderColor: '#4F46E5', tension: 0.2 }]
+            datasets: [{ label: 'Доход (₽)', data: data, backgroundColor: '#4F46E5', borderColor: '#4F46E5', tension: 0.2, borderWidth: 2 }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
@@ -1758,7 +1779,6 @@ function renderDbEditors() {
     document.getElementById('editor-work-list').innerHTML = htmlWork;
 }
 
-// Изменение конкретного поля в ЛИЧНОЙ базе
 async function updateUserDbItem(type, id, field, val) {
     let globalArr = type === 'mat' ? matDB : workDB;
     let gItem = globalArr.find(x => x.id === id);
@@ -1794,7 +1814,6 @@ async function addDbItem() {
     document.getElementById('db-new-name').value = ''; document.getElementById('db-new-price').value = '';
 }
 
-// Сохранение в личную базу и отправка Proposal
 async function saveUserDB(item, type) {
     let uArr = type === 'mat' ? userMatDB : userWorkDB;
     let idx = uArr.findIndex(x => x.id === item.id);
