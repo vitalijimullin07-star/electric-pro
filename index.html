@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v17.0 ERP</title>
+    <title>Электрик PRO v17.1 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -241,7 +241,7 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.0</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.1</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
@@ -304,6 +304,7 @@
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
         <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)">
+        <p style="font-size:10px; color:var(--gray); margin-top:0;">*Если вы Админ, этот ключ применится ко всем мастерам</p>
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
@@ -841,6 +842,14 @@ async function finishLoginSetup() {
     try {
         let rawGlobalM = FULL_MAT_INIT, rawGlobalW = FULL_WORK_INIT;
         if(db) {
+            // === ГЛОБАЛЬНАЯ СИНХРОНИЗАЦИЯ КЛЮЧА ИИ ===
+            const globalConfigDoc = await db.collection('settings').doc('global_config').get();
+            if(globalConfigDoc.exists && globalConfigDoc.data().geminiKey) {
+                GEMINI_API_KEY = globalConfigDoc.data().geminiKey;
+                safeSet('gemini_key_v31', GEMINI_API_KEY);
+                if(document.getElementById('api-key-input')) document.getElementById('api-key-input').value = GEMINI_API_KEY;
+            }
+
             const dbDoc = await db.collection('settings').doc('global_db').get();
             if(dbDoc.exists) { rawGlobalM = dbDoc.data().matDB || rawGlobalM; rawGlobalW = dbDoc.data().workDB || rawGlobalW; }
             
@@ -899,9 +908,18 @@ function updateCoeffs() {
 
 async function saveApiKey(val) { 
     GEMINI_API_KEY = val.trim(); safeSet('gemini_key_v31', GEMINI_API_KEY);
-    if(db && appUser && appUser.uid) { try { await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); }catch(e){} }
+    if(db && appUser && appUser.uid) { 
+        try { 
+            await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); 
+            // Сохраняем в глобальную конфигу, если это админ
+            if (appUser.role === 'admin') {
+                await db.collection('settings').doc('global_config').set({geminiKey: GEMINI_API_KEY}, {merge: true});
+            }
+        } catch(e){} 
+    }
     showToast("🔑 Ключ сохранен!"); 
 }
+
 function saveQRs() { 
     safeSet('qr_tg_v31', document.getElementById('qr-tg').value); 
     safeSet('qr_wa_v31', document.getElementById('qr-wa').value); 
@@ -1265,7 +1283,8 @@ async function runAiCheck() {
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
         if(data.error) throw new Error(data.error.message);
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
+?/g, '').replace(/```/g, '').trim();
         const suggestions = JSON.parse(aiText);
         if (suggestions.length === 0) return showToast("✨ Всё идеально! Смета полная.");
         document.getElementById('ai-modal-title').innerText = "✨ ИИ-Аналитика";
@@ -1284,7 +1303,8 @@ async function aiSupply() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
+?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1300,7 +1320,8 @@ async function aiPueHelper() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
+?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📚 ПУЭ Справка";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1317,11 +1338,31 @@ async function compareShopsAI() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
+?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
     } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
+}
+
+async function analyzeMastersAI() {
+    if (!GEMINI_API_KEY) return showToast("❌ Введите ключ ИИ!"); 
+    if (hDB.length === 0) return showToast("❌ История пуста."); 
+    showLoader("ИИ анализирует штатную историю...", "🤖"); 
+    try { 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; 
+        let summary = hDB.map(h => `Мастер: ${h.masterName}, Сумма: ${h.total} руб, Дата: ${h.date}`).join('; '); 
+        const promptText = `Я руководитель. Акты: ${summary}. Напиши отчет: кто приносит больше денег, кто работает чаще. Дай совет.`; 
+        const payload = { contents: [{ parts: [{text: promptText }] }] }; 
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
+        const data = await response.json(); hideLoader(); 
+        let aiText = data.candidates[0].content.parts[0].text; 
+        document.getElementById('ai-modal-title').innerText = "📊 ИИ-Аналитика Штат"; 
+        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/
+/g, '<br>')}</div>`; 
+        openModal('aiModal'); 
+    } catch (error) { hideLoader(); showToast("❌ Ошибка ИИ."); }
 }
 
 function getPDFHeader(title) { 
@@ -1807,14 +1848,19 @@ async function handleExcelFile(e) {
             const prompt = `Это выгрузка прайса в CSV: \n${csv}\n\nВытащи позиции. Верни строго JSON массив вида [{"n":"название", "p": цена_числом, "u":"шт/м/ед"}]. Без markdown и пояснений. Исключи пустые строки.`;
             const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({contents:[{parts:[{text:prompt}]}]}) });
             const resData = await res.json();
-            let text = resData.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+            
+            // Если ошибка API
+            if(resData.error) throw new Error(resData.error.message);
+            
+            let text = resData.candidates[0].content.parts[0].text.replace(/```[a-z]*
+?/g, '').replace(/```/g, '').trim();
             let items = JSON.parse(text);
             
             showExcelImportModal(items);
             hideLoader();
         } catch(err) {
             hideLoader();
-            showToast("Ошибка ИИ импорта: Попробуйте другой файл");
+            showToast("Ошибка ИИ: Проверьте ключ API или формат файла");
             console.error(err);
         }
     };
