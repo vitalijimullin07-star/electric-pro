@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v17.3 ERP</title>
+    <title>Электрик PRO v17.4 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -130,6 +130,7 @@
         .act-item-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
         .editable-name { cursor: pointer; color: var(--primary); border-bottom: 1px dashed var(--primary); }
 
+        #chart-container { background: rgba(255,255,255,0.7); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
@@ -240,7 +241,7 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.3</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.4</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
@@ -301,9 +302,11 @@
         <div class="close-x" onclick="closeModal('settingsModal')">×</div>
         <h2 style="color: var(--primary); margin-top:0; font-size:18px;">Настройки</h2>
         
-        <h4 style="color:var(--gray); margin: 10px 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
-        <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)">
-        <p style="font-size:10px; color:var(--gray); margin-top:0;">*Если вы Админ, ключ применится всем мастерам штата</p>
+        <div id="admin-api-settings" style="display:none; padding:10px; background:rgba(79, 70, 229, 0.05); border-radius:10px; border:1px solid var(--primary); margin-bottom:15px;">
+            <h4 style="color:var(--primary); margin: 0 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
+            <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)" style="border-color:var(--primary);">
+            <p style="font-size:10px; color:var(--gray); margin:0;">*Ключ применится ко всем мастерам автоматически</p>
+        </div>
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
@@ -712,7 +715,7 @@ async function handleGoogleAuth() {
         await auth.signInWithPopup(provider); 
     } catch(e) { 
         hideLoader();
-        if(e.code !== 'auth/popup-closed-by-user') alert("Сбой Google Auth:\n" + e.message + "\n\n(Убедитесь, что ваш домен добавлен в Firebase Authorized Domains)"); 
+        if(e.code !== 'auth/popup-closed-by-user') alert("Сбой Google Auth: " + e.message); 
     }
 }
 
@@ -736,7 +739,7 @@ if(auth) {
                         document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='none'; finishLoginSetup();
                     } else { document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='flex'; }
                 }
-            } catch(e) { hideLoader(); alert("Ошибка связи с БД:\n" + e.message); }
+            } catch(e) { hideLoader(); alert("Ошибка связи с БД: " + e.message); }
         } else {
             hideLoader(); checkLocalPinUser();
         }
@@ -822,10 +825,9 @@ async function finishLoginSetup() {
     document.getElementById('waitingModal').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     
-    if (appUser.geminiKey) { GEMINI_API_KEY = appUser.geminiKey; document.getElementById('api-key-input').value = GEMINI_API_KEY; }
-    
     if(appUser.role === 'admin') { 
         document.getElementById('admin-panel').style.display = 'block'; 
+        document.getElementById('admin-api-settings').style.display = 'block';
         listenForApprovals(); 
         loadMasterDrafts(); 
         renderAdminUsers(); 
@@ -1292,13 +1294,16 @@ async function runAiCheck() {
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
         if(data.error) throw new Error(data.error.message);
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
-        const suggestions = JSON.parse(aiText);
+        
+        let text = data.candidates[0].content.parts[0].text;
+        let match = text.match(/\[[\s\S]*\]/);
+        const suggestions = JSON.parse(match ? match[0] : text);
+        
         if (suggestions.length === 0) return showToast("✨ Всё идеально! Смета полная.");
         document.getElementById('ai-modal-title').innerText = "✨ ИИ-Аналитика";
         document.getElementById('ai-suggestions').innerHTML = suggestions.map(s => `<div style="background:var(--bg); padding: 12px; border-radius: 10px; margin-bottom:10px; border-left:4px solid var(--ai);"><div style="font-size: 12px; font-weight:bold; margin-bottom:8px;">${s.reason}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:13px; color:var(--primary); font-weight:bold;">${s.suggestedName}</span><button onclick="addAuto([{n:'${s.suggestedName}', q:1, p:0, type:'mat'}], 'ai_add'); closeModal('aiModal');" style="background:var(--ai); padding:6px 12px; font-size:11px; color:white; border:none; border-radius:6px; width:auto; margin:0;">+ Добавить</button></div></div>`).join("");
         openModal('aiModal');
-    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: Проверьте ключ"); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: " + e.message); }
 }
 
 async function aiSupply() {
@@ -1311,7 +1316,7 @@ async function aiSupply() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1327,7 +1332,7 @@ async function aiPueHelper() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📚 ПУЭ Справка";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1344,7 +1349,7 @@ async function compareShopsAI() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
@@ -1779,6 +1784,7 @@ function renderDbEditors() {
     document.getElementById('editor-work-list').innerHTML = htmlWork;
 }
 
+// Изменение конкретного поля в ЛИЧНОЙ базе
 async function updateUserDbItem(type, id, field, val) {
     let globalArr = type === 'mat' ? matDB : workDB;
     let gItem = globalArr.find(x => x.id === id);
@@ -1814,6 +1820,7 @@ async function addDbItem() {
     document.getElementById('db-new-name').value = ''; document.getElementById('db-new-price').value = '';
 }
 
+// Сохранение в личную базу и отправка Proposal
 async function saveUserDB(item, type) {
     let uArr = type === 'mat' ? userMatDB : userWorkDB;
     let idx = uArr.findIndex(x => x.id === item.id);
@@ -1840,7 +1847,7 @@ async function saveUserDB(item, type) {
 
 // === EXCEL ИМПОРТ ===
 function triggerExcelImport(type) {
-    if(!GEMINI_API_KEY) return showToast("Нужен ключ Gemini API в настройках!");
+    if(!GEMINI_API_KEY) return showToast("Нужен ключ Gemini API (Админ должен добавить в настройках)");
     currentImportType = type;
     document.getElementById('excel-file-input').click();
 }
@@ -1865,14 +1872,22 @@ async function handleExcelFile(e) {
             
             if(resData.error) throw new Error(resData.error.message);
             
-            let text = resData.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
-            let items = JSON.parse(text);
+            let text = resData.candidates[0].content.parts[0].text;
+            
+            // АГРЕССИВНЫЙ ПАРСЕР JSON (Исправляет баг "Проверьте формат")
+            let match = text.match(/\[[\s\S]*\]/);
+            let items = [];
+            if(match) {
+                items = JSON.parse(match[0]);
+            } else {
+                items = JSON.parse(text);
+            }
             
             showExcelImportModal(items);
             hideLoader();
         } catch(err) {
             hideLoader();
-            showToast("Ошибка ИИ: Проверьте ключ API или формат файла");
+            showToast("Ошибка ИИ: " + (err.message || "Неверный формат"));
             console.error(err);
         }
     };
