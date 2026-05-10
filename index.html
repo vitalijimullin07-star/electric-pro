@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v17.1 ERP</title>
+    <title>Электрик PRO v17.2 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -241,7 +241,7 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.1</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.2</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
@@ -487,7 +487,7 @@
             <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Корпус:</label><select id="cfg-brand-box"><option>Tekfor</option><option>ABB</option><option>Schneider</option><option>IEK</option></select></div>
             <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Автоматы:</label><select id="cfg-brand-auto"><option>IEK</option><option>ABB</option><option>Schneider</option></select></div>
         </div>
-        <select id="cfg-phase" style="margin-bottom:10px;"><option value="1">220В (1 фаза)</option><option value="3">380B (3 фазы)</option></select>
+        <select id="cfg-phase" style="margin-bottom:10px;"><option value="1">220В (1 фаза)</option><option value="3">380B (3 phase)</option></select>
         
         <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; margin-bottom: 10px;">
             <div class="mech-row"><span>Комнаты (шт)</span><div class="counter-box"><button class="c-btn" onclick="modV('rms',-1)">-</button><span id="v-rms" class="c-val">1</span><button class="c-btn" onclick="modV('rms', 1)">+</button></div></div>
@@ -711,7 +711,7 @@ async function handleGoogleAuth() {
         await auth.signInWithPopup(provider); 
     } catch(e) { 
         hideLoader();
-        if(e.code !== 'auth/popup-closed-by-user') alert("Сбой Google Auth: " + e.message); 
+        if(e.code !== 'auth/popup-closed-by-user') alert("Сбой Google Auth:\n" + e.message + "\n\n(Убедитесь, что ваш домен добавлен в Firebase Authorized Domains)"); 
     }
 }
 
@@ -735,7 +735,7 @@ if(auth) {
                         document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='none'; finishLoginSetup();
                     } else { document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='flex'; }
                 }
-            } catch(e) { hideLoader(); alert("Ошибка связи с БД: " + e.message); }
+            } catch(e) { hideLoader(); alert("Ошибка связи с БД:\n" + e.message); }
         } else {
             hideLoader(); checkLocalPinUser();
         }
@@ -1283,8 +1283,7 @@ async function runAiCheck() {
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
         if(data.error) throw new Error(data.error.message);
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
-?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         const suggestions = JSON.parse(aiText);
         if (suggestions.length === 0) return showToast("✨ Всё идеально! Смета полная.");
         document.getElementById('ai-modal-title').innerText = "✨ ИИ-Аналитика";
@@ -1303,8 +1302,7 @@ async function aiSupply() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
-?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1320,8 +1318,7 @@ async function aiPueHelper() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
-?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📚 ПУЭ Справка";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1338,8 +1335,7 @@ async function compareShopsAI() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*
-?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
@@ -1359,8 +1355,7 @@ async function analyzeMastersAI() {
         const data = await response.json(); hideLoader(); 
         let aiText = data.candidates[0].content.parts[0].text; 
         document.getElementById('ai-modal-title').innerText = "📊 ИИ-Аналитика Штат"; 
-        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/
-/g, '<br>')}</div>`; 
+        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/\n/g, '<br>')}</div>`; 
         openModal('aiModal'); 
     } catch (error) { hideLoader(); showToast("❌ Ошибка ИИ."); }
 }
@@ -1849,11 +1844,9 @@ async function handleExcelFile(e) {
             const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({contents:[{parts:[{text:prompt}]}]}) });
             const resData = await res.json();
             
-            // Если ошибка API
             if(resData.error) throw new Error(resData.error.message);
             
-            let text = resData.candidates[0].content.parts[0].text.replace(/```[a-z]*
-?/g, '').replace(/```/g, '').trim();
+            let text = resData.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
             let items = JSON.parse(text);
             
             showExcelImportModal(items);
