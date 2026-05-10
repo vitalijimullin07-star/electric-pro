@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v16.6 ERP</title>
+    <title>Электрик PRO v16.7 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -35,8 +35,10 @@
         .glass { background: var(--card); border: 1px solid var(--border); box-shadow: var(--glass-shadow); border-radius: 16px; }
         .card { padding: 15px; margin-bottom: 15px; width: 100%; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .burger-btn { font-size: 28px; cursor: pointer; color: var(--text); background: none; border: none; padding: 0; }
+        /* ЦЕНТРИРОВАНИЕ БУРГЕРА */
+        .header { position: relative; display: flex; justify-content: center; align-items: center; margin-bottom: 15px; height: 40px; }
+        .burger-btn { position: absolute; left: 0; font-size: 28px; cursor: pointer; color: var(--text); background: none; border: none; padding: 0; }
+        #master-badge { position: absolute; right: 0; font-size: 11px; color: var(--primary); font-weight:bold; text-align: right; line-height: 1.2; }
         
         .burger-menu { position: fixed; top: 0; left: -320px; width: 280px; height: 100vh; background: var(--modal-bg); border-right: 1px solid var(--border); z-index: 2000; transition: 0.3s; padding: 20px; overflow-y:auto; }
         .burger-menu.open { left: 0; }
@@ -112,18 +114,23 @@
             body, html { background: white; margin: 0; padding: 0; overflow: visible !important; height: auto !important; }
             .no-print, .container, .burger-menu, .burger-overlay { display: none !important; }
             .modal { position: relative !important; display: block !important; background: white !important; padding: 0 !important; }
-            .modal-content { border: none !important; box-shadow: none !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; background: white !important; }
+            .modal-content { border: none !important; box-shadow: none !important; max-width: 100% !important; margin: 0 !important; padding: 20px !important; background: white !important; }
+            .pdf-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+            .pdf-table th { background: #f0f0f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
         }
         .pdf-header { text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 15px; }
         .pdf-header h1 { margin: 0; color: var(--primary); font-size: 18px; text-transform: uppercase; }
         .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
         .pdf-table th { background: rgba(0,0,0,0.05); padding: 8px; border-bottom: 2px solid var(--border); text-align:left; color: var(--text); }
         .pdf-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+        
+        .act-group-title { background: var(--primary); color: white; padding: 8px 12px; font-weight: bold; font-size: 13px; border-radius: 6px; margin: 15px 0 5px 0; display: flex; justify-content: space-between; }
+        .act-item-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div id="global-loader" class="global-loader"><div id="loader-icon" class="loader-icon">☁️</div><div id="loader-text" style="font-weight:bold;">Загрузка...</div></div>
+<div id="global-loader" class="global-loader show"><div id="loader-icon" class="loader-icon">⏳</div><div id="loader-text" style="font-weight:bold;">Инициализация...</div></div>
 <div id="toast" class="toast">Уведомление</div>
 
 <div class="burger-overlay" id="burger-overlay" onclick="toggleMenu()"></div>
@@ -131,6 +138,7 @@
     <h2 style="margin-top:0; color: var(--primary); margin-bottom: 25px; font-weight:900;">Электрик PRO</h2>
     <button class="btn-info" onclick="openModal('custModal'); toggleMenu();">👤 О заказчике</button>
     <button class="btn-vendor" style="background: rgba(139,92,246,0.15); color: #8B5CF6;" onclick="runAiCheck(); toggleMenu();">✨ ИИ-Анализ сметы</button>
+    <button class="btn-vendor" style="background: rgba(59,130,246,0.15); color: #3B82F6;" onclick="aiSupply(); toggleMenu();">📦 ИИ-Снабженец</button>
     <button class="btn-vendor" style="background: rgba(16,185,129,0.15); color: #10B981;" onclick="openModal('settModal'); toggleMenu();">🗄 База данных</button>
     <button class="btn-vendor" style="background: rgba(245,158,11,0.15); color: #F59E0B;" onclick="openModal('buhModal'); toggleMenu();">💰 Бухгалтерия (Акты)</button>
     
@@ -147,7 +155,7 @@
     <div class="card glass">
         <div class="header">
             <button class="burger-btn" onclick="toggleMenu()">☰</button>
-            <div id="master-badge" style="font-size: 11px; color: var(--primary); font-weight:bold; text-align: right; line-height: 1.2;"></div>
+            <div id="master-badge"></div>
         </div>
         
         <div class="controls">
@@ -200,11 +208,12 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v16.6</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v16.7</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
         </button>
+        
         <button id="btn-google-reg" class="btn-primary no-print" style="width:100%; background:#34A853; padding:14px; font-size:14px; margin-bottom:20px; font-weight:bold;">
             📝 Регистрация
         </button>
@@ -269,7 +278,8 @@
         <h4 style="color:var(--gray); margin: 10px 0 5px;">📱 Ссылки для QR (Смета)</h4>
         <input type="text" id="qr-tg" placeholder="Telegram (t.me/...)" onchange="saveQRs()">
         <input type="text" id="qr-wa" placeholder="WhatsApp (wa.me/...)" onchange="saveQRs()">
-        <input type="text" id="ai-shops" placeholder="Магазины для ИИ" onchange="saveQRs()" style="margin-top:10px;">
+        <input type="text" id="qr-vk" placeholder="VK / Ваш Сайт" onchange="saveQRs()" style="margin-top:10px;">
+        <input type="text" id="ai-shops" placeholder="Магазины для ИИ (напр. Петрович)" onchange="saveQRs()" style="margin-top:10px;">
         
         <div id="admin-panel" style="display:none; padding-top:15px; border-top: 1px dashed var(--gray); margin-top:15px;">
             <h3 style="color:var(--danger); margin: 0 0 10px;">👑 Админ Панель</h3>
@@ -311,30 +321,49 @@
 </div>
 
 <div class="modal" id="objCardModal">
-    <div class="modal-content glass">
-        <div class="close-x" onclick="closeModal('objCardModal')">×</div>
-        <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;">Акт работ</h2>
+    <div class="modal-content glass" style="max-width: 600px; padding: 15px;">
+        <div class="close-x" onclick="closeObjCardAndReturn()">×</div>
+        <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;">Детализация акта</h2>
         <h3 id="card-obj-name" style="margin-top:0; color:var(--text); font-size:14px;">Объект</h3>
-        <div style="background:rgba(0,0,0,0.03); padding: 12px; border-radius: 12px; font-size:13px; border:1px solid var(--border); margin-bottom:15px;">
-            <h4 style="margin:0 0 8px 0; color:var(--orange);">🔨 Выполненный объем (Черновая)</h4>
-            <div id="card-stats-work" style="margin-bottom:10px; line-height: 1.5;"></div>
-            <h4 style="margin: 15px 0 8px 0; color:var(--primary);">💡 Нужно на чистовую:</h4>
-            <div id="card-stats-finish" style="background:rgba(255,255,255,0.6); padding:10px; border-radius:8px; border:1px solid rgba(79, 70, 229, 0.3); font-weight:bold; line-height: 1.5;"></div>
+        
+        <div id="card-acts-container" style="background:rgba(255,255,255,0.8); border-radius:8px; padding:10px; max-height:50vh; overflow-y:auto;">
+            </div>
+
+        <div style="margin-top:15px; border-top: 1px dashed var(--gray); padding-top:15px;">
+            <h4 style="margin:0 0 10px 0;">Добавить доп. работу:</h4>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="extra-work-name" placeholder="Название..." style="flex:2; margin:0;">
+                <input type="number" id="extra-work-price" placeholder="Сумма" style="flex:1; margin:0;">
+            </div>
+            <button onclick="addExtraWork()" class="btn-primary" style="width:100%; margin-top:10px; padding:12px;">+ В акт</button>
         </div>
-        <button onclick="openModal('buhModal'); closeModal('objCardModal');" class="btn-ghost" style="width:100%; padding:14px; margin-bottom: 10px;">Вернуться</button>
+        <button onclick="closeObjCardAndReturn()" class="btn-ghost" style="width:100%; padding:14px; margin-top: 15px;">Назад</button>
     </div>
 </div>
 
 <div class="modal" id="settModal">
-    <div class="modal-content glass">
+    <div class="modal-content glass" style="max-width: 600px;">
         <div class="close-x" onclick="closeModal('settModal')">×</div>
-        <h2 style="margin-top:0; color: var(--primary); font-size:18px;"> База данных</h2>
+        <h2 style="margin-top:0; color: var(--primary); font-size:18px;"> База данных (Редактор)</h2>
+        
+        <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
+            <b style="font-size:12px; display:block; margin-bottom:8px;">Добавить новую позицию:</b>
+            <input type="text" list="db-cats" id="db-new-cat" placeholder="Категория (выбрать или вписать)" style="margin-bottom:6px;">
+            <datalist id="db-cats"></datalist>
+            <input type="text" id="db-new-name" placeholder="Название позиции" style="margin-bottom:6px;">
+            <div style="display:flex; gap:6px;">
+                <input type="number" id="db-new-price" placeholder="Цена (₽)" style="margin:0; flex:1;">
+                <input type="text" id="db-new-unit" placeholder="Ед. изм (шт/м)" value="шт" style="margin:0; flex:1;">
+            </div>
+            <button onclick="addDbItem()" class="btn-success" style="width:100%; margin-top:8px; padding:12px;">+ Добавить в базу</button>
+        </div>
+
         <div class="tabs-container">
             <button class="tab-btn active" id="btnTabMat" onclick="switchDbTab('mat')">Материалы</button>
             <button class="tab-btn" id="btnTabWork" onclick="switchDbTab('work')">Работы</button>
         </div>
-        <div id="editor-mat" style="max-height:50vh; overflow-y:auto;"></div>
-        <div id="editor-work" style="max-height:50vh; overflow-y:auto; display:none;"></div>
+        <div id="editor-mat-list" style="max-height:40vh; overflow-y:auto;"></div>
+        <div id="editor-work-list" style="max-height:40vh; overflow-y:auto; display:none;"></div>
     </div>
 </div>
 
@@ -388,6 +417,17 @@
             <label class="chk-row"><input type="checkbox" id="cfg-master"> Мастер-кнопка</label>
             <label class="chk-row"><input type="checkbox" id="cfg-uzm"> Реле напряж.</label>
         </div>
+
+        <div style="background:rgba(79, 70, 229, 0.05); padding:10px; border-radius:10px; margin-bottom: 10px; border: 1px dashed var(--primary);">
+            <b style="font-size:11px; display:block; margin-bottom:5px; color:var(--primary);">Доп. аппараты из БД:</b>
+            <select id="cfg-extra-db" style="margin-bottom:6px; font-size:12px; padding:8px;"></select>
+            <div style="display:flex; gap:6px;">
+                <input type="number" id="cfg-extra-q" value="1" style="flex:1; margin:0; padding:8px; text-align:center;">
+                <button class="btn-success" style="flex:2; margin:0;" onclick="addExtraToShieldConfig()">+ Добавить</button>
+            </div>
+            <div id="shield-extras-list" style="margin-top:8px;"></div>
+        </div>
+
         <label style="font-size: 11px; font-weight:bold; color:var(--gray);">Тип монтажа Щита: </label>
         <select id="cfg-shield-wall" style="margin-bottom:10px;"><option value="Бетон">Встраиваемый (Бетон)</option><option value="Кирпич">Встраиваемый (Кирпич)</option><option value="Панелька">Встраиваемый (Панелька)</option><option value="Мягкий мат.">Встраиваемый (ГКЛ)</option><option value="Накладной">Накладной (без ниши)</option></select>
         <button onclick="generateCascadePanel()" class="btn-shield" style="width:100%; padding: 14px; margin:0;">Сгенерировать щит</button>
@@ -411,7 +451,7 @@
             <label class="chk-row"><input type="checkbox" id="pool-surface"> 🔌 Накладные розетки (без сверления)</label>
         </div>
         
-        <label style="font-size:10px; font-weight:bold; color:var(--gray);">ПОДРОЗЕТНИК: </label>
+        <label style="font-size:10px; font-weight:bold; color:var(--gray);">ТИП РОЗЕТОК (ПОДРОЗЕТНИК): </label>
         <div class="tile-grid" id="podr-tiles">
             <div class="tile active" onclick="setPodr('std', this)">Стд 45</div>
             <div class="tile" onclick="setPodr('deep', this)">Глуб 64</div>
@@ -424,15 +464,15 @@
             <input type="number" id="c-h-custom" placeholder="Своя" style="width:60px; margin:0; padding:6px; font-size:11px;" oninput="setH(this.value, null)">
         </div>
         
-        <label style="font-size:10px; font-weight:bold; color:var(--gray);">Постов в рамке</label>
-        <div class="tile-grid" id="p-tiles">
-            <div class="tile active" id="p1" onclick="setP(1)">1</div><div class="tile" id="p2" onclick="setP(2)">2</div><div class="tile" id="p3" onclick="setP(3)">3</div><div class="tile" id="p4" onclick="setP(4)">4</div><div class="tile" id="p5" onclick="setP(5)">5</div>
+        <div style="text-align:center; padding: 10px; background: rgba(79, 70, 229, 0.1); border-radius: 8px; margin-bottom: 10px; font-weight:bold; color:var(--primary);">
+            Постов в рамке (Авто): <span id="auto-posts" style="font-size:20px; font-weight:900;">1</span> / 6
         </div>
         
         <div style="background:rgba(255,255,255,0.4); padding:8px; border-radius:10px; border:1px solid var(--border);">
             <div class="mech-row"><span> Розетки 220В</span><div class="counter-box"><button class="c-btn" onclick="modM('soc',-1)">-</button><span id="v-soc" class="c-val">1</span><button class="c-btn" onclick="modM('soc', 1)">+</button></div></div>
             <div class="mech-row"><span> Выключатели</span><div class="counter-box"><button class="c-btn" onclick="modM('sw',-1)">-</button><span id="v-sw" class="c-val">0</span><button class="c-btn" onclick="modM('sw', 1)">+</button></div></div>
             <div class="mech-row"><span> Проходные</span><div class="counter-box"><button class="c-btn" onclick="modM('pass',-1)">-</button><span id="v-pass" class="c-val">0</span><button class="c-btn" onclick="modM('pass', 1)">+</button></div></div>
+            <div class="mech-row"><span> Перекрестные</span><div class="counter-box"><button class="c-btn" onclick="modM('cross',-1)">-</button><span id="v-cross" class="c-val">0</span><button class="c-btn" onclick="modM('cross', 1)">+</button></div></div>
             <div class="mech-row"><span> ТВ/Инет</span><div class="counter-box"><button class="c-btn" onclick="modM('tv',-1)">-</button><span id="v-tv" class="c-val">0</span><button class="c-btn" onclick="modM('tv', 1)">+</button></div></div>
             <div class="mech-row" style="border:none; color:var(--danger);"><span>Т.Пол</span><div class="counter-box"><button class="c-btn" onclick="modM('tpol',-1)">-</button><span id="v-tpol" class="c-val">0</span><button class="c-btn" onclick="modM('tpol', 1)">+</button></div></div>
         </div>
@@ -473,8 +513,8 @@
 <div class="modal" id="previewModal">
     <div class="modal-content glass" style="max-width:800px; width:95%; background: white;">
         <div class="close-x no-print" onclick="closeModal('previewModal')">×</div>
+        <button class="btn-primary no-print" onclick="window.print()" style="width:100%; margin-bottom:15px; padding:12px;">🖨 Сохранить PDF / Печать</button>
         <div id="p-cont" style="background: white; padding: 5px; border-radius: 8px;"></div>
-        <p class="no-print" style="font-size:11px; color:var(--gray); text-align:center; margin-top:15px;">В приложении сделайте скриншот. Вывод на принтер работает только в мобильном браузере.</p>
         <button class="btn-ghost no-print" style="width:100%; margin-top:15px; padding:12px;" onclick="closeModal('previewModal')">Закрыть</button>
     </div>
 </div>
@@ -510,6 +550,7 @@ let priceOverrides = {};
 let cfg = {rms: 1, acs: 0, fls: 0, bals: 0 };
 var st_soc = 1, st_sw = 0, st_pass = 0, st_cross = 0, st_tv = 0, st_tpol = 0, st_q = 1, st_h = 30, st_p = 1, st_podr = 'std';
 let globalRecalcCab = 0, globalRecalcSht = 0; let pendingAdd = null; let currentCardId = null;
+let currentShieldExtras = [];
 
 // === БАЗА ДАННЫХ 141 ПОЗИЦИЯ ===
 const FULL_MAT_INIT=[{"id":"m1","c":"Кабель","n":"Кабель ВВГнг-LS 3х1.5 (Конкорд) круглый","p":57,"u":"м.п."},{"id":"m2","c":"Кабель","n":"Кабель ВВГнг-LS 3х2.5 (Конкорд) круглый","p":87,"u":"м.п."},{"id":"m3","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х1.5 (Конкорд) плоский","p":62,"u":"м.п."},{"id":"m4","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х2.5 (Конкорд) плоский","p":95,"u":"м.п."},{"id":"m5","c":"Кабель","n":"Кабель ВВГ-Пнг(А)-LS 3x4 (Лептон)","p":146,"u":"м.п."},{"id":"m6","c":"Кабель","n":"Кабель ВВГ-Пнг(А)-LS 3х6 (Лептон)","p":217,"u":"м.п."},{"id":"m7","c":"Кабель","n":"Провод ПуГВ (ПВ-3) 1х6 синий (ЦВЕТЛИТ)","p":85,"u":"м.п."},{"id":"m8","c":"Кабель","n":"Провод ПуГВ (ПВ-3) 1х6 белый (ЦВЕТЛИТ)","p":85,"u":"м.п."},{"id":"m9","c":"Слаботочка","n":"Кабель TV SAT-703 (Cavel)","p":75,"u":"м.п."},{"id":"m10","c":"Слаботочка","n":"Витая пара комп. экран. FTP4 CAT5E 24AWG Cu","p":32,"u":"м.п."},{"id":"m11","c":"Трубы","n":"Труба гофрированная ПВХ 20мм серая","p":8,"u":"м.п."},{"id":"m12","c":"Трубы","n":"Труба гофрированная ПНД 20мм черная","p":10,"u":"м.п."},{"id":"m13","c":"Трубы","n":"Гофра ПВХ/ПНД с протяжкой","p":25,"u":"м.п."},{"id":"m14","c":"Расходники","n":"Подрозетник глубокий для бетона 68х64","p":12,"u":"шт"},{"id":"m15","c":"Расходники","n":"Подрозетник стандарт (ГКЛ)","p":20,"u":"шт"},{"id":"m16","c":"Расходники","n":"Подрозетник глубокий (ГКЛ)","p":35,"u":"шт"},{"id":"m17","c":"Расходники","n":"Коробка распределительная 100х100х40","p":120,"u":"шт"},{"id":"m18","c":"Расходники","n":"Площадка под стяжку для прямого монтажа","p":5,"u":"шт"},{"id":"m19","c":"Расходники","n":"Стяжки нейлоновые КСС 3*100 (100шт)","p":40,"u":"упак."},{"id":"m20","c":"Расходники","n":"Стяжки нейлоновые КСС 5*400 (100шт)","p":410,"u":"упак."},{"id":"m21","c":"Расходники","n":"Газовый баллон 80 мл 165 мм","p":550,"u":"шт"},{"id":"m22","c":"Расходники","n":"Гвозди для прямого монтажа 3х19 мм (1000 шт)","p":1905,"u":"упак."},{"id":"m23","c":"Расходники","n":"Лента монтажная (перфолента)","p":580,"u":"шт"},{"id":"m24","c":"Расходники","n":"Лента монтажная текстильная 20 мм (50м)","p":880,"u":"упак."},{"id":"m25","c":"Щитовое","n":"Наконечник НШВИ 6.0-12 (упак)","p":225,"u":"упак."},{"id":"m26","c":"Щитовое","n":"Наконечник НШВИ(2) 6.0-14 (упак)","p":365,"u":"упак."},{"id":"m27","c":"Расходники","n":"Гильза ГМЛ 4","p":12,"u":"шт"},{"id":"m28","c":"Расходники","n":"Гильза ГМЛ 6","p":18,"u":"шт"},{"id":"m29","c":"Расходники","n":"Термоусадка 12/4 (м)","p":80,"u":"м"},{"id":"m30","c":"Автоматика","n":"Автомат 1P 10A (ABB SH201)","p":265,"u":"шт"},{"id":"m31","c":"Автоматика","n":"Автомат 1P 16A (ABB SH201)","p":265,"u":"шт"},{"id":"m32","c":"Автоматика","n":"Автомат 1P 40A (ABB SH201)","p":410,"u":"шт"},{"id":"m33","c":"Автоматика","n":"ДИФ Автомат DSH201 C32 AC30 (ABB)","p":3100,"u":"шт"},{"id":"m34","c":"Щитовое","n":"Клеммник винтовой N 5x16 (ABB)","p":345,"u":"шт"},{"id":"m35","c":"Щитовое","n":"Клеммник винтовой PE 11x16 (ABB)","p":770,"u":"шт"},{"id":"m36","c":"Щитовое","n":"Шкаф внутрь. на 36М UK636E3 (ABB)","p":6510,"u":"шт"},{"id":"m37","c":"Щитовое","n":"Шкаф мультимедийный UK620MV (ABB)","p":11025,"u":"шт"},{"id":"m38","c":"Автоматика","n":"Автомат 1P 10A (ИЭК ВА47-29)","p":172,"u":"шт"},{"id":"m39","c":"Автоматика","n":"Автомат 1P 16A (ИЭК ВА47-29)","p":150,"u":"шт"},{"id":"m40","c":"Автоматика","n":"Автомат 2P 40A (ИЭК ВА47-29)","p":380,"u":"шт"},{"id":"m41","c":"Автоматика","n":"УЗО 2P 40A 30мА (ИЭК ВД1-63)","p":1195,"u":"шт"},{"id":"m42","c":"Щитовое","n":"Шина N ноль на DIN-изол (ИЭК)","p":285,"u":"шт"},{"id":"m43","c":"Щитовое","n":"Корпус пластиковый ЩРВ-П-24 (TEKFOR)","p":2660,"u":"шт"},{"id":"m44","c":"Автоматика","n":"Реле напряжения УЗМ-50Ц","p":4500,"u":"шт"}];
@@ -531,7 +572,7 @@ try {
     db.enablePersistence().catch(err => console.warn("Offline cache failed", err));
 } catch(e) { console.error("Firebase error", e); }
 
-// === GOOGLE AUTH (МГНОВЕННАЯ ПРИВЯЗКА) ===
+// === GOOGLE AUTH ===
 async function handleGoogleAuth() {
     if(!auth) return alert("Ошибка: Firebase не загружен. Проверьте интернет-соединение.");
     showLoader("Подключение к Google...", "🔄");
@@ -554,7 +595,7 @@ if (regBtn) regBtn.addEventListener('click', handleGoogleAuth);
 if(auth) {
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            showLoader("Загрузка...", "🔒");
+            showLoader("Загрузка профиля...", "🔒");
             try {
                 const userRef = db.collection('users').doc(user.uid);
                 const docSnap = await userRef.get();
@@ -569,10 +610,12 @@ if(auth) {
                 }
             } catch(e) { hideLoader(); alert("Ошибка связи с БД: " + e.message); }
         } else {
+            hideLoader();
             checkLocalPinUser();
         }
     });
 } else {
+    hideLoader();
     checkLocalPinUser();
 }
 
@@ -664,7 +707,9 @@ async function finishLoginSetup() {
     
     let savedTheme = safeGet('theme_v31', 'light'); changeTheme(savedTheme); document.getElementById('theme-select').value = savedTheme;
     document.getElementById('m-coeff').value = coeffs.mat; document.getElementById('w-coeff').value = coeffs.work;
-    document.getElementById('qr-tg').value = safeGet('qr_tg_v31', ''); document.getElementById('qr-wa').value = safeGet('qr_wa_v31', '');
+    document.getElementById('qr-tg').value = safeGet('qr_tg_v31', ''); 
+    document.getElementById('qr-wa').value = safeGet('qr_wa_v31', '');
+    document.getElementById('qr-vk').value = safeGet('qr_vk_v31', '');
     document.getElementById('ai-shops').value = safeGet('ai_shops_v31', 'Лемана ПРО, ВсеИнструменты, Петрович');
 
     showLoader('Синхронизация...', '☁️');
@@ -695,12 +740,13 @@ function openModal(id) {
     if(id === 'custModal') loadCustHistoryOptions(); 
     if(id === 'logicModal') renderLogicUI(); 
     if(id === 'settModal') renderDbEditors(); 
+    if(id === 'configModal') populateShieldExtras();
     document.getElementById(id).style.display='flex'; 
 }
 function closeModal(id) { document.getElementById(id).style.display='none'; }
 function toggleMenu() { document.getElementById('burger-menu').classList.toggle('open'); document.getElementById('burger-overlay').classList.toggle('open'); }
 function changeTheme(theme) { document.documentElement.setAttribute('data-theme', theme); safeSet('theme_v31', theme); }
-function updateMasterBadge() { document.getElementById('master-badge').innerHTML = `${appUser?.name || "Мастер"}<br><span style="font-size:10px;">Объект: ${cust.name || 'Не выбран'}</span>`; }
+function updateMasterBadge() { document.getElementById('master-badge').innerHTML = `${appUser?.name || "Мастер"}<br>Объект: ${cust.name || 'Не выбран'}`; }
 
 function updateCoeffs() {
     coeffs.mat = Number(document.getElementById('m-coeff').value);
@@ -715,7 +761,11 @@ async function saveApiKey(val) {
     showToast("🔑 Ключ сохранен!"); 
 }
 function saveQRs() { 
-    safeSet('qr_tg_v31', document.getElementById('qr-tg').value); safeSet('qr_wa_v31', document.getElementById('qr-wa').value); safeSet('ai_shops_v31', document.getElementById('ai-shops').value); showToast("📱 Настройки сохранены"); 
+    safeSet('qr_tg_v31', document.getElementById('qr-tg').value); 
+    safeSet('qr_wa_v31', document.getElementById('qr-wa').value); 
+    safeSet('qr_vk_v31', document.getElementById('qr-vk').value);
+    safeSet('ai_shops_v31', document.getElementById('ai-shops').value); 
+    showToast("📱 Настройки сохранены"); 
 }
 
 function fPrice(it) { return Math.round((it.p || 0) * (1 + (it.type === 'mat'? coeffs.mat: coeffs.work) / 100)); }
@@ -778,13 +828,40 @@ function addAuto(items, tag) {
 function setPodr(v, el) { st_podr = v; document.querySelectorAll('#podr-tiles .tile').forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
 function setH(v, el) { st_h = v; if(el){ document.querySelectorAll('#h-tiles .tile').forEach(t=>t.classList.remove('active')); el.classList.add('active'); } }
 function setP(v) { st_p = v; document.querySelectorAll('#p-tiles .tile').forEach((t,i) => { if(i===v-1) t.classList.add('active'); else t.classList.remove('active'); }); }
-function modM(t, v) { window['st_'+t] = Math.max(0, window['st_'+t] + v); upUI(); }
-function upUI() { ['soc', 'sw', 'pass', 'cross', 'tv', 'tpol'].forEach(k => document.getElementById('v-'+k).innerText = window['st_'+k]); document.getElementById('v-q').innerText = st_q; }
+
+// Новая логика ограничения постов и авто-калькуляции
+function modM(t, v) { 
+    let currentP = st_soc + st_sw + st_pass + st_cross + st_tv + st_tpol;
+    if (v > 0 && currentP >= 6) return showToast("Максимум 6 постов в одной рамке!");
+    if (v < 0 && window['st_'+t] <= 0) return; // Защита от минуса
+    
+    window['st_'+t] += v; 
+    upUI(); 
+}
+
+function upUI() { 
+    ['soc', 'sw', 'pass', 'cross', 'tv', 'tpol'].forEach(k => {
+        let el = document.getElementById('v-'+k);
+        if(el) el.innerText = window['st_'+k];
+    });
+    
+    st_p = st_soc + st_sw + st_pass + st_cross + st_tv + st_tpol;
+    let autoEl = document.getElementById('auto-posts');
+    if(autoEl) autoEl.innerText = st_p || 1; // минимум 1 визуально, чтобы не пугать
+    if(st_p === 0) st_p = 1; // Защита
+    
+    let qEl = document.getElementById('v-q');
+    if(qEl) qEl.innerText = st_q; 
+}
 
 function addGrp() { 
+    let totalMechs = st_soc + st_sw + st_pass + st_cross + st_tv + st_tpol;
+    if(totalMechs === 0) return showToast("Сначала добавьте механизмы!");
+    
     pool.push({ p:st_p, h:st_h, q:st_q, soc:st_soc, sw:st_sw, pass:st_pass, cross:st_cross, tv:st_tv, tpol:st_tpol, route: document.getElementById('g-routing').value, podr: st_podr }); 
     rfPool(); 
 }
+
 function popPool() { pool.pop(); rfPool(); }
 function rfPool() { 
     document.getElementById('pool-disp').innerHTML = pool.map((g,i) => `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid var(--border);"><b>${g.p}п на ${g.h}см (x${g.q}) [${g.podr}]</b> <button onclick="pool.splice(${i},1);rfPool();" style="width:auto; margin:0; background:none; color:red; font-size:16px;">✕</button></div>`).join(""); 
@@ -799,7 +876,7 @@ function applyPoolToEstimate() {
     let useSurf = document.getElementById('pool-surface').checked;
     let ceilH = Number(cust.ceil) || 270;
 
-    let res = { m_sh: 0, m_sh_50: 0, boxes: 0, stdPodr: 0, deepPodr: 0, koposPodr: 0, mechs: { soc:0, sw:0, pass:0, cross:0, tv:0, tpol:0 }, frames: {1:0,2:0,3:0,4:0,5:0} };
+    let res = { m_sh: 0, m_sh_50: 0, boxes: 0, stdPodr: 0, deepPodr: 0, koposPodr: 0, mechs: { soc:0, sw:0, pass:0, cross:0, tv:0, tpol:0 }, frames: {1:0,2:0,3:0,4:0,5:0,6:0} };
 
     pool.forEach(g => {
         let isSw = (g.sw > 0 || g.pass > 0 || g.cross > 0);
@@ -814,16 +891,17 @@ function applyPoolToEstimate() {
         if (mode === 'gyn') {
             deepCount = g.p * g.q; 
         } else {
+            // Выключатели и теплые полы всегда глубокие
             deepCount = (g.sw + g.pass + g.cross + g.tpol) * g.q; 
             stdCount = Math.max(0, (g.p * g.q) - deepCount);
         }
         
         if(g.podr === 'kopos') { res.koposPodr += g.p * g.q; } 
         else if(g.podr === 'deep') { res.deepPodr += g.p * g.q; } 
-        else { res.deepPodr += deepCount; res.stdPodr += stdCount; }
+        else { res.deepPodr += deepCount; res.stdPodr += stdCount; } // std selected
         
         res.mechs.soc += g.soc * g.q; res.mechs.sw += g.sw * g.q; res.mechs.pass += g.pass * g.q; res.mechs.cross += g.cross * g.q; res.mechs.tv += g.tv * g.q; res.mechs.tpol += g.tpol * g.q;
-        if(g.p >= 1 && g.p <= 5) res.frames[g.p] += g.q;
+        if(g.p >= 1 && g.p <= 6) res.frames[g.p] += g.q;
     });
 
     let m = [], w = [];
@@ -854,7 +932,7 @@ function applyPoolToEstimate() {
     if(res.mechs.soc > 0) m.push({ n: "Розетка 220В (механизм)", q: res.mechs.soc, p: 250, type: 'mat' });
     if((res.mechs.sw+res.mechs.pass+res.mechs.cross) > 0) m.push({ n: "Выключатель (механизм)", q: res.mechs.sw+res.mechs.pass+res.mechs.cross, p: 280, type: 'mat' });
     if(res.mechs.tv > 0) m.push({ n: "Слаботочная розетка (механизм)", q: res.mechs.tv, p: 350, type: 'mat' });
-    for(let i=1; i<=5; i++) { if(res.frames[i] > 0) m.push({ n: `Рамка ${i} пост(а)`, q: res.frames[i], p: i*50, type: 'mat' }); }
+    for(let i=1; i<=6; i++) { if(res.frames[i] > 0) m.push({ n: `Рамка ${i} пост(а)`, q: res.frames[i], p: i*50, type: 'mat' }); }
 
     if(mode === 'classic') {
         let connPrice = connMode === 'gml' ? 800 : (connMode === 'solder' ? 900 : 600);
@@ -892,6 +970,35 @@ function applyPoolToEstimate() {
 
 function modV(id, val) { cfg[id] = Math.max(0, cfg[id] + val); document.getElementById('v-'+id).innerText = cfg[id]; }
 
+function populateShieldExtras() {
+    let sel = document.getElementById('cfg-extra-db');
+    if(!sel) return;
+    let html = '<option value="">-- Выбрать из базы --</option>';
+    matDB.forEach(m => {
+        if(m.c === 'Автоматика' || m.c === 'Щитовое') {
+            html += `<option value="${m.id}">${m.n} (${m.p} ₽)</option>`;
+        }
+    });
+    sel.innerHTML = html;
+}
+
+function addExtraToShieldConfig() {
+    let sel = document.getElementById('cfg-extra-db');
+    let q = Number(document.getElementById('cfg-extra-q').value) || 1;
+    if(!sel.value) return showToast("Выберите аппарат!");
+    let item = matDB.find(m => m.id === sel.value);
+    if(item) {
+        currentShieldExtras.push({...item, q: q});
+        renderShieldExtras();
+    }
+}
+
+function renderShieldExtras() {
+    document.getElementById('shield-extras-list').innerHTML = currentShieldExtras.map((ex, i) =>
+        `<div style="display:flex; justify-content:space-between; font-size:11px; border-bottom:1px dashed rgba(0,0,0,0.1); padding:4px;"><span>${ex.n} <b style="color:var(--primary);">(x${ex.q})</b></span><span style="color:red; font-size:16px; font-weight:bold; cursor:pointer;" onclick="currentShieldExtras.splice(${i},1); renderShieldExtras();">✕</span></div>`
+    ).join('');
+}
+
 function generateCascadePanel() {
     let prShield = appLogic.priceShield || 500;
     const bBox = document.getElementById('cfg-brand-box').value; const bAuto = document.getElementById('cfg-brand-auto').value; const sWall = document.getElementById('cfg-shield-wall').value; const ph = parseInt(document.getElementById('cfg-phase').value); const isMaster = document.getElementById('cfg-master').checked;
@@ -918,6 +1025,12 @@ function generateCascadePanel() {
     if(document.getElementById('cfg-uzm').checked) { m.push({ n: `Реле напряжения УЗМ-50Ц`, q: ph===3?3:1, p: 4500, type:'mat' }); totalMod += (ph===3?6:2); }
     if(isMaster) { m.push({ n: `Контактор 25А`, q: 1, p: 2200, type:'mat' }); m.push({ n: `  ↳ Автомат 40А (Байпас) ${bAuto}`, q: 1, p: bAuto==='ABB'?600:380, type:'mat' }); count1P++; totalMod += 2; }
     
+    // Вставка доп аппаратов
+    currentShieldExtras.forEach(ex => {
+        m.push({ n: ex.n, q: ex.q, p: ex.p, type: 'mat' });
+        totalMod += (ex.q * 1); // приблизительно считаем как 1 мод на штуку
+    });
+    
     m.push({ n: `Провод ПуГВ (ПВ-3) 1х6 синий`, q: 4, p: 85, type:'mat' }); m.push({ n: `Провод ПуГВ (ПВ-3) 1х6 белый`, q: 4, p: 85, type:'mat' }); m.push({ n: `Наконечник НШВИ 6.0-12 (упак)`, q: 1, p: 225, type:'mat' });
     
     if (bBox === 'ABB') { m.push({ n: `Клеммник винтовой N 5x16 (ABB)`, q: countDIF, p: 345, type:'mat' }); m.push({ n: `Клеммник винтовой PE 11x16 (ABB)`, q: 1, p: 770, type:'mat' }); } 
@@ -934,7 +1047,7 @@ function generateCascadePanel() {
     w.push({ n: `Штроба ВВОДНАЯ 100x50 (${sWall})`, q: 2, p: 1500, type:'work' });
     w.push({ n: `Сборка щита (мод)`, q: totalMod, p: prShield, type:'work' });
     
-    addAuto(m.concat(w), 'shield'); closeModal('configModal'); showToast("✅ Щит сгенерирован!");
+    addAuto(m.concat(w), 'shield'); currentShieldExtras = []; closeModal('configModal'); showToast("✅ Щит сгенерирован!");
 }
 
 async function runAiCheck() { 
@@ -955,6 +1068,23 @@ async function runAiCheck() {
         document.getElementById('ai-suggestions').innerHTML = suggestions.map(s => `<div style="background:var(--bg); padding: 12px; border-radius: 10px; margin-bottom:10px; border-left:4px solid var(--ai);"><div style="font-size: 12px; font-weight:bold; margin-bottom:8px;">${s.reason}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:13px; color:var(--primary); font-weight:bold;">${s.suggestedName}</span><button onclick="addAuto([{n:'${s.suggestedName}', q:1, p:0, type:'mat'}], 'ai_add'); closeModal('aiModal');" style="background:var(--ai); padding:6px 12px; font-size:11px; color:white; border:none; border-radius:6px; width:auto; margin:0;">+ Добавить</button></div></div>`).join("");
         openModal('aiModal');
     } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: Проверьте ключ"); }
+}
+
+async function aiSupply() {
+    if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ");
+    showLoader("ИИ формирует закупку...", "🤖");
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const mats = currentEstimate.filter(i=>i.type==='mat').map(i=>`${i.n} - ${i.q}`).join(", ");
+        const promptText = `Смета материалов: ${mats}. Раздели их на логичные категории для удобной закупки в магазине (Кабели, Автоматика, Черновые и т.д.). Выведи в чистом HTML формате (используй <h3>, <ul>, <li>, <b>).`;
+        const payload = { contents: [{ parts: [{text: promptText }] }] };
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json(); hideLoader();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
+        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
+        openModal('aiModal');
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
 }
 
 async function aiPueHelper() { 
@@ -979,33 +1109,15 @@ async function compareShopsAI() {
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         let shops = document.getElementById('ai-shops').value || "Лемана ПРО, Петрович";
-        const promptText = `Материалы: ${currentEstimate.filter(i=>i.type==='mat').map(i=>i.n).join(", ")}. Создай HTML таблицу (class="pdf-table") сравнения цен ГОСТ в магазинах: ${shops}. Верни только HTML.`;
+        const promptText = `Материалы: ${currentEstimate.filter(i=>i.type==='mat').map(i=>i.n).join(", ")}. Создай HTML таблицу (class="pdf-table") с МАКСИМАЛЬНЫМИ (самыми высокими) розничными ценами ГОСТ в магазинах: ${shops}. Верни только HTML.`;
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
         let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
-        document.getElementById('ai-modal-title').innerText = "🛒 Цены ГОСТ";
+        document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
     } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
-}
-
-async function analyzeMastersAI() {
-    if (!GEMINI_API_KEY) return showToast("❌ Введите ключ ИИ!"); 
-    if (hDB.length === 0) return showToast("❌ История пуста."); 
-    showLoader("ИИ анализирует штатную историю...", "🤖"); 
-    try { 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; 
-        let summary = hDB.map(h => `Мастер: ${h.masterName}, Сумма: ${h.total} руб, Дата: ${h.date}`).join('; '); 
-        const promptText = `Я руководитель. Акты: ${summary}. Напиши отчет: кто приносит больше денег, кто работает чаще. Дай совет.`; 
-        const payload = { contents: [{ parts: [{text: promptText }] }] }; 
-        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
-        const data = await response.json(); hideLoader(); 
-        let aiText = data.candidates[0].content.parts[0].text; 
-        document.getElementById('ai-modal-title').innerText = "📊 ИИ-Аналитика Штат"; 
-        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/\n/g, '<br>')}</div>`; 
-        openModal('aiModal'); 
-    } catch (error) { hideLoader(); showToast("❌ Ошибка ИИ."); }
 }
 
 function getPDFHeader(title) { 
@@ -1053,11 +1165,15 @@ function showPreview(mode) {
         html += `<h2 style="text-align:right; margin-top:20px; color:var(--text); font-size:18px;">ОБЩАЯ СУММА: ${sumMR + sumW + sumMF} Р</h2>`;
     }
     
-    let tgLink = document.getElementById('qr-tg').value; let waLink = document.getElementById('qr-wa').value;
-    if(mode === 'client' && (tgLink || waLink)) {
+    let tgLink = document.getElementById('qr-tg').value; 
+    let waLink = document.getElementById('qr-wa').value;
+    let vkLink = document.getElementById('qr-vk').value;
+    
+    if(mode === 'client' && (tgLink || waLink || vkLink)) {
         html += `<div class="pdf-footer" style="display:flex; justify-content:space-between; align-items:flex-end; border-top:2px solid #e2e8f0; padding-top:15px; margin-top:20px;"><div><p style="margin:0; font-weight:bold; color:var(--primary);">ИСПОЛНИТЕЛЬ:</p><p style="margin:5px 0;">ФИО: ${appUser?.name}</p></div><div class="qr-codes" style="display:flex; gap:15px;">`;
-        if(waLink) html += `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(waLink)}"><br>WhatsApp</div>`;
-        if(tgLink) html += `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(tgLink)}"><br>Telegram</div>`;
+        if(waLink) html += `<div class="qr-box" style="text-align:center;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(waLink)}"><br>WhatsApp</div>`;
+        if(tgLink) html += `<div class="qr-box" style="text-align:center;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(tgLink)}"><br>Telegram</div>`;
+        if(vkLink) html += `<div class="qr-box" style="text-align:center;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(vkLink)}"><br>Сайт / VK</div>`;
         html += `</div></div>`;
     }
     
@@ -1150,12 +1266,33 @@ function openObjCard(id) {
     
     document.getElementById('card-obj-name').innerHTML = `${obj.name || 'Без имени'}<br><span style="font-size:12px; color:var(--gray); font-weight:normal;">📞 ${obj.phone || 'Нет тел.'} | 📍 ${obj.addr || 'Нет адреса'}</span>`; 
     
-    let cables = 0, shtroba = 0, points = 0; let mechs = { soc: 0, sw: 0, tv: 0, frames: 0, extraHTML: "" }; 
-    if(obj.estimate) { obj.estimate.forEach(it => { let n = it.n.toLowerCase(); if(n.includes('кабель') || n.includes('провод') || n.includes('ввг')) cables += Number(it.q); if(n.includes('штроб') && !n.includes('вводная')) shtroba += Number(it.q); if(n.includes('подрозетник') && it.type === 'work') points += Number(it.q); if(n.includes('розетки 220в') || n.includes('накладной розетки')) mechs.soc += Number(it.q); if(n.includes('выключателя') || n.includes('проходн') || n.includes('перекрест')) mechs.sw += Number(it.q); if(n.includes('слаботочн') || n.includes('тв/инет')) mechs.tv += Number(it.q); if(n.includes('рамка')) mechs.frames += Number(it.q); if(it.tag === 'extra') mechs.extraHTML += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding:4px 0;"><span>${it.n}</span><b>${it.p} Р</b></div>`; }); } 
-    let wHTML = `Проложено кабеля: <b style="color:var(--primary);">${cables} м</b><br>Нарезано штроб: <b style="color:var(--orange);">${shtroba} м</b><br>Высверлено точек: <b>${points} шт</b>`; 
-    if(mechs.extraHTML) wHTML += `<br><br><b style="color:var(--success);">Доп. работы:</b>${mechs.extraHTML}`; 
-    document.getElementById('card-stats-work').innerHTML = wHTML; 
-    document.getElementById('card-stats-finish').innerHTML = `Выключатели: <b>${mechs.sw} шт</b><br>Розетки: <b>${mechs.soc} шт</b><br>Слаботочные: <b>${mechs.tv} шт</b><br><hr style="border:0; border-top: 1px solid rgba(79, 70, 229, 0.3); margin:8px 0;"><i>Всего чистовых рамок: <b style="color:var(--success);">${mechs.frames}</b></i>`; 
+    let sumMat = 0, sumCut = 0, sumRough = 0, sumFine = 0, sumExtra = 0;
+    let htmlMat='', htmlCut='', htmlRough='', htmlFine='', htmlExtra='';
+    
+    if(obj.estimate) {
+        obj.estimate.forEach(it => {
+            let sum = fPrice(it) * it.q;
+            let n = it.n.toLowerCase();
+            let row = `<div class="act-item-row"><span>${it.n} <b style="color:var(--primary);">(x${it.q})</b></span><b>${sum} ₽</b></div>`;
+
+            if(it.tag === 'extra') { sumExtra += sum; htmlExtra += row; }
+            else if(it.type === 'mat') { sumMat += sum; htmlMat += row; }
+            else if(n.includes('штроб') || n.includes('высверл') || n.includes('алмазн') || n.includes('резк') || n.includes('отверст') || n.includes('ниши')) { sumCut += sum; htmlCut += row; }
+            else if(n.includes('установк') || (n.includes('сборк') && !n.includes('коробк')) || n.includes('розетк') || n.includes('выключат') || n.includes('рамк') || n.includes('свет')) { sumFine += sum; htmlFine += row; }
+            else { sumRough += sum; htmlRough += row; }
+        });
+    }
+
+    let finalHtml = '';
+    if(htmlMat) finalHtml += `<div class="act-group-title" style="background:#10B981;"><span>1. Материалы</span><span>${sumMat} ₽</span></div>${htmlMat}`;
+    if(htmlCut) finalHtml += `<div class="act-group-title" style="background:#F59E0B;"><span>2. Штробление и резка</span><span>${sumCut} ₽</span></div>${htmlCut}`;
+    if(htmlRough) finalHtml += `<div class="act-group-title" style="background:#64748B;"><span>3. Черновая электрика</span><span>${sumRough} ₽</span></div>${htmlRough}`;
+    if(htmlFine) finalHtml += `<div class="act-group-title" style="background:#3B82F6;"><span>4. Чистовая электрика</span><span>${sumFine} ₽</span></div>${htmlFine}`;
+    if(htmlExtra) finalHtml += `<div class="act-group-title" style="background:#EF4444;"><span>Дополнительные работы</span><span>${sumExtra} ₽</span></div>${htmlExtra}`;
+
+    if(!finalHtml) finalHtml = "<p style='font-size:12px; color:gray;'>Нет данных по смете</p>";
+
+    document.getElementById('card-acts-container').innerHTML = finalHtml;
     openModal('objCardModal'); 
 }
 
@@ -1172,7 +1309,9 @@ async function addExtraWork() {
 }
 
 function loadCustHistoryOptions() {
-    let sel = document.getElementById('c-history-select'); let opts = '<option value="">📥 Загрузить (История)</option>'; 
+    let sel = document.getElementById('c-history-select'); 
+    if(!sel) return;
+    let opts = '<option value="">📥 Загрузить (История)</option>'; 
     let uniqueCusts = []; hDB.forEach(h => { if(h.name && !uniqueCusts.find(c => c.name === h.name)) uniqueCusts.push(h); }); 
     uniqueCusts.forEach(h => { opts += `<option value="${h.id}">${h.name} (${h.date})</option>`; }); 
     sel.innerHTML = opts;
@@ -1181,25 +1320,58 @@ function loadCustHistoryOptions() {
 function switchDbTab(tab) { 
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
     document.getElementById(tab === 'mat' ? 'btnTabMat' : 'btnTabWork').classList.add('active'); 
-    document.getElementById('editor-mat').style.display = tab === 'mat' ? 'block' : 'none'; 
-    document.getElementById('editor-work').style.display = tab === 'work' ? 'block' : 'none'; 
+    document.getElementById('editor-mat-list').style.display = tab === 'mat' ? 'block' : 'none'; 
+    document.getElementById('editor-work-list').style.display = tab === 'work' ? 'block' : 'none'; 
 }
 
 function renderDbEditors() {
-    let htmlMat = '', htmlWork = '';
-    let catsM = {}; matDB.forEach(m => { let c = m.c || 'Разное'; if(!catsM[c]) catsM[c]=[]; catsM[c].push(m); });
-    for(let c in catsM) {
-        htmlMat += `<h4 style="color:var(--primary); margin:10px 0 5px; font-size:14px;">📁 ${c}</h4>`;
-        catsM[c].forEach(m => { htmlMat += `<div class="emp-row"><div><b>${m.n}</b></div><div style="display:flex; align-items:center; gap:5px;"><input type="number" value="${m.p}" onchange="requestPriceChange('mat', '${m.id}', this.value)" style="width:65px; margin:0; padding:6px; font-size:11px; text-align:center;"></div></div>`; });
-    }
-    document.getElementById('editor-mat').innerHTML = htmlMat;
+    let catsM = [...new Set(matDB.map(m=>m.c || 'Разное'))];
+    let catsW = [...new Set(workDB.map(w=>w.c || 'Разное'))];
+    document.getElementById('db-cats').innerHTML = [...new Set([...catsM, ...catsW])].map(c=>`<option value="${c}">`).join('');
 
-    let catsW = {}; workDB.forEach(w => { let c = w.c || 'Разное'; if(!catsW[c]) catsW[c]=[]; catsW[c].push(w); });
-    for(let c in catsW) {
-        htmlWork += `<h4 style="color:var(--orange); margin:10px 0 5px; font-size:14px;">📁 ${c}</h4>`;
-        catsW[c].forEach(w => { htmlWork += `<div class="emp-row"><div><b>${w.n}</b></div><div style="display:flex; align-items:center; gap:5px;"><input type="number" value="${w.p}" onchange="requestPriceChange('work', '${w.id}', this.value)" style="width:65px; margin:0; padding:6px; font-size:11px; text-align:center;"></div></div>`; });
-    }
-    document.getElementById('editor-work').innerHTML = htmlWork;
+    let htmlMat = '';
+    let mGroups = {}; matDB.forEach(m => { mGroups[m.c||'Разное'] = mGroups[m.c||'Разное'] || []; mGroups[m.c||'Разное'].push(m); });
+    Object.keys(mGroups).forEach((c, idx) => {
+        let sid = 'db_m_'+idx;
+        htmlMat += `<div class="cat-header" onclick="toggleCat('${sid}')">${c}</div><div class="cat-body" id="${sid}">`;
+        mGroups[c].forEach(m => {
+            htmlMat += `<div class="emp-row"><div><b>${m.n}</b><br><span style="color:var(--gray);font-size:10px;">${m.p} ₽ / ${m.u}</span></div> <input type="number" value="${m.p}" onchange="requestPriceChange('mat', '${m.id}', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
+        });
+        htmlMat += `</div>`;
+    });
+    document.getElementById('editor-mat-list').innerHTML = htmlMat;
+
+    let htmlWork = '';
+    let wGroups = {}; workDB.forEach(w => { wGroups[w.c||'Разное'] = wGroups[w.c||'Разное'] || []; wGroups[w.c||'Разное'].push(w); });
+    Object.keys(wGroups).forEach((c, idx) => {
+        let sid = 'db_w_'+idx;
+        htmlWork += `<div class="cat-header" style="color:var(--orange); border-color:rgba(245,158,11,0.2); background:rgba(245,158,11,0.08);" onclick="toggleCat('${sid}')">${c}</div><div class="cat-body" id="${sid}">`;
+        wGroups[c].forEach(w => {
+            htmlWork += `<div class="emp-row"><div><b>${w.n}</b><br><span style="color:var(--gray);font-size:10px;">${w.p} ₽ / ${w.u}</span></div> <input type="number" value="${w.p}" onchange="requestPriceChange('work', '${w.id}', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
+        });
+        htmlWork += `</div>`;
+    });
+    document.getElementById('editor-work-list').innerHTML = htmlWork;
+}
+
+async function addDbItem() {
+    if(appUser.role !== 'admin') return showToast("Только админ может добавлять");
+    let cat = document.getElementById('db-new-cat').value.trim() || 'Разное';
+    let name = document.getElementById('db-new-name').value.trim();
+    let price = Number(document.getElementById('db-new-price').value) || 0;
+    let unit = document.getElementById('db-new-unit').value.trim() || 'шт';
+    let isMat = document.getElementById('editor-mat-list').style.display !== 'none';
+    
+    if(!name) return showToast("Введите название!");
+    
+    let newItem = { id: (isMat?'m':'w') + Date.now(), c: cat, n: name, p: price, u: unit };
+    if(isMat) matDB.push(newItem); else workDB.push(newItem);
+    
+    try { if(db) await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}); } catch(e){}
+    
+    renderDbEditors();
+    document.getElementById('db-new-name').value = ''; document.getElementById('db-new-price').value = '';
+    showToast("✅ Позиция добавлена");
 }
 
 async function requestPriceChange(type, id, newPrice) { 
