@@ -14,9 +14,7 @@
         };
     </script>
 
-    <!-- Библиотека для графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Библиотека для чтения Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -200,7 +198,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ЗАМЕНЫ МАТЕРИАЛА -->
 <div class="modal" id="swapModal" style="z-index:4000;">
     <div class="modal-content glass" style="max-width: 350px;">
         <div class="close-x" onclick="closeModal('swapModal')">×</div>
@@ -211,7 +208,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ИМПОРТА EXCEL -->
 <div class="modal" id="excelImportModal" style="z-index:4000;">
     <div class="modal-content glass" style="max-width: 500px;">
         <div class="close-x" onclick="closeModal('excelImportModal')">×</div>
@@ -272,7 +268,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКИ ВВОДА -->
 <div class="modal" id="qtyPromptModal" style="z-index: 3000;">
     <div class="modal-content glass" style="max-width: 280px; text-align:center; padding: 20px; margin: auto;">
         <h3 style="color:var(--primary); margin-top:0; font-size:16px;">Количество</h3>
@@ -307,6 +302,12 @@
         <div class="close-x" onclick="closeModal('settingsModal')">×</div>
         <h2 style="color: var(--primary); margin-top:0; font-size:18px;">Настройки</h2>
         
+        <div id="admin-api-settings" style="display:none; padding:10px; background:rgba(79, 70, 229, 0.05); border-radius:10px; border:1px solid var(--primary); margin-bottom:15px;">
+            <h4 style="color:var(--primary); margin: 0 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
+            <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)" style="border-color:var(--primary);">
+            <p style="font-size:10px; color:var(--gray); margin:0;">*Ключ применится ко всем мастерам автоматически</p>
+        </div>
+        
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
         
@@ -319,12 +320,6 @@
         <div id="admin-panel" style="display:none; padding-top:15px; border-top: 1px dashed var(--gray); margin-top:15px;">
             <h3 style="color:var(--danger); margin: 0 0 10px;">👑 Админ Панель</h3>
             
-            <div style="background:rgba(79, 70, 229, 0.05); padding:10px; border-radius:8px; border:1px solid var(--primary); margin-bottom:15px;">
-                <h4 style="color:var(--primary); margin: 0 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
-                <input type="password" id="api-key-input" placeholder="Введите ключ API..." onchange="saveApiKey(this.value)" style="border-color:var(--primary); margin-bottom:5px;">
-                <p style="font-size:10px; color:var(--gray); margin:0;">Ключ автоматически и невидимо синхронизируется на телефоны всех мастеров штата.</p>
-            </div>
-
             <h4 style="color:var(--primary); margin: 10px 0 5px;">🔔 Предложения в БД (от мастеров):</h4>
             <div id="admin-db-proposals" style="margin-bottom:10px; border:1px solid var(--primary); background:rgba(79, 70, 229, 0.05); border-radius:8px; padding:8px; max-height: 200px; overflow-y:auto; font-size: 12px; color: var(--text);"></div>
 
@@ -422,7 +417,6 @@
     </div>
 </div>
 
-<!-- БАЗА ДАННЫХ И КАТАЛОГИ -->
 <div class="modal" id="settModal">
     <div class="modal-content glass" style="max-width: 600px;">
         <div class="close-x" onclick="closeModal('settModal')">×</div>
@@ -460,7 +454,6 @@
 
 <div class="modal" id="aiModal"><div class="modal-content glass"><div class="close-x" onclick="closeModal('aiModal')">×</div><h2 style="color:var(--ai); margin-top:0; font-size:18px;" id="ai-modal-title">✨ ИИ-Аналитика</h2><div id="ai-suggestions" style="overflow-x:auto;"></div></div></div>
 
-<!-- КАЛЬКУЛЯТОРЫ -->
 <div class="modal" id="logicModal">
     <div class="modal-content glass">
         <div class="close-x" onclick="closeModal('logicModal')">×</div>
@@ -649,7 +642,7 @@ let currentEstimate = [];
 try { currentEstimate = JSON.parse(safeGet('est_v31', '[]')); } catch(e) { currentEstimate = []; }
 
 let matDB = [], workDB = []; 
-let userMatDB = [], userWorkDB = []; 
+let userMatDB = [], userWorkDB = []; // Личные БД мастера
 try { userMatDB = JSON.parse(safeGet('user_db_mat_v31', '[]')); } catch(e){}
 try { userWorkDB = JSON.parse(safeGet('user_db_work_v31', '[]')); } catch(e){}
 
@@ -672,12 +665,13 @@ let currentShieldExtras = [];
 let currentPreviewMode = '';
 let adminDraftsCache = [];
 let buhChartInstance = null;
-let currentImportType = 'mat';
+let currentImportType = 'mat'; // Для Excel импорта
 
 // === БАЗА ДАННЫХ ===
 const FULL_MAT_INIT=[{"id":"m1","c":"Кабель","n":"Кабель ВВГнг-LS 3х1.5 (Конкорд) круглый","p":57,"u":"м.п."},{"id":"m2","c":"Кабель","n":"Кабель ВВГнг-LS 3х2.5 (Конкорд) круглый","p":87,"u":"м.п."},{"id":"m3","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х1.5 (Конкорд) плоский","p":62,"u":"м.п."},{"id":"m4","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х2.5 (Конкорд) плоский","p":95,"u":"м.п."},{"id":"m14","c":"Расходники","n":"Подрозетник глубокий для бетона 68х64","p":12,"u":"шт"},{"id":"m15","c":"Расходники","n":"Подрозетник стандарт (ГКЛ/Бетон)","p":20,"u":"шт"},{"id":"m16","c":"Расходники","n":"Подрозетник Короѕ 75мм","p":95,"u":"шт"},{"id":"m17","c":"Расходники","n":"Коробка распределительная 100х100х40","p":120,"u":"шт"},{"id":"m27","c":"Расходники","n":"Гильза ГМЛ 4/6","p":15,"u":"шт"},{"id":"m29","c":"Расходники","n":"Термоусадка 12/4 (м)","p":80,"u":"м"},{"id":"w_m1","c":"Чистовая","n":"Розетка 220В (механизм)","p":250,"u":"шт"},{"id":"w_m2","c":"Чистовая","n":"Выключатель (механизм)","p":280,"u":"шт"},{"id":"w_m3","c":"Чистовая","n":"Слаботочная розетка (механизм)","p":350,"u":"шт"}];
 const FULL_WORK_INIT=[{"id":"w44","c":"Алмазная резка","n":"Штроба 25х30 (Бетон)","p":550,"u":"м.п."},{"id":"w56","c":"Алмазная резка","n":"Высверливание подрозетников (45мм)","p":600,"u":"шт"},{"id":"w71","c":"Алмазная резка","n":"Высверливание подрозетников (64мм)","p":650,"u":"шт"},{"id":"w60","c":"Черновая электрика","n":"Вклейка подрозетников","p":100,"u":"шт"},{"id":"w67","c":"Монтаж","n":"Сборка распред. коробки (ГМЛ)","p":800,"u":"шт"},{"id":"w68","c":"Чистовая установка","n":"Установка розетки 220В","p":500,"u":"шт"},{"id":"w69","c":"Чистовая установка","n":"Установка выключателя","p":550,"u":"шт"},{"id":"w87","c":"Щитовое","n":"Сборка щита (мод)","p":500,"u":"мод."}];
 
+// Слияние глобальной и локальной базы
 function mergeDB(gArr, uArr) {
     let map = new Map();
     gArr.forEach(i => map.set(i.id, {...i}));
@@ -745,7 +739,7 @@ if(auth) {
                         document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='none'; finishLoginSetup();
                     } else { document.getElementById('authModal').style.display='none'; document.getElementById('waitingModal').style.display='flex'; }
                 }
-            } catch(e) { hideLoader(); alert("Ошибка связи с БД:\n" + e.message); }
+            } catch(e) { hideLoader(); alert("Ошибка связи с БД: " + e.message); }
         } else {
             hideLoader(); checkLocalPinUser();
         }
@@ -852,17 +846,15 @@ async function finishLoginSetup() {
         let rawGlobalM = FULL_MAT_INIT, rawGlobalW = FULL_WORK_INIT;
         if(db) {
             // === ГЛОБАЛЬНАЯ СИНХРОНИЗАЦИЯ КЛЮЧА ИИ ===
-            const dbDoc = await db.collection('settings').doc('global_db').get();
-            if(dbDoc.exists) { 
-                let data = dbDoc.data();
-                rawGlobalM = data.matDB || rawGlobalM; 
-                rawGlobalW = data.workDB || rawGlobalW; 
-                if (data.geminiKey) {
-                    GEMINI_API_KEY = data.geminiKey;
-                    safeSet('gemini_key_v31', GEMINI_API_KEY);
-                    if(document.getElementById('api-key-input')) document.getElementById('api-key-input').value = GEMINI_API_KEY;
-                }
+            const globalConfigDoc = await db.collection('settings').doc('global_config').get();
+            if(globalConfigDoc.exists && globalConfigDoc.data().geminiKey) {
+                GEMINI_API_KEY = globalConfigDoc.data().geminiKey;
+                safeSet('gemini_key_v31', GEMINI_API_KEY);
+                if(document.getElementById('api-key-input')) document.getElementById('api-key-input').value = GEMINI_API_KEY;
             }
+
+            const dbDoc = await db.collection('settings').doc('global_db').get();
+            if(dbDoc.exists) { rawGlobalM = dbDoc.data().matDB || rawGlobalM; rawGlobalW = dbDoc.data().workDB || rawGlobalW; }
             
             const logicDoc = await db.collection('settings').doc('global_logic').get();
             if(logicDoc.exists) appLogic = Object.assign(appLogic, logicDoc.data());
@@ -919,10 +911,20 @@ function updateCoeffs() {
 
 async function saveApiKey(val) { 
     GEMINI_API_KEY = val.trim(); safeSet('gemini_key_v31', GEMINI_API_KEY);
-    if(db && appUser && appUser.role === 'admin') { 
+    if(db && appUser && appUser.uid) { 
         try { 
-            await db.collection('settings').doc('global_db').set({geminiKey: GEMINI_API_KEY}, {merge: true});
-            showToast("🔑 Ключ отправлен в облако!"); 
+            await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); 
+            // Сохраняем в глобальную конфигу и принудительно рассылаем
+            if (appUser.role === 'admin') {
+                await db.collection('settings').doc('global_config').set({geminiKey: GEMINI_API_KEY}, {merge: true});
+                const snap = await db.collection('users').get();
+                let batch = db.batch();
+                snap.forEach(doc => { batch.update(doc.ref, {geminiKey: GEMINI_API_KEY}); });
+                await batch.commit();
+                showToast("🔑 Ключ отправлен всем мастерам!"); 
+            } else {
+                showToast("🔑 Ключ сохранен!"); 
+            }
         } catch(e){ showToast("Ошибка синхронизации ключа"); } 
     } else {
         showToast("🔑 Ключ сохранен локально!");
@@ -938,30 +940,6 @@ function saveQRs() {
 }
 
 function fPrice(it) { return Math.round((it.p || 0) * (1 + (it.type === 'mat'? coeffs.mat: coeffs.work) / 100)); }
-
-// === Единая функция для вызова Gemini ===
-async function callGemini(prompt, loaderText) {
-    if(!GEMINI_API_KEY) throw new Error("Ключ API не найден. Администратор должен добавить его в настройках.");
-    showLoader(loaderText, "🤖");
-    try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const payload = { contents: [{ parts: [{text: prompt }] }] };
-        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        const data = await response.json();
-        
-        if(data.error) {
-            if (data.error.message && data.error.message.toLowerCase().includes("quota")) {
-                throw new Error("Превышен лимит запросов к ИИ. Подождите 1 минуту и повторите.");
-            }
-            throw new Error(data.error.message);
-        }
-        hideLoader();
-        return data.candidates[0].content.parts[0].text;
-    } catch (e) {
-        hideLoader();
-        throw e;
-    }
-}
 
 // === ЗАМЕНА МАТЕРИАЛА / РАБОТЫ ПО КЛИКУ ===
 let swapTargetIdx = -1;
@@ -1306,11 +1284,18 @@ function generateCascadePanel() {
 }
 
 async function runAiCheck() { 
+    if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ в настройках");
+    showLoader("ИИ анализирует...", "🤖");
     try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         const estNames = currentEstimate.map(i => i.n).join(", ");
         const promptText = `Я электрик. Смета: ${estNames}. Найди логические ошибки (забыл крепеж, рамки, УЗО). Верни ТОЛЬКО JSON массив: [{"reason": "Объяснение", "suggestedName": "Название из стандартных материалов"}]. Если всё идеально, верни пустой массив [].`;
-        let text = await callGemini(promptText, "ИИ анализирует...");
+        const payload = { contents: [{ parts: [{text: promptText }] }] };
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json(); hideLoader();
+        if(data.error) throw new Error(data.error.message);
         
+        let text = data.candidates[0].content.parts[0].text;
         let match = text.match(/\[[\s\S]*\]/);
         const suggestions = JSON.parse(match ? match[0] : text);
         
@@ -1318,54 +1303,75 @@ async function runAiCheck() {
         document.getElementById('ai-modal-title').innerText = "✨ ИИ-Аналитика";
         document.getElementById('ai-suggestions').innerHTML = suggestions.map(s => `<div style="background:var(--bg); padding: 12px; border-radius: 10px; margin-bottom:10px; border-left:4px solid var(--ai);"><div style="font-size: 12px; font-weight:bold; margin-bottom:8px;">${s.reason}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:13px; color:var(--primary); font-weight:bold;">${s.suggestedName}</span><button onclick="addAuto([{n:'${s.suggestedName}', q:1, p:0, type:'mat'}], 'ai_add'); closeModal('aiModal');" style="background:var(--ai); padding:6px 12px; font-size:11px; color:white; border:none; border-radius:6px; width:auto; margin:0;">+ Добавить</button></div></div>`).join("");
         openModal('aiModal');
-    } catch(e) { showToast("❌ Ошибка ИИ: " + e.message); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: " + e.message); }
 }
 
 async function aiSupply() {
+    if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ");
+    showLoader("ИИ формирует закупку...", "🤖");
     try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         const mats = currentEstimate.filter(i=>i.type==='mat').map(i=>`${i.n} - ${i.q}`).join(", ");
         const promptText = `Смета материалов: ${mats}. Раздели их на логичные категории для удобной закупки в магазине (Кабели, Автоматика, Черновые и т.д.). Выведи в чистом HTML формате (используй <h3>, <ul>, <li>, <b>).`;
-        let text = await callGemini(promptText, "ИИ формирует закупку...");
-        let aiText = text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        const payload = { contents: [{ parts: [{text: promptText }] }] };
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json(); hideLoader();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
-    } catch(e) { showToast("❌ Ошибка ИИ: " + e.message); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
 }
 
 async function aiPueHelper() { 
+    if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ");
+    showLoader("ИИ думает...", "🤖");
     try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         const promptText = `Смета: ${currentEstimate.map(i=>i.n).join(", ")}. Какие нормы ПУЭ нужны? Напиши кратко в HTML (без markdown, используй теги <p>, <ul>, <b>).`;
-        let text = await callGemini(promptText, "ИИ думает...");
-        let aiText = text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        const payload = { contents: [{ parts: [{text: promptText }] }] };
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json(); hideLoader();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📚 ПУЭ Справка";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
-    } catch(e) { showToast("❌ Ошибка ИИ: " + e.message); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
 }
 
 async function compareShopsAI() {
+    if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ");
+    showLoader("Сравнение цен...", "🤖");
     try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         let shops = document.getElementById('ai-shops').value || "Лемана ПРО, Петрович";
         const promptText = `Материалы: ${currentEstimate.filter(i=>i.type==='mat').map(i=>i.n).join(", ")}. Создай HTML таблицу (class="pdf-table") с МАКСИМАЛЬНЫМИ (самыми высокими) розничными ценами ГОСТ в магазинах: ${shops}. Верни только HTML.`;
-        let text = await callGemini(promptText, "Сравнение цен...");
-        let aiText = text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        const payload = { contents: [{ parts: [{text: promptText }] }] };
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json(); hideLoader();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
-    } catch(e) { showToast("❌ Ошибка ИИ: " + e.message); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
 }
 
 async function analyzeMastersAI() {
+    if (!GEMINI_API_KEY) return showToast("❌ Введите ключ ИИ!"); 
     if (hDB.length === 0) return showToast("❌ История пуста."); 
+    showLoader("ИИ анализирует штатную историю...", "🤖"); 
     try { 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; 
         let summary = hDB.map(h => `Мастер: ${h.masterName}, Сумма: ${h.total} руб, Дата: ${h.date}`).join('; '); 
         const promptText = `Я руководитель. Акты: ${summary}. Напиши отчет: кто приносит больше денег, кто работает чаще. Дай совет.`; 
-        let text = await callGemini(promptText, "ИИ анализирует штатную историю...");
+        const payload = { contents: [{ parts: [{text: promptText }] }] }; 
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
+        const data = await response.json(); hideLoader(); 
+        let aiText = data.candidates[0].content.parts[0].text; 
         document.getElementById('ai-modal-title').innerText = "📊 ИИ-Аналитика Штат"; 
-        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${text.replace(/\n/g, '<br>')}</div>`; 
+        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/\n/g, '<br>')}</div>`; 
         openModal('aiModal'); 
-    } catch (error) { showToast("❌ Ошибка ИИ: " + error.message); }
+    } catch (error) { hideLoader(); showToast("❌ Ошибка ИИ."); }
 }
 
 function getPDFHeader(title) { 
@@ -1837,6 +1843,103 @@ async function saveUserDB(item, type) {
             });
         } catch(e){}
     }
+}
+
+// === EXCEL ИМПОРТ ===
+function triggerExcelImport(type) {
+    if(!GEMINI_API_KEY) return showToast("Нужен ключ Gemini API (Админ должен добавить в настройках)");
+    currentImportType = type;
+    document.getElementById('excel-file-input').click();
+}
+
+async function handleExcelFile(e) {
+    let file = e.target.files[0];
+    if(!file) return;
+    showLoader("Читаем файл...", "📁");
+    let reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, {type: 'array'});
+            let worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            let csv = XLSX.utils.sheet_to_csv(worksheet).substring(0, 4000); 
+            
+            showLoader("ИИ анализирует прайс...", "🤖");
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            const prompt = `Это выгрузка прайса в CSV: \n${csv}\n\nВытащи позиции. Верни строго JSON массив вида [{"n":"название", "p": цена_числом, "u":"шт/м/ед"}]. Без markdown и пояснений. Исключи пустые строки.`;
+            const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({contents:[{parts:[{text:prompt}]}]}) });
+            const resData = await res.json();
+            
+            if(resData.error) throw new Error(resData.error.message);
+            
+            let text = resData.candidates[0].content.parts[0].text;
+            
+            // АГРЕССИВНЫЙ ПАРСЕР JSON (Исправляет баг "Проверьте формат")
+            let match = text.match(/\[[\s\S]*\]/);
+            let items = [];
+            if(match) {
+                items = JSON.parse(match[0]);
+            } else {
+                items = JSON.parse(text);
+            }
+            
+            showExcelImportModal(items);
+            hideLoader();
+        } catch(err) {
+            hideLoader();
+            showToast("Ошибка ИИ: " + (err.message || "Неверный формат"));
+            console.error(err);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = ''; 
+}
+
+let excelParsedItems = [];
+function showExcelImportModal(items) {
+    excelParsedItems = items;
+    let cats = [...new Set((currentImportType === 'mat' ? matDB : workDB).map(x=>x.c||'Разное'))];
+    document.getElementById('db-cats-import').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+    
+    let html = items.map((it, idx) => `
+        <label class="chk-row" style="padding:6px; border-bottom:1px dashed var(--border); display:flex;">
+            <input type="checkbox" id="excel-chk-${idx}" checked>
+            <div style="flex:1;"><b>${it.n}</b> <span style="color:var(--primary); font-size:10px;">(${it.p}₽ / ${it.u||'шт'})</span></div>
+        </label>
+    `).join('');
+    
+    document.getElementById('excel-items-list').innerHTML = html;
+    openModal('excelImportModal');
+}
+
+async function confirmExcelImport() {
+    let cat = document.getElementById('excel-target-cat').value.trim() || 'Разное';
+    let addedCount = 0;
+    
+    showLoader("Сохранение...", "💾");
+    for(let i=0; i<excelParsedItems.length; i++) {
+        let isChecked = document.getElementById(`excel-chk-${i}`).checked;
+        if(isChecked) {
+            let it = excelParsedItems[i];
+            let newItem = { id: (currentImportType==='mat'?'m':'w') + Date.now() + i, c: cat, n: it.n, p: Number(it.p)||0, u: it.u||'шт' };
+            
+            if(appUser.role === 'admin') {
+                if(currentImportType==='mat') matDB.push(newItem); else workDB.push(newItem);
+            } else {
+                await saveUserDB(newItem, currentImportType);
+            }
+            addedCount++;
+        }
+    }
+    
+    if(appUser.role === 'admin' && addedCount > 0) {
+        if(db) await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}, {merge:true});
+    }
+    
+    hideLoader();
+    renderDbEditors();
+    closeModal('excelImportModal');
+    showToast(`✅ Импортировано ${addedCount} поз.`);
 }
 
 // === АДМИН ПАНЕЛЬ: ПРЕДЛОЖЕНИЯ ===
