@@ -383,8 +383,15 @@
         <div class="close-x" onclick="closeModal('settingsModal')">×</div>
         <h2 style="color: var(--primary); margin-top:0; font-size:18px;">Настройки</h2>
         
-        <h4 style="color:var(--gray); margin: 10px 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
-        <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)">
+        <div id="admin-api-settings" style="display:none; padding:12px; background:rgba(79,70,229,0.06); border:1px solid var(--primary); border-radius:12px; margin-bottom:15px;">
+            <h4 style="color:var(--primary); margin: 0 0 8px;">🔑 Глобальный ИИ-Ключ Gemini</h4>
+            <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)" style="border-color:var(--primary);">
+            <p style="font-size:10px; color:var(--gray); margin:0;">Вводит только админ. После сохранения ключ автоматически отправляется всем мастерам.</p>
+            <div id="api-sync-status" style="font-size:11px; color:var(--success); margin-top:6px; font-weight:700;"></div>
+        </div>
+        <div id="master-api-info" style="display:none; padding:10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:12px; margin-bottom:15px; font-size:12px; font-weight:700; color:var(--success);">
+            🔑 ИИ подключён администратором. Мастеру API-ключ вводить не нужно.
+        </div>
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
@@ -869,7 +876,7 @@ async function finishLoginSetup() {
     document.getElementById('waitingModal').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     
-    if (appUser.geminiKey) { GEMINI_API_KEY = appUser.geminiKey; document.getElementById('api-key-input').value = GEMINI_API_KEY; }
+    await loadGlobalApiKey();
     
     if(appUser.role === 'admin') { 
         document.getElementById('admin-panel').style.display = 'block'; 
@@ -929,10 +936,149 @@ function updateCoeffs() {
     renderMainTable();
 }
 
-async function saveApiKey(val) { 
-    GEMINI_API_KEY = val.trim(); safeSet('gemini_key_v31', GEMINI_API_KEY);
-    if(db && appUser && appUser.uid) { try { await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); }catch(e){} }
-    showToast("🔑 Ключ сохранен!"); 
+function isAdminUser() {
+    return !!(appUser && appUser.role === 'admin');
+}
+
+function applyApiKeyUI() {
+    const adminBox = document.getElementById('admin-api-settings');
+    const masterInfo = document.getElementById('master-api-info');
+    const input = document.getElementById('api-key-input');
+
+    if (isAdminUser()) {
+        if (adminBox) adminBox.style.display = 'block';
+        if (masterInfo) masterInfo.style.display = 'none';
+        if (input) {
+            input.disabled = false;
+            input.placeholder = 'Ключ Gemini API';
+            if (GEMINI_API_KEY) input.value = GEMINI_API_KEY;
+        }
+    } else {
+        if (adminBox) adminBox.style.display = 'none';
+        if (masterInfo) masterInfo.style.display = 'block';
+        if (input) {
+            input.disabled = true;
+            input.value = '';
+            input.placeholder = GEMINI_API_KEY ? 'Ключ получен от администратора' : 'Ключ ожидается от администратора';
+        }
+    }
+}
+
+async function loadGlobalApiKey() {
+    try {
+        let loadedKey = '';
+
+        if (db) {
+            const globalDoc = await db.collection('settings').doc('global_api').get();
+            if (globalDoc.exists && globalDoc.data().geminiKey) {
+                loadedKey = String(globalDoc.data().geminiKey || '').trim();
+            }
+
+            // Запасной вариант: если глобальный документ ещё не создан,
+            // берём ключ из профиля пользователя.
+            if (!loadedKey && appUser && appUser.geminiKey) {
+                loadedKey = String(appUser.geminiKey || '').trim();
+            }
+        } else if (appUser && appUser.geminiKey) {
+            loadedKey = String(appUser.geminiKey || '').trim();
+        }
+
+        if (loadedKey) {
+            GEMINI_API_KEY = loadedKey;
+            safeSet('gemini_key_v31', GEMINI_API_KEY);
+        }
+    } catch (e) {
+        console.warn('Не удалось получить глобальный API ключ:', e);
+        if (appUser && appUser.geminiKey) {
+            GEMINI_API_KEY = String(appUser.geminiKey || '').trim();
+            safeSet('gemini_key_v31', GEMINI_API_KEY);
+        }
+    }
+
+    applyApiKeyUI();
+}
+
+async function sendApiKeyToAllMasters(apiKey) {
+    if (!db) return { count: 0, skipped: true };
+
+    const snap = await db.collection('users').get();
+    let batch = db.batch();
+    let ops = 0;
+    let count = 0;
+
+    for (const doc of snap.docs) {
+        const data = doc.data() || {};
+
+        // Админа тоже обновляем, но считаем отдельно только мастеров.
+        batch.set(doc.ref, {
+            geminiKey: apiKey,
+            apiKeyUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        ops++;
+        if (data.role !== 'admin') count++;
+
+        if (ops >= 450) {
+            await batch.commit();
+            batch = db.batch();
+            ops = 0;
+        }
+    }
+
+    if (ops > 0) await batch.commit();
+
+    return { count, skipped: false };
+}
+
+async function saveApiKey(val) {
+    const newKey = String(val || '').trim();
+
+    if (!isAdminUser()) {
+        applyApiKeyUI();
+        showToast('⛔ API-ключ может менять только админ');
+        return;
+    }
+
+    if (!newKey) {
+        showToast('⚠️ Введите API-ключ');
+        return;
+    }
+
+    GEMINI_API_KEY = newKey;
+    safeSet('gemini_key_v31', GEMINI_API_KEY);
+
+    const status = document.getElementById('api-sync-status');
+    if (status) status.innerText = 'Синхронизация ключа...';
+
+    try {
+        if (db) {
+            await db.collection('settings').doc('global_api').set({
+                geminiKey: GEMINI_API_KEY,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: appUser && appUser.uid ? appUser.uid : '',
+                updatedByName: appUser && appUser.name ? appUser.name : 'Админ'
+            }, { merge: true });
+
+            const result = await sendApiKeyToAllMasters(GEMINI_API_KEY);
+
+            if (status) {
+                status.innerText = result.skipped
+                    ? 'Ключ сохранён локально'
+                    : 'Ключ отправлен мастерам: ' + result.count;
+            }
+
+            showToast(result.skipped ? '🔑 Ключ сохранён' : '🔑 Ключ отправлен всем мастерам');
+        } else {
+            if (status) status.innerText = 'Ключ сохранён локально';
+            showToast('🔑 Ключ сохранён локально');
+        }
+    } catch (e) {
+        console.error(e);
+        if (status) status.innerText = 'Ошибка синхронизации: ' + e.message;
+        showToast('⚠️ Ошибка синхронизации API');
+    }
+
+    applyApiKeyUI();
 }
 function saveQRs() { 
     safeSet('qr_tg_v31', document.getElementById('qr-tg').value); 
@@ -1879,3 +2025,5 @@ function toggleAiFunctionsMenu(event) {
 </html>
 
 <!-- EP_SINGLE_HTML_READY_VERSION: 1778505836 -->
+
+<!-- EP_API_SYNC_VERSION: 1778506402 -->
