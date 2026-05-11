@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v17.4 ERP</title>
+    <title>Электрик PRO v16.9 ERP</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -15,7 +15,6 @@
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -38,6 +37,7 @@
         .glass { background: var(--card); border: 1px solid var(--border); box-shadow: var(--glass-shadow); border-radius: 16px; }
         .card { padding: 15px; margin-bottom: 15px; width: 100%; }
         
+        /* Исправленная шапка: Бургер с краю */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .burger-btn { font-size: 28px; cursor: pointer; color: var(--text); background: none; border: none; padding: 0; }
         #master-badge { font-size: 11px; color: var(--primary); font-weight:bold; text-align: right; line-height: 1.2; }
@@ -131,7 +131,99 @@
         .editable-name { cursor: pointer; color: var(--primary); border-bottom: 1px dashed var(--primary); }
 
         #chart-container { background: rgba(255,255,255,0.7); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); }
-    </style>
+    
+
+        /* === EP VISUAL SINGLE HTML PATCH START === */
+        html { scroll-behavior: smooth; }
+        button, input, select, textarea, .card, .modal-content, .burger-menu, .toast {
+            transition: background-color .22s ease, color .22s ease, border-color .22s ease, box-shadow .22s ease, transform .18s ease, opacity .18s ease;
+        }
+
+        .header {
+            position: relative;
+            min-height: 38px;
+            justify-content: flex-end;
+        }
+
+        .burger-btn {
+            position: fixed !important;
+            left: 6px !important;
+            top: 12px !important;
+            width: 42px !important;
+            height: 42px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: 1900 !important;
+            border-radius: 12px !important;
+            background: var(--card) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.16) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+        }
+
+        #master-badge {
+            padding-left: 46px;
+        }
+
+        .beta-badge {
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 11px;
+            font-weight: 900;
+            color: #fff7b0;
+            vertical-align: middle;
+        }
+
+        .btn-shield .beta-badge,
+        .btn-rough .beta-badge {
+            color: rgba(255,255,255,0.92);
+        }
+
+        .ai-functions-menu {
+            width: 100%;
+            margin: 0 0 8px 0;
+        }
+
+        .ai-functions-main {
+            background: linear-gradient(135deg, #7C3AED, #2563EB) !important;
+            color: #fff !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+        }
+
+        .ai-functions-panel {
+            display: none;
+            padding: 6px 0 2px 0;
+        }
+
+        .ai-functions-menu.open .ai-functions-panel {
+            display: block;
+            animation: epAiOpen .2s ease both;
+        }
+
+        .ai-sub-btn {
+            margin-left: 10px !important;
+            width: calc(100% - 10px) !important;
+            font-size: 13px !important;
+            padding: 12px 14px !important;
+        }
+
+        @keyframes epAiOpen {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            body { padding-top: 10px; }
+            .burger-btn {
+                left: 4px !important;
+                top: 10px !important;
+            }
+        }
+        /* === EP VISUAL SINGLE HTML PATCH END === */
+</style>
 </head>
 <body>
 
@@ -142,14 +234,21 @@
 <div class="burger-menu glass" id="burger-menu">
     <h2 style="margin-top:0; color: var(--primary); margin-bottom: 25px; font-weight:900;">Электрик PRO</h2>
     <button class="btn-info" onclick="openModal('custModal'); toggleMenu();">👤 О заказчике</button>
-    <button class="btn-vendor" style="background: rgba(139,92,246,0.15); color: #8B5CF6;" onclick="runAiCheck(); toggleMenu();">✨ ИИ-Анализ сметы</button>
-    <button class="btn-vendor" style="background: rgba(59,130,246,0.15); color: #3B82F6;" onclick="aiSupply(); toggleMenu();">📦 ИИ-Снабженец</button>
+
+    <div class="ai-functions-menu">
+        <button class="btn-vendor ai-functions-main" type="button" onclick="toggleAiFunctionsMenu(event)">✨ ИИ Функции <span class="beta-badge">(бета)</span></button>
+        <div class="ai-functions-panel" id="ai-functions-panel">
+            <button class="btn-vendor ai-sub-btn" style="background: rgba(139,92,246,0.15); color: #8B5CF6;" onclick="runAiCheck(); toggleMenu();">✨ ИИ-Анализ сметы</button>
+            <button class="btn-vendor ai-sub-btn" style="background: rgba(59,130,246,0.15); color: #3B82F6;" onclick="aiSupply(); toggleMenu();">📦 ИИ-Снабженец</button>
+            <button class="btn-vendor ai-sub-btn" style="background: rgba(16,185,129,0.15); color: #10B981;" onclick="aiPueHelper(); toggleMenu();">📚 ИИ-Помощник (ПУЭ)</button>
+            <button class="btn-vendor ai-sub-btn" style="background: rgba(244,63,94,0.1); color: var(--danger);" onclick="compareShopsAI(); toggleMenu();">🛒 ИИ-Сравнение цен</button>
+        </div>
+    </div>
+
     <button class="btn-vendor" style="background: rgba(16,185,129,0.15); color: #10B981;" onclick="openModal('settModal'); toggleMenu();">🗄 База данных</button>
     <button class="btn-vendor" style="background: rgba(245,158,11,0.15); color: #F59E0B;" onclick="openModal('buhModal'); toggleMenu();">💰 Бухгалтерия (Акты)</button>
-    
+
     <div style="border-top: 1px solid var(--border); margin-top:10px; padding-top:10px;">
-        <button class="btn-vendor" style="background: rgba(16,185,129,0.15); color: #10B981;" onclick="aiPueHelper(); toggleMenu();">📚 ИИ-Помощник (ПУЭ)</button>
-        <button class="btn-vendor" style="background: rgba(244,63,94,0.1); color: var(--danger);" onclick="compareShopsAI(); toggleMenu();">🛒 ИИ-Сравнение цен</button>
         <button class="btn-vendor" style="background: rgba(100,116,139,0.15); color: var(--text);" onclick="openModal('logicModal'); toggleMenu();">⚙️ Логика расчетов</button>
         <button class="btn-vendor" style="background: rgba(100,116,139,0.15); color: var(--text);" onclick="openModal('settingsModal'); toggleMenu();">🛠 Настройки системы</button>
         <button class="btn-danger" style="margin-top:15px;" onclick="confirmLogout(); toggleMenu();">🚪 Выйти</button>
@@ -164,8 +263,8 @@
         </div>
         
         <div class="controls">
-            <button onclick="openModal('configModal')" class="btn-shield btn-full">1. Конфигуратор щита</button>
-            <button onclick="openModal('roughModal')" class="btn-rough btn-full">2. Пул розеток и ВІM</button>
+            <button onclick="openModal('configModal')" class="btn-shield btn-full">1. Конфигуратор щита <span class="beta-badge">(бета)</span></button>
+            <button onclick="openModal('roughModal')" class="btn-rough btn-full">2. Пул розеток и BIM <span class="beta-badge">(бета)</span></button>
             <button onclick="openMatCatalog()" class="btn-mat">+ Материалы</button>
             <button onclick="openWorkCatalog()" class="btn-work">+ Работы</button>
         </div>
@@ -208,24 +307,6 @@
     </div>
 </div>
 
-<div class="modal" id="excelImportModal" style="z-index:4000;">
-    <div class="modal-content glass" style="max-width: 500px;">
-        <div class="close-x" onclick="closeModal('excelImportModal')">×</div>
-        <h3 style="color:var(--success); margin-top:0; font-size:16px;">📥 Импорт (ИИ)</h3>
-        <p style="font-size:11px; color:var(--gray); margin-bottom:10px;">Выберите позиции, которые хотите добавить в свою базу данных:</p>
-        
-        <div id="excel-items-list" style="max-height: 40vh; overflow-y: auto; background:rgba(0,0,0,0.03); border-radius:8px; padding:10px; margin-bottom:10px; border:1px solid var(--border);"></div>
-        
-        <label style="font-size:11px; font-weight:bold; color:var(--primary); display:block; margin-bottom:5px;">В какую категорию добавить?</label>
-        <input type="text" list="db-cats-import" id="excel-target-cat" placeholder="Выберите или впишите категорию" style="margin-bottom:15px;">
-        <datalist id="db-cats-import"></datalist>
-
-        <button class="btn-success" onclick="confirmExcelImport()" style="width:100%; padding:12px;">+ Добавить выбранные в БД</button>
-    </div>
-</div>
-
-<input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelFile(event)">
-
 <div id="custom-modal-overlay" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); z-index:99999; display:none; align-items:center; justify-content:center; padding: 20px;">
     <div class="card glass" style="max-width: 400px; width:100%; padding: 25px; text-align: center; margin:0; box-sizing: border-box;">
         <h3 id="cm-title" style="margin-top:0; color: var(--primary);">Уведомление</h3>
@@ -241,7 +322,7 @@
 <div class="modal" id="authModal" style="background: rgba(0,0,0,0.9); display: none;">
     <div class="modal-content glass" style="max-width: 350px; text-align:center; padding: 30px 20px; margin: auto;">
         <h2 style="color: var(--primary); margin-top:0; font-size: 24px; font-weight:900;">Электрик PRO</h2>
-        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v17.4</p>
+        <p style="color:var(--gray); font-size:12px; margin-bottom:20px;">Рабочая среда v16.9</p>
         
         <button id="btn-google-login" class="btn-primary no-print" style="width:100%; background:#4285F4; padding:14px; font-size:14px; margin-bottom:10px; font-weight:bold;">
             🔑 Войти через Google
@@ -302,11 +383,8 @@
         <div class="close-x" onclick="closeModal('settingsModal')">×</div>
         <h2 style="color: var(--primary); margin-top:0; font-size:18px;">Настройки</h2>
         
-        <div id="admin-api-settings" style="display:none; padding:10px; background:rgba(79, 70, 229, 0.05); border-radius:10px; border:1px solid var(--primary); margin-bottom:15px;">
-            <h4 style="color:var(--primary); margin: 0 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
-            <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)" style="border-color:var(--primary);">
-            <p style="font-size:10px; color:var(--gray); margin:0;">*Ключ применится ко всем мастерам автоматически</p>
-        </div>
+        <h4 style="color:var(--gray); margin: 10px 0 5px;">🔑 ИИ-Ключ (Gemini)</h4>
+        <input type="password" id="api-key-input" placeholder="Ключ Gemini API" onchange="saveApiKey(this.value)">
         
         <h4 style="color:var(--gray); margin: 10px 0 5px;">🎨 Внешний вид</h4>
         <select id="theme-select" onchange="changeTheme(this.value)"><option value="light">Светлая</option><option value="dark">Темная</option><option value="emerald">Изумруд</option><option value="sunset">Закат</option></select>
@@ -320,9 +398,6 @@
         <div id="admin-panel" style="display:none; padding-top:15px; border-top: 1px dashed var(--gray); margin-top:15px;">
             <h3 style="color:var(--danger); margin: 0 0 10px;">👑 Админ Панель</h3>
             
-            <h4 style="color:var(--primary); margin: 10px 0 5px;">🔔 Предложения в БД (от мастеров):</h4>
-            <div id="admin-db-proposals" style="margin-bottom:10px; border:1px solid var(--primary); background:rgba(79, 70, 229, 0.05); border-radius:8px; padding:8px; max-height: 200px; overflow-y:auto; font-size: 12px; color: var(--text);"></div>
-
             <h4 style="color:var(--orange); margin: 10px 0 5px;">Заявки на регистрацию:</h4>
             <div id="admin-approval-list" style="margin-bottom:10px; border:1px solid var(--orange); border-radius:8px; padding:8px; max-height: 120px; overflow-y:auto; font-size: 12px; color: var(--text);"></div>
             
@@ -354,14 +429,12 @@
         <div class="close-x" onclick="closeModal('buhModal')">×</div>
         <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;"> Бухгалтерия</h2>
         
-        <div style="background:rgba(255,255,255,0.7); border-radius:12px; padding:10px; margin-bottom:15px; border:1px solid var(--border);">
+        <div id="chart-container">
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <select id="chart-period" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="month">Дни (Месяц)</option><option value="year">Месяцы (Год)</option><option value="all">Всё время</option></select>
                 <select id="chart-type" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="bar">Столбцы</option><option value="line">Линия</option></select>
             </div>
-            <div style="position:relative; height: 220px; width: 100%;">
-                <canvas id="buhChart"></canvas>
-            </div>
+            <canvas id="buhChart" width="100" height="50"></canvas>
         </div>
 
         <div style="background:rgba(0,0,0,0.03); padding:12px; border-radius: 12px; font-size: 13px; font-weight:600; border:1px solid var(--border);">
@@ -423,7 +496,7 @@
         <h2 style="margin-top:0; color: var(--primary); font-size:18px;"> База данных (Редактор)</h2>
         
         <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
-            <b style="font-size:12px; display:block; margin-bottom:8px;">Добавить новую позицию (ручной ввод):</b>
+            <b style="font-size:12px; display:block; margin-bottom:8px;">Добавить новую позицию:</b>
             <input type="text" list="db-cats" id="db-new-cat" placeholder="Категория (выбрать или вписать)" style="margin-bottom:6px;">
             <datalist id="db-cats"></datalist>
             <input type="text" id="db-new-name" placeholder="Название позиции" style="margin-bottom:6px;">
@@ -431,19 +504,13 @@
                 <input type="number" id="db-new-price" placeholder="Цена (₽)" style="margin:0; flex:1;">
                 <input type="text" id="db-new-unit" placeholder="Ед. изм (шт/м)" value="шт" style="margin:0; flex:1;">
             </div>
-            <button onclick="addDbItem()" class="btn-success" style="width:100%; margin-top:8px; padding:12px;">+ Сохранить (Отправить админу)</button>
+            <button onclick="addDbItem()" class="btn-success" style="width:100%; margin-top:8px; padding:12px;">+ Добавить в базу</button>
         </div>
 
         <div class="tabs-container">
             <button class="tab-btn active" id="btnTabMat" onclick="switchDbTab('mat')">Материалы</button>
             <button class="tab-btn" id="btnTabWork" onclick="switchDbTab('work')">Работы</button>
         </div>
-        
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <button class="btn-info" style="flex:1; padding:10px; font-size:11px;" onclick="triggerExcelImport('mat')">📥 Импорт Excel/CSV (Материалы)</button>
-            <button class="btn-info" style="flex:1; padding:10px; font-size:11px; background:#F59E0B;" onclick="triggerExcelImport('work')">📥 Импорт Excel/CSV (Работы)</button>
-        </div>
-
         <div id="editor-mat-list" style="max-height:40vh; overflow-y:auto;"></div>
         <div id="editor-work-list" style="max-height:40vh; overflow-y:auto; display:none;"></div>
     </div>
@@ -642,10 +709,6 @@ let currentEstimate = [];
 try { currentEstimate = JSON.parse(safeGet('est_v31', '[]')); } catch(e) { currentEstimate = []; }
 
 let matDB = [], workDB = []; 
-let userMatDB = [], userWorkDB = []; // Личные БД мастера
-try { userMatDB = JSON.parse(safeGet('user_db_mat_v31', '[]')); } catch(e){}
-try { userWorkDB = JSON.parse(safeGet('user_db_work_v31', '[]')); } catch(e){}
-
 let pool = []; 
 let coeffs = {mat:0, work:0};
 try { let c = JSON.parse(safeGet('coeffs_v31', '{"mat":0,"work":0}')); coeffs = c; } catch(e){}
@@ -665,29 +728,10 @@ let currentShieldExtras = [];
 let currentPreviewMode = '';
 let adminDraftsCache = [];
 let buhChartInstance = null;
-let currentImportType = 'mat'; // Для Excel импорта
 
 // === БАЗА ДАННЫХ ===
 const FULL_MAT_INIT=[{"id":"m1","c":"Кабель","n":"Кабель ВВГнг-LS 3х1.5 (Конкорд) круглый","p":57,"u":"м.п."},{"id":"m2","c":"Кабель","n":"Кабель ВВГнг-LS 3х2.5 (Конкорд) круглый","p":87,"u":"м.п."},{"id":"m3","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х1.5 (Конкорд) плоский","p":62,"u":"м.п."},{"id":"m4","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х2.5 (Конкорд) плоский","p":95,"u":"м.п."},{"id":"m14","c":"Расходники","n":"Подрозетник глубокий для бетона 68х64","p":12,"u":"шт"},{"id":"m15","c":"Расходники","n":"Подрозетник стандарт (ГКЛ/Бетон)","p":20,"u":"шт"},{"id":"m16","c":"Расходники","n":"Подрозетник Короѕ 75мм","p":95,"u":"шт"},{"id":"m17","c":"Расходники","n":"Коробка распределительная 100х100х40","p":120,"u":"шт"},{"id":"m27","c":"Расходники","n":"Гильза ГМЛ 4/6","p":15,"u":"шт"},{"id":"m29","c":"Расходники","n":"Термоусадка 12/4 (м)","p":80,"u":"м"},{"id":"w_m1","c":"Чистовая","n":"Розетка 220В (механизм)","p":250,"u":"шт"},{"id":"w_m2","c":"Чистовая","n":"Выключатель (механизм)","p":280,"u":"шт"},{"id":"w_m3","c":"Чистовая","n":"Слаботочная розетка (механизм)","p":350,"u":"шт"}];
 const FULL_WORK_INIT=[{"id":"w44","c":"Алмазная резка","n":"Штроба 25х30 (Бетон)","p":550,"u":"м.п."},{"id":"w56","c":"Алмазная резка","n":"Высверливание подрозетников (45мм)","p":600,"u":"шт"},{"id":"w71","c":"Алмазная резка","n":"Высверливание подрозетников (64мм)","p":650,"u":"шт"},{"id":"w60","c":"Черновая электрика","n":"Вклейка подрозетников","p":100,"u":"шт"},{"id":"w67","c":"Монтаж","n":"Сборка распред. коробки (ГМЛ)","p":800,"u":"шт"},{"id":"w68","c":"Чистовая установка","n":"Установка розетки 220В","p":500,"u":"шт"},{"id":"w69","c":"Чистовая установка","n":"Установка выключателя","p":550,"u":"шт"},{"id":"w87","c":"Щитовое","n":"Сборка щита (мод)","p":500,"u":"мод."}];
-
-// Слияние глобальной и локальной базы
-function mergeDB(gArr, uArr) {
-    let map = new Map();
-    gArr.forEach(i => map.set(i.id, {...i}));
-    uArr.forEach(i => {
-        if(map.has(i.id)) {
-            let existing = map.get(i.id);
-            existing.p = i.p;
-            if(i.n) existing.n = i.n;
-            if(i.c) existing.c = i.c;
-            if(i.u) existing.u = i.u;
-        } else {
-            map.set(i.id, {...i});
-        }
-    });
-    return Array.from(map.values());
-}
 
 // === FIREBASE INIT ===
 try {
@@ -825,13 +869,13 @@ async function finishLoginSetup() {
     document.getElementById('waitingModal').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     
+    if (appUser.geminiKey) { GEMINI_API_KEY = appUser.geminiKey; document.getElementById('api-key-input').value = GEMINI_API_KEY; }
+    
     if(appUser.role === 'admin') { 
         document.getElementById('admin-panel').style.display = 'block'; 
-        document.getElementById('admin-api-settings').style.display = 'block';
         listenForApprovals(); 
         loadMasterDrafts(); 
         renderAdminUsers(); 
-        listenForDbProposals();
     }
     
     let savedTheme = safeGet('theme_v31', 'light'); changeTheme(savedTheme); document.getElementById('theme-select').value = savedTheme;
@@ -843,47 +887,23 @@ async function finishLoginSetup() {
 
     showLoader('Синхронизация...', '☁️');
     try {
-        let rawGlobalM = FULL_MAT_INIT, rawGlobalW = FULL_WORK_INIT;
         if(db) {
-            // === ГЛОБАЛЬНАЯ СИНХРОНИЗАЦИЯ КЛЮЧА ИИ ===
-            const globalConfigDoc = await db.collection('settings').doc('global_config').get();
-            if(globalConfigDoc.exists && globalConfigDoc.data().geminiKey) {
-                GEMINI_API_KEY = globalConfigDoc.data().geminiKey;
-                safeSet('gemini_key_v31', GEMINI_API_KEY);
-                if(document.getElementById('api-key-input')) document.getElementById('api-key-input').value = GEMINI_API_KEY;
-            }
-
             const dbDoc = await db.collection('settings').doc('global_db').get();
-            if(dbDoc.exists) { rawGlobalM = dbDoc.data().matDB || rawGlobalM; rawGlobalW = dbDoc.data().workDB || rawGlobalW; }
-            
+            if(dbDoc.exists) { matDB = dbDoc.data().matDB || FULL_MAT_INIT; workDB = dbDoc.data().workDB || FULL_WORK_INIT; }
+            else { matDB = FULL_MAT_INIT; workDB = FULL_WORK_INIT; }
             const logicDoc = await db.collection('settings').doc('global_logic').get();
             if(logicDoc.exists) appLogic = Object.assign(appLogic, logicDoc.data());
             
             const histSnap = await db.collection('history').get();
             hDB = histSnap.docs.map(doc => doc.data());
-            
             const draftDoc = await db.collection('drafts').doc(appUser.uid).get();
             if(draftDoc.exists && currentEstimate.length === 0) { 
                 currentEstimate = draftDoc.data().estimate || []; 
                 let c = draftDoc.data().cust;
                 if(c) { cust = c; safeSet('cust_v31', JSON.stringify(cust)); }
             }
-            
-            // Подгружаем ЛИЧНУЮ базу пользователя
-            const udbDoc = await db.collection('user_db').doc(appUser.uid).get();
-            if(udbDoc.exists) {
-                userMatDB = udbDoc.data().matDB || userMatDB;
-                userWorkDB = udbDoc.data().workDB || userWorkDB;
-                safeSet('user_db_mat_v31', JSON.stringify(userMatDB));
-                safeSet('user_db_work_v31', JSON.stringify(userWorkDB));
-            }
-        }
-        
-        // Слияние
-        matDB = mergeDB(rawGlobalM, userMatDB);
-        workDB = mergeDB(rawGlobalW, userWorkDB);
-        
-    } catch(e) { console.error(e); }
+        } else { matDB = FULL_MAT_INIT; workDB = FULL_WORK_INIT; }
+    } catch(e) { matDB = FULL_MAT_INIT; workDB = FULL_WORK_INIT; console.error(e); }
     
     hideLoader(); updateMasterBadge(); renderMainTable(); updateHistList();
     if(!(cust && cust.name)) { setTimeout(() => { openModal('custModal'); }, 400); }
@@ -911,26 +931,9 @@ function updateCoeffs() {
 
 async function saveApiKey(val) { 
     GEMINI_API_KEY = val.trim(); safeSet('gemini_key_v31', GEMINI_API_KEY);
-    if(db && appUser && appUser.uid) { 
-        try { 
-            await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); 
-            // Сохраняем в глобальную конфигу и принудительно рассылаем
-            if (appUser.role === 'admin') {
-                await db.collection('settings').doc('global_config').set({geminiKey: GEMINI_API_KEY}, {merge: true});
-                const snap = await db.collection('users').get();
-                let batch = db.batch();
-                snap.forEach(doc => { batch.update(doc.ref, {geminiKey: GEMINI_API_KEY}); });
-                await batch.commit();
-                showToast("🔑 Ключ отправлен всем мастерам!"); 
-            } else {
-                showToast("🔑 Ключ сохранен!"); 
-            }
-        } catch(e){ showToast("Ошибка синхронизации ключа"); } 
-    } else {
-        showToast("🔑 Ключ сохранен локально!");
-    }
+    if(db && appUser && appUser.uid) { try { await db.collection('users').doc(appUser.uid).update({geminiKey: GEMINI_API_KEY}); }catch(e){} }
+    showToast("🔑 Ключ сохранен!"); 
 }
-
 function saveQRs() { 
     safeSet('qr_tg_v31', document.getElementById('qr-tg').value); 
     safeSet('qr_wa_v31', document.getElementById('qr-wa').value); 
@@ -1294,16 +1297,13 @@ async function runAiCheck() {
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
         if(data.error) throw new Error(data.error.message);
-        
-        let text = data.candidates[0].content.parts[0].text;
-        let match = text.match(/\[[\s\S]*\]/);
-        const suggestions = JSON.parse(match ? match[0] : text);
-        
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        const suggestions = JSON.parse(aiText);
         if (suggestions.length === 0) return showToast("✨ Всё идеально! Смета полная.");
         document.getElementById('ai-modal-title').innerText = "✨ ИИ-Аналитика";
         document.getElementById('ai-suggestions').innerHTML = suggestions.map(s => `<div style="background:var(--bg); padding: 12px; border-radius: 10px; margin-bottom:10px; border-left:4px solid var(--ai);"><div style="font-size: 12px; font-weight:bold; margin-bottom:8px;">${s.reason}</div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:13px; color:var(--primary); font-weight:bold;">${s.suggestedName}</span><button onclick="addAuto([{n:'${s.suggestedName}', q:1, p:0, type:'mat'}], 'ai_add'); closeModal('aiModal');" style="background:var(--ai); padding:6px 12px; font-size:11px; color:white; border:none; border-radius:6px; width:auto; margin:0;">+ Добавить</button></div></div>`).join("");
         openModal('aiModal');
-    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: " + e.message); }
+    } catch(e) { hideLoader(); showToast("❌ Сбой ИИ: Проверьте ключ"); }
 }
 
 async function aiSupply() {
@@ -1316,7 +1316,7 @@ async function aiSupply() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📦 ИИ-Снабженец";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1332,7 +1332,7 @@ async function aiPueHelper() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "📚 ПУЭ Справка";
         document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText}</div>`;
         openModal('aiModal');
@@ -1349,29 +1349,11 @@ async function compareShopsAI() {
         const payload = { contents: [{ parts: [{text: promptText }] }] };
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json(); hideLoader();
-        let aiText = data.candidates[0].content.parts[0].text.replace(/```html\n?/g, '').replace(/```/g, '').trim();
+        let aiText = data.candidates[0].content.parts[0].text.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
         document.getElementById('ai-modal-title').innerText = "🛒 Макс. Цены ГОСТ";
         document.getElementById('ai-suggestions').innerHTML = `<div style="overflow-x:auto;">${aiText}</div>`;
         openModal('aiModal');
     } catch(e) { hideLoader(); showToast("❌ Сбой ИИ"); }
-}
-
-async function analyzeMastersAI() {
-    if (!GEMINI_API_KEY) return showToast("❌ Введите ключ ИИ!"); 
-    if (hDB.length === 0) return showToast("❌ История пуста."); 
-    showLoader("ИИ анализирует штатную историю...", "🤖"); 
-    try { 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; 
-        let summary = hDB.map(h => `Мастер: ${h.masterName}, Сумма: ${h.total} руб, Дата: ${h.date}`).join('; '); 
-        const promptText = `Я руководитель. Акты: ${summary}. Напиши отчет: кто приносит больше денег, кто работает чаще. Дай совет.`; 
-        const payload = { contents: [{ parts: [{text: promptText }] }] }; 
-        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
-        const data = await response.json(); hideLoader(); 
-        let aiText = data.candidates[0].content.parts[0].text; 
-        document.getElementById('ai-modal-title').innerText = "📊 ИИ-Аналитика Штат"; 
-        document.getElementById('ai-suggestions').innerHTML = `<div style="font-size:13px; line-height:1.5;">${aiText.replace(/\n/g, '<br>')}</div>`; 
-        openModal('aiModal'); 
-    } catch (error) { hideLoader(); showToast("❌ Ошибка ИИ."); }
 }
 
 function getPDFHeader(title) { 
@@ -1624,27 +1606,15 @@ function renderChart() {
     let grouped = {};
 
     viewHDB.forEach(h => {
-        if(!h.date) return;
-        let dString = h.date;
-        let key = dString; 
-        
-        let dParts = dString.split(/[\.\-\/]/);
-        if(dParts.length >= 3) {
-            let year = dParts.find(p => p.length === 4) || dParts[2];
-            let month = dParts[1];
-            let day = dParts[0];
-            
-            if (year.length !== 4) { 
-                if(dParts[0].length === 4) { year = dParts[0]; month = dParts[1]; day = dParts[2]; }
-            }
-            
-            if(period === 'year') key = `${month}.${year}`; 
-            else if(period === 'all') key = year; 
-            else key = `${day}.${month}`; 
-        }
+        let dParts = h.date.split('.'); 
+        if(dParts.length !== 3) return;
+        let key = '';
+        if(period === 'year') key = `${dParts[1]}.${dParts[2]}`; 
+        else if(period === 'all') key = dParts[2]; 
+        else key = `${dParts[0]}.${dParts[1]}`; 
 
         if(!grouped[key]) grouped[key] = 0;
-        grouped[key] += (h.total || 0);
+        grouped[key] += h.total;
     });
 
     let sortedKeys = Object.keys(grouped).sort();
@@ -1654,7 +1624,7 @@ function renderChart() {
         type: type,
         data: {
             labels: sortedKeys,
-            datasets: [{ label: 'Доход (₽)', data: data, backgroundColor: '#4F46E5', borderColor: '#4F46E5', tension: 0.2, borderWidth: 2 }]
+            datasets: [{ label: 'Доход (₽)', data: data, backgroundColor: '#4F46E5', borderColor: '#4F46E5', tension: 0.2 }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
@@ -1765,7 +1735,7 @@ function renderDbEditors() {
         let sid = 'db_m_'+idx;
         htmlMat += `<div class="cat-header" onclick="toggleCat('${sid}')">${c}</div><div class="cat-body" id="${sid}">`;
         mGroups[c].forEach(m => {
-            htmlMat += `<div class="emp-row"><div><b>${m.n}</b><br><span style="color:var(--gray);font-size:10px;">${m.p} ₽ / ${m.u}</span></div> <input type="number" value="${m.p}" onchange="updateUserDbItem('mat', '${m.id}', 'p', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
+            htmlMat += `<div class="emp-row"><div><b>${m.n}</b><br><span style="color:var(--gray);font-size:10px;">${m.p} ₽ / ${m.u}</span></div> <input type="number" value="${m.p}" onchange="requestPriceChange('mat', '${m.id}', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
         });
         htmlMat += `</div>`;
     });
@@ -1777,230 +1747,41 @@ function renderDbEditors() {
         let sid = 'db_w_'+idx;
         htmlWork += `<div class="cat-header" style="color:var(--orange); border-color:rgba(245,158,11,0.2); background:rgba(245,158,11,0.08);" onclick="toggleCat('${sid}')">${c}</div><div class="cat-body" id="${sid}">`;
         wGroups[c].forEach(w => {
-            htmlWork += `<div class="emp-row"><div><b>${w.n}</b><br><span style="color:var(--gray);font-size:10px;">${w.p} ₽ / ${w.u}</span></div> <input type="number" value="${w.p}" onchange="updateUserDbItem('work', '${w.id}', 'p', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
+            htmlWork += `<div class="emp-row"><div><b>${w.n}</b><br><span style="color:var(--gray);font-size:10px;">${w.p} ₽ / ${w.u}</span></div> <input type="number" value="${w.p}" onchange="requestPriceChange('work', '${w.id}', this.value)" style="width:60px;margin:0;padding:4px;text-align:center;"></div>`;
         });
         htmlWork += `</div>`;
     });
     document.getElementById('editor-work-list').innerHTML = htmlWork;
 }
 
-// Изменение конкретного поля в ЛИЧНОЙ базе
-async function updateUserDbItem(type, id, field, val) {
-    let globalArr = type === 'mat' ? matDB : workDB;
-    let gItem = globalArr.find(x => x.id === id);
-    if(!gItem) return;
-    
-    let clone = {...gItem};
-    if(field === 'p') clone.p = Number(val);
-    
-    await saveUserDB(clone, type);
-    showToast("Сохранено (Заявка отправлена)");
-}
-
 async function addDbItem() {
+    if(appUser.role !== 'admin') return showToast("Только админ может добавлять");
     let cat = document.getElementById('db-new-cat').value.trim() || 'Разное';
     let name = document.getElementById('db-new-name').value.trim();
     let price = Number(document.getElementById('db-new-price').value) || 0;
     let unit = document.getElementById('db-new-unit').value.trim() || 'шт';
-    let type = document.getElementById('editor-mat-list').style.display !== 'none' ? 'mat' : 'work';
+    let isMat = document.getElementById('editor-mat-list').style.display !== 'none';
     
     if(!name) return showToast("Введите название!");
     
-    let newItem = { id: (type==='mat'?'m':'w') + Date.now() + Math.floor(Math.random()*1000), c: cat, n: name, p: price, u: unit };
+    let newItem = { id: (isMat?'m':'w') + Date.now(), c: cat, n: name, p: price, u: unit };
+    if(isMat) matDB.push(newItem); else workDB.push(newItem);
     
-    if (appUser.role === 'admin') {
-        if(type==='mat') matDB.push(newItem); else workDB.push(newItem);
-        if(db) await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}, {merge:true});
-        showToast("✅ Добавлено в ГЛОБАЛЬНУЮ базу");
-    } else {
-        await saveUserDB(newItem, type);
-        showToast("✅ Сохранено. Предложено админу.");
-    }
+    try { if(db) await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}); } catch(e){}
+    
     renderDbEditors();
     document.getElementById('db-new-name').value = ''; document.getElementById('db-new-price').value = '';
+    showToast("✅ Позиция добавлена");
 }
 
-// Сохранение в личную базу и отправка Proposal
-async function saveUserDB(item, type) {
-    let uArr = type === 'mat' ? userMatDB : userWorkDB;
-    let idx = uArr.findIndex(x => x.id === item.id);
-    if(idx >= 0) uArr[idx] = item; else uArr.push(item);
-    
-    let gArr = type === 'mat' ? matDB : workDB;
-    let gIdx = gArr.findIndex(x => x.id === item.id);
-    if(gIdx >= 0) gArr[gIdx] = item; else gArr.push(item);
-
-    safeSet('user_db_mat_v31', JSON.stringify(userMatDB));
-    safeSet('user_db_work_v31', JSON.stringify(userWorkDB));
-
-    if(db && appUser && appUser.uid) {
-        try {
-            await db.collection('user_db').doc(appUser.uid).set({matDB: userMatDB, workDB: userWorkDB}, {merge: true});
-            await db.collection('db_proposals').add({
-                uid: appUser.uid, masterName: appUser.name, type: type,
-                itemId: item.id, n: item.n, p: item.p, u: item.u, c: item.c,
-                status: 'pending', timestamp: Date.now()
-            });
-        } catch(e){}
-    }
-}
-
-// === EXCEL ИМПОРТ ===
-function triggerExcelImport(type) {
-    if(!GEMINI_API_KEY) return showToast("Нужен ключ Gemini API (Админ должен добавить в настройках)");
-    currentImportType = type;
-    document.getElementById('excel-file-input').click();
-}
-
-async function handleExcelFile(e) {
-    let file = e.target.files[0];
-    if(!file) return;
-    showLoader("Читаем файл...", "📁");
-    let reader = new FileReader();
-    reader.onload = async function(e) {
-        try {
-            let data = new Uint8Array(e.target.result);
-            let workbook = XLSX.read(data, {type: 'array'});
-            let worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            let csv = XLSX.utils.sheet_to_csv(worksheet).substring(0, 4000); 
-            
-            showLoader("ИИ анализирует прайс...", "🤖");
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-            const prompt = `Это выгрузка прайса в CSV: \n${csv}\n\nВытащи позиции. Верни строго JSON массив вида [{"n":"название", "p": цена_числом, "u":"шт/м/ед"}]. Без markdown и пояснений. Исключи пустые строки.`;
-            const res = await fetch(url, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({contents:[{parts:[{text:prompt}]}]}) });
-            const resData = await res.json();
-            
-            if(resData.error) throw new Error(resData.error.message);
-            
-            let text = resData.candidates[0].content.parts[0].text;
-            
-            // АГРЕССИВНЫЙ ПАРСЕР JSON (Исправляет баг "Проверьте формат")
-            let match = text.match(/\[[\s\S]*\]/);
-            let items = [];
-            if(match) {
-                items = JSON.parse(match[0]);
-            } else {
-                items = JSON.parse(text);
-            }
-            
-            showExcelImportModal(items);
-            hideLoader();
-        } catch(err) {
-            hideLoader();
-            showToast("Ошибка ИИ: " + (err.message || "Неверный формат"));
-            console.error(err);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = ''; 
-}
-
-let excelParsedItems = [];
-function showExcelImportModal(items) {
-    excelParsedItems = items;
-    let cats = [...new Set((currentImportType === 'mat' ? matDB : workDB).map(x=>x.c||'Разное'))];
-    document.getElementById('db-cats-import').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
-    
-    let html = items.map((it, idx) => `
-        <label class="chk-row" style="padding:6px; border-bottom:1px dashed var(--border); display:flex;">
-            <input type="checkbox" id="excel-chk-${idx}" checked>
-            <div style="flex:1;"><b>${it.n}</b> <span style="color:var(--primary); font-size:10px;">(${it.p}₽ / ${it.u||'шт'})</span></div>
-        </label>
-    `).join('');
-    
-    document.getElementById('excel-items-list').innerHTML = html;
-    openModal('excelImportModal');
-}
-
-async function confirmExcelImport() {
-    let cat = document.getElementById('excel-target-cat').value.trim() || 'Разное';
-    let addedCount = 0;
-    
-    showLoader("Сохранение...", "💾");
-    for(let i=0; i<excelParsedItems.length; i++) {
-        let isChecked = document.getElementById(`excel-chk-${i}`).checked;
-        if(isChecked) {
-            let it = excelParsedItems[i];
-            let newItem = { id: (currentImportType==='mat'?'m':'w') + Date.now() + i, c: cat, n: it.n, p: Number(it.p)||0, u: it.u||'шт' };
-            
-            if(appUser.role === 'admin') {
-                if(currentImportType==='mat') matDB.push(newItem); else workDB.push(newItem);
-            } else {
-                await saveUserDB(newItem, currentImportType);
-            }
-            addedCount++;
-        }
-    }
-    
-    if(appUser.role === 'admin' && addedCount > 0) {
-        if(db) await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}, {merge:true});
-    }
-    
-    hideLoader();
-    renderDbEditors();
-    closeModal('excelImportModal');
-    showToast(`✅ Импортировано ${addedCount} поз.`);
-}
-
-// === АДМИН ПАНЕЛЬ: ПРЕДЛОЖЕНИЯ ===
-function listenForDbProposals() {
-    if(!db || appUser.role !== 'admin') return;
-    db.collection('db_proposals').where('status', '==', 'pending').onSnapshot(snap => {
-        let html = '';
-        snap.forEach(doc => {
-            let p = doc.data();
-            let pid = doc.id;
-            let cats = [...new Set((p.type === 'mat' ? matDB : workDB).map(x=>x.c||'Разное'))];
-            let catOpts = cats.map(c => `<option value="${c}" ${c===(p.c||'Разное')?'selected':''}>${c}</option>`).join('');
-            
-            html += `
-            <div class="emp-row" style="flex-direction:column; align-items:flex-start; margin-bottom:8px; border:1px dashed var(--primary);">
-                <span style="font-size:10px; color:var(--primary);">Предлагает: <b>${p.masterName}</b></span>
-                <span style="font-size:12px; margin:4px 0;">${p.n} — <b>${p.p} ₽</b> / ${p.u}</span>
-                <select id="prop-cat-${pid}" style="width:100%; padding:6px; font-size:11px; margin-bottom:6px;">${catOpts}</select>
-                <div style="display:flex; gap:6px; width:100%;">
-                    <button class="btn-success" style="font-size:10px; padding:6px; flex:1;" onclick="resolveProposal('${pid}', true)">Принять (${p.p}₽)</button>
-                    <button class="btn-info" style="font-size:10px; padding:6px; flex:1; background:#F59E0B;" onclick="resolveProposal('${pid}', false)">Без цены (0₽)</button>
-                    <button class="btn-danger" style="font-size:10px; padding:6px; width:auto;" onclick="rejectProposal('${pid}')">✕</button>
-                </div>
-            </div>`;
-        });
-        document.getElementById('admin-db-proposals').innerHTML = html || "<span style='font-size:11px; color:gray;'>Нет новых предложений</span>";
-    });
-}
-
-async function resolveProposal(pid, withPrice) {
-    if(!db) return;
-    try {
-        let docSnap = await db.collection('db_proposals').doc(pid).get();
-        if(!docSnap.exists) return;
-        let p = docSnap.data();
-        let cat = document.getElementById(`prop-cat-${pid}`).value || 'Разное';
-        let finalPrice = withPrice ? p.p : 0;
-        
-        let targetArr = p.type === 'mat' ? matDB : workDB;
-        let existing = targetArr.find(x => x.id === p.itemId);
-        
-        if(existing) {
-            existing.p = finalPrice;
-            existing.c = cat;
-        } else {
-            targetArr.push({ id: p.itemId, c: cat, n: p.n, p: finalPrice, u: p.u });
-        }
-        
-        await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}, {merge:true});
-        await db.collection('db_proposals').doc(pid).update({status: 'approved'});
-        showToast("Предложение внедрено!");
-        renderDbEditors();
-    } catch(e){ console.error(e); }
-}
-
-async function rejectProposal(pid) {
-    if(!db) return;
-    try {
-        await db.collection('db_proposals').doc(pid).update({status: 'rejected'});
-        showToast("Отклонено");
-    } catch(e){}
+async function requestPriceChange(type, id, newPrice) { 
+    newPrice = Number(newPrice); 
+    if (appUser.role === 'admin') { 
+        let dbArr = type === 'mat' ? matDB : workDB; let item = dbArr.find(x => x.id === id); 
+        if (item) item.p = newPrice; priceOverrides[id] = newPrice; 
+        try { if(db) { await db.collection('settings').doc('price_overrides').set({overrides: priceOverrides}); await db.collection('settings').doc('global_db').set({matDB: matDB, workDB: workDB}); } } catch(e){} 
+        showToast("✅ Цена изменена"); 
+    } else { showToast("Отправлено админу"); } 
 }
 
 function listenForApprovals() {
@@ -2082,5 +1863,19 @@ async function deleteUser(uid) {
     if(conf && db) { try { await db.collection('users').doc(uid).delete(); renderAdminUsers(); showToast("Удален"); } catch(e){} }
 }
 </script>
+
+<script id="EP_VISUAL_SINGLE_HTML_JS">
+function toggleAiFunctionsMenu(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const box = document.querySelector('.ai-functions-menu');
+    if (box) box.classList.toggle('open');
+}
+</script>
+
 </body>
 </html>
+
+<!-- EP_SINGLE_HTML_READY_VERSION: 1778505836 -->
