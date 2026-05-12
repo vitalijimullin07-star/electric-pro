@@ -6641,6 +6641,238 @@ async function deleteUser(uid) {
 })();
 </script>
 
+
+<script>
+/* === FORCE DB RENDER FIX 2026-05-13: independent fallback + global/local merge === */
+(function(){
+  var FORCE_MAT_FALLBACK = [{"id":"m1","c":"Кабель","n":"Кабель ВВГнг-LS 3х1.5 (Конкорд) круглый","p":57,"u":"м.п."},{"id":"m2","c":"Кабель","n":"Кабель ВВГнг-LS 3х2.5 (Конкорд) круглый","p":87,"u":"м.п."},{"id":"m3","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х1.5 (Конкорд) плоский","p":62,"u":"м.п."},{"id":"m4","c":"Кабель","n":"Кабель ВВГнг(п)-LS 3х2.5 (Конкорд) плоский","p":95,"u":"м.п."},{"id":"m14","c":"Расходники","n":"Подрозетник глубокий для бетона 68х64","p":12,"u":"шт"},{"id":"m15","c":"Расходники","n":"Подрозетник стандарт (ГКЛ/Бетон)","p":20,"u":"шт"},{"id":"m16","c":"Расходники","n":"Подрозетник Короѕ 75мм","p":95,"u":"шт"},{"id":"m17","c":"Расходники","n":"Коробка распределительная 100х100х40","p":120,"u":"шт"},{"id":"m27","c":"Расходники","n":"Гильза ГМЛ 4/6","p":15,"u":"шт"},{"id":"m29","c":"Расходники","n":"Термоусадка 12/4 (м)","p":80,"u":"м"},{"id":"w_m1","c":"Чистовая","n":"Розетка 220В (механизм)","p":250,"u":"шт"},{"id":"w_m2","c":"Чистовая","n":"Выключатель (механизм)","p":280,"u":"шт"},{"id":"w_m3","c":"Чистовая","n":"Слаботочная розетка (механизм)","p":350,"u":"шт"}];
+  var FORCE_WORK_FALLBACK = [{"id":"w44","c":"Алмазная резка","g":"Штроба 25х30","n":"Бетон","p":550,"u":"м.п."},{"id":"w45","c":"Алмазная резка","g":"Штроба 25х30","n":"Кирпич","p":400,"u":"м.п."},{"id":"w46","c":"Алмазная резка","g":"Штроба 25х30","n":"Панелька","p":700,"u":"м.п."},{"id":"w47","c":"Алмазная резка","g":"Штроба 25х30","n":"Мягкий мат.","p":400,"u":"м.п."},{"id":"w48","c":"Алмазная резка","g":"Штроба 50х50","n":"Бетон","p":1500,"u":"м.п."},{"id":"w49","c":"Алмазная резка","g":"Штроба 50х50","n":"Кирпич","p":1300,"u":"м.п."},{"id":"w50","c":"Алмазная резка","g":"Штроба 50х50","n":"Панелька","p":1900,"u":"м.п."},{"id":"w51","c":"Алмазная резка","g":"Штроба 50х50","n":"Мягкий мат.","p":900,"u":"м.п."},{"id":"w52","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Бетон","p":2200,"u":"м.п."},{"id":"w53","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Кирпич","p":1550,"u":"м.п."},{"id":"w54","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Панелька","p":2500,"u":"м.п."},{"id":"w55","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Мягкий мат.","p":1400,"u":"м.п."},{"id":"w56","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Бетон","p":600,"u":"шт"},{"id":"w57","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Кирпич","p":500,"u":"шт"},{"id":"w58","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Панелька","p":650,"u":"шт"},{"id":"w59","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Мягкий мат.","p":400,"u":"шт"},{"id":"w60","c":"Черновая электрика","g":"Вклейка подрозетников","n":"Все типы","p":100,"u":"шт"},{"id":"w61","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Бетон","p":400,"u":"мод."},{"id":"w62","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Кирпич","p":300,"u":"мод."},{"id":"w63","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Панелька","p":500,"u":"мод."},{"id":"w64","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Мягкий мат.","p":250,"u":"мод."},{"id":"w65","c":"Монтаж","g":"Прокладка кабеля","n":"Без гофры (Потолок)","p":120,"u":"м.п."},{"id":"w66","c":"Монтаж","g":"Прокладка кабеля","n":"В гофре (Пол)","p":150,"u":"м.п."},{"id":"w67","c":"Монтаж","g":"Распаячная коробка","n":"Сборка распред. коробки / коммутация","p":800,"u":"шт"},{"id":"w68","c":"Чистовая установка","g":"Механизмы","n":"Установка розетки 220В","p":500,"u":"шт"},{"id":"w69","c":"Чистовая установка","g":"Механизмы","n":"Установка выключателя","p":550,"u":"шт"},{"id":"w70","c":"Чистовая установка","g":"Механизмы","n":"Установка терморегулятора","p":900,"u":"шт"},{"id":"w71","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Бетон","p":650,"u":"шт"},{"id":"w72","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Кирпич","p":550,"u":"шт"},{"id":"w73","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Панелька","p":750,"u":"шт"},{"id":"w74","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Мягкий мат.","p":450,"u":"шт"},{"id":"w75","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Бетон","p":800,"u":"шт"},{"id":"w76","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Кирпич","p":700,"u":"шт"},{"id":"w77","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Панелька","p":850,"u":"шт"},{"id":"w78","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Мягкий мат.","p":500,"u":"шт"},{"id":"w79","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Бетон","p":6000,"u":"шт"},{"id":"w80","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Кирпич","p":4500,"u":"шт"},{"id":"w81","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Панелька","p":7000,"u":"шт"},{"id":"w82","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Мягкий мат.","p":4000,"u":"шт"},{"id":"w83","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Бетон","p":2500,"u":"шт"},{"id":"w84","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Кирпич","p":2000,"u":"шт"},{"id":"w85","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Панелька","p":3000,"u":"шт"},{"id":"w86","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Мягкий мат.","p":1900,"u":"шт"},{"id":"w87","c":"Щитовое","g":"Монтаж","n":"Сборка щита","p":500,"u":"мод."},{"id":"w89","c":"Щитовое","g":"Монтаж","n":"Установка БП в щит","p":900,"u":"ед"},{"id":"w91","c":"Монтаж","g":"Спецоборудование","n":"Подключение нагревателя","p":4000,"u":"ед"},{"id":"w92","c":"Монтаж","g":"Спецоборудование","n":"Система КУП","p":5000,"u":"ед"},{"id":"s_r1","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле времени","p":1250,"u":"шт"},{"id":"s_r2","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле освещения (в щите)","p":1250,"u":"шт"},{"id":"s_r3","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле температуры/жидкости","p":1700,"u":"шт"},{"id":"s_r4","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле контроля фаз","p":1450,"u":"шт"},{"id":"s_r5","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле напряжения","p":1150,"u":"шт"},{"id":"s_r6","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле управления нагрузкой","p":2050,"u":"шт"},{"id":"s_m1","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 220-240В на DIN","p":1000,"u":"шт"},{"id":"s_m2","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 220-240В на монтажную панель","p":1250,"u":"шт"},{"id":"s_m3","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 380-400В на DIN","p":1700,"u":"шт"},{"id":"s_m4","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 380-400В на монтажную панель","p":2200,"u":"шт"},{"id":"s_m5","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика под трансформаторы тока","p":2400,"u":"шт"},{"id":"s_m6","c":"Щитовое","g":"Счетчики","n":"Установка трансформатора тока (без подкл)","p":720,"u":"шт"},{"id":"s_p1","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на бетон","p":680,"u":"шт"},{"id":"s_p2","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на кирпич","p":600,"u":"шт"},{"id":"s_p3","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на ГКЛ","p":530,"u":"шт"},{"id":"s_p4","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на дерево","p":450,"u":"шт"},{"id":"s_p5","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка накладной силовой розетки 380В","p":1000,"u":"шт"},{"id":"s_p6","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка встраиваемой силовой розетки 380В","p":530,"u":"шт"},{"id":"s_p7","c":"Чистовая установка","g":"Механизмы","n":"Установка встраиваемой розетки/выкл в подрозетник","p":300,"u":"шт"},{"id":"s_p8","c":"Чистовая установка","g":"Механизмы","n":"Установка блока розеток/выкл","p":1200,"u":"шт"},{"id":"s_d1","c":"Черновая электрика","g":"Электроточки","n":"Установка накладного подрозетника","p":300,"u":"шт"},{"id":"s_d2","c":"Черновая электрика","g":"Электроточки","n":"Установка подрозетника","p":180,"u":"шт"},{"id":"s_d3","c":"Черновая электрика","g":"Электроточки","n":"Установка накладной распаечной коробки","p":450,"u":"шт"},{"id":"s_d4","c":"Черновая электрика","g":"Электроточки","n":"Установка встраиваемой распаечной коробки","p":300,"u":"шт"},{"id":"s_d5","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка термостата","p":380,"u":"шт"},{"id":"s_d6","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка встраиваемого датчика движения","p":330,"u":"шт"},{"id":"s_d7","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка звонка","p":680,"u":"шт"},{"id":"s_d8","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка кнопки звонка","p":450,"u":"шт"},{"id":"s_d9","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка ТВ краба","p":480,"u":"шт"},{"id":"s_sh1","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 2 модуля","p":180,"u":"шт"},{"id":"s_sh2","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 4-8 модулей","p":290,"u":"шт"},{"id":"s_sh3","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 12-24 модуля","p":330,"u":"шт"},{"id":"s_sh4","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 36-60 модулей","p":560,"u":"шт"},{"id":"s_sh5","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 72-96 модулей","p":780,"u":"шт"},{"id":"s_l1","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на кухне под шкафами","p":270,"u":"м.п."},{"id":"s_l2","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в натяжной потолок","p":390,"u":"м.п."},{"id":"s_l3","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на гипсокартон","p":300,"u":"м.п."},{"id":"s_l4","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в потолочный плинтус","p":350,"u":"м.п."},{"id":"s_l5","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в алюминиевый профиль","p":230,"u":"м.п."},{"id":"s_l6","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на карниз","p":350,"u":"м.п."},{"id":"s_l7","c":"Освещение","g":"LED Лента","n":"Установка светодиодной ленты в светильник","p":180,"u":"м.п."},{"id":"s_l8","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на улице","p":380,"u":"м.п."},{"id":"s_l9","c":"Освещение","g":"Алюм. профиль","n":"Установка накладного алюм. профиля на скотч","p":110,"u":"м.п."},{"id":"s_l10","c":"Освещение","g":"Алюм. профиль","n":"Установка накладного алюм. профиля со сверлением","p":290,"u":"м.п."},{"id":"s_l11","c":"Освещение","g":"Алюм. профиль","n":"Установка врезного алюм. профиля в готовый паз","p":120,"u":"м.п."},{"id":"s_l12","c":"Освещение","g":"Алюм. профиль","n":"Установка врезного алюм. профиля с подготовкой паза","p":390,"u":"м.п."},{"id":"s_c1","c":"Освещение","g":"Люстры и Светильники","n":"Сборка простой люстры","p":630,"u":"шт"},{"id":"s_c2","c":"Освещение","g":"Люстры и Светильники","n":"Сборка сложной люстры","p":870,"u":"шт"},{"id":"s_c3","c":"Освещение","g":"Люстры и Светильники","n":"Установка крюка под люстру","p":230,"u":"шт"},{"id":"s_c4","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры на готовый крюк","p":740,"u":"шт"},{"id":"s_c5","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры с креплением к потолку (простая)","p":1200,"u":"шт"},{"id":"s_c6","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры с креплением к потолку (сложная/ДУ)","p":2250,"u":"шт"},{"id":"s_c7","c":"Освещение","g":"Люстры и Светильники","n":"Установка тяжелой люстры с креплением на крюк","p":1950,"u":"шт"},{"id":"s_c8","c":"Освещение","g":"Люстры и Светильники","n":"Установка тяжелой люстры с креплением к потолку","p":3600,"u":"шт"},{"id":"s_c9","c":"Освещение","g":"Люстры и Светильники","n":"Установка настенного светильника, бра","p":450,"u":"шт"},{"id":"s_c10","c":"Освещение","g":"Люстры и Светильники","n":"Установка точечного светильника","p":750,"u":"шт"},{"id":"s_c11","c":"Освещение","g":"Люстры и Светильники","n":"Установка светодиодного светильника","p":680,"u":"шт"},{"id":"s_c12","c":"Освещение","g":"Люстры и Светильники","n":"Установка светильника Армстронг","p":380,"u":"шт"},{"id":"s_c13","c":"Освещение","g":"Люстры и Светильники","n":"Установка люминесцентного светильника","p":410,"u":"шт"},{"id":"s_c14","c":"Освещение","g":"Люстры и Светильники","n":"Установка трекового светильника","p":140,"u":"шт"},{"id":"s_c15","c":"Освещение","g":"Люстры и Светильники","n":"Монтаж шинопровода","p":450,"u":"м.п."},{"id":"s_c16","c":"Освещение","g":"Уличное освещение","n":"Установка уличного светильника на фасаде","p":830,"u":"шт"},{"id":"s_c17","c":"Освещение","g":"Уличное освещение","n":"Установка садово-паркового светильника","p":1350,"u":"шт"},{"id":"s_c18","c":"Освещение","g":"Люстры и Светильники","n":"Установка светильника Выход","p":480,"u":"шт"},{"id":"s_c19","c":"Освещение","g":"Уличное освещение","n":"Установка антивандального светильника","p":660,"u":"шт"},{"id":"s_dem1","c":"Демонтаж","g":"Освещение","n":"Демонтаж люстры","p":240,"u":"шт"},{"id":"s_dem2","c":"Демонтаж","g":"Освещение","n":"Демонтаж светильника","p":210,"u":"шт"},{"id":"s_dem3","c":"Демонтаж","g":"Электроточки","n":"Демонтаж розетки","p":200,"u":"шт"},{"id":"s_dem4","c":"Демонтаж","g":"Электроточки","n":"Демонтаж выключателя","p":200,"u":"шт"},{"id":"s_dem5","c":"Демонтаж","g":"Электроточки","n":"Демонтаж распаечной коробки","p":200,"u":"шт"},{"id":"s_dem6","c":"Демонтаж","g":"Электроточки","n":"Демонтаж дверного звонка","p":200,"u":"шт"},{"id":"s_dem7","c":"Демонтаж","g":"Щитовое","n":"Демонтаж реле времени","p":230,"u":"шт"},{"id":"s_dem8","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка до 8 модулей","p":110,"u":"шт"},{"id":"s_dem9","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка 12-36 модулей","p":260,"u":"шт"},{"id":"s_dem10","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка 48-96 модулей","p":470,"u":"шт"},{"id":"s_dem11","c":"Демонтаж","g":"Щитовое","n":"Демонтаж автомата","p":150,"u":"шт"},{"id":"s_dem12","c":"Демонтаж","g":"Щитовое","n":"Демонтаж УЗО","p":150,"u":"шт"},{"id":"s_dem13","c":"Демонтаж","g":"Щитовое","n":"Демонтаж дифавтомата","p":150,"u":"шт"},{"id":"s_dem14","c":"Демонтаж","g":"Щитовое","n":"Демонтаж рубильника","p":150,"u":"шт"},{"id":"s_dem15","c":"Демонтаж","g":"Щитовое","n":"Демонтаж магнитного пускателя","p":140,"u":"шт"}];
+
+  function $(id){ return document.getElementById(id); }
+  function toast(t){ if(typeof showToast === 'function') showToast(t); else alert(t); }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]; });
+  }
+  function norm(s){
+    return String(s || '').toLowerCase().replace(/ё/g,'е').replace(/×/g,'x').replace(/с/g,'c').replace(/а/g,'a').replace(/в/g,'b').replace(/[^a-zа-я0-9]+/g,' ').trim();
+  }
+  function groupOf(it){ return (it && (it.g || it.sc || it.subcategory || it.group)) || ''; }
+  function sig(type,it){ return 'sig:' + type + '|' + norm([it && it.c, groupOf(it), it && it.n, it && it.u].filter(Boolean).join('|')); }
+  function enc(it){ try{ return encodeURIComponent(JSON.stringify(it || {})); }catch(e){ return ''; } }
+  function dec(v){ try{ return JSON.parse(decodeURIComponent(v || '{}')); }catch(e){ return null; } }
+  function delStore(type){ return type === 'work' ? 'ep_deleted_work_ids_local_v1' : 'ep_deleted_mat_ids_local_v1'; }
+  function getDeleted(type){ try{ return new Set(JSON.parse(localStorage.getItem(delStore(type)) || '[]')); }catch(e){ return new Set(); } }
+  function setDeleted(type,set){ try{ localStorage.setItem(delStore(type), JSON.stringify(Array.from(set))); }catch(e){} }
+
+  function parseLS(key){
+    try{ var a = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; }
+  }
+
+  function localBase(type){
+    var arr = type === 'work' ? parseLS('user_db_work_v31') : parseLS('user_db_mat_v31');
+
+    if(!arr.length){
+      try{
+        if(type === 'work' && Array.isArray(workDB) && workDB.length) arr = workDB.slice();
+        if(type === 'mat' && Array.isArray(matDB) && matDB.length) arr = matDB.slice();
+      }catch(e){}
+    }
+
+    if(!arr.length) arr = (type === 'work' ? FORCE_WORK_FALLBACK : FORCE_MAT_FALLBACK).slice();
+    return arr.map(function(x){ return Object.assign({}, x, {__src:'local'}); });
+  }
+
+  function writeLocal(type, arr){
+    arr = (arr || []).map(function(x){ var y=Object.assign({},x); delete y.__src; return y; });
+    try{
+      if(type === 'work') workDB = arr.slice();
+      else matDB = arr.slice();
+    }catch(e){}
+    try{
+      if(typeof safeSet === 'function') safeSet(type === 'work' ? 'user_db_work_v31' : 'user_db_mat_v31', JSON.stringify(arr));
+      else localStorage.setItem(type === 'work' ? 'user_db_work_v31' : 'user_db_mat_v31', JSON.stringify(arr));
+    }catch(e){}
+    try{
+      if(typeof db !== 'undefined' && db && typeof appUser !== 'undefined' && appUser && appUser.uid){
+        var payload = { updatedAt:new Date().toISOString() };
+        payload[type === 'work' ? 'workDB' : 'matDB'] = arr;
+        db.collection('user_db').doc(appUser.uid).set(payload, { merge:true });
+      }
+    }catch(e){}
+  }
+
+  window.EP_FORCE_GLOBAL = window.EP_FORCE_GLOBAL || { matDB: [], workDB: [], ts: 0 };
+
+  function cacheGlobalFromKnown(){
+    var out = { matDB: [], workDB: [] };
+    try{ if(window.EP_ULTIMATE_DB_CACHE) { out.matDB = window.EP_ULTIMATE_DB_CACHE.matDB || out.matDB; out.workDB = window.EP_ULTIMATE_DB_CACHE.workDB || out.workDB; } }catch(e){}
+    try{ if(window.EP_HARD_GLOBAL_CACHE) { out.matDB = out.matDB.length ? out.matDB : (window.EP_HARD_GLOBAL_CACHE.matDB || []); out.workDB = out.workDB.length ? out.workDB : (window.EP_HARD_GLOBAL_CACHE.workDB || []); } }catch(e){}
+    try{ if(window.EP_GLOBAL_DB_VISIBLE_CACHE) { out.matDB = out.matDB.length ? out.matDB : (window.EP_GLOBAL_DB_VISIBLE_CACHE.matDB || []); out.workDB = out.workDB.length ? out.workDB : (window.EP_GLOBAL_DB_VISIBLE_CACHE.workDB || []); } }catch(e){}
+    try{
+      var ls = JSON.parse(localStorage.getItem('ep_global_cache_ultimate_v1') || localStorage.getItem('ep_global_cache_force_v1') || '{}');
+      if(!out.matDB.length && Array.isArray(ls.matDB)) out.matDB = ls.matDB;
+      if(!out.workDB.length && Array.isArray(ls.workDB)) out.workDB = ls.workDB;
+    }catch(e){}
+    return out;
+  }
+
+  async function readGlobal(force){
+    if(!force && window.EP_FORCE_GLOBAL.ts && Date.now() - window.EP_FORCE_GLOBAL.ts < 5000) return window.EP_FORCE_GLOBAL;
+
+    var known = cacheGlobalFromKnown();
+    var out = { matDB: known.matDB || [], workDB: known.workDB || [], ts: Date.now() };
+
+    try{
+      if(typeof db !== 'undefined' && db){
+        var doc = await db.collection('settings').doc('global_db').get();
+        if(doc.exists){
+          var d = doc.data() || {};
+          if(Array.isArray(d.matDB)) out.matDB = d.matDB;
+          if(Array.isArray(d.workDB)) out.workDB = d.workDB;
+        }
+      }
+    }catch(e){ console.warn('force global read failed', e); }
+
+    window.EP_FORCE_GLOBAL = out;
+    try{ localStorage.setItem('ep_global_cache_force_v1', JSON.stringify(out)); }catch(e){}
+    return out;
+  }
+
+  function merged(type){
+    var del = getDeleted(type);
+    var map = new Map();
+
+    function add(it, src){
+      if(!it || !it.n) return;
+      var x = Object.assign({}, it, {__src:src});
+      var k = sig(type,x);
+      if(del.has(k) || (x.id && del.has('id:'+x.id)) || (x.originGlobalId && del.has('id:'+x.originGlobalId))) return;
+      if(!map.has(k) || src === 'local') map.set(k,x);
+    }
+
+    localBase(type).forEach(function(x){ add(x,'local'); });
+    var g = type === 'work' ? (window.EP_FORCE_GLOBAL.workDB || []) : (window.EP_FORCE_GLOBAL.matDB || []);
+    g.forEach(function(x){ add(x,'global'); });
+
+    if(!map.size) (type === 'work' ? FORCE_WORK_FALLBACK : FORCE_MAT_FALLBACK).forEach(function(x){ add(x,'start'); });
+    return Array.from(map.values());
+  }
+
+  function render(arr,type,prefix,mode){
+    var data = {};
+    (arr || []).forEach(function(it){
+      var c = it.c || 'Разное', g = groupOf(it) || 'Разное';
+      (data[c]||(data[c]={})); (data[c][g]||(data[c][g]=[])).push(it);
+    });
+
+    var html='', n=0;
+    Object.keys(data).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(c){
+      var cid = prefix + '_c_' + (n++);
+      var catStyle = type === 'work' ? 'style="color:var(--orange);background:rgba(245,158,11,.08);"' : '';
+      html += '<div class="cat-header" '+catStyle+' onclick="toggleCat(\''+cid+'\')">'+esc(c)+'</div><div class="cat-body" id="'+cid+'">';
+      Object.keys(data[c]).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(g){
+        var gid = prefix + '_g_' + (n++);
+        html += '<div class="ep-db-sub-header" onclick="epForceToggleSub(\''+gid+'\', event)"><span>'+esc(g)+'</span><small>открыть</small></div><div class="ep-db-sub-body" id="'+gid+'">';
+        data[c][g].sort(function(a,b){return String(a.n||'').localeCompare(String(b.n||''),'ru');}).forEach(function(it){
+          var item = enc(it);
+          var src = it.__src === 'global' ? '<span style="color:#8B5CF6;font-weight:900;">🌍 глобальная</span>' : (it.__src === 'start' ? '<span style="color:#64748B;font-weight:900;">📦 стартовая</span>' : '<span style="color:#10B981;font-weight:900;">👤 моя</span>');
+          var meta = esc(g)+' • '+src+' • '+(Number(it.p)||0)+' ₽ / '+esc(it.u || 'шт');
+
+          if(mode === 'global'){
+            html += '<label class="mat-item ep-select-row"><input type="checkbox" class="ep-global-check" data-item="'+esc(item)+'" style="width:22px;height:22px;accent-color:var(--primary);"><div style="flex:1;"><div class="ep-db-item-title">'+esc(it.n||'Позиция')+'</div><div class="ep-db-item-meta">'+meta+'</div></div></label>';
+          } else if(mode === 'editor'){
+            html += '<div class="emp-row" style="align-items:flex-start;"><label style="display:flex;gap:8px;align-items:flex-start;flex:1;"><input type="checkbox" class="ep-db-delete-check" data-type="'+type+'" data-item="'+esc(item)+'" style="width:22px;height:22px;accent-color:#EF4444;margin-top:4px;"><div style="flex:1;"><b>'+esc(it.n||'Позиция')+'</b><br><span style="color:var(--gray);font-size:10px;">'+meta+'</span></div></label><div class="ep-row-actions"><input type="number" value="'+(Number(it.p)||0)+'" onchange="epForceEditPrice(\''+type+'\', \''+esc(item)+'\', this.value)" style="width:74px;margin:0;padding:4px;text-align:center;"><button class="btn-danger" onclick="epForceDeleteOne(\''+type+'\', \''+esc(item)+'\')" style="white-space:nowrap;">Удалить позицию</button></div></div>';
+          } else {
+            var color = type === 'work' ? 'background:var(--orange);' : '';
+            html += '<div class="mat-item"><div style="flex:1;"><div class="ep-db-item-title">'+esc(it.n||'Позиция')+'</div><div class="ep-db-item-meta">'+meta+'</div></div><button class="mat-add-btn" style="'+color+'width:auto;margin:0;" onclick="promptAdd(\''+esc(item)+'\', \''+type+'\')">+ Добавить</button></div>';
+          }
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    return html || '<div style="padding:15px;color:var(--gray);font-weight:700;">Позиции не найдены</div>';
+  }
+
+  window.epForceToggleSub = function(id,e){ if(e) e.stopPropagation(); var el=$(id); if(el) el.classList.toggle('active'); };
+
+  function upsertLocal(type,it){
+    var cleanIt = Object.assign({}, it);
+    delete cleanIt.__src;
+    var origin = cleanIt.originGlobalId || cleanIt.id || '';
+    cleanIt.originGlobalId = origin;
+    if(!String(cleanIt.id || '').startsWith('local_')) cleanIt.id = 'local_' + type + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    var arr = localBase(type).map(function(x){ var y=Object.assign({},x); delete y.__src; return y; });
+    var k = sig(type,cleanIt);
+    var idx = arr.findIndex(function(x){ return sig(type,x) === k || (origin && String(x.originGlobalId||'') === String(origin)); });
+    if(idx >= 0) { cleanIt.id = arr[idx].id || cleanIt.id; arr[idx] = Object.assign({}, arr[idx], cleanIt); writeLocal(type,arr); return 'updated'; }
+    arr.push(cleanIt); writeLocal(type,arr); return 'added';
+  }
+
+  window.openMatCatalog = async function(){
+    var el = $('mat-cat-list'); if(el) el.innerHTML = '<div style="padding:15px;color:var(--gray);font-weight:700;">Загружаю базу...</div>';
+    if(typeof openModal === 'function') openModal('matCatModal');
+    await readGlobal(true);
+    if(el) el.innerHTML = render(merged('mat'), 'mat', 'force_mat_catalog', 'catalog');
+  };
+
+  window.openWorkCatalog = async function(){
+    var el = $('work-cat-list'); if(el) el.innerHTML = '<div style="padding:15px;color:var(--gray);font-weight:700;">Загружаю базу...</div>';
+    if(typeof openModal === 'function') openModal('workModal');
+    await readGlobal(true);
+    if(el) el.innerHTML = render(merged('work'), 'work', 'force_work_catalog', 'catalog');
+  };
+
+  window.renderDbEditors = async function(){
+    var em=$('editor-mat-list'), ew=$('editor-work-list');
+    if(em) em.innerHTML = '<div style="padding:12px;color:var(--gray);font-weight:700;">Загружаю материалы...</div>';
+    if(ew) ew.innerHTML = '<div style="padding:12px;color:var(--gray);font-weight:700;">Загружаю работы...</div>';
+    await readGlobal(true);
+    var toolbar = function(type){ return '<div style="border:1px solid var(--border);border-radius:14px;padding:10px;margin:10px 0;background:rgba(239,68,68,.05);"><div style="font-weight:900;color:var(--danger);margin-bottom:6px;">🗑 Удаление позиций</div><div style="font-size:11px;color:var(--gray);margin-bottom:8px;">Удаляет только у мастера. Глобальная база не трогается.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;"><button class="btn-info" style="margin:0;padding:10px;" onclick="epForceSelectDelete(\''+type+'\', true)">✅ Выделить все</button><button class="btn-vendor" style="margin:0;padding:10px;" onclick="epForceSelectDelete(\''+type+'\', false)">⬜ Убрать галочки</button></div><button class="btn-danger" style="width:100%;margin:0;padding:12px;" onclick="epForceDeleteSelected(\''+type+'\')">Удалить выбранные у мастера</button></div>'; };
+    if(em) em.innerHTML = toolbar('mat') + render(merged('mat'), 'mat', 'force_editor_mat', 'editor');
+    if(ew) ew.innerHTML = toolbar('work') + render(merged('work'), 'work', 'force_editor_work', 'editor');
+  };
+
+  window.epOpenGlobalDbModal = async function(){
+    if(typeof showLoader === 'function') showLoader('Загрузка глобальной базы...', '🌍');
+    await readGlobal(true);
+    if(typeof hideLoader === 'function') hideLoader();
+    window.EP_FORCE_GLOBAL_TYPE = 'mat';
+    epForceRenderGlobal();
+    if(typeof openModal === 'function') openModal('globalDbModal');
+  };
+  window.epSwitchGlobalDbTab = function(type){ window.EP_FORCE_GLOBAL_TYPE = type === 'work' ? 'work' : 'mat'; epForceRenderGlobal(); };
+  window.epGlobalSelectAll = function(flag){ document.querySelectorAll('#ep-global-db-list .ep-global-check').forEach(function(ch){ ch.checked=!!flag; }); };
+  window.epForceRenderGlobal = function(){
+    var type = window.EP_FORCE_GLOBAL_TYPE || 'mat';
+    var mb=$('ep-global-tab-mat'), wb=$('ep-global-tab-work'); if(mb) mb.classList.toggle('active',type==='mat'); if(wb) wb.classList.toggle('active',type==='work');
+    var list=$('ep-global-db-list'); if(!list) return;
+    var arr = (type==='work' ? (window.EP_FORCE_GLOBAL.workDB||[]) : (window.EP_FORCE_GLOBAL.matDB||[])).map(function(x){ return Object.assign({},x,{__src:'global'}); });
+    list.innerHTML = render(arr, type, 'force_global_'+type, 'global');
+  };
+  window.epAddSelectedGlobalToMyDb = async function(){
+    var type = window.EP_FORCE_GLOBAL_TYPE || 'mat';
+    var checks = Array.from(document.querySelectorAll('#ep-global-db-list .ep-global-check:checked'));
+    if(!checks.length) return toast('Выберите позиции');
+    var added=0, updated=0, bad=0;
+    checks.forEach(function(ch){ var it=dec(ch.dataset.item); if(!it||!it.n){bad++;return;} var r=upsertLocal(type,it); if(r==='added') added++; else updated++; });
+    await readGlobal(true);
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    toast('✅ В мою базу: добавлено '+added+', обновлено '+updated+(bad?', ошибок '+bad:''));
+  };
+
+  window.epForceSelectDelete=function(type,flag){ document.querySelectorAll('.ep-db-delete-check[data-type="'+type+'"]').forEach(function(ch){ ch.checked=!!flag; }); };
+  window.epForceDeleteOne=async function(type,item){ var it=dec(item); if(!it) return; var d=getDeleted(type); d.add(sig(type,it)); if(it.id)d.add('id:'+it.id); if(it.originGlobalId)d.add('id:'+it.originGlobalId); setDeleted(type,d); var arr=localBase(type).filter(function(x){return sig(type,x)!==sig(type,it) && String(x.id||'')!==String(it.id||'');}); writeLocal(type,arr); if(typeof renderDbEditors==='function')renderDbEditors(); toast('✅ Удалено только у мастера'); };
+  window.epForceDeleteSelected=async function(type){ var checks=Array.from(document.querySelectorAll('.ep-db-delete-check[data-type="'+type+'"]:checked')); if(!checks.length)return toast('Выберите позиции'); checks.forEach(function(ch){ var it=dec(ch.dataset.item); if(it) epForceDeleteOne(type, enc(it)); }); };
+  window.epForceEditPrice=function(type,item,price){ var it=dec(item); if(!it)return; it.p=Number(price)||0; upsertLocal(type,it); toast('✅ Цена изменена у мастера'); };
+
+  var oldPrompt = window.promptAdd;
+  window.promptAdd = function(item,type){ var it=dec(item); if(!it||!it.n){ var arr=merged(type); it=arr.find(function(x){return sig(type,x)===item||String(x.id||'')===String(item);}); } if(!it&&typeof oldPrompt==='function')return oldPrompt(item,type); if(!it)return toast('Позиция не найдена'); pendingAdd={item:it,type:type}; var n=$('qty-prompt-name'), q=$('qty-input'); if(n)n.innerText=it.n||'Позиция'; if(q)q.value=1; if(typeof openModal==='function')openModal('qtyPromptModal'); };
+
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ readGlobal(true).then(function(){ if(typeof renderDbEditors==='function') renderDbEditors(); }); }, 700); });
+})();
+</script>
+
 </body>
 </html>
 
