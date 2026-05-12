@@ -6872,6 +6872,185 @@ async function deleteUser(uid) {
   document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ readGlobal(true).then(function(){ if(typeof renderDbEditors==='function') renderDbEditors(); }); }, 700); });
 })();
 </script>
+<script id="EP_ANTI_FREEZE_DB_PATCH">
+(function(){
+    // Безопасные утилиты для работы с текстом
+    function qs(id){ return document.getElementById(id); }
+    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]; }); }
+    function clean(s){ return String(s || '').toLowerCase().replace(/ё/g,'е').replace(/×/g,'x').replace(/с/g,'c').replace(/а/g,'a').replace(/в/g,'b').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
+    function groupOf(it){ return (it && (it.g || it.sc || it.subcategory || it.group)) || ''; }
+
+    // Получение локальной базы (гарантированно без зависаний)
+    function localDb(type){
+        try{
+            var arr = type === 'work' ? window.workDB : window.matDB;
+            if(!Array.isArray(arr)) arr = [];
+            if(type === 'mat' && !arr.length && typeof FULL_MAT_INIT !== 'undefined') arr = FULL_MAT_INIT.slice();
+            if(type === 'work' && !arr.length && typeof FULL_WORK_INIT !== 'undefined') arr = FULL_WORK_INIT.slice();
+            return arr;
+        }catch(e){ return []; }
+    }
+
+    function deletedSet(type){
+        try{ return new Set(JSON.parse(localStorage.getItem(type === 'work' ? 'ep_deleted_work_ids_local_v1' : 'ep_deleted_mat_ids_local_v1') || '[]')); }catch(e){ return new Set(); }
+    }
+
+    function idKey(it){ return it && it.id ? 'id:' + String(it.id) : ''; }
+    function sigKey(type,it){ return 'sig:' + type + '|' + clean([it && it.c, groupOf(it), it && it.n, it && it.u].filter(Boolean).join('|')); }
+
+    // Безопасное слияние баз
+    function merged(type){
+        var del = deletedSet(type);
+        var local = localDb(type).map(function(x){ return Object.assign({}, x, {__src:'local'}); });
+        var globalCache = window.EP_HARD_GLOBAL_CACHE || { matDB: [], workDB: [] };
+        var global = (type === 'work' ? globalCache.workDB : globalCache.matDB).map(function(x){ return Object.assign({}, x, {__src:'global'}); });
+        var map = new Map();
+
+        local.forEach(function(it){
+            if(del.has(idKey(it)) || del.has(sigKey(type,it))) return;
+            map.set(sigKey(type,it), it);
+        });
+        global.forEach(function(it){
+            if(del.has(idKey(it)) || del.has(sigKey(type,it))) return;
+            var k = sigKey(type,it);
+            if(!map.has(k)) map.set(k, it);
+        });
+        return Array.from(map.values());
+    }
+
+    // Отрисовка списков
+    function renderList(arr, type, prefix, mode){
+        var data = {};
+        (arr || []).forEach(function(it){
+            var c = it.c || 'Разное';
+            var g = groupOf(it) || 'Разное';
+            if(!data[c]) data[c] = {};
+            if(!data[c][g]) data[c][g] = [];
+            data[c][g].push(it);
+        });
+        var html = '', i = 0;
+        Object.keys(data).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(c){
+            var cid = prefix + '_c_' + (i++);
+            var catStyle = type === 'work' ? 'style="color:var(--orange);background:rgba(245,158,11,.08);"' : '';
+            html += '<div class="cat-header" '+catStyle+' onclick="toggleCat(\''+cid+'\')">'+esc(c)+'</div><div class="cat-body" id="'+cid+'">';
+            Object.keys(data[c]).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(g){
+                var gid = prefix + '_g_' + (i++);
+                html += '<div class="ep-db-sub-header" onclick="epAntiFreezeToggle(\''+gid+'\', event)"><span>'+esc(g)+'</span><small>открыть</small></div><div class="ep-db-sub-body" id="'+gid+'">';
+                data[c][g].sort(function(a,b){return String(a.n||'').localeCompare(String(b.n||''),'ru');}).forEach(function(it){
+                    var sk = sigKey(type,it);
+                    var src = it.__src === 'global' ? '<span style="color:#8B5CF6;font-weight:900;">🌍 глобальная</span>' : '<span style="color:#10B981;font-weight:900;">👤 моя</span>';
+                    var meta = esc(g) + ' • ' + src + ' • ' + (Number(it.p)||0) + ' ₽ / ' + esc(it.u || 'шт');
+
+                    if(mode === 'editor'){
+                        html += '<div class="emp-row" style="align-items:flex-start;">' +
+                          '<label style="display:flex;gap:8px;align-items:flex-start;flex:1;">' +
+                          '<input type="checkbox" class="ep-db-delete-check" data-type="'+type+'" data-sig="'+esc(sk)+'" data-id="'+esc(String(it.id||''))+'" style="width:22px;height:22px;accent-color:#EF4444;margin-top:4px;">' +
+                          '<div style="flex:1;"><b>'+esc(it.n || 'Позиция')+'</b><br><span style="color:var(--gray);font-size:10px;">'+meta+'</span></div></label>' +
+                          '<div class="ep-row-actions">' +
+                          '<input type="number" value="'+(Number(it.p)||0)+'" onchange="requestPriceChange(\''+type+'\', \''+esc(String(it.id||''))+'\', this.value)" style="width:72px;margin:0;padding:4px;text-align:center;">' +
+                          '<button class="btn-danger" onclick="epHardDeleteLocalPosition(\''+type+'\', \''+esc(sk)+'\', \''+esc(String(it.id||''))+'\')" style="white-space:nowrap;">Удалить</button>' +
+                          '</div></div>';
+                    } else {
+                        var color = type === 'work' ? 'background:var(--orange);' : '';
+                        html += '<div class="mat-item"><div style="flex:1;"><div class="ep-db-item-title">'+esc(it.n || 'Позиция')+'</div><div class="ep-db-item-meta">'+meta+'</div></div>' +
+                          '<button class="mat-add-btn" style="'+color+'width:auto;margin:0;" onclick="promptAdd(\''+esc(sk)+'\', \''+type+'\')">+ Добавить</button></div>';
+                    }
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+        return html || '<div style="padding:15px;color:var(--gray);font-weight:700;">Позиции не найдены</div>';
+    }
+
+    window.epAntiFreezeToggle = function(id,e){ if(e) e.stopPropagation(); var el = qs(id); if(el) el.classList.toggle('active'); };
+
+    // Фоновая загрузка из облака с жестким тайм-аутом (3 секунды)
+    async function fetchGlobalSafe(){
+        if(window.EP_HARD_GLOBAL_CACHE && window.EP_HARD_GLOBAL_CACHE.loadedAt && Date.now() - window.EP_HARD_GLOBAL_CACHE.loadedAt < 10000) return;
+        try {
+            if(typeof db !== 'undefined' && db){
+                var doc = await Promise.race([
+                    db.collection('settings').doc('global_db').get(),
+                    new Promise(function(_, reject) { setTimeout(function(){ reject(new Error('timeout')); }, 3000); })
+                ]);
+                if(doc && doc.exists){
+                    var d = doc.data() || {};
+                    window.EP_HARD_GLOBAL_CACHE = {
+                        matDB: Array.isArray(d.matDB) ? d.matDB : [],
+                        workDB: Array.isArray(d.workDB) ? d.workDB : [],
+                        loadedAt: Date.now()
+                    };
+                }
+            }
+        } catch(e) {
+            console.warn('Фоновая загрузка БД отменена/не удалась:', e.message);
+        }
+    }
+
+    // Мгновенное открытие каталогов
+    window.openMatCatalog = function() {
+        var el = qs('mat-cat-list');
+        if(typeof openModal === 'function') openModal('matCatModal');
+        // Отрисовываем мгновенно из локальной памяти
+        if(el) el.innerHTML = renderList(merged('mat'), 'mat', 'af_mat', 'catalog');
+
+        // Фоново проверяем обновления
+        fetchGlobalSafe().then(function(){
+            if(el && document.getElementById('matCatModal').style.display !== 'none') {
+                el.innerHTML = renderList(merged('mat'), 'mat', 'af_mat', 'catalog');
+            }
+        });
+    };
+
+    window.openWorkCatalog = function() {
+        var el = qs('work-cat-list');
+        if(typeof openModal === 'function') openModal('workModal');
+        // Отрисовываем мгновенно
+        if(el) el.innerHTML = renderList(merged('work'), 'work', 'af_work', 'catalog');
+
+        // Фоново проверяем обновления
+        fetchGlobalSafe().then(function(){
+            if(el && document.getElementById('workModal').style.display !== 'none') {
+                el.innerHTML = renderList(merged('work'), 'work', 'af_work', 'catalog');
+            }
+        });
+    };
+
+    function toolbar(type){
+        var title = type === 'mat' ? 'Материалы' : 'Работы';
+        return '<div style="border:1px solid var(--border);border-radius:14px;padding:10px;margin:10px 0;background:rgba(239,68,68,.05);">' +
+          '<div style="font-weight:900;color:var(--danger);margin-bottom:6px;">🗑 Удаление позиций: '+title+'</div>' +
+          '<div style="font-size:11px;color:var(--gray);margin-bottom:8px;">Удаляет/скрывает только у мастера. Глобальная база не трогается.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+          '<button class="btn-info" style="margin:0;padding:10px;" onclick="epHardSelectDelete(\''+type+'\', true)">✅ Выделить все</button>' +
+          '<button class="btn-vendor" style="margin:0;padding:10px;" onclick="epHardSelectDelete(\''+type+'\', false)">⬜ Убрать галочки</button>' +
+          '</div>' +
+          '<button class="btn-danger" style="width:100%;margin:0;padding:12px;" onclick="epHardDeleteSelected(\''+type+'\')">Удалить выбранные у мастера</button>' +
+          '</div>';
+    }
+
+    // Мгновенное открытие настроек (База Данных Редактор)
+    window.renderDbEditors = function() {
+        var updateUI = function() {
+            var cats = qs('db-cats');
+            if(cats){
+                var all = merged('mat').concat(merged('work'));
+                cats.innerHTML = Array.from(new Set(all.map(function(x){ return x.c || 'Разное'; }))).sort(function(a,b){return a.localeCompare(b,'ru');}).map(function(c){ return '<option value="'+esc(c)+'">'; }).join('');
+            }
+            var em = qs('editor-mat-list'), ew = qs('editor-work-list');
+            if(em) em.innerHTML = toolbar('mat') + renderList(merged('mat'), 'mat', 'af_ed_mat', 'editor');
+            if(ew) ew.innerHTML = toolbar('work') + renderList(merged('work'), 'work', 'af_ed_work', 'editor');
+        };
+
+        updateUI(); // Мгновенно
+        fetchGlobalSafe().then(function(){
+            var modal = document.getElementById('settModal');
+            if(modal && modal.style.display !== 'none') updateUI(); // Обновляем, если есть новые данные и окно еще открыто
+        });
+    };
+})();
+</script>
 
 </body>
 </html>
