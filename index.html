@@ -113,6 +113,12 @@
         .logic-label { font-size: 11px; font-weight: bold; color: var(--primary); display: block; margin-bottom: 5px; text-transform: uppercase; }
         .logic-row { margin-bottom: 10px; }
 
+
+        details.logic-group summary::-webkit-details-marker { display:none; }
+        details.logic-group summary { list-style:none; }
+        details.logic-group summary:after { content:' раскрыть'; float:right; color:var(--gray); font-size:10px; text-transform:none; }
+        details.logic-group[open] summary:after { content:' свернуть'; }
+
         @media print {
             body, html { background: white; margin: 0; padding: 0; overflow: visible !important; height: auto !important; }
             .no-print, .container, .burger-menu, .burger-overlay { display: none !important; }
@@ -601,23 +607,35 @@ button:active { transform: scale(.985); }
     <div class="modal-content glass">
         <div class="close-x" onclick="closeModal('logicModal')">×</div>
         <h2 style="color: var(--primary); margin-top:0; font-size:18px;">⚙️ Логика расчетов</h2>
-        
-        <div class="logic-group">
-            <span class="logic-label">Цены для авто-калькуляторов (Руб)</span>
+
+        <details class="logic-group" open>
+            <summary class="logic-label" style="cursor:pointer;">🛡 Щиты — работы и расходка</summary>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Сборка щита, за 1 модуль:</label><input type="number" id="logic-price-shield" placeholder="500"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Установка щита, шт:</label><input type="number" id="logic-shield-install" placeholder="2500"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Подключение вводного кабеля, шт:</label><input type="number" id="logic-shield-input-connect" placeholder="1500"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Прозвонка / проверка линий, за линию:</label><input type="number" id="logic-shield-test-line" placeholder="150"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Маркировка линий, за линию:</label><input type="number" id="logic-shield-mark-line" placeholder="100"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Составление однолинейной схемы:</label><input type="number" id="logic-shield-scheme" placeholder="4000"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Ниша щита, за модуль:</label><input type="number" id="logic-shield-niche-module" placeholder="400"></div>
+            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Штроба вводная 100×50, за м.п.:</label><input type="number" id="logic-shield-input-groove" placeholder="1500"></div>
+            <p style="font-size:10px; color:var(--gray); margin:6px 0 0; line-height:1.35;">Эти цены сохраняются в логике и используются при генерации щита. Работы попадают в смету автоматически.</p>
+        </details>
+
+        <details class="logic-group">
+            <summary class="logic-label" style="cursor:pointer;">🧱 Пулы / трассы / подрозетники</summary>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Установка механизма:</label><input type="number" id="logic-price-soc" placeholder="500"></div>
-            <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Сборка щита (за 1 мод):</label><input type="number" id="logic-price-shield" placeholder="500"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Высверливание (Бетон):</label><input type="number" id="logic-price-drill" placeholder="600"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Штроба (Бетон, метр):</label><input type="number" id="logic-price-shtroba" placeholder="550"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Укладка по потолку:</label><input type="number" id="logic-price-cab-ceil" placeholder="120"></div>
-        </div>
+        </details>
         
-        <div class="logic-group">
-            <span class="logic-label">Расходники на соединения (ГМЛ/WAGO/СИЗ)</span>
+        <details class="logic-group">
+            <summary class="logic-label" style="cursor:pointer;">🔗 Соединения / распредкоробки</summary>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Кол-во спусков розеток на 1 коробку:</label><input type="number" id="logic-soc-jb" placeholder="3"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Шт на коробку розеток:</label><input type="number" id="logic-conn-soc" placeholder="3"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Шт на коробку выключателя:</label><input type="number" id="logic-conn-sw" placeholder="3"></div>
             <div class="logic-row"><label style="font-size:11px; color:var(--gray);">Шт на коробку проходного/перекрест:</label><input type="number" id="logic-conn-pass" placeholder="4"></div>
-        </div>
+        </details>
 
         <button class="btn-primary" style="width:100%; padding:14px;" onclick="saveLogic()">Сохранить настройки</button>
     </div>
@@ -631,42 +649,68 @@ button:active { transform: scale(.985); }
         <button class="btn-info" style="width:100%; margin-bottom:15px; padding:12px;" onclick="closeModal('configModal'); openMatCatalog();">🛠 Ручная сборка (Из базы данных)</button>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Корпус:</label><select id="cfg-brand-box"><option>Tekfor</option><option>ABB</option><option>Schneider</option><option>IEK</option></select></div>
-            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Автоматы:</label><select id="cfg-brand-auto"><option>IEK</option><option>ABB</option><option>Schneider</option></select></div>
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Марка щита:</label><select id="cfg-brand-box"><option>Tekfor</option><option>ABB</option><option>Schneider</option><option>IEK</option><option>EKF</option><option>Legrand</option></select></div>
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Марка автоматики:</label><select id="cfg-brand-auto"><option>IEK</option><option>ABB</option><option>Schneider</option><option>EKF</option><option>Legrand</option></select></div>
         </div>
-        <select id="cfg-phase" style="margin-bottom:10px;"><option value="1">220В (1 фаза)</option><option value="3">380B (3 фазы)</option></select>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Фаза:</label><select id="cfg-phase"><option value="1">220В (1 фаза)</option><option value="3">380В (3 фазы)</option></select></div>
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Автоматы тип:</label><select id="cfg-auto-curve"><option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="D">D</option></select></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Тип УЗО/ДИФ:</label><select id="cfg-rcd-type"><option value="A">A</option><option value="AC">AC</option><option value="B">B</option></select></div>
+            <div><label style="font-size: 10px; font-weight:bold; color:var(--gray);">Защита:</label><select id="cfg-protection-type"><option value="uzo_auto">УЗО + автоматы линий</option><option value="dif_auto">ДИФ + автоматы линий</option><option value="main_dif_auto">Главный ДИФ + автоматы</option><option value="mixed">Смешанный вариант</option></select></div>
+        </div>
+
+        <label style="font-size: 11px; font-weight:bold; color:var(--gray);">Тип монтажа щита:</label>
+        <select id="cfg-shield-wall" style="margin-bottom:10px;"><option value="Бетон">Встраиваемый (Бетон)</option><option value="Кирпич">Встраиваемый (Кирпич)</option><option value="Панелька">Встраиваемый (Панелька)</option><option value="Мягкий мат.">Встраиваемый (ГКЛ)</option><option value="Накладной">Накладной (без ниши)</option></select>
         
         <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; margin-bottom: 10px;">
-            <div class="mech-row"><span>Комнаты (шт)</span><div class="counter-box"><button class="c-btn" onclick="modV('rms',-1)">-</button><span id="v-rms" class="c-val">1</span><button class="c-btn" onclick="modV('rms', 1)">+</button></div></div>
-            <div class="mech-row"><span>Кондиционеры</span><div class="counter-box"><button class="c-btn" onclick="modV('acs',-1)">-</button><span id="v-acs" class="c-val">0</span><button class="c-btn" onclick="modV('acs', 1)">+</button></div></div>
-            <div class="mech-row"><span>Теплые полы</span><div class="counter-box"><button class="c-btn" onclick="modV('fls',-1)">-</button><span id="v-fls" class="c-val">0</span><button class="c-btn" onclick="modV('fls', 1)">+</button></div></div>
+            <b style="font-size:11px; display:block; margin-bottom:5px; color:var(--primary);">Помещения</b>
+            <div class="mech-row"><span>Кухни</span><div class="counter-box"><button class="c-btn" onclick="modV('kits',-1)">-</button><span id="v-kits" class="c-val">1</span><button class="c-btn" onclick="modV('kits', 1)">+</button></div></div>
+            <div class="mech-row"><span>Ванные</span><div class="counter-box"><button class="c-btn" onclick="modV('baths',-1)">-</button><span id="v-baths" class="c-val">1</span><button class="c-btn" onclick="modV('baths', 1)">+</button></div></div>
+            <div class="mech-row"><span>Туалеты</span><div class="counter-box"><button class="c-btn" onclick="modV('toilets',-1)">-</button><span id="v-toilets" class="c-val">1</span><button class="c-btn" onclick="modV('toilets', 1)">+</button></div></div>
+            <div class="mech-row"><span>Комнаты</span><div class="counter-box"><button class="c-btn" onclick="modV('rms',-1)">-</button><span id="v-rms" class="c-val">1</span><button class="c-btn" onclick="modV('rms', 1)">+</button></div></div>
             <div class="mech-row" style="border-bottom:none;"><span>Балконы</span><div class="counter-box"><button class="c-btn" onclick="modV('bals',-1)">-</button><span id="v-bals" class="c-val">0</span><button class="c-btn" onclick="modV('bals', 1)">+</button></div></div>
         </div>
         
         <div class="chk-grid">
-            <label class="chk-row"><input type="checkbox" id="c-oven" checked> Плита/Дух.</label>
-            <label class="chk-row"><input type="checkbox" id="c-fridge" checked> Холод-к</label>
-            <label class="chk-row"><input type="checkbox" id="c-apron" checked> Фартук</label>
-            <label class="chk-row"><input type="checkbox" id="c-dish" checked> Посудом-ка</label>
-            <label class="chk-row"><input type="checkbox" id="c-washer" checked> Стиралка</label>
-            <label class="chk-row"><input type="checkbox" id="c-boiler"> Бойлер</label>
-            <label class="chk-row"><input type="checkbox" id="c-neptun"> Нептун</label>
-            <label class="chk-row"><input type="checkbox" id="cfg-master"> Мастер-кнопка</label>
-            <label class="chk-row"><input type="checkbox" id="cfg-uzm"> Реле напряж.</label>
+            <label class="chk-row"><input type="checkbox" id="c-apron" checked> Фартук C16</label>
+            <label class="chk-row"><input type="checkbox" id="c-dish" checked> Посудомойка C10</label>
+            <label class="chk-row"><input type="checkbox" id="c-washer" checked> Стиралка/сушилка C10</label>
+            <label class="chk-row"><input type="checkbox" id="c-towel"> Полотенцесушитель C10</label>
+            <label class="chk-row"><input type="checkbox" id="c-fridge" checked> Холодильник C10, неоткл.</label>
+            <label class="chk-row"><input type="checkbox" id="c-neptun"> Нептун C10, неоткл.</label>
+            <label class="chk-row"><input type="checkbox" id="c-router" checked> Роутер C6, неоткл.</label>
+            <label class="chk-row"><input type="checkbox" id="cfg-master"> Мастер-кнопка только свет</label>
+            <label class="chk-row"><input type="checkbox" id="cfg-uzm"> Реле напряжения</label>
+            <label class="chk-row"><input type="checkbox" id="cfg-heavy-separate" checked> Мощную технику отдельной защитой</label>
+            <label class="chk-row"><input type="checkbox" id="cfg-scheme" checked> Однолинейная схема</label>
+            <label class="chk-row"><input type="checkbox" id="cfg-cable-glands"> Кабельные вводы/сальники</label>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+            <div><label style="font-size:10px; font-weight:bold; color:var(--gray);">Кондиционеры</label><div class="counter-box" style="justify-content:center;"><button class="c-btn" onclick="modV('acs',-1)">-</button><span id="v-acs" class="c-val">0</span><button class="c-btn" onclick="modV('acs',1)">+</button></div></div>
+            <div><label style="font-size:10px; font-weight:bold; color:var(--gray);">Тёплые полы</label><div class="counter-box" style="justify-content:center;"><button class="c-btn" onclick="modV('fls',-1)">-</button><span id="v-fls" class="c-val">0</span><button class="c-btn" onclick="modV('fls',1)">+</button></div></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+            <div><label style="font-size:10px; font-weight:bold; color:var(--gray);">Плита:</label><select id="c-hob-power"><option value="none">Нет</option><option value="6">до 6 кВт → C25</option><option value="10">до 10 кВт → C32</option></select></div>
+            <div><label style="font-size:10px; font-weight:bold; color:var(--gray);">Бойлер:</label><select id="c-boiler-power"><option value="none">Нет</option><option value="6">до 6 кВт → C25</option><option value="10">до 10 кВт → C32</option></select></div>
         </div>
 
         <div style="background:rgba(79, 70, 229, 0.05); padding:10px; border-radius:10px; margin-bottom: 10px; border: 1px dashed var(--primary);">
-            <b style="font-size:11px; display:block; margin-bottom:5px; color:var(--primary);">Доп. аппараты из БД:</b>
+            <b style="font-size:11px; display:block; margin-bottom:5px; color:var(--primary);">+ Добавить аппарат защиты из БД</b>
             <select id="cfg-extra-db" style="margin-bottom:6px; font-size:12px; padding:8px;"></select>
             <div style="display:flex; gap:6px;">
                 <input type="number" id="cfg-extra-q" value="1" style="flex:1; margin:0; padding:8px; text-align:center;">
                 <button class="btn-success" style="flex:2; margin:0;" onclick="addExtraToShieldConfig()">+ Добавить</button>
             </div>
+            <p style="font-size:10px; color:var(--gray); margin:6px 0 0;">Если аппарата нет в базе — добавим временной строкой, а потом создадим позицию в правильной категории.</p>
             <div id="shield-extras-list" style="margin-top:8px;"></div>
         </div>
 
-        <label style="font-size: 11px; font-weight:bold; color:var(--gray);">Тип монтажа Щита: </label>
-        <select id="cfg-shield-wall" style="margin-bottom:10px;"><option value="Бетон">Встраиваемый (Бетон)</option><option value="Кирпич">Встраиваемый (Кирпич)</option><option value="Панелька">Встраиваемый (Панелька)</option><option value="Мягкий мат.">Встраиваемый (ГКЛ)</option><option value="Накладной">Накладной (без ниши)</option></select>
         <button onclick="generateCascadePanel()" class="btn-shield" style="width:100%; padding: 14px; margin:0;">Сгенерировать щит</button>
     </div>
 </div>
@@ -792,12 +836,22 @@ try { let c = JSON.parse(safeGet('coeffs_v31', '{"mat":0,"work":0}')); coeffs = 
 let appLogic = { 
     cabRes: 1.1, gofraRes: 1.05, basesPerM: 3, clipsPerM: 3, packSize: 100, mixPerBox: 0.3, crownLife: 80,
     priceSoc: 500, priceShield: 500, priceDrill: 600, priceShtroba: 550, priceCabCeil: 120,
-    socketsPerJb: 3, connPerSocJb: 3, connPerSwJb: 3, connPerPassJb: 4
+    socketsPerJb: 3, connPerSocJb: 3, connPerSwJb: 3, connPerPassJb: 4,
+    shieldInstallPrice: 2500,
+    shieldInputConnectPrice: 1500,
+    shieldTestLinePrice: 150,
+    shieldMarkLinePrice: 100,
+    shieldSchemePrice: 4000,
+    shieldNichePerModule: 400,
+    shieldInputGroovePrice: 1500,
+    shieldPeBusContacts: 26,
+    shieldPugvSize: 6,
+    shieldNshviPackSize: 100
 };
 try { let logic = JSON.parse(safeGet('appLogic_v31', '{}')); appLogic = Object.assign(appLogic, logic); } catch(e){}
 
 let priceOverrides = {};
-let cfg = {rms: 1, acs: 0, fls: 0, bals: 0 };
+let cfg = {kits: 1, baths: 1, toilets: 1, rms: 1, bals: 0, acs: 0, fls: 0 };
 var st_soc = 1, st_sw = 0, st_pass = 0, st_cross = 0, st_tv = 0, st_tpol = 0, st_q = 1, st_h = 30, st_p = 1, st_podr = 'std';
 let globalRecalcCab = 0, globalRecalcSht = 0; let pendingAdd = null; let currentCardId = null;
 let currentShieldExtras = [];
@@ -1284,7 +1338,7 @@ function applyPoolToEstimate() {
     addAuto(m.concat(w), 'rough'); pool=[]; rfPool(); closeModal('roughModal'); showToast("✅ Пул добавлен!");
 }
 
-function modV(id, val) { cfg[id] = Math.max(0, cfg[id] + val); document.getElementById('v-'+id).innerText = cfg[id]; }
+function modV(id, val) { cfg[id] = Math.max(0, (cfg[id] || 0) + val); const el = document.getElementById('v-'+id); if(el) el.innerText = cfg[id]; }
 
 function populateShieldExtras() {
     let sel = document.getElementById('cfg-extra-db');
@@ -1314,53 +1368,215 @@ function renderShieldExtras() {
         `<div style="display:flex; justify-content:space-between; font-size:11px; border-bottom:1px dashed rgba(0,0,0,0.1); padding:4px;"><span>${ex.n} <b style="color:var(--primary);">(x${ex.q})</b></span><span style="color:red; font-size:16px; font-weight:bold; cursor:pointer;" onclick="currentShieldExtras.splice(${i},1); renderShieldExtras();">✕</span></div>`
     ).join('');
 }
+function epAllDbItems(type) {
+    const local = type === 'work' ? (workDB || []) : (matDB || []);
+    const user = type === 'work' ? (userWorkDB || []) : (userMatDB || []);
+    return local.concat(user).filter(Boolean);
+}
+
+function epNormText(v) {
+    return String(v || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, ' ').trim();
+}
+
+function epFindDbItem(type, words) {
+    const arr = epAllDbItems(type);
+    const searchWords = (words || []).map(epNormText).filter(Boolean);
+    if (!searchWords.length) return null;
+    let best = null;
+    let bestScore = -1;
+    arr.forEach(item => {
+        const blob = epNormText([item.c, item.g, item.sc, item.n, item.brand, item.kind, item.nominal, item.curve, item.wallType, item.modules].join(' '));
+        let score = 0;
+        searchWords.forEach(w => { if (blob.includes(w)) score++; });
+        if (score > bestScore) { best = item; bestScore = score; }
+    });
+    return bestScore >= Math.max(1, Math.ceil(searchWords.length * 0.55)) ? best : null;
+}
+
+function epMat(label, q, fallbackPrice, words, meta) {
+    const found = epFindDbItem('mat', words || [label]);
+    if (found) return { n: found.n, q: q, p: Number(found.p) || 0, u: found.u || 'шт', type: 'mat', sourceId: found.id || null };
+    const m = meta || {};
+    const extra = m.category ? ` [${m.category}${m.subcategory ? ' → ' + m.subcategory : ''}]` : '';
+    return { n: `⚠️ ${label}${extra} — добавить в БД`, q: q, p: Number(fallbackPrice) || 0, u: m.unit || 'шт', type: 'mat', needDb: true, dbMeta: m };
+}
+
+function epWork(label, q, price, words, meta) {
+    const found = epFindDbItem('work', words || [label]);
+    if (found) return { n: found.n, q: q, p: Number(found.p) || Number(price) || 0, u: found.u || (meta && meta.unit) || 'шт', type: 'work', sourceId: found.id || null };
+    return { n: label, q: q, p: Number(price) || 0, u: (meta && meta.unit) || 'шт', type: 'work', logicPrice: true };
+}
+
+function epGetCheck(id) { const el = document.getElementById(id); return !!(el && el.checked); }
+function epGetVal(id, def) { const el = document.getElementById(id); return el ? el.value : def; }
+function epAutoPrice(brand) { return brand === 'ABB' ? 350 : 155; }
+function epDifPrice(brand) { return brand === 'ABB' ? 4500 : 3600; }
 
 function generateCascadePanel() {
-    let prShield = appLogic.priceShield || 500;
-    const bBox = document.getElementById('cfg-brand-box').value; const bAuto = document.getElementById('cfg-brand-auto').value; const sWall = document.getElementById('cfg-shield-wall').value; const ph = parseInt(document.getElementById('cfg-phase').value); const isMaster = document.getElementById('cfg-master').checked;
-    let m = []; let w = []; let count1P = 0; let countDIF = 0;
-    
-    m.push({ n: `Вводной автомат ${ph}ф (${bAuto})`, q: 1, p: bAuto==='ABB'?3500:1800, type:'mat' }); let totalMod = (ph === 3 ? 3 : 2);
-    countDIF++; m.push({ n: `⚡ ДИФ 40А (Силовые) ${bAuto}`, q: 1, p: bAuto==='ABB'?4500:3800, type:'mat' }); totalMod += 2;
-    m.push({ n: `  ↳ Автомат C16 (Кухня) ${bAuto}`, q: 1, p: bAuto==='ABB'?350:155, type:'mat' }); count1P++;
-    m.push({ n: `  ↳ Автомат C16 (Коридор) ${bAuto}`, q: 1, p: bAuto==='ABB'?350:155, type:'mat' }); count1P++;
-    if(cfg.rms > 0) { m.push({ n: `  ↳ Автомат C16 (Комнаты) ${bAuto}`, q: cfg.rms, p: bAuto==='ABB'?350:155, type:'mat' }); count1P += cfg.rms; }
-    if(cfg.bals > 0) { m.push({ n: `  ↳ Автомат C16 (Балконы) ${bAuto}`, q: cfg.bals, p: bAuto==='ABB'?350:155, type:'mat' }); count1P += cfg.bals; }
-    
-    ['oven', 'fridge', 'apron', 'dish','washer', 'boiler', 'neptun'].forEach(id => {
-        if(document.getElementById('c-'+id).checked) { let nm = id==='oven'?'Плита/Духовка':id==='fridge'?'Холодильник':id==='apron'?'Фартук':id==='dish'?'Посудомойка':id==='washer'?'Стиралка':id==='boiler'?'Бойлер':"Нептун"; m.push({n: `  ↳ Автомат C16 (${nm}) ${bAuto}`, q: 1, p: bAuto==='ABB'?350:155, type:'mat' }); count1P++; }
+    const bBox = epGetVal('cfg-brand-box', 'Tekfor');
+    const bAuto = epGetVal('cfg-brand-auto', 'IEK');
+    const sWall = epGetVal('cfg-shield-wall', 'Бетон');
+    const ph = parseInt(epGetVal('cfg-phase', '1')) || 1;
+    const curve = epGetVal('cfg-auto-curve', 'C');
+    const rcdType = epGetVal('cfg-rcd-type', 'A');
+    const protectionType = epGetVal('cfg-protection-type', 'uzo_auto');
+    const isMaster = epGetCheck('cfg-master');
+    const heavySeparate = epGetCheck('cfg-heavy-separate');
+
+    let m = [];
+    let w = [];
+    let lines = [];
+    let protectionDevices = [];
+    let warnings = [];
+
+    function addLine(name, nominal, group, opts) {
+        const o = opts || {};
+        lines.push({ name, nominal, group, curve: o.curve || curve, nonSwitchable: !!o.nonSwitchable, wet: group === 'wet' || !!o.wet });
+    }
+
+    function addRoom(label, count, wetPower) {
+        for (let i = 1; i <= count; i++) {
+            const n = count > 1 ? `${label} ${i}` : label;
+            addLine(`${n} розетки`, 'C16', wetPower ? 'wet' : 'power', { wet: wetPower });
+            addLine(`${n} свет`, 'C10', 'light');
+        }
+    }
+
+    addRoom('Кухня', cfg.kits || 0, false);
+    addRoom('Ванная', cfg.baths || 0, true);
+    addRoom('Туалет', cfg.toilets || 0, true);
+    addRoom('Комната', cfg.rms || 0, false);
+    addRoom('Балкон', cfg.bals || 0, false);
+
+    if (epGetCheck('c-apron')) addLine('Фартук кухни', 'C16', 'power');
+    if (epGetCheck('c-dish')) addLine('Посудомойка', 'C10', 'power');
+    if (epGetCheck('c-washer')) addLine('Стиралка/сушилка', 'C10', 'wet', { wet: true });
+    if (epGetCheck('c-towel')) addLine('Полотенцесушитель', 'C10', 'wet', { wet: true });
+    for (let i = 1; i <= (cfg.acs || 0); i++) addLine(`Кондиционер ${i}`, 'C10', 'climate');
+    for (let i = 1; i <= (cfg.fls || 0); i++) addLine(`Тёплый пол ${i}`, 'C10', 'climate');
+    if (epGetCheck('c-fridge')) addLine('Холодильник, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
+    if (epGetCheck('c-neptun')) addLine('Нептун, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
+    if (epGetCheck('c-router')) addLine('Роутер, неотключаемая группа', 'C6', 'alwaysOn', { nonSwitchable: true });
+
+    const hobPower = epGetVal('c-hob-power', 'none');
+    if (hobPower === '6') addLine('Плита до 6 кВт', 'C25', heavySeparate ? 'heavy' : 'power');
+    if (hobPower === '10') addLine('Плита до 10 кВт', 'C32', heavySeparate ? 'heavy' : 'power');
+    const boilerPower = epGetVal('c-boiler-power', 'none');
+    if (boilerPower === '6') addLine('Бойлер до 6 кВт', 'C25', 'wet', { wet: true });
+    if (boilerPower === '10') addLine('Бойлер до 10 кВт', 'C32', 'wet', { wet: true });
+
+    const groupNames = {
+        power: 'Силовые линии',
+        climate: 'Климат',
+        wet: 'Влажные зоны',
+        light: 'Освещение',
+        heavy: 'Большая техника',
+        alwaysOn: 'Неотключаемые группы'
+    };
+
+    const presentGroups = Array.from(new Set(lines.map(l => l.group))).filter(Boolean);
+    function addProtection(group, mode) {
+        const leakage = group === 'wet' ? 10 : 30;
+        const kind = mode || (protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО');
+        protectionDevices.push({ group, kind, leakage, rcdType, modules: 2 });
+        if (group === 'wet' && leakage !== 10) warnings.push('Влажные зоны должны быть 10 мА');
+    }
+
+    if (protectionType === 'main_dif_auto') {
+        protectionDevices.push({ group: 'main', kind: 'Главный ДИФ', leakage: 30, rcdType, modules: 2 });
+    } else if (protectionType === 'mixed') {
+        presentGroups.forEach(g => addProtection(g, g === 'wet' ? 'ДИФ' : 'УЗО'));
+    } else {
+        presentGroups.forEach(g => addProtection(g, protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО'));
+    }
+
+    // Вводной автомат
+    m.push(epMat(`Вводной автомат ${ph}ф ${bAuto}`, 1, bAuto === 'ABB' ? 3500 : 1800, ['автомат', 'вводной', bAuto, ph + 'ф'], { category: 'Автоматика', subcategory: bAuto, kind: 'input_breaker', unit: 'шт' }));
+
+    // Защита групп
+    protectionDevices.forEach(pd => {
+        const label = pd.kind === 'Главный ДИФ'
+            ? `Главный ДИФ ${bAuto} ${pd.leakage}мА тип ${pd.rcdType}`
+            : `${pd.kind} ${groupNames[pd.group] || pd.group} ${pd.leakage}мА тип ${pd.rcdType} ${bAuto}`;
+        m.push(epMat(label, 1, epDifPrice(bAuto), [pd.kind, bAuto, pd.leakage + 'мА', pd.rcdType, groupNames[pd.group] || pd.group], { category: 'Автоматика', subcategory: bAuto, kind: pd.kind, leakage: pd.leakage, rcdType: pd.rcdType, modules: 2 }));
     });
-    
-    countDIF++; m.push({ n: `💡 ДИФ 25А (Свет) ${bAuto}`, q: 1, p: bAuto==='ABB'?4200:3200, type:'mat' }); totalMod += 2;
-    m.push({ n: `  ↳ Автомат C10 (Свет Кухня) ${bAuto}`, q: 1, p: bAuto==='ABB'?350:155, type:'mat' }); count1P++;
-    m.push({ n: `  ↳ Автомат C10 (Свет Ванная) ${bAuto}`, q: 1, p: bAuto==='ABB'?350:155, type:'mat' }); count1P++;
-    if(cfg.rms > 0) { m.push({ n: `  ↳ Автомат C10 (Свет Комнаты) ${bAuto}`, q: cfg.rms, p: bAuto==='ABB'?350:155, type:'mat' }); count1P += cfg.rms; }
-    
-    if (cfg.acs > 0) { countDIF++; m.push({ n: `❄️ ДИФ (Кондиц.) ${bAuto}`, q: 1, p: bAuto==='ABB'?4500:3500, type:'mat' }); totalMod += 2; m.push({ n: `  ↳ Автомат C16 (Конд) ${bAuto}`, q: cfg.acs, p: bAuto==='ABB'?350:155, type:'mat' }); count1P += cfg.acs; }
-    if (cfg.fls > 0) { countDIF++; m.push({ n: `🔥 ДИФ (Т.Полы) ${bAuto}`, q: 1, p: bAuto==='ABB'?4500:3600, type:'mat' }); totalMod += 2; m.push({ n: `  ↳ Автомат C16 (Т.Пол) ${bAuto}`, q: cfg.fls, p: bAuto==='ABB'?350:155, type:'mat' }); count1P += cfg.fls; }
-    if(document.getElementById('cfg-uzm').checked) { m.push({ n: `Реле напряжения УЗМ-50Ц`, q: ph===3?3:1, p: 4500, type:'mat' }); totalMod += (ph===3?6:2); }
-    if(isMaster) { m.push({ n: `Контактор 25А`, q: 1, p: 2200, type:'mat' }); m.push({ n: `  ↳ Автомат 40А (Байпас) ${bAuto}`, q: 1, p: bAuto==='ABB'?600:380, type:'mat' }); count1P++; totalMod += 2; }
-    
-    currentShieldExtras.forEach(ex => { m.push({ n: ex.n, q: ex.q, p: ex.p, type: 'mat' }); totalMod += ex.q; });
-    
-    m.push({ n: `Провод ПуГВ (ПВ-3) 1х6 синий`, q: 4, p: 85, type:'mat' }); m.push({ n: `Провод ПуГВ (ПВ-3) 1х6 белый`, q: 4, p: 85, type:'mat' }); m.push({ n: `Наконечник НШВИ 6.0-12 (упак)`, q: 1, p: 225, type:'mat' });
-    
-    if (bBox === 'ABB') { m.push({ n: `Клеммник винтовой N 5x16 (ABB)`, q: countDIF, p: 345, type:'mat' }); m.push({ n: `Клеммник винтовой PE 11x16 (ABB)`, q: 1, p: 770, type:'mat' }); } 
-    else { m.push({ n: `Шина N ноль на DIN-изол (ИЭК)`, q: countDIF, p: 285, type:'mat' }); }
-    
-    let comb1P = Math.ceil(count1P / 12); let comb2P = Math.ceil(countDIF / 6);
-    if (comb1P > 0) m.push({ n: `Гребенка 1P (25см)`, q: comb1P, p: 250, type:'mat' });
-    if (comb2P > 0) m.push({ n: `Гребенка 2Р (25см)`, q: comb2P, p: 450, type:'mat' });
-    
-    totalMod += count1P; let boxSize = [12, 24, 36, 48, 54, 72, 96].find(s => s >= (totalMod + 5)) || 96;
-    m.unshift({ n: `📦 Щит ${sWall==='Накладной'?'накладной':'встраиваемый'} ${bBox} ${boxSize}М`, q: 1, p: bBox==='ABB'?6510:2660, type:'mat' });
-    
-    if(sWall !== 'Накладной') w.push({ n: `Вырубка ниши (${sWall})`, q: boxSize, p: 400, type:'work' });
-    w.push({ n: `Штроба ВВОДНАЯ 100x50 (${sWall})`, q: 2, p: 1500, type:'work' });
-    w.push({ n: `Сборка щита (мод)`, q: totalMod, p: prShield, type:'work' });
-    
-    addAuto(m.concat(w), 'shield'); currentShieldExtras = []; closeModal('configModal'); showToast("✅ Щит сгенерирован!");
+
+    // Каждый потребитель/линия своим отдельным автоматом
+    lines.forEach(line => {
+        const label = `Автомат ${line.nominal} тип ${line.curve} ${bAuto} — ${line.name}`;
+        m.push(epMat(label, 1, epAutoPrice(bAuto), ['автомат', bAuto, line.nominal, line.curve], { category: 'Автоматика', subcategory: bAuto, kind: 'automatic', nominal: line.nominal, curve: line.curve, modules: 1 }));
+    });
+
+    // Реле напряжения
+    if (epGetCheck('cfg-uzm')) {
+        const q = ph === 3 ? 3 : 1;
+        m.push(epMat(`Реле напряжения ${bAuto}`, q, 4500, ['реле напряжения', 'узм', bAuto], { category: 'Автоматика', subcategory: bAuto, kind: 'voltage_relay', modules: ph === 3 ? 6 : 2 }));
+    }
+
+    // Мастер-кнопка только на освещение
+    if (isMaster) {
+        m.push(epMat(`Контактор C40 ${bAuto} — мастер-кнопка света`, 1, 2200, ['контактор', 'C40', bAuto], { category: 'Автоматика', subcategory: bAuto, kind: 'contactor', modules: 2 }));
+        m.push(epMat(`Автомат C40 тип ${curve} ${bAuto} — байпас мастер-кнопки`, 1, bAuto === 'ABB' ? 600 : 380, ['автомат', 'C40', bAuto, curve], { category: 'Автоматика', subcategory: bAuto, kind: 'bypass_breaker', modules: 1 }));
+    }
+
+    currentShieldExtras.forEach(ex => {
+        m.push({ n: ex.n, q: ex.q, p: ex.p, u: ex.u || 'шт', type: 'mat' });
+    });
+
+    const onePoleCount = lines.length + (isMaster ? 1 : 0);
+    const twoPoleProtectionCount = protectionDevices.length;
+    const relayModules = epGetCheck('cfg-uzm') ? (ph === 3 ? 6 : 2) : 0;
+    const masterModules = isMaster ? 3 : 0;
+    const extraModules = currentShieldExtras.reduce((s, ex) => s + (Number(ex.modules || 1) * Number(ex.q || 1)), 0);
+    const totalModules = Math.ceil(onePoleCount + twoPoleProtectionCount * 2 + relayModules + masterModules + extraModules + (ph === 3 ? 3 : 2));
+
+    const boxSize = [6,12,24,36,48,60,72].find(s => s >= totalModules) || 72;
+    if (totalModules > 72) warnings.push('Нужно больше 72 модулей — требуется второй щит или пересборка схемы');
+
+    m.unshift(epMat(`Щит ${sWall === 'Накладной' ? 'накладной' : 'встраиваемый'} ${bBox} ${boxSize}М`, 1, bBox === 'ABB' ? 6510 : 2660, ['щит', bBox, String(boxSize), sWall === 'Накладной' ? 'накладной' : 'встраиваемый'], { category: 'Щитовое', subcategory: `Корпуса ${bBox}`, kind: 'shield_box', modules: boxSize, mountType: sWall === 'Накладной' ? 'surface' : 'built_in' }));
+
+    // Расходка щита по новой логике
+    const comb1P = Math.ceil(onePoleCount / 12);              // 25 см на 12 1P
+    const comb2P = Math.ceil(twoPoleProtectionCount / 6);     // 25 см на 6 2P
+    const rows = Math.ceil(boxSize / 12);
+    const pugvSize = Number(appLogic.shieldPugvSize || 6);
+    const pugvMeters = Math.max(4, Math.ceil(totalModules * 0.4));
+    const nshviPacks = Math.max(1, Math.ceil(boxSize / 48));
+
+    if (comb1P > 0) m.push(epMat('Гребёнка 1P 25см', comb1P, 250, ['гребенка', '1P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_1p' }));
+    if (comb2P > 0) m.push(epMat('Гребёнка 2P 25см', comb2P, 450, ['гребенка', '2P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_2p' }));
+    if (twoPoleProtectionCount > 0) m.push(epMat('Нулевая шинка N на группу УЗО/ДИФ', twoPoleProtectionCount, 285, ['шина', 'N', 'ноль', 'DIN'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'neutral_bus' }));
+    m.push(epMat(`PE-шина на ${appLogic.shieldPeBusContacts || 26} контактов`, 1, 770, ['PE', 'шина', '26'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'pe_bus' }));
+    m.push(epMat('DIN-рейка / комплект DIN для щита', rows, 180, ['DIN', 'рейка'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_rail' }));
+    m.push(epMat('Ограничитель на DIN-рейку', rows * 2, 35, ['ограничитель', 'DIN'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_stopper' }));
+    m.push(epMat(`Провод ПуГВ 1×${pugvSize}`, pugvMeters, 85, ['ПуГВ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Кабель', subcategory: 'ПуГВ', kind: 'pugv', unit: 'м.п.' }));
+    m.push(epMat(`НШВИ 1×${pugvSize}, упак. 100 шт`, nshviPacks, 225, ['НШВИ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Расходники', subcategory: 'НШВИ', kind: 'lug_pack' }));
+    m.push(epMat('Маркировка линий / бирки', lines.length, 15, ['маркировка', 'бирки'], { category: 'Расходники', subcategory: 'Маркировка', kind: 'marking_tag' }));
+    if (epGetCheck('cfg-cable-glands')) m.push(epMat('Кабельные вводы / сальники', 1, 250, ['кабельный ввод', 'сальник'], { category: 'Расходники', subcategory: 'Сальники', kind: 'cable_gland' }));
+
+    // Работы щита
+    if (sWall !== 'Накладной') w.push(epWork(`Ниша щита ${boxSize}М (${sWall})`, boxSize, appLogic.shieldNichePerModule || 400, ['ниша', 'щит', sWall, String(boxSize)], { unit: 'мод.' }));
+    w.push(epWork(`Штроба ВВОДНАЯ 100×50 (${sWall})`, 2, appLogic.shieldInputGroovePrice || 1500, ['штроба', 'вводная', '100x50', sWall], { unit: 'м.п.' }));
+    w.push(epWork('Сборка щита', totalModules, appLogic.priceShield || 500, ['сборка', 'щит'], { unit: 'мод.' }));
+    w.push(epWork('Установка щита', 1, appLogic.shieldInstallPrice || 2500, ['установка', 'щит'], { unit: 'шт' }));
+    w.push(epWork('Подключение вводного кабеля', 1, appLogic.shieldInputConnectPrice || 1500, ['подключение', 'вводного', 'кабеля'], { unit: 'шт' }));
+    w.push(epWork('Прозвонка / проверка линий', lines.length, appLogic.shieldTestLinePrice || 150, ['прозвонка', 'проверка', 'линий'], { unit: 'линия' }));
+    w.push(epWork('Маркировка линий', lines.length, appLogic.shieldMarkLinePrice || 100, ['маркировка', 'линий'], { unit: 'линия' }));
+    if (epGetCheck('cfg-scheme')) w.push(epWork('Составление однолинейной схемы щита', 1, appLogic.shieldSchemePrice || 4000, ['однолинейная', 'схема', 'щит'], { unit: 'шт' }));
+
+    const info = [
+        { n: `ℹ️ Щит: занято ${totalModules} мод.; корпус ${boxSize}М; свободно ${Math.max(0, boxSize - totalModules)} мод.`, q: 1, p: 0, type: 'work' },
+        { n: `ℹ️ Защита: ${protectionType}; автоматы тип ${curve}; УЗО/ДИФ тип ${rcdType}; влажные зоны 10мА`, q: 1, p: 0, type: 'work' },
+        { n: `ℹ️ Гребёнки: 1P ${comb1P}×25см; 2P ${comb2P}×25см; N-шинок ${twoPoleProtectionCount}; PE-шина ${appLogic.shieldPeBusContacts || 26} контактов`, q: 1, p: 0, type: 'work' }
+    ];
+    warnings.forEach(x => info.push({ n: `⚠️ ${x}`, q: 1, p: 0, type: 'work' }));
+
+    addAuto(m.concat(w).concat(info), 'shield');
+    currentShieldExtras = [];
+    closeModal('configModal');
+    showToast('✅ Щит сгенерирован!');
 }
+
 
 async function runAiCheck() { 
     if(!GEMINI_API_KEY) return showToast("❌ Нужен ключ ИИ в настройках");
@@ -1608,13 +1824,20 @@ function saveCust() {
     safeSet('cust_v31', JSON.stringify(cust)); 
     closeModal('custModal'); updateMasterBadge(); 
 }
-
 function saveLogic() { 
-    appLogic.priceSoc = Number(document.getElementById('logic-price-soc').value);
-    appLogic.priceShield = Number(document.getElementById('logic-price-shield').value);
-    appLogic.priceDrill = Number(document.getElementById('logic-price-drill').value);
-    appLogic.priceShtroba = Number(document.getElementById('logic-price-shtroba').value);
-    appLogic.priceCabCeil = Number(document.getElementById('logic-price-cab-ceil').value);
+    appLogic.priceSoc = Number(document.getElementById('logic-price-soc').value) || 500;
+    appLogic.priceShield = Number(document.getElementById('logic-price-shield').value) || 500;
+    appLogic.priceDrill = Number(document.getElementById('logic-price-drill').value) || 600;
+    appLogic.priceShtroba = Number(document.getElementById('logic-price-shtroba').value) || 550;
+    appLogic.priceCabCeil = Number(document.getElementById('logic-price-cab-ceil').value) || 120;
+
+    appLogic.shieldInstallPrice = Number(document.getElementById('logic-shield-install').value) || 2500;
+    appLogic.shieldInputConnectPrice = Number(document.getElementById('logic-shield-input-connect').value) || 1500;
+    appLogic.shieldTestLinePrice = Number(document.getElementById('logic-shield-test-line').value) || 150;
+    appLogic.shieldMarkLinePrice = Number(document.getElementById('logic-shield-mark-line').value) || 100;
+    appLogic.shieldSchemePrice = Number(document.getElementById('logic-shield-scheme').value) || 4000;
+    appLogic.shieldNichePerModule = Number(document.getElementById('logic-shield-niche-module').value) || 400;
+    appLogic.shieldInputGroovePrice = Number(document.getElementById('logic-shield-input-groove').value) || 1500;
     
     appLogic.socketsPerJb = Number(document.getElementById('logic-soc-jb').value) || 3;
     appLogic.connPerSocJb = Number(document.getElementById('logic-conn-soc').value) || 3;
@@ -1622,20 +1845,29 @@ function saveLogic() {
     appLogic.connPerPassJb = Number(document.getElementById('logic-conn-pass').value) || 4;
 
     safeSet('appLogic_v31', JSON.stringify(appLogic));
-    showToast("Логика сохранена!"); closeModal('logicModal'); 
+    showToast('Логика сохранена!'); closeModal('logicModal'); 
 }
 function renderLogicUI() { 
-    document.getElementById('logic-price-soc').value = appLogic.priceSoc; 
-    document.getElementById('logic-price-shield').value = appLogic.priceShield; 
-    document.getElementById('logic-price-drill').value = appLogic.priceDrill; 
-    document.getElementById('logic-price-shtroba').value = appLogic.priceShtroba; 
-    document.getElementById('logic-price-cab-ceil').value = appLogic.priceCabCeil; 
+    document.getElementById('logic-price-soc').value = appLogic.priceSoc || 500; 
+    document.getElementById('logic-price-shield').value = appLogic.priceShield || 500; 
+    document.getElementById('logic-price-drill').value = appLogic.priceDrill || 600; 
+    document.getElementById('logic-price-shtroba').value = appLogic.priceShtroba || 550; 
+    document.getElementById('logic-price-cab-ceil').value = appLogic.priceCabCeil || 120; 
 
-    document.getElementById('logic-soc-jb').value = appLogic.socketsPerJb; 
-    document.getElementById('logic-conn-soc').value = appLogic.connPerSocJb; 
-    document.getElementById('logic-conn-sw').value = appLogic.connPerSwJb; 
-    document.getElementById('logic-conn-pass').value = appLogic.connPerPassJb; 
+    document.getElementById('logic-shield-install').value = appLogic.shieldInstallPrice || 2500;
+    document.getElementById('logic-shield-input-connect').value = appLogic.shieldInputConnectPrice || 1500;
+    document.getElementById('logic-shield-test-line').value = appLogic.shieldTestLinePrice || 150;
+    document.getElementById('logic-shield-mark-line').value = appLogic.shieldMarkLinePrice || 100;
+    document.getElementById('logic-shield-scheme').value = appLogic.shieldSchemePrice || 4000;
+    document.getElementById('logic-shield-niche-module').value = appLogic.shieldNichePerModule || 400;
+    document.getElementById('logic-shield-input-groove').value = appLogic.shieldInputGroovePrice || 1500;
+
+    document.getElementById('logic-soc-jb').value = appLogic.socketsPerJb || 3; 
+    document.getElementById('logic-conn-soc').value = appLogic.connPerSocJb || 3; 
+    document.getElementById('logic-conn-sw').value = appLogic.connPerSwJb || 3; 
+    document.getElementById('logic-conn-pass').value = appLogic.connPerPassJb || 4; 
 }
+
 
 function openRecalcModal() { 
     globalRecalcCab = 0; globalRecalcSht = 0;
@@ -3420,61 +3652,42 @@ async function deleteUser(uid) {
 
 
 
-<!-- EP_GLOBAL_GROUPED_DB_PATCH: start -->
-<style id="EP_GLOBAL_GROUPED_DB_STYLE">
-.ep-global-db-entry {
-    margin: 12px 0 14px 0;
-    padding: 12px;
-    border: 1px solid var(--primary);
-    background: rgba(79,70,229,.06);
-    border-radius: 14px;
-}
-.ep-global-db-entry button { width: 100%; margin: 0; padding: 13px; }
-.ep-subcat-header {
-    background: rgba(100,116,139,.08);
-    color: var(--gray);
-    border: 1px dashed var(--border);
-    border-radius: 10px;
-    padding: 11px 12px;
-    margin: 7px 0 5px 6px;
-    font-weight: 900;
-    font-size: 12px;
-    text-transform: uppercase;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.ep-subcat-header span { opacity: .75; font-size: 11px; }
-.ep-subcat-body { display: none; padding-left: 8px; margin-bottom: 8px; }
-.ep-subcat-body.active { display: block !important; }
-.ep-material-chip {
-    display:inline-block;
-    padding: 2px 7px;
-    margin-left: 4px;
-    border-radius: 999px;
-    background: rgba(245,158,11,.12);
-    color: var(--orange);
-    font-weight: 900;
-    font-size: 10px;
-}
+
+
+<!-- EP_FULL_WORKS_PROPOSALS_PATCH: start -->
+<style id="EP_FULL_WORKS_PROPOSALS_STYLE">
+.ep-global-db-entry { margin:12px 0 14px 0; padding:12px; border:1px solid var(--primary); background:rgba(79,70,229,.06); border-radius:14px; }
+.ep-global-db-entry button { width:100%; margin:0; padding:13px; }
+.ep-subcat-header { background:rgba(100,116,139,.08); color:var(--gray); border:1px dashed var(--border); border-radius:10px; padding:11px 12px; margin:7px 0 5px 6px; font-weight:900; font-size:12px; text-transform:uppercase; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+.ep-subcat-header span { opacity:.75; font-size:11px; }
+.ep-subcat-body { display:none; padding-left:8px; margin-bottom:8px; }
+.ep-subcat-body.active { display:block!important; }
 .ep-global-tabs { display:flex; gap:8px; margin-bottom:10px; }
 .ep-global-tabs button { flex:1; }
 .ep-global-tools { display:flex; gap:8px; margin:10px 0; }
 .ep-global-tools button { flex:1; padding:10px; font-size:12px; }
 .ep-select-row { display:flex; gap:8px; align-items:flex-start; }
-.ep-select-row input[type="checkbox"] { width:22px!important; height:22px!important; margin-top:12px; flex-shrink:0; accent-color: var(--primary); }
+.ep-select-row input[type="checkbox"] { width:22px!important; height:22px!important; margin-top:12px; flex-shrink:0; accent-color:var(--primary); }
 .ep-row-actions { display:flex; gap:6px; align-items:center; }
 .ep-row-actions button { width:auto!important; min-width:36px; padding:7px 9px!important; margin:0!important; }
-.ep-db-item-title { font-size: 13px; font-weight: 800; }
+.ep-db-item-title { font-size:13px; font-weight:800; }
 .ep-db-item-meta { color:var(--gray); font-size:11px; font-weight:normal; margin-top:2px; }
+.ep-proposal-open-card { padding:10px; border:1px solid var(--border); border-radius:12px; margin:8px 0; background:rgba(255,255,255,.06); cursor:pointer; }
+.ep-proposal-open-card:active { transform:scale(.99); }
+.ep-proposal-badge { display:inline-block; border-radius:999px; padding:2px 7px; font-size:10px; font-weight:900; background:rgba(79,70,229,.12); color:var(--primary); margin-left:4px; }
+.ep-proposal-row { border:1px solid var(--border); border-radius:12px; padding:10px; margin:8px 0; background:rgba(255,255,255,.05); }
+.ep-proposal-row.done { opacity:.55; }
+.ep-proposal-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px; }
+.ep-proposal-actions button { padding:9px 6px!important; font-size:11px!important; width:100%!important; }
+.ep-proposal-top-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:10px 0; }
+.ep-proposal-top-actions button { padding:10px 6px!important; font-size:11px!important; }
 </style>
 
 <div class="modal" id="globalDbModal">
-    <div class="modal-content glass" style="max-width: 650px;">
+    <div class="modal-content glass" style="max-width:650px;">
         <div class="close-x" onclick="closeModal('globalDbModal')">×</div>
         <h2 style="color:var(--primary); margin-top:0; font-size:18px;">🌍 Глобальная база</h2>
-        <p style="font-size:12px; color:var(--gray); margin-top:-4px;">Откройте раздел, провалитесь в группу и выберите нужные позиции.</p>
+        <p style="font-size:12px; color:var(--gray); margin-top:-4px;">Откройте категорию, затем группу, затем выберите нужные позиции.</p>
         <div class="ep-global-tabs">
             <button id="ep-global-tab-mat" class="tab-btn active" onclick="epSwitchGlobalDbTab('mat')">Материалы</button>
             <button id="ep-global-tab-work" class="tab-btn" onclick="epSwitchGlobalDbTab('work')">Работы</button>
@@ -3488,26 +3701,31 @@ async function deleteUser(uid) {
     </div>
 </div>
 
-<script id="EP_GLOBAL_GROUPED_DB_SCRIPT">
+<div class="modal" id="epProposalModal">
+    <div class="modal-content glass" style="max-width:700px;">
+        <div class="close-x" onclick="closeModal('epProposalModal')">×</div>
+        <h2 id="ep-proposal-title" style="color:var(--primary); margin-top:0; font-size:18px;">Заявка</h2>
+        <div id="ep-proposal-body" style="max-height:60vh; overflow-y:auto;"></div>
+    </div>
+</div>
+
+<script id="EP_FULL_WORKS_PROPOSALS_SCRIPT">
 (function() {
-    const EP_GROUPED_WORKS = [{"id": "w44", "c": "Алмазная резка", "g": "Штроба 25х30", "n": "Бетон", "p": 550, "u": "м.п."}, {"id": "w45", "c": "Алмазная резка", "g": "Штроба 25х30", "n": "Кирпич", "p": 400, "u": "м.п."}, {"id": "w46", "c": "Алмазная резка", "g": "Штроба 25х30", "n": "Панелька", "p": 700, "u": "м.п."}, {"id": "w47", "c": "Алмазная резка", "g": "Штроба 25х30", "n": "Мягкий мат.", "p": 400, "u": "м.п."}, {"id": "w48", "c": "Алмазная резка", "g": "Штроба 50х50", "n": "Бетон", "p": 1500, "u": "м.п."}, {"id": "w49", "c": "Алмазная резка", "g": "Штроба 50х50", "n": "Кирпич", "p": 1300, "u": "м.п."}, {"id": "w50", "c": "Алмазная резка", "g": "Штроба 50х50", "n": "Панелька", "p": 1900, "u": "м.п."}, {"id": "w51", "c": "Алмазная резка", "g": "Штроба 50х50", "n": "Мягкий мат.", "p": 900, "u": "м.п."}, {"id": "w52", "c": "Алмазная резка", "g": "Штроба 100х50 ВВОДНАЯ", "n": "Бетон", "p": 2200, "u": "м.п."}, {"id": "w53", "c": "Алмазная резка", "g": "Штроба 100х50 ВВОДНАЯ", "n": "Кирпич", "p": 1550, "u": "м.п."}, {"id": "w54", "c": "Алмазная резка", "g": "Штроба 100х50 ВВОДНАЯ", "n": "Панелька", "p": 2500, "u": "м.п."}, {"id": "w55", "c": "Алмазная резка", "g": "Штроба 100х50 ВВОДНАЯ", "n": "Мягкий мат.", "p": 1400, "u": "м.п."}, {"id": "w56", "c": "Алмазная резка", "g": "Высверливание подр. стандарт", "n": "Бетон", "p": 600, "u": "шт"}, {"id": "w57", "c": "Алмазная резка", "g": "Высверливание подр. стандарт", "n": "Кирпич", "p": 500, "u": "шт"}, {"id": "w58", "c": "Алмазная резка", "g": "Высверливание подр. стандарт", "n": "Панелька", "p": 650, "u": "шт"}, {"id": "w59", "c": "Алмазная резка", "g": "Высверливание подр. стандарт", "n": "Мягкий мат.", "p": 400, "u": "шт"}, {"id": "w61", "c": "Алмазная резка", "g": "Вырубка ниши щита", "n": "Бетон", "p": 400, "u": "мод."}, {"id": "w62", "c": "Алмазная резка", "g": "Вырубка ниши щита", "n": "Кирпич", "p": 300, "u": "мод."}, {"id": "w63", "c": "Алмазная резка", "g": "Вырубка ниши щита", "n": "Панелька", "p": 500, "u": "мод."}, {"id": "w64", "c": "Алмазная резка", "g": "Вырубка ниши щита", "n": "Мягкий мат.", "p": 250, "u": "мод."}, {"id": "w71", "c": "Алмазная резка", "g": "Высверливание подрозетников глубокий", "n": "Бетон", "p": 650, "u": "шт"}, {"id": "w72", "c": "Алмазная резка", "g": "Высверливание подрозетников глубокий", "n": "Кирпич", "p": 550, "u": "шт"}, {"id": "w73", "c": "Алмазная резка", "g": "Высверливание подрозетников глубокий", "n": "Панелька", "p": 750, "u": "шт"}, {"id": "w74", "c": "Алмазная резка", "g": "Высверливание подрозетников глубокий", "n": "Мягкий мат.", "p": 450, "u": "шт"}, {"id": "w75", "c": "Алмазная резка", "g": "Высверливание подрозетников копос 74х75", "n": "Бетон", "p": 800, "u": "шт"}, {"id": "w76", "c": "Алмазная резка", "g": "Высверливание подрозетников копос 74х75", "n": "Кирпич", "p": 700, "u": "шт"}, {"id": "w77", "c": "Алмазная резка", "g": "Высверливание подрозетников копос 74х75", "n": "Панелька", "p": 850, "u": "шт"}, {"id": "w78", "c": "Алмазная резка", "g": "Высверливание подрозетников копос 74х75", "n": "Мягкий мат.", "p": 500, "u": "шт"}, {"id": "w79", "c": "Алмазная резка", "g": "Отверстие 132 ММ L= до 450", "n": "Бетон", "p": 6000, "u": "шт"}, {"id": "w80", "c": "Алмазная резка", "g": "Отверстие 132 ММ L= до 450", "n": "Кирпич", "p": 4500, "u": "шт"}, {"id": "w81", "c": "Алмазная резка", "g": "Отверстие 132 ММ L= до 450", "n": "Панелька", "p": 7000, "u": "шт"}, {"id": "w82", "c": "Алмазная резка", "g": "Отверстие 132 ММ L= до 450", "n": "Мягкий мат.", "p": 4000, "u": "шт"}, {"id": "w83", "c": "Алмазная резка", "g": "Отверстие 52мм L=до 450мм", "n": "Бетон", "p": 2500, "u": "шт"}, {"id": "w84", "c": "Алмазная резка", "g": "Отверстие 52мм L=до 450мм", "n": "Кирпич", "p": 2000, "u": "шт"}, {"id": "w85", "c": "Алмазная резка", "g": "Отверстие 52мм L=до 450мм", "n": "Панелька", "p": 3000, "u": "шт"}, {"id": "w86", "c": "Алмазная резка", "g": "Отверстие 52мм L=до 450мм", "n": "Мягкий мат.", "p": 1900, "u": "шт"}];
+    const EP_FULL_WORKS = [{"id":"w44","c":"Алмазная резка","g":"Штроба 25х30","n":"Бетон","p":550,"u":"м.п."},{"id":"w45","c":"Алмазная резка","g":"Штроба 25х30","n":"Кирпич","p":400,"u":"м.п."},{"id":"w46","c":"Алмазная резка","g":"Штроба 25х30","n":"Панелька","p":700,"u":"м.п."},{"id":"w47","c":"Алмазная резка","g":"Штроба 25х30","n":"Мягкий мат.","p":400,"u":"м.п."},{"id":"w48","c":"Алмазная резка","g":"Штроба 50х50","n":"Бетон","p":1500,"u":"м.п."},{"id":"w49","c":"Алмазная резка","g":"Штроба 50х50","n":"Кирпич","p":1300,"u":"м.п."},{"id":"w50","c":"Алмазная резка","g":"Штроба 50х50","n":"Панелька","p":1900,"u":"м.п."},{"id":"w51","c":"Алмазная резка","g":"Штроба 50х50","n":"Мягкий мат.","p":900,"u":"м.п."},{"id":"w52","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Бетон","p":2200,"u":"м.п."},{"id":"w53","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Кирпич","p":1550,"u":"м.п."},{"id":"w54","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Панелька","p":2500,"u":"м.п."},{"id":"w55","c":"Алмазная резка","g":"Штроба 100х50 ВВОДНАЯ","n":"Мягкий мат.","p":1400,"u":"м.п."},{"id":"w56","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Бетон","p":600,"u":"шт"},{"id":"w57","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Кирпич","p":500,"u":"шт"},{"id":"w58","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Панелька","p":650,"u":"шт"},{"id":"w59","c":"Алмазная резка","g":"Высверливание подр. стандарт","n":"Мягкий мат.","p":400,"u":"шт"},{"id":"w60","c":"Черновая электрика","g":"Вклейка подрозетников","n":"Все типы","p":100,"u":"шт"},{"id":"w61","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Бетон","p":400,"u":"мод."},{"id":"w62","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Кирпич","p":300,"u":"мод."},{"id":"w63","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Панелька","p":500,"u":"мод."},{"id":"w64","c":"Алмазная резка","g":"Вырубка ниши щита","n":"Мягкий мат.","p":250,"u":"мод."},{"id":"w65","c":"Монтаж","g":"Прокладка кабеля","n":"Без гофры (Потолок)","p":120,"u":"м.п."},{"id":"w66","c":"Монтаж","g":"Прокладка кабеля","n":"В гофре (Пол)","p":150,"u":"м.п."},{"id":"w67","c":"Монтаж","g":"Распаячная коробка","n":"Сборка распред. коробки / коммутация","p":800,"u":"шт"},{"id":"w68","c":"Чистовая установка","g":"Механизмы","n":"Установка розетки 220В","p":500,"u":"шт"},{"id":"w69","c":"Чистовая установка","g":"Механизмы","n":"Установка выключателя","p":550,"u":"шт"},{"id":"w70","c":"Чистовая установка","g":"Механизмы","n":"Установка терморегулятора","p":900,"u":"шт"},{"id":"w71","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Бетон","p":650,"u":"шт"},{"id":"w72","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Кирпич","p":550,"u":"шт"},{"id":"w73","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Панелька","p":750,"u":"шт"},{"id":"w74","c":"Алмазная резка","g":"Высверливание подрозетников глубокий","n":"Мягкий мат.","p":450,"u":"шт"},{"id":"w75","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Бетон","p":800,"u":"шт"},{"id":"w76","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Кирпич","p":700,"u":"шт"},{"id":"w77","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Панелька","p":850,"u":"шт"},{"id":"w78","c":"Алмазная резка","g":"Высверливание подрозетников копос 74х75","n":"Мягкий мат.","p":500,"u":"шт"},{"id":"w79","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Бетон","p":6000,"u":"шт"},{"id":"w80","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Кирпич","p":4500,"u":"шт"},{"id":"w81","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Панелька","p":7000,"u":"шт"},{"id":"w82","c":"Алмазная резка","g":"Отверстие 132 ММ L= до 450","n":"Мягкий мат.","p":4000,"u":"шт"},{"id":"w83","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Бетон","p":2500,"u":"шт"},{"id":"w84","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Кирпич","p":2000,"u":"шт"},{"id":"w85","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Панелька","p":3000,"u":"шт"},{"id":"w86","c":"Алмазная резка","g":"Отверстие 52мм L=до 450мм","n":"Мягкий мат.","p":1900,"u":"шт"},{"id":"w87","c":"Щитовое","g":"Монтаж","n":"Сборка щита","p":500,"u":"мод."},{"id":"w89","c":"Щитовое","g":"Монтаж","n":"Установка БП в щит","p":900,"u":"ед"},{"id":"w91","c":"Монтаж","g":"Спецоборудование","n":"Подключение нагревателя","p":4000,"u":"ед"},{"id":"w92","c":"Монтаж","g":"Спецоборудование","n":"Система КУП","p":5000,"u":"ед"},{"id":"s_r1","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле времени","p":1250,"u":"шт"},{"id":"s_r2","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле освещения (в щите)","p":1250,"u":"шт"},{"id":"s_r3","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле температуры/жидкости","p":1700,"u":"шт"},{"id":"s_r4","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле контроля фаз","p":1450,"u":"шт"},{"id":"s_r5","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле напряжения","p":1150,"u":"шт"},{"id":"s_r6","c":"Щитовое","g":"Автоматика и Реле","n":"Установка реле управления нагрузкой","p":2050,"u":"шт"},{"id":"s_m1","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 220-240В на DIN","p":1000,"u":"шт"},{"id":"s_m2","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 220-240В на монтажную панель","p":1250,"u":"шт"},{"id":"s_m3","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 380-400В на DIN","p":1700,"u":"шт"},{"id":"s_m4","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика 380-400В на монтажную панель","p":2200,"u":"шт"},{"id":"s_m5","c":"Щитовое","g":"Счетчики","n":"Установка электросчетчика под трансформаторы тока","p":2400,"u":"шт"},{"id":"s_m6","c":"Щитовое","g":"Счетчики","n":"Установка трансформатора тока (без подкл)","p":720,"u":"шт"},{"id":"s_p1","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на бетон","p":680,"u":"шт"},{"id":"s_p2","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на кирпич","p":600,"u":"шт"},{"id":"s_p3","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на ГКЛ","p":530,"u":"шт"},{"id":"s_p4","c":"Чистовая установка","g":"Розетки накладные","n":"Установка накладной розетки/выкл на дерево","p":450,"u":"шт"},{"id":"s_p5","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка накладной силовой розетки 380В","p":1000,"u":"шт"},{"id":"s_p6","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка встраиваемой силовой розетки 380В","p":530,"u":"шт"},{"id":"s_p7","c":"Чистовая установка","g":"Механизмы","n":"Установка встраиваемой розетки/выкл в подрозетник","p":300,"u":"шт"},{"id":"s_p8","c":"Чистовая установка","g":"Механизмы","n":"Установка блока розеток/выкл","p":1200,"u":"шт"},{"id":"s_d1","c":"Черновая электрика","g":"Электроточки","n":"Установка накладного подрозетника","p":300,"u":"шт"},{"id":"s_d2","c":"Черновая электрика","g":"Электроточки","n":"Установка подрозетника","p":180,"u":"шт"},{"id":"s_d3","c":"Черновая электрика","g":"Электроточки","n":"Установка накладной распаечной коробки","p":450,"u":"шт"},{"id":"s_d4","c":"Черновая электрика","g":"Электроточки","n":"Установка встраиваемой распаечной коробки","p":300,"u":"шт"},{"id":"s_d5","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка термостата","p":380,"u":"шт"},{"id":"s_d6","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка встраиваемого датчика движения","p":330,"u":"шт"},{"id":"s_d7","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка звонка","p":680,"u":"шт"},{"id":"s_d8","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка кнопки звонка","p":450,"u":"шт"},{"id":"s_d9","c":"Чистовая установка","g":"Механизмы (Спец)","n":"Установка ТВ краба","p":480,"u":"шт"},{"id":"s_sh1","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 2 модуля","p":180,"u":"шт"},{"id":"s_sh2","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 4-8 модулей","p":290,"u":"шт"},{"id":"s_sh3","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 12-24 модуля","p":330,"u":"шт"},{"id":"s_sh4","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 36-60 модулей","p":560,"u":"шт"},{"id":"s_sh5","c":"Щитовое","g":"Монтаж накладных","n":"Монтаж электрощитка накладного 72-96 модулей","p":780,"u":"шт"},{"id":"s_l1","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на кухне под шкафами","p":270,"u":"м.п."},{"id":"s_l2","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в натяжной потолок","p":390,"u":"м.п."},{"id":"s_l3","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на гипсокартон","p":300,"u":"м.п."},{"id":"s_l4","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в потолочный плинтус","p":350,"u":"м.п."},{"id":"s_l5","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты в алюминиевый профиль","p":230,"u":"м.п."},{"id":"s_l6","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на карниз","p":350,"u":"м.п."},{"id":"s_l7","c":"Освещение","g":"LED Лента","n":"Установка светодиодной ленты в светильник","p":180,"u":"м.п."},{"id":"s_l8","c":"Освещение","g":"LED Лента","n":"Монтаж светодиодной ленты на улице","p":380,"u":"м.п."},{"id":"s_l9","c":"Освещение","g":"Алюм. профиль","n":"Установка накладного алюм. профиля на скотч","p":110,"u":"м.п."},{"id":"s_l10","c":"Освещение","g":"Алюм. профиль","n":"Установка накладного алюм. профиля со сверлением","p":290,"u":"м.п."},{"id":"s_l11","c":"Освещение","g":"Алюм. профиль","n":"Установка врезного алюм. профиля в готовый паз","p":120,"u":"м.п."},{"id":"s_l12","c":"Освещение","g":"Алюм. профиль","n":"Установка врезного алюм. профиля с подготовкой паза","p":390,"u":"м.п."},{"id":"s_c1","c":"Освещение","g":"Люстры и Светильники","n":"Сборка простой люстры","p":630,"u":"шт"},{"id":"s_c2","c":"Освещение","g":"Люстры и Светильники","n":"Сборка сложной люстры","p":870,"u":"шт"},{"id":"s_c3","c":"Освещение","g":"Люстры и Светильники","n":"Установка крюка под люстру","p":230,"u":"шт"},{"id":"s_c4","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры на готовый крюк","p":740,"u":"шт"},{"id":"s_c5","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры с креплением к потолку (простая)","p":1200,"u":"шт"},{"id":"s_c6","c":"Освещение","g":"Люстры и Светильники","n":"Установка люстры с креплением к потолку (сложная/ДУ)","p":2250,"u":"шт"},{"id":"s_c7","c":"Освещение","g":"Люстры и Светильники","n":"Установка тяжелой люстры с креплением на крюк","p":1950,"u":"шт"},{"id":"s_c8","c":"Освещение","g":"Люстры и Светильники","n":"Установка тяжелой люстры с креплением к потолку","p":3600,"u":"шт"},{"id":"s_c9","c":"Освещение","g":"Люстры и Светильники","n":"Установка настенного светильника, бра","p":450,"u":"шт"},{"id":"s_c10","c":"Освещение","g":"Люстры и Светильники","n":"Установка точечного светильника","p":750,"u":"шт"},{"id":"s_c11","c":"Освещение","g":"Люстры и Светильники","n":"Установка светодиодного светильника","p":680,"u":"шт"},{"id":"s_c12","c":"Освещение","g":"Люстры и Светильники","n":"Установка светильника Армстронг","p":380,"u":"шт"},{"id":"s_c13","c":"Освещение","g":"Люстры и Светильники","n":"Установка люминесцентного светильника","p":410,"u":"шт"},{"id":"s_c14","c":"Освещение","g":"Люстры и Светильники","n":"Установка трекового светильника","p":140,"u":"шт"},{"id":"s_c15","c":"Освещение","g":"Люстры и Светильники","n":"Монтаж шинопровода","p":450,"u":"м.п."},{"id":"s_c16","c":"Освещение","g":"Уличное освещение","n":"Установка уличного светильника на фасаде","p":830,"u":"шт"},{"id":"s_c17","c":"Освещение","g":"Уличное освещение","n":"Установка садово-паркового светильника","p":1350,"u":"шт"},{"id":"s_c18","c":"Освещение","g":"Люстры и Светильники","n":"Установка светильника Выход","p":480,"u":"шт"},{"id":"s_c19","c":"Освещение","g":"Уличное освещение","n":"Установка антивандального светильника","p":660,"u":"шт"},{"id":"s_dem1","c":"Демонтаж","g":"Освещение","n":"Демонтаж люстры","p":240,"u":"шт"},{"id":"s_dem2","c":"Демонтаж","g":"Освещение","n":"Демонтаж светильника","p":210,"u":"шт"},{"id":"s_dem3","c":"Демонтаж","g":"Электроточки","n":"Демонтаж розетки","p":200,"u":"шт"},{"id":"s_dem4","c":"Демонтаж","g":"Электроточки","n":"Демонтаж выключателя","p":200,"u":"шт"},{"id":"s_dem5","c":"Демонтаж","g":"Электроточки","n":"Демонтаж распаечной коробки","p":200,"u":"шт"},{"id":"s_dem6","c":"Демонтаж","g":"Электроточки","n":"Демонтаж дверного звонка","p":200,"u":"шт"},{"id":"s_dem7","c":"Демонтаж","g":"Щитовое","n":"Демонтаж реле времени","p":230,"u":"шт"},{"id":"s_dem8","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка до 8 модулей","p":110,"u":"шт"},{"id":"s_dem9","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка 12-36 модулей","p":260,"u":"шт"},{"id":"s_dem10","c":"Демонтаж","g":"Щитовое","n":"Демонтаж электрощитка 48-96 модулей","p":470,"u":"шт"},{"id":"s_dem11","c":"Демонтаж","g":"Щитовое","n":"Демонтаж автомата","p":150,"u":"шт"},{"id":"s_dem12","c":"Демонтаж","g":"Щитовое","n":"Демонтаж УЗО","p":150,"u":"шт"},{"id":"s_dem13","c":"Демонтаж","g":"Щитовое","n":"Демонтаж дифавтомата","p":150,"u":"шт"},{"id":"s_dem14","c":"Демонтаж","g":"Щитовое","n":"Демонтаж рубильника","p":150,"u":"шт"},{"id":"s_dem15","c":"Демонтаж","g":"Щитовое","n":"Демонтаж магнитного пускателя","p":140,"u":"шт"}];
     let epGlobalDbType = 'mat';
     let epGlobalDbCache = { matDB: [], workDB: [] };
+    window.EP_DB_PROPOSALS_CACHE_V2 = window.EP_DB_PROPOSALS_CACHE_V2 || {};
 
-    function epEsc(v) {
-        return String(v ?? '').replace(/[&<>"']/g, function(ch) {
-            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
-        });
-    }
+    function epEsc(v) { return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
     function epId(v) { return String(v ?? '').replace(/[^a-zA-Z0-9_:-]/g, '_'); }
-    function epArr(type) { return type === 'work' ? (window.workDB || []) : (window.matDB || []); }
-    function epSetArr(type, arr) { if (type === 'work') window.workDB = arr; else window.matDB = arr; }
+    function epArr(type) { return type === 'work' ? workDB : matDB; }
+    function epSetArr(type, arr) { if (type === 'work') workDB = arr; else matDB = arr; }
+    function epClean(v) { return String(v ?? '').trim().toLowerCase(); }
     function epSame(a,b) {
-        return String(a.id||'') === String(b.id||'') || (
-            String(a.c||'').trim().toLowerCase() === String(b.c||'').trim().toLowerCase() &&
-            String(a.g||a.sc||'').trim().toLowerCase() === String(b.g||b.sc||'').trim().toLowerCase() &&
-            String(a.n||'').trim().toLowerCase() === String(b.n||'').trim().toLowerCase()
-        );
+        if (a && b && a.id && b.id && String(a.id) === String(b.id)) return true;
+        return epClean(a && a.c) === epClean(b && b.c)
+            && epClean((a && (a.g || a.sc)) || '') === epClean((b && (b.g || b.sc)) || '')
+            && epClean(a && a.n) === epClean(b && b.n);
     }
     function epMaterialFromName(name) {
         const s = String(name || '');
@@ -3520,31 +3738,27 @@ async function deleteUser(uid) {
         return s;
     }
     function epNormalizeWorkItem(x) {
-        const it = Object.assign({}, x);
+        const it = Object.assign({}, x || {});
+        const originalName = String(it.n || '');
         if (it.sc && !it.g) it.g = it.sc;
-        const name = String(it.n || '');
-        const mat = epMaterialFromName(name);
-        if (!it.g && mat) it.g = epOpFromName(name);
-        if (mat && (!it.g || name.includes('('))) it.n = mat;
+        const mat = epMaterialFromName(originalName);
+        if (!it.g && mat) it.g = epOpFromName(originalName);
+        if (mat && (!it.g || originalName.includes('('))) it.n = mat;
         if (!it.g) {
-            const low = name.toLowerCase();
-            if (/штроб/.test(low)) it.g = epOpFromName(name) || 'Штроба';
-            else if (/высверл|подрозет/.test(low)) it.g = epOpFromName(name) || 'Подрозетники';
-            else if (/ниш/.test(low)) it.g = epOpFromName(name) || 'Ниши';
-            else if (/отверст|алмаз/.test(low)) it.g = epOpFromName(name) || 'Алмазные отверстия';
+            const low = originalName.toLowerCase();
+            if (/штроб/.test(low)) it.g = epOpFromName(originalName) || 'Штроба';
+            else if (/высверл|подрозет/.test(low)) it.g = epOpFromName(originalName) || 'Подрозетники';
+            else if (/ниш/.test(low)) it.g = epOpFromName(originalName) || 'Ниши';
+            else if (/отверст|алмаз/.test(low)) it.g = epOpFromName(originalName) || 'Алмазные отверстия';
+            else if (/демонтаж/.test(low)) it.g = it.g || 'Демонтаж';
+            else if (/розет|выключ|механизм|терморег/.test(low)) it.g = it.g || 'Механизмы';
+            else if (/кабел|гофр|лоток|труб|короб/.test(low)) it.g = it.g || 'Прокладка кабеля';
+            else it.g = it.g || 'Разное';
         }
-        if (!it.c && it.g) it.c = 'Алмазная резка';
+        if (!it.c) it.c = 'Работы';
         if (!it.u) it.u = 'шт';
         it.p = Number(it.p) || 0;
         return it;
-    }
-    function epNormalizeAllWorkDb() {
-        let arr = (window.workDB || []).map(epNormalizeWorkItem);
-        EP_GROUPED_WORKS.forEach(function(w) {
-            if (!arr.some(x => epSame(x, w))) arr.push(Object.assign({}, w));
-        });
-        window.workDB = arr;
-        try { if (typeof safeSet === 'function') safeSet('user_db_work_v31', JSON.stringify(arr)); } catch(e){}
     }
     function epDisplayWorkName(it) {
         const g = it.g || it.sc || '';
@@ -3557,9 +3771,21 @@ async function deleteUser(uid) {
         if (type === 'work') copy.n = epDisplayWorkName(copy);
         return copy;
     }
+    function epMergeFullWorksInto(arr) {
+        let out = (arr || []).map(epNormalizeWorkItem);
+        EP_FULL_WORKS.forEach(function(w) {
+            const nw = epNormalizeWorkItem(w);
+            if (!out.some(x => epSame(x, nw))) out.push(Object.assign({}, nw));
+        });
+        return out;
+    }
+    function epNormalizeAllWorkDb() {
+        workDB = epMergeFullWorksInto(workDB || []);
+        try { if (typeof safeSet === 'function') safeSet('user_db_work_v31', JSON.stringify(workDB)); } catch(e){}
+    }
     function epGroupCatalog(arr, type) {
         const cats = {};
-        arr.forEach(function(raw) {
+        (arr || []).forEach(function(raw) {
             const it = type === 'work' ? epNormalizeWorkItem(raw) : Object.assign({}, raw);
             const c = it.c || 'Разное';
             const g = type === 'work' ? (it.g || it.sc || 'Разное') : (it.sc || it.g || 'Разное');
@@ -3574,17 +3800,17 @@ async function deleteUser(uid) {
         const cats = epGroupCatalog(arr, type);
         let html = '';
         let idx = 0;
-        Object.keys(cats).sort().forEach(function(c) {
+        Object.keys(cats).sort((a,b)=>a.localeCompare(b,'ru')).forEach(function(c) {
             const cid = (opts.prefix || 'ep_cat') + '_' + epId(type + '_' + idx++);
             const catStyle = type === 'work' ? 'style="color:var(--orange); border-color:rgba(245,158,11,.2); background:rgba(245,158,11,.08);"' : '';
             html += `<div class="cat-header" ${catStyle} onclick="toggleCat('${cid}')">${epEsc(c)} <span>▼</span></div><div class="cat-body" id="${cid}">`;
-            Object.keys(cats[c]).sort().forEach(function(g) {
+            Object.keys(cats[c]).sort((a,b)=>a.localeCompare(b,'ru')).forEach(function(g) {
                 const sid = (opts.prefix || 'ep_sub') + '_' + epId(type + '_' + idx++);
                 html += `<div class="ep-subcat-header" onclick="epToggleSubCat('${sid}', event)">${epEsc(g)} <span>открыть</span></div><div class="ep-subcat-body" id="${sid}">`;
-                cats[c][g].sort((a,b) => String(a.n||'').localeCompare(String(b.n||''), 'ru')).forEach(function(it) {
+                cats[c][g].sort((a,b)=>String(a.n||'').localeCompare(String(b.n||''), 'ru')).forEach(function(it) {
+                    if (!it.id) it.id = 'ep_' + type + '_' + Math.abs((String(it.c)+String(it.g)+String(it.n)).split('').reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0,0));
                     const id = epEsc(it.id);
-                    const itemTitle = type === 'work' ? epEsc(it.n || 'Позиция') : epEsc(it.n || 'Позиция');
-                    const meta = `${type === 'work' ? '<span class="ep-material-chip">' + epEsc(it.n || '') + '</span>' : ''} ${Number(it.p)||0} ₽ / ${epEsc(it.u || 'шт')}`;
+                    const itemTitle = epEsc(it.n || 'Позиция');
                     if (opts.mode === 'editor') {
                         html += `<div class="emp-row"><div style="flex:1;"><div class="ep-db-item-title">${itemTitle}</div><div class="ep-db-item-meta">${epEsc(g)} • ${Number(it.p)||0} ₽ / ${epEsc(it.u || 'шт')}</div></div><div class="ep-row-actions"><input type="number" value="${Number(it.p)||0}" onchange="requestPriceChange('${type}','${id}',this.value)" style="width:74px;margin:0;padding:5px;text-align:center;"><button class="btn-danger" onclick="epDeleteDbItem('${type}','${id}')" title="Удалить">🗑</button></div></div>`;
                     } else if (opts.mode === 'global') {
@@ -3600,180 +3826,182 @@ async function deleteUser(uid) {
         return html || '<p style="color:var(--gray);font-size:12px;">Позиций нет</p>';
     }
 
-    window.epToggleSubCat = function(id, ev) {
-        if (ev) ev.stopPropagation();
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('active');
-    };
-
+    window.epToggleSubCat = function(id, ev) { if (ev) ev.stopPropagation(); const el = document.getElementById(id); if (el) el.classList.toggle('active'); };
     window.epPromptGroupedAdd = function(id, type) {
         const item = epArr(type).map(x => type === 'work' ? epNormalizeWorkItem(x) : x).find(x => String(x.id) === String(id));
         if (!item) return;
         window.pendingAdd = { item: epEstimateCopy(item, type), type: type };
-        const nameEl = document.getElementById('qty-prompt-name');
-        if (nameEl) nameEl.innerText = type === 'work' ? epDisplayWorkName(item) : item.n;
-        const qtyEl = document.getElementById('qty-input');
-        if (qtyEl) qtyEl.value = 1;
+        const nameEl = document.getElementById('qty-prompt-name'); if (nameEl) nameEl.innerText = type === 'work' ? epDisplayWorkName(item) : item.n;
+        const qtyEl = document.getElementById('qty-input'); if (qtyEl) qtyEl.value = 1;
         openModal('qtyPromptModal');
     };
-
-    const oldPromptAdd = window.promptAdd;
-    window.promptAdd = function(id, type) {
-        if (type === 'work') return window.epPromptGroupedAdd(id, type);
-        if (typeof oldPromptAdd === 'function') return oldPromptAdd(id, type);
-        return window.epPromptGroupedAdd(id, type);
-    };
-
-    window.openWorkCatalog = function() {
-        epNormalizeAllWorkDb();
-        const el = document.getElementById('work-cat-list');
-        if (el) el.innerHTML = epRenderGroupedList(window.workDB || [], 'work', { prefix:'wcat_grouped', mode:'catalog' });
-        openModal('workModal');
-    };
-
-    const oldOpenMatCatalog = window.openMatCatalog;
+    const oldPromptAddFull = window.promptAdd;
+    window.promptAdd = function(id, type) { if (type === 'work') return window.epPromptGroupedAdd(id, type); if (typeof oldPromptAddFull === 'function') return oldPromptAddFull(id, type); return window.epPromptGroupedAdd(id, type); };
+    window.openWorkCatalog = function() { epNormalizeAllWorkDb(); const el = document.getElementById('work-cat-list'); if (el) el.innerHTML = epRenderGroupedList(workDB || [], 'work', { prefix:'wcat_full', mode:'catalog' }); openModal('workModal'); };
+    const oldOpenMatCatalogFull = window.openMatCatalog;
     window.openMatCatalog = function() {
-        const hasNested = (window.matDB || []).some(x => x.sc || x.g);
-        if (!hasNested && typeof oldOpenMatCatalog === 'function') return oldOpenMatCatalog();
-        const el = document.getElementById('mat-cat-list');
-        if (el) el.innerHTML = epRenderGroupedList(window.matDB || [], 'mat', { prefix:'mcat_grouped', mode:'catalog' });
-        openModal('matCatModal');
+        const hasNested = (matDB || []).some(x => x.sc || x.g);
+        if (!hasNested && typeof oldOpenMatCatalogFull === 'function') return oldOpenMatCatalogFull();
+        const el = document.getElementById('mat-cat-list'); if (el) el.innerHTML = epRenderGroupedList(matDB || [], 'mat', { prefix:'mcat_full', mode:'catalog' }); openModal('matCatModal');
     };
-
     window.renderDbEditors = function() {
         epNormalizeAllWorkDb();
-        const catsM = [...new Set((window.matDB || []).map(m => m.c || 'Разное'))];
-        const catsW = [...new Set((window.workDB || []).map(w => w.c || 'Разное'))];
-        const catsEl = document.getElementById('db-cats');
-        if (catsEl) catsEl.innerHTML = [...new Set([...catsM, ...catsW])].map(c => `<option value="${epEsc(c)}">`).join('');
-        const em = document.getElementById('editor-mat-list');
-        const ew = document.getElementById('editor-work-list');
-        if (em) em.innerHTML = epRenderGroupedList(window.matDB || [], 'mat', { prefix:'db_m_grouped', mode:'editor' });
-        if (ew) ew.innerHTML = epRenderGroupedList(window.workDB || [], 'work', { prefix:'db_w_grouped', mode:'editor' });
+        const catsM = [...new Set((matDB || []).map(m => m.c || 'Разное'))];
+        const catsW = [...new Set((workDB || []).map(w => w.c || 'Разное'))];
+        const catsEl = document.getElementById('db-cats'); if (catsEl) catsEl.innerHTML = [...new Set([...catsM, ...catsW])].map(c => `<option value="${epEsc(c)}">`).join('');
+        const em = document.getElementById('editor-mat-list'); const ew = document.getElementById('editor-work-list');
+        if (em) em.innerHTML = epRenderGroupedList(matDB || [], 'mat', { prefix:'db_m_full', mode:'editor' });
+        if (ew) ew.innerHTML = epRenderGroupedList(workDB || [], 'work', { prefix:'db_w_full', mode:'editor' });
     };
 
     async function epGetGlobalDb() {
         try {
-            if (window.db) {
+            if (db) {
                 const doc = await db.collection('settings').doc('global_db').get();
                 if (doc.exists) {
                     const d = doc.data() || {};
-                    epGlobalDbCache.matDB = Array.isArray(d.matDB) ? d.matDB : (window.matDB || []);
-                    epGlobalDbCache.workDB = Array.isArray(d.workDB) ? d.workDB.map(epNormalizeWorkItem) : (window.workDB || []);
-                } else {
-                    epGlobalDbCache.matDB = window.matDB || [];
-                    epGlobalDbCache.workDB = window.workDB || [];
-                }
-            } else {
-                epGlobalDbCache.matDB = window.matDB || [];
-                epGlobalDbCache.workDB = window.workDB || [];
-            }
-        } catch(e) {
-            epGlobalDbCache.matDB = window.matDB || [];
-            epGlobalDbCache.workDB = window.workDB || [];
-        }
-        // Always add surgical grouped cutting/drilling/niche positions for viewing.
-        let w = (epGlobalDbCache.workDB || []).map(epNormalizeWorkItem);
-        EP_GROUPED_WORKS.forEach(function(it) { if (!w.some(x => epSame(x,it))) w.push(Object.assign({}, it)); });
-        epGlobalDbCache.workDB = w;
+                    epGlobalDbCache.matDB = Array.isArray(d.matDB) ? d.matDB : (matDB || []);
+                    epGlobalDbCache.workDB = Array.isArray(d.workDB) ? epMergeFullWorksInto(d.workDB) : epMergeFullWorksInto(workDB || []);
+                } else { epGlobalDbCache.matDB = matDB || []; epGlobalDbCache.workDB = epMergeFullWorksInto(workDB || []); }
+            } else { epGlobalDbCache.matDB = matDB || []; epGlobalDbCache.workDB = epMergeFullWorksInto(workDB || []); }
+        } catch(e) { epGlobalDbCache.matDB = matDB || []; epGlobalDbCache.workDB = epMergeFullWorksInto(workDB || []); }
     }
-
-    window.epOpenGlobalDbModal = async function() {
-        showLoader('Загрузка глобальной базы...', '🌍');
-        await epGetGlobalDb();
-        hideLoader();
-        epGlobalDbType = 'mat';
-        epRenderGlobalDbModal();
-        openModal('globalDbModal');
-    };
-
-    window.epSwitchGlobalDbTab = function(type) {
-        epGlobalDbType = type;
-        epRenderGlobalDbModal();
-    };
-
-    window.epGlobalSelectAll = function(flag) {
-        document.querySelectorAll('#ep-global-db-list .ep-global-check').forEach(ch => ch.checked = !!flag);
-    };
-
+    window.epOpenGlobalDbModal = async function() { if (typeof showLoader === 'function') showLoader('Загрузка глобальной базы...', '🌍'); await epGetGlobalDb(); if (typeof hideLoader === 'function') hideLoader(); epGlobalDbType='mat'; epRenderGlobalDbModal(); openModal('globalDbModal'); };
+    window.epSwitchGlobalDbTab = function(type) { epGlobalDbType = type; epRenderGlobalDbModal(); };
+    window.epGlobalSelectAll = function(flag) { document.querySelectorAll('#ep-global-db-list .ep-global-check').forEach(ch => ch.checked = !!flag); };
     function epRenderGlobalDbModal() {
-        const matBtn = document.getElementById('ep-global-tab-mat');
-        const workBtn = document.getElementById('ep-global-tab-work');
-        if (matBtn) matBtn.classList.toggle('active', epGlobalDbType === 'mat');
-        if (workBtn) workBtn.classList.toggle('active', epGlobalDbType === 'work');
-        const list = document.getElementById('ep-global-db-list');
-        if (!list) return;
+        const matBtn = document.getElementById('ep-global-tab-mat'); const workBtn = document.getElementById('ep-global-tab-work');
+        if (matBtn) matBtn.classList.toggle('active', epGlobalDbType === 'mat'); if (workBtn) workBtn.classList.toggle('active', epGlobalDbType === 'work');
+        const list = document.getElementById('ep-global-db-list'); if (!list) return;
         const arr = epGlobalDbType === 'work' ? epGlobalDbCache.workDB : epGlobalDbCache.matDB;
-        list.innerHTML = epRenderGroupedList(arr || [], epGlobalDbType, { prefix:'global_db', mode:'global' });
+        list.innerHTML = epRenderGroupedList(arr || [], epGlobalDbType, { prefix:'global_full', mode:'global' });
     }
-
     window.epAddSelectedGlobalToMyDb = async function() {
         const checks = Array.from(document.querySelectorAll('#ep-global-db-list .ep-global-check:checked'));
         if (!checks.length) return showToast('Выберите позиции');
         const type = epGlobalDbType;
         const src = type === 'work' ? epGlobalDbCache.workDB : epGlobalDbCache.matDB;
-        let target = epArr(type).slice();
-        let added = 0;
-        checks.forEach(function(ch) {
-            const it = src.find(x => String(x.id) === String(ch.dataset.id));
-            if (it && !target.some(x => epSame(x,it))) { target.push(Object.assign({}, it)); added++; }
-        });
-        epSetArr(type, target);
-        if (typeof epSaveUserDb === 'function') await epSaveUserDb();
-        else { try { safeSet(type === 'work' ? 'user_db_work_v31' : 'user_db_mat_v31', JSON.stringify(target)); } catch(e){} }
+        let target = epArr(type).slice(); let added=0;
+        checks.forEach(function(ch) { const it = src.find(x => String(x.id) === String(ch.dataset.id)); if (it && !target.some(x => epSame(x,it))) { target.push(Object.assign({}, it)); added++; } });
+        epSetArr(type, target); if (type === 'work') epNormalizeAllWorkDb();
+        try { if (typeof epSaveUserDb === 'function') await epSaveUserDb(); else safeSet(type === 'work' ? 'user_db_work_v31' : 'user_db_mat_v31', JSON.stringify(target)); } catch(e){}
         if (typeof renderDbEditors === 'function') renderDbEditors();
         showToast('✅ Добавлено выбранных: ' + added);
     };
-
     function epInsertGlobalDbButton() {
         if (document.getElementById('ep-global-db-entry')) return;
-        const tools = document.getElementById('ep-db-ai-tools');
-        const tabs = document.querySelector('#settModal .tabs-container');
-        const anchor = tools || tabs;
+        const tools = document.getElementById('ep-db-ai-tools'); const tabs = document.querySelector('#settModal .tabs-container'); const anchor = tools || tabs;
         if (!anchor || !anchor.parentNode) return;
-        const box = document.createElement('div');
-        box.id = 'ep-global-db-entry';
-        box.className = 'ep-global-db-entry';
-        box.innerHTML = `<button class="btn-shield" onclick="epOpenGlobalDbModal()">🌍 Глобальная база</button>`;
+        const box = document.createElement('div'); box.id='ep-global-db-entry'; box.className='ep-global-db-entry'; box.innerHTML = `<button class="btn-shield" onclick="epOpenGlobalDbModal()">🌍 Глобальная база</button>`;
         anchor.parentNode.insertBefore(box, anchor.nextSibling);
     }
-
-    const oldOpenModal = window.openModal;
+    const oldOpenModalFull = window.openModal;
     window.openModal = function(id) {
-        if (typeof oldOpenModal === 'function') oldOpenModal(id);
-        if (id === 'settModal') {
-            setTimeout(function() {
-                epInsertGlobalDbButton();
-                epNormalizeAllWorkDb();
-                if (typeof renderDbEditors === 'function') renderDbEditors();
-            }, 80);
-        }
+        if (typeof oldOpenModalFull === 'function') oldOpenModalFull(id);
+        if (id === 'settModal') setTimeout(function() { epInsertGlobalDbButton(); epNormalizeAllWorkDb(); if (typeof renderDbEditors === 'function') renderDbEditors(); epStartProposalV2(); }, 80);
     };
 
-    const oldEpLoadUserDb = window.epLoadUserDbAfterLogin;
-    if (typeof oldEpLoadUserDb === 'function') {
-        window.epLoadUserDbAfterLogin = async function() {
-            await oldEpLoadUserDb();
-            epNormalizeAllWorkDb();
+    // Заявки в глобальную базу: открыть массив и принимать/отклонять отдельные позиции.
+    function epEnsureProposalBox() {
+        let cont = document.getElementById('admin-db-proposals');
+        if (cont) return cont;
+        const panel = document.getElementById('admin-panel');
+        if (!panel) return null;
+        const box = document.createElement('div');
+        box.innerHTML = `<h4 style="color:var(--primary); margin:10px 0 5px;">🌍 Заявки в глобальную базу:</h4><div id="admin-db-proposals" style="margin-bottom:10px; border:1px solid var(--primary); background:rgba(79,70,229,.05); border-radius:8px; padding:8px; max-height:260px; overflow-y:auto; font-size:12px;"></div>`;
+        panel.insertBefore(box, panel.firstChild ? panel.firstChild.nextSibling : null);
+        return document.getElementById('admin-db-proposals');
+    }
+    function epProposalItemName(x) { return [x.g || x.sc || '', x.n || ''].filter(Boolean).join(' — ') || 'Позиция'; }
+    function epRenderProposalList() {
+        const cont = epEnsureProposalBox(); if (!cont) return;
+        const entries = Object.entries(window.EP_DB_PROPOSALS_CACHE_V2 || {});
+        if (!entries.length) { cont.innerHTML = '<span style="color:var(--gray);">Новых заявок нет</span>'; return; }
+        cont.innerHTML = entries.map(function([id,d]) {
+            const items = Array.isArray(d.items) ? d.items : [];
+            const decisions = d.itemDecisions || {};
+            const done = Object.keys(decisions).length;
+            const preview = items.slice(0,3).map(x => epEsc(epProposalItemName(x))).join('<br>');
+            return `<div class="ep-proposal-open-card" onclick="epOpenProposalDetail('${id}')"><b>${epEsc(d.masterName || d.uid || 'Мастер')}</b><span class="ep-proposal-badge">${d.type === 'work' ? 'Работы' : 'Материалы'}</span><div style="font-size:11px;color:var(--gray);margin-top:4px;">${epEsc(d.action || '')} • ${items.length} поз. • обработано ${done}/${items.length}</div><div style="font-size:11px;margin-top:6px;">${preview}${items.length>3?'<br>...':''}</div><button class="btn-info" style="width:100%;margin-top:8px;padding:9px;" onclick="event.stopPropagation(); epOpenProposalDetail('${id}')">Открыть заявку</button></div>`;
+        }).join('');
+    }
+    window.epOpenProposalDetail = function(id) {
+        const d = window.EP_DB_PROPOSALS_CACHE_V2[id]; if (!d) return showToast('Заявка не найдена');
+        const items = Array.isArray(d.items) ? d.items : [];
+        const decisions = d.itemDecisions || {};
+        const title = document.getElementById('ep-proposal-title'); if (title) title.innerText = '🌍 Заявка: ' + (d.masterName || d.uid || 'Мастер');
+        const body = document.getElementById('ep-proposal-body'); if (!body) return;
+        body.innerHTML = `<div style="font-size:12px;color:var(--gray);margin-bottom:8px;">${d.type === 'work' ? 'Работы' : 'Материалы'} • ${items.length} позиций. Можно принять или отклонить каждую отдельно.</div><div class="ep-proposal-top-actions"><button class="btn-info" onclick="epProposalSelectAll(true)">✅ Все</button><button class="btn-vendor" onclick="epProposalSelectAll(false)">⬜ Снять</button><button class="btn-danger" onclick="epResolveProposalItems('${id}','reject')">❌ Отклонить выбранные</button></div><div class="ep-proposal-top-actions"><button class="btn-success" onclick="epResolveProposalItems('${id}','full')">✅ Добавить выбранные</button><button class="btn-primary" onclick="epResolveProposalItems('${id}','names')">🏷 Без суммы</button><button class="btn-vendor" onclick="closeModal('epProposalModal')">Закрыть</button></div>` +
+        items.map(function(x,i) {
+            const dec = decisions[String(i)];
+            const done = !!dec;
+            const status = done ? (dec.mode === 'reject' ? 'Отклонено' : (dec.mode === 'names' ? 'Добавлено без суммы' : 'Добавлено полностью')) : 'На рассмотрении';
+            return `<div class="ep-proposal-row ${done?'done':''}"><label style="display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" class="ep-proposal-check" data-index="${i}" ${done?'disabled':''} style="width:22px;height:22px;accent-color:var(--primary);"><div style="flex:1;"><div class="ep-db-item-title">${epEsc(epProposalItemName(x))}</div><div class="ep-db-item-meta">${epEsc(x.c || 'Разное')} • ${epEsc(x.g || x.sc || 'Разное')} • ${Number(x.p)||0} ₽ / ${epEsc(x.u || 'шт')} • <b>${status}</b></div></div></label>${done?'':`<div class="ep-proposal-actions"><button class="btn-success" onclick="epResolveProposalOne('${id}',${i},'full')">Добавить</button><button class="btn-primary" onclick="epResolveProposalOne('${id}',${i},'names')">Без суммы</button><button class="btn-danger" onclick="epResolveProposalOne('${id}',${i},'reject')">Отклонить</button></div>`}</div>`;
+        }).join('');
+        openModal('epProposalModal');
+    };
+    window.epProposalSelectAll = function(flag) { document.querySelectorAll('#ep-proposal-body .ep-proposal-check:not(:disabled)').forEach(ch => ch.checked = !!flag); };
+    window.epResolveProposalOne = function(id, idx, mode) { epResolveProposalItems(id, mode, [idx]); };
+    window.epResolveProposalItems = async function(id, mode, forcedIndexes) {
+        if (!db || !appUser || appUser.role !== 'admin') return showToast('Только админ');
+        const d = window.EP_DB_PROPOSALS_CACHE_V2[id]; if (!d) return showToast('Заявка не найдена');
+        const items = Array.isArray(d.items) ? d.items : [];
+        let indexes = Array.isArray(forcedIndexes) ? forcedIndexes : Array.from(document.querySelectorAll('#ep-proposal-body .ep-proposal-check:checked')).map(ch => Number(ch.dataset.index));
+        indexes = indexes.filter(i => i >= 0 && i < items.length && !(d.itemDecisions || {})[String(i)]);
+        if (!indexes.length) return showToast('Выберите необработанные позиции');
+        if (typeof showLoader === 'function') showLoader('Обработка позиций...', '🌍');
+        try {
+            const ref = db.collection('db_proposals').doc(id);
+            const fresh = await ref.get(); if (!fresh.exists) throw new Error('Заявка не найдена');
+            const fd = fresh.data() || d;
+            const decisions = Object.assign({}, fd.itemDecisions || {});
+            const type = fd.type || 'mat';
+            if (mode !== 'reject') {
+                let globalMat = matDB || [], globalWork = workDB || [];
+                try { const gdoc = await db.collection('settings').doc('global_db').get(); if (gdoc.exists) { const gd = gdoc.data() || {}; if (Array.isArray(gd.matDB)) globalMat = gd.matDB; if (Array.isArray(gd.workDB)) globalWork = gd.workDB; } } catch(e){}
+                let arr = (type === 'work' ? globalWork : globalMat).slice();
+                indexes.forEach(function(i) {
+                    let it = Object.assign({}, items[i], mode === 'names' ? { p:0 } : {});
+                    if (type === 'work') it = epNormalizeWorkItem(it);
+                    const pos = arr.findIndex(x => epSame(type === 'work' ? epNormalizeWorkItem(x) : x, it));
+                    if (pos >= 0) arr[pos] = Object.assign({}, arr[pos], it, { id: arr[pos].id || it.id });
+                    else arr.push(it);
+                });
+                if (type === 'work') { globalWork = epMergeFullWorksInto(arr); workDB = epMergeFullWorksInto(workDB || []); } else { globalMat = arr; }
+                await db.collection('settings').doc('global_db').set({ matDB: globalMat, workDB: globalWork, updatedAt: new Date().toISOString() }, { merge:true });
+            }
+            indexes.forEach(i => decisions[String(i)] = { mode: mode, decidedAt: new Date().toISOString(), decidedBy: appUser.uid || '' });
+            const allDone = items.every((_,i) => !!decisions[String(i)]);
+            const status = allDone ? 'processed' : 'pending';
+            await ref.set({ itemDecisions: decisions, status: status, updatedAt: new Date().toISOString(), decidedBy: appUser.uid || '' }, { merge:true });
+            if (typeof hideLoader === 'function') hideLoader();
+            showToast(mode === 'reject' ? 'Позиции отклонены' : '✅ Позиции добавлены');
+            const nd = Object.assign({}, fd, { itemDecisions: decisions, status: status });
+            if (status === 'pending') window.EP_DB_PROPOSALS_CACHE_V2[id] = nd; else delete window.EP_DB_PROPOSALS_CACHE_V2[id];
+            epRenderProposalList(); if (status === 'pending') window.epOpenProposalDetail(id); else closeModal('epProposalModal');
             if (typeof renderDbEditors === 'function') renderDbEditors();
-        };
+        } catch(e) { if (typeof hideLoader === 'function') hideLoader(); showToast('❌ ' + (e.message || 'Ошибка')); }
+    };
+    function epStartProposalV2() {
+        if (!db || !appUser || appUser.role !== 'admin') return;
+        const cont = epEnsureProposalBox(); if (!cont || cont.dataset.v2listen === '1') return;
+        cont.dataset.v2listen = '1';
+        db.collection('db_proposals').where('status','==','pending').onSnapshot(function(snap) {
+            window.EP_DB_PROPOSALS_CACHE_V2 = {};
+            snap.forEach(function(doc) { window.EP_DB_PROPOSALS_CACHE_V2[doc.id] = Object.assign({}, doc.data() || {}, { id: doc.id }); });
+            epRenderProposalList();
+        }, function(e) { cont.innerHTML = '<span style="color:var(--danger);">Ошибка заявок: ' + epEsc(e.message) + '</span>'; });
     }
-
-    function epInitGroupedDbPatch() {
-        epInsertGlobalDbButton();
-        epNormalizeAllWorkDb();
-        if (typeof renderDbEditors === 'function') renderDbEditors();
+    function epInitFullWorksPatch() {
+        epInsertGlobalDbButton(); epNormalizeAllWorkDb(); if (typeof renderDbEditors === 'function') renderDbEditors(); epStartProposalV2();
     }
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(epInitGroupedDbPatch, 350);
-        setTimeout(epInitGroupedDbPatch, 1300);
-    });
-    document.addEventListener('click', function() {
-        setTimeout(epInsertGlobalDbButton, 120);
-    });
+    const oldFinishSetupFull = window.finishLoginSetup;
+    if (typeof oldFinishSetupFull === 'function') { window.finishLoginSetup = async function() { await oldFinishSetupFull.apply(this, arguments); setTimeout(epInitFullWorksPatch, 250); }; }
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(epInitFullWorksPatch, 350); setTimeout(epInitFullWorksPatch, 1300); });
+    document.addEventListener('click', function() { setTimeout(function() { epInsertGlobalDbButton(); epStartProposalV2(); }, 120); });
 })();
 </script>
-<!-- EP_GLOBAL_GROUPED_DB_PATCH: end -->
+<!-- EP_FULL_WORKS_PROPOSALS_PATCH: end -->
 
 </body>
 </html>
@@ -3785,3 +4013,5 @@ async function deleteUser(uid) {
 
 
 <!-- EP_DB_AI_SPLIT_ROWS_VERSION: split-each-excel-row-v1 -->
+
+<!-- EP_FULL_WORKS_PROPOSALS_VERSION: full-works-and-clickable-proposals-v1 -->
