@@ -535,19 +535,6 @@ button:active { transform: scale(.985); }
         <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;"> Бухгалтерия</h2>
         
         <div id="chart-container">
-            
-        <div id="ep-db-clean-toolbar" style="border:2px solid var(--danger); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(239,68,68,.06);">
-            <div style="font-weight:900; color:var(--danger); margin-bottom:6px;">🧨 Чистая база / полный сброс</div>
-            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">
-                Сброс очищает только базы данных. Сметы, заказчики, настройки, логика расчётов и остальное приложение не трогаются.
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <button class="btn-info" onclick="epAutoRegroupActiveDb && epAutoRegroupActiveDb()" style="margin:0; padding:10px;">🧠 Авто-разгруппировать</button>
-                <button class="btn-vendor" onclick="epExportActiveDb && epExportActiveDb()" style="margin:0; padding:10px;">📤 Экспорт выбранной</button>
-            </div>
-            <button class="btn-danger" onclick="epOpenDbFactoryResetModal && epOpenDbFactoryResetModal()" style="width:100%; margin:8px 0 0; padding:12px;">🧹 Полный сброс баз данных</button>
-        </div>
-
 <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <select id="chart-period" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="month">Дни (Месяц)</option><option value="year">Месяцы (Год)</option><option value="all">Всё время</option></select>
                 <select id="chart-type" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="bar">Столбцы</option><option value="line">Линия</option></select>
@@ -622,6 +609,19 @@ button:active { transform: scale(.985); }
             </div>
             <button class="btn-success" onclick="epCreateMasterDb && epCreateMasterDb()" style="width:100%; margin:8px 0 0; padding:12px;">+ Создать свою базу</button>
             <div id="ep-db-scope-status" style="font-size:11px; color:var(--gray); margin-top:8px; font-weight:700;"></div>
+        </div>
+
+        
+        <div id="ep-db-clean-toolbar" style="border:2px solid var(--danger); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(239,68,68,.06);">
+            <div style="font-weight:900; color:var(--danger); margin-bottom:6px;">🧨 Чистая база / полный сброс</div>
+            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">
+                Сброс очищает только базы данных. Сметы, заказчики, настройки, логика расчётов и остальное приложение не трогаются.
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="btn-info" onclick="epAutoRegroupActiveDb && epAutoRegroupActiveDb()" style="margin:0; padding:10px;">🧠 Авто-разгруппировать</button>
+                <button class="btn-vendor" onclick="epExportActiveDb && epExportActiveDb()" style="margin:0; padding:10px;">📤 Экспорт выбранной</button>
+            </div>
+            <button class="btn-danger" onclick="epOpenDbFactoryResetModal && epOpenDbFactoryResetModal()" style="width:100%; margin:8px 0 0; padding:12px;">🧹 Полный сброс баз данных</button>
         </div>
 
         
@@ -8472,6 +8472,868 @@ async function deleteUser(uid) {
 })();
 </script>
 
+
+<script>
+/* === FIX CLEAN BUTTON LOCATION 2026-05-13 === */
+(function(){
+  function ensureCleanToolbarInDb(){
+    var modal = document.querySelector('#settModal .modal-content');
+    if(!modal) return;
+    var old = document.getElementById('ep-db-clean-toolbar');
+    if(old && !modal.contains(old)) old.remove();
+    if(document.getElementById('ep-db-clean-toolbar')) return;
+
+    var div = document.createElement('div');
+    div.id = 'ep-db-clean-toolbar';
+    div.style.cssText = 'border:2px solid var(--danger);border-radius:16px;padding:12px;margin:10px 0 15px;background:rgba(239,68,68,.06);';
+    div.innerHTML =
+      '<div style="font-weight:900;color:var(--danger);margin-bottom:6px;">🧨 Чистая база / полный сброс</div>'+
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;">Сброс очищает только базы данных. Сметы, заказчики, настройки, логика расчётов и остальное приложение не трогаются.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<button class="btn-info" onclick="epAutoRegroupActiveDb && epAutoRegroupActiveDb()" style="margin:0;padding:10px;">🧠 Авто-разгруппировать</button>'+
+        '<button class="btn-vendor" onclick="epExportActiveDb && epExportActiveDb()" style="margin:0;padding:10px;">📤 Экспорт выбранной</button>'+
+      '</div>'+
+      '<button class="btn-danger" onclick="epOpenDbFactoryResetModal && epOpenDbFactoryResetModal()" style="width:100%;margin:8px 0 0;padding:12px;">🧹 Полный сброс баз данных</button>';
+
+    var scope = document.getElementById('ep-db-scope-toolbar');
+    if(scope && scope.parentNode) scope.parentNode.insertBefore(div, scope.nextSibling);
+    else {
+      var h2 = modal.querySelector('h2');
+      if(h2 && h2.nextSibling) modal.insertBefore(div, h2.nextSibling);
+      else modal.insertBefore(div, modal.firstChild);
+    }
+  }
+
+  var oldOpenModal = window.openModal;
+  window.openModal = function(id){
+    var r = oldOpenModal ? oldOpenModal.apply(this, arguments) : undefined;
+    if(id === 'settModal') setTimeout(ensureCleanToolbarInDb, 50);
+    return r;
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(ensureCleanToolbarInDb, 500);
+    setTimeout(ensureCleanToolbarInDb, 1500);
+  });
+})();
+</script>
+
+<script>
+/* === EP STRICT SERVER/MY DB + LEGACY FIRESTORE FULL WIPE 2026-05-13 === */
+(function(){
+  const MY_MAT_KEY = 'user_db_mat_v31';
+  const MY_WORK_KEY = 'user_db_work_v31';
+  const SERVER_CACHE_KEY = 'ep_server_db_cache_strict_v1';
+  const SOURCE_KEY = 'ep_db_source_strict_v1';
+  const CLEAN_MODE_KEY = 'ep_db_clean_mode_strict_v1';
+  const LEGACY_COLLECTIONS = ['материалы','работы','materials','works'];
+  const WIPE_COLLECTIONS = ['материалы','работы','materials','works','db_proposals'];
+  const WIPE_USER_COLLECTIONS = ['user_db'];
+
+  let SERVER_DB = { matDB: [], workDB: [] };
+  let MY_DB = { matDB: [], workDB: [] };
+  let loadedOnce = false;
+
+  function $(id){ return document.getElementById(id); }
+  function toast(t){ if(typeof showToast === 'function') showToast(t); else alert(t); }
+  function isAdmin(){ try { return appUser && appUser.role === 'admin'; } catch(e){ return false; } }
+  function userId(){ try { return appUser && appUser.uid; } catch(e){ return ''; } }
+  function cleanText(s){
+    return String(s || '').toLowerCase()
+      .replace(/ё/g,'е')
+      .replace(/×/g,'x')
+      .replace(/х/g,'x')
+      .replace(/[^a-zа-я0-9]+/g,' ')
+      .trim();
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];
+    });
+  }
+  function encodeItem(x){ try { return encodeURIComponent(JSON.stringify(x || {})); } catch(e){ return ''; } }
+  function decodeItem(v){ try { return JSON.parse(decodeURIComponent(v || '{}')); } catch(e){ return null; } }
+  function groupOf(it){ return (it && (it.g || it.sc || it.subcategory || it.group)) || ''; }
+  function strip(it){ var x = Object.assign({}, it || {}); delete x.__src; delete x.__encoded; return x; }
+  function sig(type,it){ return type + '|' + cleanText([it && it.c, groupOf(it), it && it.n, it && it.u].filter(Boolean).join('|')); }
+  function arrLS(key){ try { var a = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
+  function saveLS(key, arr){ try { if(typeof safeSet === 'function') safeSet(key, JSON.stringify(arr || [])); else localStorage.setItem(key, JSON.stringify(arr || [])); } catch(e){} }
+  function source(){ return localStorage.getItem(SOURCE_KEY) === 'server' ? 'server' : 'my'; }
+  function label(){ return source() === 'server' ? '🖥 База сервера' : '👤 Моя база'; }
+
+  function unique(arr,type){
+    let seen = new Set(), out = [];
+    (arr || []).forEach(function(raw){
+      let it = strip(raw);
+      if(!it.n) return;
+      let k = sig(type,it);
+      if(seen.has(k)) return;
+      seen.add(k);
+      out.push(it);
+    });
+    return out;
+  }
+
+  function localLoad(){
+    MY_DB.matDB = unique(arrLS(MY_MAT_KEY), 'mat');
+    MY_DB.workDB = unique(arrLS(MY_WORK_KEY), 'work');
+
+    try {
+      let c = JSON.parse(localStorage.getItem(SERVER_CACHE_KEY) || localStorage.getItem('ep_global_cache_force_v1') || localStorage.getItem('ep_global_cache_ultimate_v1') || '{}');
+      SERVER_DB.matDB = unique(Array.isArray(c.matDB) ? c.matDB : [], 'mat');
+      SERVER_DB.workDB = unique(Array.isArray(c.workDB) ? c.workDB : [], 'work');
+    } catch(e) {
+      SERVER_DB = {matDB:[], workDB:[]};
+    }
+  }
+
+  function saveLocal(){
+    saveLS(MY_MAT_KEY, MY_DB.matDB);
+    saveLS(MY_WORK_KEY, MY_DB.workDB);
+    try { localStorage.setItem(SERVER_CACHE_KEY, JSON.stringify(SERVER_DB)); } catch(e){}
+  }
+
+  function active(type){
+    if(source() === 'server') return type === 'work' ? SERVER_DB.workDB : SERVER_DB.matDB;
+    return type === 'work' ? MY_DB.workDB : MY_DB.matDB;
+  }
+
+  function setMy(type, arr){
+    if(type === 'work') MY_DB.workDB = unique(arr, 'work');
+    else MY_DB.matDB = unique(arr, 'mat');
+    saveLocal();
+    applyRuntime();
+    saveMyServer();
+  }
+
+  function setServer(type, arr){
+    if(type === 'work') SERVER_DB.workDB = unique(arr, 'work');
+    else SERVER_DB.matDB = unique(arr, 'mat');
+    saveLocal();
+    applyRuntime();
+    saveServerBase();
+  }
+
+  function applyRuntime(){
+    try {
+      if(source() === 'server') {
+        matDB = SERVER_DB.matDB.slice();
+        workDB = SERVER_DB.workDB.slice();
+      } else {
+        matDB = MY_DB.matDB.slice();
+        workDB = MY_DB.workDB.slice();
+      }
+      window.userMatDB = MY_DB.matDB;
+      window.userWorkDB = MY_DB.workDB;
+      window.EP_FORCE_GLOBAL = {matDB: SERVER_DB.matDB, workDB: SERVER_DB.workDB};
+      window.EP_ULTIMATE_DB_CACHE = {matDB: SERVER_DB.matDB, workDB: SERVER_DB.workDB};
+    } catch(e){}
+  }
+
+  function autoGroup(type,item){
+    return type === 'work' ? autoGroupWork(item) : autoGroupMaterial(item);
+  }
+
+  function autoGroupMaterial(item){
+    let it = strip(item), n = cleanText([it.n,it.c,it.g,it.sc].join(' '));
+
+    if(/utp|ftp|cat5|cat6|витая|интернет|tv|sat|коаксиал|слаботоч/.test(n)){
+      it.c='Слаботочка'; it.g=/tv|sat|коаксиал/.test(n)?'ТВ / коаксиальный кабель':'Интернет / витая пара';
+    } else if(/пугв|пв 3/.test(n)){
+      it.c='Щитовое'; it.g='Расходка под сборку / Провода';
+    } else if(/кабель|ввг|провод|нг/.test(n)){
+      it.c='Кабель';
+      if(/1\.5|1 5|3x1 5|3 1 5/.test(n)) it.g='Силовой кабель 3×1.5';
+      else if(/2\.5|2 5|3x2 5|3 2 5/.test(n)) it.g='Силовой кабель 3×2.5';
+      else if(/3x4|3 4|x4/.test(n)) it.g='Силовой кабель 3×4';
+      else if(/3x6|3 6|x6/.test(n)) it.g='Силовой кабель 3×6';
+      else it.g='Силовой кабель';
+    } else if(/гофр|труб|пнд|пвх/.test(n)){
+      it.c='Трубы'; it.g=/20/.test(n)?'Гофра / труба 20 мм':'Гофра / трубы';
+    } else if(/диф|дифф/.test(n)){ it.c='Автоматика'; it.g='ДИФы';
+    } else if(/узо|вд1/.test(n)){ it.c='Автоматика'; it.g='УЗО';
+    } else if(/уздп|дугов/.test(n)){ it.c='Автоматика'; it.g='УЗДП';
+    } else if(/узм|реле напряж/.test(n)){ it.c='Автоматика'; it.g='УЗМ / реле напряжения';
+    } else if(/реле времени/.test(n)){ it.c='Автоматика'; it.g='Реле времени';
+    } else if(/контактор|пускател/.test(n)){ it.c='Автоматика'; it.g='Контакторы';
+    } else if(/автомат|ва47|sh201|1p|2p|3p|c10|c16|c25|c32|c40/.test(n)){ it.c='Автоматика'; it.g='Автоматы';
+    } else if(/щит|шкаф|корпус|бокс|щрв|tekfor|uk6/.test(n)){
+      it.c='Щитовое';
+      if(/внутр|встра|скрыт/.test(n)) it.g='Корпуса / Встраиваемый';
+      else if(/наклад/.test(n)) it.g='Корпуса / Накладной';
+      else it.g='Корпуса';
+    } else if(/ншви|наконеч/.test(n)){ it.c='Щитовое'; it.g='Расходка под сборку / Наконечники';
+    } else if(/шин|клемм|ноль|земл|pe| n /.test(n)){ it.c='Щитовое'; it.g='Расходка под сборку / Шинки и клеммники';
+    } else if(/греб/.test(n)){ it.c='Щитовое'; it.g='Расходка под сборку / Гребёнки';
+    } else if(/din|дин|рейк|огранич/.test(n)){ it.c='Щитовое'; it.g='Расходка под сборку / DIN-рейки и ограничители';
+    } else if(/маркир|бирк/.test(n)){ it.c='Щитовое'; it.g='Расходка под сборку / Маркировка';
+    } else if(/подрозет|коробк|гмл|гильз|термоусад|стяжк|лента|гвозд|баллон|площадк/.test(n)){
+      it.c='Расходники';
+      if(/подрозет/.test(n)) it.g='Подрозетники';
+      else if(/коробк/.test(n)) it.g='Распределительные коробки';
+      else if(/гмл|гильз|термоусад/.test(n)) it.g='Соединения';
+      else it.g='Прочая расходка';
+    } else {
+      it.c = it.c || 'Прочее';
+      it.g = it.g || it.sc || 'Без группы';
+    }
+    it.sc = it.g;
+    return it;
+  }
+
+  function autoGroupWork(item){
+    let it = strip(item), n = cleanText([it.n,it.c,it.g,it.sc].join(' '));
+    if(/демонтаж/.test(n)){
+      it.c='Демонтаж';
+      if(/щит|автомат|узо|диф|рубильник|реле/.test(n)) it.g='Щитовое';
+      else if(/розет|выключ|короб|звон/.test(n)) it.g='Электроточки';
+      else if(/люстр|свет/.test(n)) it.g='Освещение';
+      else it.g='Демонтаж';
+    } else if(/ниша|вырубка.*щит|щит.*ниша/.test(n)){
+      it.c='Ниши щита';
+      if(/бетон/.test(n)) it.g='Бетон';
+      else if(/кирпич/.test(n)) it.g='Кирпич';
+      else if(/панель/.test(n)) it.g='Панелька';
+      else it.g='Материал стены';
+    } else if(/высверл|подрозет/.test(n) && /бетон|кирпич|панель|мягк|копос|глубок|стандарт|64|75/.test(n)){
+      it.c='Высверливание подрозетников';
+      if(/копос|75|74/.test(n)) it.g='Копос 74×75';
+      else if(/глубок|64/.test(n)) it.g='Глубокий';
+      else it.g='Стандарт';
+    } else if(/штроб|резк|отверстие|алмаз/.test(n)){
+      it.c='Штробление и резка';
+      if(/100x50|100 50|ввод/.test(n)) it.g='Штроба 100×50 вводная';
+      else if(/50x50|50 50/.test(n)) it.g='Штроба 50×50';
+      else if(/25x30|25 30/.test(n)) it.g='Штроба 25×30';
+      else if(/132/.test(n)) it.g='Отверстие 132 мм';
+      else if(/52/.test(n)) it.g='Отверстие 52 мм';
+      else it.g='Алмазная резка';
+    } else if(/вклейк|установка подрозет|распаечн|электроточк/.test(n)){
+      it.c='Черновая электрика';
+      if(/подрозет/.test(n)) it.g='Подрозетники';
+      else if(/короб/.test(n)) it.g='Распределительные коробки';
+      else it.g='Электроточки';
+    } else if(/проклад|кабел|гофр|трасс/.test(n)){
+      it.c='Монтаж';
+      if(/гофр|пол/.test(n)) it.g='Прокладка кабеля в гофре / пол';
+      else if(/потол|без гоф/.test(n)) it.g='Прокладка кабеля без гофры / потолок';
+      else it.g='Прокладка кабеля';
+    } else if(/розет|выключ|механизм|терморег|датчик|звонк|краб/.test(n)){
+      it.c='Чистовая установка';
+      if(/наклад/.test(n)) it.g='Накладные механизмы';
+      else if(/силов|380/.test(n)) it.g='Силовые механизмы';
+      else it.g='Механизмы';
+    } else if(/свет|люстр|бра|led|лента|профил|трек|шинопровод|армстронг/.test(n)){
+      it.c='Освещение';
+      if(/лента|led/.test(n)) it.g='LED лента';
+      else if(/профил/.test(n)) it.g='Алюминиевый профиль';
+      else if(/улич|фасад|сад|антиванд/.test(n)) it.g='Уличное освещение';
+      else it.g='Люстры и светильники';
+    } else if(/щит|автомат|узо|диф|реле|счетчик|трансформатор|бп|рубильник/.test(n)){
+      it.c='Щитовое';
+      if(/наклад/.test(n)) it.g='Монтаж накладных щитов';
+      else if(/реле/.test(n)) it.g='Автоматика и реле';
+      else if(/счетчик|трансформатор/.test(n)) it.g='Счётчики';
+      else it.g='Монтаж';
+    } else {
+      it.c = it.c || 'Прочие работы';
+      it.g = it.g || it.sc || 'Без группы';
+    }
+    it.sc = it.g;
+    return it;
+  }
+
+  async function readCollection(name){
+    let out = [];
+    try {
+      if(typeof db === 'undefined' || !db) return out;
+      let snap = await db.collection(name).get();
+      snap.forEach(function(doc){
+        let d = doc.data() || {};
+        out.push(Object.assign({id: d.id || doc.id}, d));
+      });
+    } catch(e) { console.warn('read collection failed', name, e); }
+    return out;
+  }
+
+  async function loadServer(){
+    let mat = [], work = [];
+
+    try {
+      if(typeof db !== 'undefined' && db){
+        let doc = await db.collection('settings').doc('global_db').get();
+        if(doc.exists){
+          let d = doc.data() || {};
+          if(Array.isArray(d.matDB)) mat = mat.concat(d.matDB);
+          if(Array.isArray(d.workDB)) work = work.concat(d.workDB);
+        }
+      }
+    } catch(e) { console.warn('read settings/global_db failed', e); }
+
+    let legacyMat = await readCollection('материалы');
+    let legacyWork = await readCollection('работы');
+    let enMat = await readCollection('materials');
+    let enWork = await readCollection('works');
+
+    mat = mat.concat(legacyMat, enMat);
+    work = work.concat(legacyWork, enWork);
+
+    SERVER_DB.matDB = unique(mat, 'mat');
+    SERVER_DB.workDB = unique(work, 'work');
+
+    try { localStorage.setItem(SERVER_CACHE_KEY, JSON.stringify(SERVER_DB)); } catch(e){}
+    applyRuntime();
+    return SERVER_DB;
+  }
+
+  async function loadMy(){
+    localLoad();
+    try {
+      if(typeof db !== 'undefined' && db && userId()){
+        let doc = await db.collection('user_db').doc(userId()).get();
+        if(doc.exists){
+          let d = doc.data() || {};
+          MY_DB.matDB = unique(Array.isArray(d.matDB) ? d.matDB : MY_DB.matDB, 'mat');
+          MY_DB.workDB = unique(Array.isArray(d.workDB) ? d.workDB : MY_DB.workDB, 'work');
+          saveLocal();
+        }
+      }
+    } catch(e) { console.warn('read user_db failed', e); }
+    applyRuntime();
+  }
+
+  async function loadAll(){
+    localLoad();
+    applyRuntime();
+    await loadMy();
+    await loadServer();
+    loadedOnce = true;
+    updatePanels();
+  }
+
+  async function saveMyServer(){
+    try {
+      if(typeof db !== 'undefined' && db && userId()){
+        await db.collection('user_db').doc(userId()).set({
+          uid: userId(),
+          masterName: (appUser && (appUser.name || appUser.email)) || '',
+          matDB: MY_DB.matDB,
+          workDB: MY_DB.workDB,
+          updatedAt: new Date().toISOString()
+        }, {merge:true});
+      }
+    } catch(e) { console.warn('save my db failed', e); }
+  }
+
+  async function saveServerBase(){
+    try {
+      if(typeof db !== 'undefined' && db && isAdmin()){
+        await db.collection('settings').doc('global_db').set({
+          matDB: SERVER_DB.matDB,
+          workDB: SERVER_DB.workDB,
+          updatedAt: new Date().toISOString()
+        }, {merge:true});
+      }
+    } catch(e) { console.warn('save server db failed', e); }
+  }
+
+  async function sendProposal(type,items,action){
+    try {
+      if(typeof db !== 'undefined' && db){
+        await db.collection('db_proposals').add({
+          uid: userId() || '',
+          masterName: (appUser && (appUser.name || appUser.email)) || '',
+          type: type,
+          action: action,
+          items: Array.isArray(items) ? items.map(strip) : items,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          target: 'server_db'
+        });
+      }
+    } catch(e) { console.warn('proposal failed', e); }
+  }
+
+  async function deleteCollection(name){
+    let count = 0;
+    try {
+      if(typeof db === 'undefined' || !db) return 0;
+      let snap = await db.collection(name).get();
+      let batch = db.batch();
+      let inBatch = 0;
+      for(const doc of snap.docs){
+        batch.delete(doc.ref);
+        count++;
+        inBatch++;
+        if(inBatch >= 400){
+          await batch.commit();
+          batch = db.batch();
+          inBatch = 0;
+        }
+      }
+      if(inBatch) await batch.commit();
+    } catch(e) {
+      console.warn('delete collection failed', name, e);
+      throw e;
+    }
+    return count;
+  }
+
+  function makeSourceToolbar(){
+    let s = source();
+    return '<div id="ep-strict-db-source" style="border:2px solid var(--primary);border-radius:16px;padding:12px;margin:10px 0 12px;background:rgba(79,70,229,.06);">'+
+      '<div style="font-weight:900;color:var(--primary);margin-bottom:6px;">📚 Источник базы</div>'+
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;">Вперемешку больше не считаем. Выбран один источник: моя база или база сервера.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<button class="'+(s==='my'?'btn-success':'btn-info')+'" style="margin:0;padding:12px;" onclick="epSetStrictDbSource(\'my\')">👤 Моя база</button>'+
+        '<button class="'+(s==='server'?'btn-success':'btn-info')+'" style="margin:0;padding:12px;" onclick="epSetStrictDbSource(\'server\')">🖥 База сервера</button>'+
+      '</div>'+
+      '<button class="btn-success" style="width:100%;margin:8px 0 0;padding:12px;" onclick="epCreateStrictMyDb()">+ Создать свою базу</button>'+
+      '<div style="font-size:11px;color:var(--gray);font-weight:800;margin-top:8px;">Сейчас: '+label()+'. Моя: '+MY_DB.matDB.length+' мат. / '+MY_DB.workDB.length+' раб. Сервер: '+SERVER_DB.matDB.length+' мат. / '+SERVER_DB.workDB.length+' раб.</div>'+
+    '</div>';
+  }
+
+  function makeCleanToolbar(){
+    return '<div id="ep-strict-clean-toolbar" style="border:2px solid var(--danger);border-radius:16px;padding:12px;margin:10px 0 12px;background:rgba(239,68,68,.06);">'+
+      '<div style="font-weight:900;color:var(--danger);margin-bottom:6px;">🧹 Полный сброс баз</div>'+
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;">Очищает базы в ноль: личную, серверную, старые коллекции «материалы» и «работы», заявки. Остальное приложение не трогает.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<button class="btn-info" style="margin:0;padding:10px;" onclick="epStrictRegroupActive()">🧠 Авто-разгруппировать</button>'+
+        '<button class="btn-vendor" style="margin:0;padding:10px;" onclick="epExportStrictActive()">📤 Экспорт выбранной</button>'+
+      '</div>'+
+      '<button class="btn-danger" style="width:100%;margin:8px 0 0;padding:12px;" onclick="epStrictOpenWipeModal()">🧨 Удалить все базы в ноль</button>'+
+    '</div>';
+  }
+
+  function ensureDbToolbars(){
+    let modal = document.querySelector('#settModal .modal-content');
+    if(!modal) return;
+    let oldScope = document.getElementById('ep-db-scope-toolbar');
+    if(oldScope) oldScope.style.display = 'none';
+    let oldClean = document.getElementById('ep-db-clean-toolbar');
+    if(oldClean) oldClean.style.display = 'none';
+
+    let box = document.getElementById('ep-strict-toolbar-box');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'ep-strict-toolbar-box';
+      let h2 = modal.querySelector('h2');
+      if(h2 && h2.nextSibling) modal.insertBefore(box, h2.nextSibling);
+      else modal.insertBefore(box, modal.firstChild);
+    }
+    box.innerHTML = makeSourceToolbar() + makeCleanToolbar();
+  }
+
+  function groupRows(arr,type,mode){
+    if(!arr.length){
+      return '<div style="padding:16px;border:1px dashed var(--border);border-radius:14px;text-align:center;color:var(--gray);font-weight:800;">'+
+        (source()==='my' ? 'Моя база пустая. Можно добавить вручную или открыть базу сервера и нажать «В мою».' : 'База сервера пустая.')+
+      '</div>';
+    }
+
+    let cats = {};
+    arr.forEach(function(it){
+      let c = it.c || 'Разное';
+      if(!cats[c]) cats[c] = [];
+      cats[c].push(it);
+    });
+
+    let html = '', i = 0;
+    Object.keys(cats).sort((a,b)=>a.localeCompare(b,'ru')).forEach(function(c){
+      let cid = 'strict_'+mode+'_'+type+'_'+(i++);
+      let style = type === 'work' ? 'style="color:var(--orange);border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.08);"' : '';
+      html += '<div class="cat-header" '+style+' onclick="toggleCat(\''+cid+'\')">'+esc(c)+'</div><div class="cat-body" id="'+cid+'">';
+      let groups = {};
+      cats[c].forEach(function(it){
+        let g = groupOf(it) || 'Без группы';
+        if(!groups[g]) groups[g] = [];
+        groups[g].push(it);
+      });
+
+      Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ru')).forEach(function(g){
+        let gid = 'strict_sub_'+mode+'_'+type+'_'+(i++);
+        html += '<div class="sub-cat-header" onclick="toggleSubCat(\''+gid+'\', event)">'+esc(g)+' ▾</div><div class="sub-cat-body" id="'+gid+'">';
+        groups[g].sort((a,b)=>String(a.n||'').localeCompare(String(b.n||''),'ru')).forEach(function(it){
+          html += mode === 'catalog' ? catalogRow(type,it) : editorRow(type,it);
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    return html;
+  }
+
+  function catalogRow(type,it){
+    let item = encodeItem(strip(it));
+    let copyBtn = source()==='server' ? '<button class="btn-info" style="width:auto;margin:0 0 0 6px;padding:8px;" data-item="'+esc(item)+'" data-type="'+type+'" onclick="epCopyServerItemToMy(this.dataset.type,this.dataset.item)">В мою</button>' : '';
+    return '<div class="mat-item"><div style="flex:1;font-size:12px;font-weight:700;">'+esc(it.n || 'Позиция')+
+      '<br><span style="color:var(--gray);font-size:11px;font-weight:500;">'+esc(groupOf(it)||'Без группы')+' • '+(Number(it.p)||0)+' ₽ / '+esc(it.u||'шт')+'</span></div>'+
+      '<button class="mat-add-btn" style="'+(type==='work'?'background:var(--orange);':'')+'" data-item="'+esc(item)+'" data-type="'+type+'" onclick="promptAdd(this.dataset.item,this.dataset.type)">+ Добавить</button>'+copyBtn+'</div>';
+  }
+
+  function editorRow(type,it){
+    let item = encodeItem(strip(it));
+    let deleteBox = source()==='my' ? '<input type="checkbox" class="strict-del-check" data-type="'+type+'" data-item="'+esc(item)+'" style="width:20px;height:20px;accent-color:#EF4444;margin:4px 8px 0 0;">' : '';
+    let copyBtn = source()==='server' ? '<button class="btn-info" style="width:auto;margin:0;padding:7px;" data-item="'+esc(item)+'" data-type="'+type+'" onclick="epCopyServerItemToMy(this.dataset.type,this.dataset.item)">В мою</button>' : '';
+    return '<div class="emp-row" style="align-items:flex-start;">'+deleteBox+
+      '<div style="flex:1;"><b>'+esc(it.n || 'Позиция')+'</b><br><span style="color:var(--gray);font-size:10px;">'+esc(groupOf(it)||'Без группы')+' • '+(Number(it.p)||0)+' ₽ / '+esc(it.u||'шт')+'</span></div>'+
+      '<input type="number" value="'+(Number(it.p)||0)+'" data-id="'+esc(String(it.id||''))+'" data-type="'+type+'" onchange="requestPriceChange(this.dataset.type,this.dataset.id,this.value)" style="width:70px;margin:0;padding:4px;text-align:center;">'+copyBtn+'</div>';
+  }
+
+  function updatePanels(){
+    ensureDbToolbars();
+
+    let sourceNote = document.getElementById('ep-db-scope-status');
+    if(sourceNote) sourceNote.innerHTML = 'Сейчас: <b>'+label()+'</b>. Вперемешку не считаем.';
+
+    let cats = $('db-cats');
+    if(cats){
+      let all = active('mat').concat(active('work'));
+      cats.innerHTML = Array.from(new Set(all.map(x=>x.c || 'Разное'))).sort((a,b)=>a.localeCompare(b,'ru')).map(c=>'<option value="'+esc(c)+'">').join('');
+    }
+
+    let m = $('editor-mat-list');
+    let w = $('editor-work-list');
+    if(m) m.innerHTML =
+      '<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;font-size:12px;font-weight:800;color:var(--primary);">Материалы: '+label()+' — '+active('mat').length+' поз.</div>'+
+      (source()==='my' ? '<button class="btn-danger" style="width:100%;margin:0 0 10px;padding:10px;" onclick="epDeleteStrictSelected()">Удалить выбранные из моей базы</button>' : '')+
+      groupRows(active('mat'),'mat','editor');
+
+    if(w) w.innerHTML =
+      '<div style="padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;font-size:12px;font-weight:800;color:var(--orange);">Работы: '+label()+' — '+active('work').length+' поз.</div>'+
+      (source()==='my' ? '<button class="btn-danger" style="width:100%;margin:0 0 10px;padding:10px;" onclick="epDeleteStrictSelected()">Удалить выбранные из моей базы</button>' : '')+
+      groupRows(active('work'),'work','editor');
+  }
+
+  window.epSetStrictDbSource = function(s){
+    localStorage.setItem(SOURCE_KEY, s === 'server' ? 'server' : 'my');
+    applyRuntime();
+    updatePanels();
+    toast('Источник: '+label());
+  };
+
+  window.epSetDbScope = function(s){
+    window.epSetStrictDbSource(s === 'global' ? 'server' : s);
+  };
+
+  window.epCreateStrictMyDb = async function(){
+    localStorage.setItem(CLEAN_MODE_KEY, '1');
+    if(!Array.isArray(MY_DB.matDB)) MY_DB.matDB = [];
+    if(!Array.isArray(MY_DB.workDB)) MY_DB.workDB = [];
+    saveLocal();
+    await saveMyServer();
+    window.epSetStrictDbSource('my');
+    toast('✅ Моя база создана. Она отдельная от базы сервера.');
+  };
+
+  window.epCreateMasterDb = window.epCreateStrictMyDb;
+
+  window.openMatCatalog = function(){
+    applyRuntime();
+    let x = $('mat-cat-list');
+    if(x) x.innerHTML =
+      '<div style="border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px;background:rgba(79,70,229,.06);">'+
+      '<b style="color:var(--primary);">Источник: '+label()+'</b><br><span style="font-size:11px;color:var(--gray);">Вперемешку не показываем.</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"><button class="'+(source()==='my'?'btn-success':'btn-info')+'" onclick="epSetStrictDbSource(\'my\');openMatCatalog()" style="margin:0;padding:10px;">👤 Моя</button><button class="'+(source()==='server'?'btn-success':'btn-info')+'" onclick="epSetStrictDbSource(\'server\');openMatCatalog()" style="margin:0;padding:10px;">🖥 Сервер</button></div></div>'+
+      groupRows(active('mat'),'mat','catalog');
+    if(typeof openModal === 'function') openModal('matCatModal');
+  };
+
+  window.openWorkCatalog = function(){
+    applyRuntime();
+    let x = $('work-cat-list');
+    if(x) x.innerHTML =
+      '<div style="border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:10px;background:rgba(79,70,229,.06);">'+
+      '<b style="color:var(--orange);">Источник: '+label()+'</b><br><span style="font-size:11px;color:var(--gray);">Вперемешку не показываем.</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"><button class="'+(source()==='my'?'btn-success':'btn-info')+'" onclick="epSetStrictDbSource(\'my\');openWorkCatalog()" style="margin:0;padding:10px;">👤 Моя</button><button class="'+(source()==='server'?'btn-success':'btn-info')+'" onclick="epSetStrictDbSource(\'server\');openWorkCatalog()" style="margin:0;padding:10px;">🖥 Сервер</button></div></div>'+
+      groupRows(active('work'),'work','catalog');
+    if(typeof openModal === 'function') openModal('workModal');
+  };
+
+  window.renderDbEditors = function(){
+    applyRuntime();
+    updatePanels();
+  };
+
+  window.promptAdd = function(v,type){
+    let it = decodeItem(v);
+    if(!it || !it.n) return toast('Позиция не найдена');
+    pendingAdd = { item: strip(it), type: type };
+    let n = $('qty-prompt-name'), q = $('qty-input');
+    if(n) n.innerText = it.n || 'Позиция';
+    if(q) q.value = 1;
+    if(typeof openModal === 'function') openModal('qtyPromptModal');
+  };
+
+  function upsert(type,it,target){
+    it = autoGroup(type, strip(it));
+    if(!it.id) it.id = (type==='work'?'w':'m')+'_manual_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    let arr = target === 'server' ? (type==='work'?SERVER_DB.workDB:SERVER_DB.matDB) : (type==='work'?MY_DB.workDB:MY_DB.matDB);
+    let k = sig(type,it);
+    let idx = arr.findIndex(x => sig(type,x) === k || (it.id && String(x.id||'') === String(it.id)));
+    if(idx >= 0) arr[idx] = Object.assign({}, arr[idx], it, {id: arr[idx].id || it.id});
+    else arr.push(it);
+
+    if(target === 'server') setServer(type, arr);
+    else setMy(type, arr);
+  }
+
+  window.epCopyServerItemToMy = function(type,item){
+    let it = decodeItem(item);
+    if(!it) return;
+    upsert(type,it,'my');
+    toast('✅ Добавлено в мою базу');
+    updatePanels();
+  };
+
+  window.addDbItem = async function(){
+    let nameEl = $('db-new-name'), catEl = $('db-new-cat'), priceEl = $('db-new-price'), unitEl = $('db-new-unit');
+    let name = nameEl ? nameEl.value.trim() : '';
+    if(!name) return toast('Введите название позиции');
+
+    let type = ($('editor-work-list') && $('editor-work-list').style.display !== 'none') ? 'work' : 'mat';
+    let it = {
+      id: (type==='work'?'w':'m')+'_manual_'+Date.now(),
+      c: catEl && catEl.value.trim() ? catEl.value.trim() : 'Разное',
+      n: name,
+      p: priceEl ? Number(String(priceEl.value).replace(',','.').replace(/[^\d.]/g,'')) || 0 : 0,
+      u: unitEl && unitEl.value.trim() ? unitEl.value.trim() : 'шт'
+    };
+
+    if(source() === 'server'){
+      if(isAdmin()){
+        upsert(type,it,'server');
+        toast('✅ Добавлено в базу сервера');
+      } else {
+        await sendProposal(type,[autoGroup(type,it)],'add_to_server');
+        toast('✅ Отправлено админу на добавление в базу сервера');
+      }
+    } else {
+      upsert(type,it,'my');
+      toast('✅ Добавлено в мою базу');
+    }
+
+    if(nameEl) nameEl.value = '';
+    if(priceEl) priceEl.value = '';
+    updatePanels();
+  };
+
+  window.requestPriceChange = async function(type,id,newPrice){
+    let arr = active(type);
+    let it = arr.find(x => String(x.id||'') === String(id));
+    if(!it) return toast('Позиция не найдена');
+    it = Object.assign({}, strip(it), {p: Number(newPrice)||0});
+
+    if(source() === 'server'){
+      if(isAdmin()){
+        upsert(type,it,'server');
+        toast('✅ Цена изменена в базе сервера');
+      } else {
+        await sendProposal(type,[it],'price_change_server');
+        toast('✅ Изменение отправлено админу');
+      }
+    } else {
+      upsert(type,it,'my');
+      toast('✅ Цена сохранена в моей базе');
+    }
+    updatePanels();
+  };
+
+  window.epDeleteStrictSelected = function(){
+    let checks = Array.from(document.querySelectorAll('.strict-del-check:checked'));
+    if(!checks.length) return toast('Выберите позиции');
+    if(!confirm('Вы точно желаете удалить выбранные позиции из МОЕЙ базы?\n\nБаза сервера не изменится.')) return;
+
+    let rm = {mat:new Set(), work:new Set()};
+    checks.forEach(function(ch){
+      let it = decodeItem(ch.dataset.item);
+      if(it) rm[ch.dataset.type].add(sig(ch.dataset.type,it));
+    });
+    if(rm.mat.size) setMy('mat', MY_DB.matDB.filter(x => !rm.mat.has(sig('mat',x))));
+    if(rm.work.size) setMy('work', MY_DB.workDB.filter(x => !rm.work.has(sig('work',x))));
+    updatePanels();
+    toast('✅ Удалено из моей базы: '+checks.length);
+  };
+
+  window.epStrictRegroupActive = async function(){
+    let msg = 'Автоматически разгруппировать '+label()+'?';
+    if(source() === 'server' && !isAdmin()) msg += '\n\nТак как ты не админ, изменения уйдут заявкой админу.';
+    if(!confirm(msg)) return;
+
+    let mats = active('mat').map(x => autoGroup('mat',x));
+    let works = active('work').map(x => autoGroup('work',x));
+
+    if(source() === 'server'){
+      if(isAdmin()){
+        setServer('mat', mats); setServer('work', works);
+        toast('✅ База сервера разгруппирована');
+      } else {
+        await sendProposal('server_db',{matDB:mats,workDB:works},'regroup_server_db');
+        toast('✅ Разгруппировка сервера отправлена админу');
+      }
+    } else {
+      setMy('mat', mats); setMy('work', works);
+      toast('✅ Моя база разгруппирована');
+    }
+    updatePanels();
+  };
+
+  window.epAutoRegroupActiveDb = window.epStrictRegroupActive;
+
+  window.epExportStrictActive = function(){
+    let data = {
+      source: source(),
+      matDB: active('mat'),
+      workDB: active('work'),
+      exportedAt: new Date().toISOString()
+    };
+    let blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json;charset=utf-8'});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = source()==='server' ? 'server_db.json' : 'my_db.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  };
+  window.epExportActiveDb = window.epExportStrictActive;
+
+  window.epStrictOpenWipeModal = function(){
+    if(typeof openModal === 'function') openModal('dbFactoryResetModal');
+    else window.epStrictFullWipe();
+  };
+  window.epOpenDbFactoryResetModal = window.epStrictOpenWipeModal;
+
+  window.epFactoryResetMyDb = async function(){
+    if(!confirm('Удалить МОЮ базу в ноль?\n\nБаза сервера не изменится.')) return;
+    MY_DB = {matDB:[],workDB:[]};
+    saveLocal();
+    await saveMyServer();
+    applyRuntime();
+    updatePanels();
+    toast('✅ Моя база удалена в ноль');
+  };
+
+  window.epStrictFullWipe = async function(){
+    if(!confirm('ВНИМАНИЕ!\n\nУдалить ВСЕ базы в ноль?\n\nБудут очищены: моя база, база сервера, старые коллекции материалы/работы, базы мастеров и заявки.\nСметы, заказчики, настройки и логика не трогаются.')) return;
+    let code = prompt('Для подтверждения напиши: УДАЛИТЬ БАЗЫ');
+    if(code !== 'УДАЛИТЬ БАЗЫ') return toast('Сброс отменён');
+
+    localStorage.setItem(CLEAN_MODE_KEY, '1');
+    [MY_MAT_KEY,MY_WORK_KEY,SERVER_CACHE_KEY,'ep_global_cache_force_v1','ep_global_cache_ultimate_v1','ep_deleted_work_ids_local_v1','ep_deleted_mat_ids_local_v1'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+    MY_DB = {matDB:[],workDB:[]};
+    SERVER_DB = {matDB:[],workDB:[]};
+    saveLocal();
+    applyRuntime();
+
+    let details = [];
+    try {
+      if(typeof db !== 'undefined' && db){
+        if(isAdmin()){
+          await db.collection('settings').doc('global_db').set({matDB:[],workDB:[],resetAt:new Date().toISOString()}, {merge:true});
+          for(const name of WIPE_COLLECTIONS){
+            try { details.push(name+': '+await deleteCollection(name)); } catch(e){ details.push(name+': ошибка/нет прав'); }
+          }
+          for(const name of WIPE_USER_COLLECTIONS){
+            try { details.push(name+': '+await deleteCollection(name)); } catch(e){ details.push(name+': ошибка/нет прав'); }
+          }
+        } else {
+          if(userId()){
+            await db.collection('user_db').doc(userId()).set({matDB:[],workDB:[],resetAt:new Date().toISOString()}, {merge:true});
+          }
+          await sendProposal('system',[], 'request_full_server_wipe');
+          details.push('нет прав админа: серверный сброс отправлен заявкой');
+        }
+      }
+    } catch(e) {
+      console.warn('full wipe failed', e);
+      details.push('сервер: ошибка/нет прав');
+    }
+
+    updatePanels();
+    if(typeof closeModal === 'function') closeModal('dbFactoryResetModal');
+    toast('✅ Базы очищены в ноль. '+details.join('; '));
+  };
+
+  window.epFactoryResetAllDb = window.epStrictFullWipe;
+
+  function reviewedItems(){
+    let type = (window.EP_DB_REVIEW && window.EP_DB_REVIEW.type) || 'mat';
+    let src = (window.EP_DB_REVIEW && window.EP_DB_REVIEW.items) || [];
+    let out = [];
+    for(let i=0;i<src.length;i++){
+      let ch = $('ep-db-check-'+i);
+      if(ch && !ch.checked) continue;
+      let name=$('ep-db-name-'+i), cat=$('ep-db-cat-'+i), sub=$('ep-db-subcat-'+i), price=$('ep-db-price-'+i), unit=$('ep-db-unit-'+i);
+      let it = {
+        id: src[i].id || ((type==='work'?'w':'m')+'_imp_'+Date.now()+'_'+i),
+        c: cat ? cat.value.trim() : (src[i].c||'Разное'),
+        g: sub ? sub.value.trim() : (src[i].g||src[i].sc||''),
+        sc: sub ? sub.value.trim() : (src[i].sc||src[i].g||''),
+        n: name ? name.value.trim() : src[i].n,
+        p: price ? Number(String(price.value).replace(',','.').replace(/[^\d.]/g,''))||0 : Number(src[i].p)||0,
+        u: unit ? unit.value.trim() || 'шт' : (src[i].u||'шт')
+      };
+      if(it.n) out.push(autoGroup(type,it));
+    }
+    return {type:type, items:out};
+  }
+
+  window.epApplyReviewedDbItems = async function(mode){
+    let r = reviewedItems();
+    if(!r.items.length) return toast('Нет выбранных позиций');
+
+    if(source() === 'server'){
+      if(isAdmin()){
+        r.items.forEach(it => upsert(r.type,it,'server'));
+        toast('✅ Импорт добавлен в базу сервера');
+      } else {
+        await sendProposal(r.type,r.items,'import_to_server');
+        toast('✅ Импорт отправлен админу в базу сервера');
+      }
+    } else {
+      r.items.forEach(it => upsert(r.type,it,'my'));
+      toast('✅ Импорт сохранён в моей базе');
+    }
+    updatePanels();
+    if(typeof closeModal === 'function') closeModal('ep-db-ai-review-modal');
+  };
+
+  function install(){
+    localLoad();
+    applyRuntime();
+    ensureDbToolbars();
+    try {
+      openMatCatalog = window.openMatCatalog;
+      openWorkCatalog = window.openWorkCatalog;
+      renderDbEditors = window.renderDbEditors;
+      addDbItem = window.addDbItem;
+      requestPriceChange = window.requestPriceChange;
+      promptAdd = window.promptAdd;
+      epFactoryResetAllDb = window.epFactoryResetAllDb;
+      epFactoryResetMyDb = window.epFactoryResetMyDb;
+      epOpenDbFactoryResetModal = window.epOpenDbFactoryResetModal;
+    } catch(e){}
+  }
+
+  window.epStrictDbDebug = function(){
+    return {source:source(), myMat:MY_DB.matDB.length, myWork:MY_DB.workDB.length, serverMat:SERVER_DB.matDB.length, serverWork:SERVER_DB.workDB.length, loadedOnce:loadedOnce};
+  };
+
+  let oldOpenModal = window.openModal;
+  window.openModal = function(id){
+    let r = oldOpenModal ? oldOpenModal.apply(this, arguments) : undefined;
+    if(id === 'settModal') setTimeout(function(){ updatePanels(); }, 50);
+    return r;
+  };
+
+  install();
+  loadAll().then(function(){ install(); updatePanels(); });
+  let n = 0, timer = setInterval(function(){ install(); n++; if(n>120) clearInterval(timer); }, 100);
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){ install(); loadAll().then(updatePanels); }, 800);
+  });
+})();
+</script>
 </body>
 </html>
 
