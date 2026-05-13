@@ -599,6 +599,18 @@ button:active { transform: scale(.985); }
     <div class="modal-content glass" style="max-width: 600px;">
         <div class="close-x" onclick="closeModal('settModal')">×</div>
         <h2 style="margin-top:0; color: var(--primary); font-size:18px;"> База данных (Редактор)</h2>
+
+        <div id="ep-master-db-toolbar" style="border:2px solid var(--primary); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(79,70,229,.06);">
+            <div style="font-weight:900; color:var(--primary); margin-bottom:6px;">👤 Личная база мастера</div>
+            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">Обычные изменения сохраняются автоматически. Удаление — только с подтверждением.</div>
+            <button class="btn-success" onclick="epCreateMasterDb && epCreateMasterDb()" style="width:100%; margin:0 0 8px; padding:12px;">+ Создать свою базу</button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="btn-danger" onclick="epClearMyDb && epClearMyDb('mat')" style="margin:0; padding:10px;">🗑 Очистить материалы</button>
+                <button class="btn-danger" onclick="epClearMyDb && epClearMyDb('work')" style="margin:0; padding:10px;">🗑 Очистить работы</button>
+            </div>
+            <button class="btn-danger" onclick="epClearAllMyDb && epClearAllMyDb()" style="width:100%; margin:8px 0 0; padding:10px;">🧹 Очистить всю мою базу</button>
+        </div>
+
         
         <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
             <b style="font-size:12px; display:block; margin-bottom:8px;">Добавить новую позицию:</b>
@@ -7685,6 +7697,68 @@ async function deleteUser(uid) {
   install();
   var n=0,t=setInterval(function(){install();n++;if(n>80)clearInterval(t);},100);
   document.addEventListener('DOMContentLoaded',function(){install();});
+})();
+</script>
+
+
+<script>
+/* === VISIBLE MASTER DB BUTTONS 2026-05-13 === */
+(function(){
+  function toast(t){ if(typeof showToast === 'function') showToast(t); else alert(t); }
+  function arr(key){ try{ var a=JSON.parse(localStorage.getItem(key)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function save(type, data){
+    data = Array.isArray(data) ? data : [];
+    try{
+      if(type === 'work') workDB = data.slice();
+      else matDB = data.slice();
+    }catch(e){}
+    try{
+      var key = type === 'work' ? 'user_db_work_v31' : 'user_db_mat_v31';
+      if(typeof safeSet === 'function') safeSet(key, JSON.stringify(data));
+      else localStorage.setItem(key, JSON.stringify(data));
+    }catch(e){}
+    try{
+      if(typeof db !== 'undefined' && db && typeof appUser !== 'undefined' && appUser && appUser.uid){
+        var payload = { updatedAt: new Date().toISOString() };
+        payload[type === 'work' ? 'workDB' : 'matDB'] = data;
+        db.collection('user_db').doc(appUser.uid).set(payload, { merge:true });
+      }
+    }catch(e){}
+  }
+
+  window.epCreateMasterDb = window.epCreateMasterDb || function(){
+    localStorage.setItem('ep_master_db_created_v1','1');
+    if(!arr('user_db_mat_v31').length) save('mat', []);
+    if(!arr('user_db_work_v31').length) save('work', []);
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    toast('✅ Своя база мастера создана');
+  };
+
+  window.epClearMyDb = function(type){
+    var title = type === 'work' ? 'работ' : 'материалов';
+    if(!confirm('Вы точно желаете очистить свою базу ' + title + '?\n\nУдалится только личная база мастера. Глобальная база не изменится.')) return;
+    localStorage.setItem('ep_master_db_created_v1','1');
+    save(type, []);
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    toast('✅ Своя база ' + title + ' очищена');
+  };
+
+  window.epClearAllMyDb = function(){
+    if(!confirm('Вы точно желаете очистить ВСЮ свою личную базу?\n\nМатериалы и работы будут удалены только у мастера. Глобальная база не изменится.')) return;
+    localStorage.setItem('ep_master_db_created_v1','1');
+    save('mat', []);
+    save('work', []);
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    toast('✅ Вся личная база мастера очищена');
+  };
+
+  var oldDelete = window.epDeleteMySelected;
+  window.epDeleteMySelected = function(){
+    var checks = Array.from(document.querySelectorAll('.src-del:checked'));
+    if(!checks.length) return toast('Выберите позиции');
+    if(!confirm('Вы точно желаете удалить выбранные позиции из своей базы?\n\nГлобальная база не изменится.')) return;
+    if(typeof oldDelete === 'function') return oldDelete();
+  };
 })();
 </script>
 
