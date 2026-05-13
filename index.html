@@ -535,7 +535,20 @@ button:active { transform: scale(.985); }
         <h2 style="color:var(--primary); margin: 0 0 10px 0; font-size:18px;"> Бухгалтерия</h2>
         
         <div id="chart-container">
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
+            
+        <div id="ep-db-clean-toolbar" style="border:2px solid var(--danger); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(239,68,68,.06);">
+            <div style="font-weight:900; color:var(--danger); margin-bottom:6px;">🧨 Чистая база / полный сброс</div>
+            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">
+                Сброс очищает только базы данных. Сметы, заказчики, настройки, логика расчётов и остальное приложение не трогаются.
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="btn-info" onclick="epAutoRegroupActiveDb && epAutoRegroupActiveDb()" style="margin:0; padding:10px;">🧠 Авто-разгруппировать</button>
+                <button class="btn-vendor" onclick="epExportActiveDb && epExportActiveDb()" style="margin:0; padding:10px;">📤 Экспорт выбранной</button>
+            </div>
+            <button class="btn-danger" onclick="epOpenDbFactoryResetModal && epOpenDbFactoryResetModal()" style="width:100%; margin:8px 0 0; padding:12px;">🧹 Полный сброс баз данных</button>
+        </div>
+
+<div style="display:flex; gap:10px; margin-bottom:10px;">
                 <select id="chart-period" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="month">Дни (Месяц)</option><option value="year">Месяцы (Год)</option><option value="all">Всё время</option></select>
                 <select id="chart-type" onchange="renderChart()" style="margin:0; padding:6px; font-size:11px;"><option value="bar">Столбцы</option><option value="line">Линия</option></select>
             </div>
@@ -7934,6 +7947,528 @@ async function deleteUser(uid) {
   install();
   var n=0, timer=setInterval(function(){ install(); n++; if(n>120) clearInterval(timer); },100);
   document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ epLoadDbFromServer().then(function(){ install(); if(typeof renderDbEditors==='function') renderDbEditors(); }); },800); });
+})();
+</script>
+
+
+<div class="modal" id="dbFactoryResetModal">
+  <div class="modal-content">
+    <div class="close-x" onclick="closeModal('dbFactoryResetModal')">×</div>
+    <h2 style="color:var(--danger); margin-top:0;">🧨 Полный сброс баз данных</h2>
+    <div style="background:rgba(239,68,68,.08); border:1px solid var(--danger); border-radius:14px; padding:12px; margin-bottom:12px; font-size:12px; font-weight:700;">
+      Будут очищены только базы: моя база мастера, глобальная база, кэш глобальной базы, скрытые позиции и заявки.
+      <br><br>
+      Сметы, заказчики, история, настройки, щиты, пулы и логика расчётов не удаляются.
+    </div>
+    <button class="btn-danger" style="width:100%; padding:13px; margin-bottom:8px;" onclick="epFactoryResetMyDb()">🗑 Очистить только мою базу</button>
+    <button class="btn-danger" style="width:100%; padding:13px; margin-bottom:8px; background:#7F1D1D;" onclick="epFactoryResetAllDb()">🧹 Очистить ВСЕ базы / глобальную / мастеров</button>
+    <button class="btn-info" style="width:100%; padding:13px;" onclick="closeModal('dbFactoryResetModal')">Отмена</button>
+  </div>
+</div>
+
+
+<script>
+/* === EP DATABASE FACTORY RESET + AUTO GROUPING 2026-05-13 === */
+(function(){
+  var CLEAN_KEYS = [
+    'user_db_mat_v31','user_db_work_v31',
+    'ep_global_cache_force_v1','ep_global_cache_ultimate_v1',
+    'ep_master_db_created_v1','ep_db_scope_v2',
+    'ep_catalog_source_mat_v1','ep_catalog_source_work_v1',
+    'ep_deleted_work_ids_local_v1','ep_deleted_mat_ids_local_v1',
+    'ep_deleted_global_work_v1','ep_deleted_global_mat_v1',
+    'ep_db_clean_mode_v1'
+  ];
+
+  function $(id){ return document.getElementById(id); }
+  function toast(t){ if(typeof showToast === 'function') showToast(t); else alert(t); }
+  function cleanText(s){
+    return String(s || '')
+      .toLowerCase()
+      .replace(/ё/g,'е')
+      .replace(/×/g,'x')
+      .replace(/х/g,'x')
+      .replace(/[^a-zа-я0-9]+/g,' ')
+      .trim();
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g,function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];
+    });
+  }
+  function clone(x){ return Object.assign({}, x || {}); }
+  function scope(){ return localStorage.getItem('ep_db_scope_v2') === 'global' ? 'global' : 'my'; }
+  function uid(){ try { return appUser && appUser.uid; } catch(e){ return ''; } }
+  function isAdmin(){ try { return appUser && appUser.role === 'admin'; } catch(e){ return false; } }
+  function arrLS(k){ try { var a = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
+  function saveLS(k,a){ try { if(typeof safeSet === 'function') safeSet(k, JSON.stringify(a || [])); else localStorage.setItem(k, JSON.stringify(a || [])); } catch(e){} }
+
+  function getGlobalCache(){
+    try {
+      var c = JSON.parse(localStorage.getItem('ep_global_cache_force_v1') || localStorage.getItem('ep_global_cache_ultimate_v1') || '{}');
+      return { matDB: Array.isArray(c.matDB) ? c.matDB : [], workDB: Array.isArray(c.workDB) ? c.workDB : [] };
+    } catch(e){ return {matDB:[], workDB:[]}; }
+  }
+
+  function setGlobalCache(mat,work){
+    var c = { matDB:Array.isArray(mat)?mat:[], workDB:Array.isArray(work)?work:[] };
+    try { localStorage.setItem('ep_global_cache_force_v1', JSON.stringify(c)); } catch(e){}
+    try { window.EP_FORCE_GLOBAL = c; window.EP_ULTIMATE_DB_CACHE = c; window.EP_GLOBAL_DB_VISIBLE_CACHE = c; } catch(e){}
+  }
+
+  function setRuntimeDb(mat,work){
+    try { matDB = Array.isArray(mat) ? mat.slice() : []; } catch(e){}
+    try { workDB = Array.isArray(work) ? work.slice() : []; } catch(e){}
+    try { window.userMatDB = arrLS('user_db_mat_v31'); window.userWorkDB = arrLS('user_db_work_v31'); } catch(e){}
+  }
+
+  function activeDb(type){
+    if(scope() === 'global'){
+      var g = getGlobalCache();
+      return type === 'work' ? (g.workDB || []) : (g.matDB || []);
+    }
+    return type === 'work' ? arrLS('user_db_work_v31') : arrLS('user_db_mat_v31');
+  }
+
+  function saveActiveDb(type, arr){
+    arr = Array.isArray(arr) ? arr : [];
+    if(scope() === 'global'){
+      var g = getGlobalCache();
+      if(type === 'work') g.workDB = arr; else g.matDB = arr;
+      setGlobalCache(g.matDB, g.workDB);
+      epSaveGlobalCleanDb(g.matDB, g.workDB);
+      setRuntimeDb(g.matDB, g.workDB);
+    } else {
+      if(type === 'work') saveLS('user_db_work_v31', arr); else saveLS('user_db_mat_v31', arr);
+      epSaveMyCleanDb();
+      setRuntimeDb(arrLS('user_db_mat_v31'), arrLS('user_db_work_v31'));
+    }
+  }
+
+  function sig(type,it){
+    var g = it && (it.g || it.sc || it.subcategory || it.group) || '';
+    return type + '|' + cleanText([it && it.c, g, it && it.n, it && it.u].filter(Boolean).join('|'));
+  }
+
+  function unique(arr,type){
+    var seen = {}, out = [];
+    (arr || []).forEach(function(raw){
+      var it = clone(raw);
+      if(!it.n) return;
+      var k = sig(type,it);
+      if(seen[k]) return;
+      seen[k] = 1;
+      out.push(it);
+    });
+    return out;
+  }
+
+  function autoGroupMaterial(item){
+    var it = clone(item);
+    var n = cleanText([it.n,it.c,it.g,it.sc].join(' '));
+
+    if(/utp|ftp|cat5|cat6|витая|интернет|tv|sat|коаксиал|слаботоч/.test(n)){
+      it.c = 'Слаботочка';
+      it.g = /tv|sat|коаксиал/.test(n) ? 'ТВ / коаксиальный кабель' : 'Интернет / витая пара';
+    } else if(/кабель|ввг|провод|пугв|пв 3|нг/.test(n)){
+      if(/пугв|пв 3/.test(n)){
+        it.c = 'Щитовое'; it.g = 'Расходка под сборку / Провода';
+      } else {
+        it.c = 'Кабель';
+        if(/1\.5|1 5|3x1 5|3 1 5/.test(n)) it.g = 'Силовой кабель 3×1.5';
+        else if(/2\.5|2 5|3x2 5|3 2 5/.test(n)) it.g = 'Силовой кабель 3×2.5';
+        else if(/3x4|3 4|x4/.test(n)) it.g = 'Силовой кабель 3×4';
+        else if(/3x6|3 6|x6/.test(n)) it.g = 'Силовой кабель 3×6';
+        else it.g = 'Силовой кабель';
+      }
+    } else if(/гофр|труб|пнд|пвх/.test(n)){
+      it.c = 'Трубы';
+      it.g = /20/.test(n) ? 'Гофра / труба 20 мм' : 'Гофра / трубы';
+    } else if(/диф|дифф/.test(n)){
+      it.c = 'Автоматика'; it.g = 'ДИФы';
+    } else if(/узо|вд1/.test(n)){
+      it.c = 'Автоматика'; it.g = 'УЗО';
+    } else if(/уздп|дугов/.test(n)){
+      it.c = 'Автоматика'; it.g = 'УЗДП';
+    } else if(/узм|реле напряж/.test(n)){
+      it.c = 'Автоматика'; it.g = 'УЗМ / реле напряжения';
+    } else if(/реле времени/.test(n)){
+      it.c = 'Автоматика'; it.g = 'Реле времени';
+    } else if(/контактор|пускател/.test(n)){
+      it.c = 'Автоматика'; it.g = 'Контакторы';
+    } else if(/автомат|ва47|sh201|1p|2p|3p|c10|c16|c25|c32|c40/.test(n)){
+      it.c = 'Автоматика'; it.g = 'Автоматы';
+    } else if(/щит|шкаф|корпус|бокс|щрв|tekfor|uk6/.test(n)){
+      it.c = 'Щитовое';
+      if(/внутр|встра|скрыт/.test(n)) it.g = 'Корпуса / Встраиваемый';
+      else if(/наклад/.test(n)) it.g = 'Корпуса / Накладной';
+      else it.g = 'Корпуса';
+    } else if(/ншви|наконеч/.test(n)){
+      it.c = 'Щитовое'; it.g = 'Расходка под сборку / Наконечники';
+    } else if(/шин|клемм|n |pe |ноль|земл/.test(n)){
+      it.c = 'Щитовое'; it.g = 'Расходка под сборку / Шинки и клеммники';
+    } else if(/греб/.test(n)){
+      it.c = 'Щитовое'; it.g = 'Расходка под сборку / Гребёнки';
+    } else if(/din|дин|рейк|огранич/.test(n)){
+      it.c = 'Щитовое'; it.g = 'Расходка под сборку / DIN-рейки и ограничители';
+    } else if(/маркир|бирк/.test(n)){
+      it.c = 'Щитовое'; it.g = 'Расходка под сборку / Маркировка';
+    } else if(/подрозет|коробк|гмл|гильз|термоусад|стяжк|лента|гвозд|баллон|площадк/.test(n)){
+      it.c = 'Расходники';
+      if(/подрозет/.test(n)) it.g = 'Подрозетники';
+      else if(/коробк/.test(n)) it.g = 'Распределительные коробки';
+      else if(/гмл|гильз|термоусад/.test(n)) it.g = 'Соединения';
+      else it.g = 'Прочая расходка';
+    } else {
+      it.c = it.c && it.c !== 'Разное' ? it.c : 'Прочее';
+      it.g = it.g || it.sc || 'Без группы';
+    }
+
+    it.sc = it.g;
+    return it;
+  }
+
+  function autoGroupWork(item){
+    var it = clone(item);
+    var n = cleanText([it.n,it.c,it.g,it.sc].join(' '));
+
+    if(/демонтаж/.test(n)){
+      it.c = 'Демонтаж';
+      if(/щит|автомат|узо|диф|рубильник|реле/.test(n)) it.g = 'Щитовое';
+      else if(/розет|выключ|короб|звон/.test(n)) it.g = 'Электроточки';
+      else if(/люстр|свет/.test(n)) it.g = 'Освещение';
+      else it.g = 'Демонтаж';
+    } else if(/ниша|вырубка.*щит|щит.*ниша/.test(n)){
+      it.c = 'Ниши щита';
+      if(/бетон/.test(n)) it.g = 'Бетон';
+      else if(/кирпич/.test(n)) it.g = 'Кирпич';
+      else if(/панель/.test(n)) it.g = 'Панелька';
+      else if(/мягк|гипс|гкл/.test(n)) it.g = 'Мягкий материал';
+      else it.g = 'Материал стены';
+    } else if(/штроб|резк|отверстие|алмаз/.test(n)){
+      it.c = 'Штробление и резка';
+      if(/100x50|100 50|ввод/.test(n)) it.g = 'Штроба 100×50 вводная';
+      else if(/50x50|50 50/.test(n)) it.g = 'Штроба 50×50';
+      else if(/25x30|25 30/.test(n)) it.g = 'Штроба 25×30';
+      else if(/132/.test(n)) it.g = 'Отверстие 132 мм';
+      else if(/52/.test(n)) it.g = 'Отверстие 52 мм';
+      else it.g = 'Алмазная резка';
+    } else if(/высверл|подрозет/.test(n) && /бетон|кирпич|панель|мягк|копос|глубок|стандарт/.test(n)){
+      it.c = 'Высверливание подрозетников';
+      if(/копос|75|74/.test(n)) it.g = 'Копос 74×75';
+      else if(/глубок|64/.test(n)) it.g = 'Глубокий';
+      else it.g = 'Стандарт';
+    } else if(/вклейк|установка подрозет|распаечн|электроточк/.test(n)){
+      it.c = 'Черновая электрика';
+      if(/подрозет/.test(n)) it.g = 'Подрозетники';
+      else if(/короб/.test(n)) it.g = 'Распределительные коробки';
+      else it.g = 'Электроточки';
+    } else if(/проклад|кабел|гофр|трасс/.test(n)){
+      it.c = 'Монтаж';
+      if(/гофр|пол/.test(n)) it.g = 'Прокладка кабеля в гофре / пол';
+      else if(/потол|без гоф/.test(n)) it.g = 'Прокладка кабеля без гофры / потолок';
+      else it.g = 'Прокладка кабеля';
+    } else if(/розет|выключ|механизм|терморег|датчик|звонк|краб/.test(n)){
+      it.c = 'Чистовая установка';
+      if(/наклад/.test(n)) it.g = 'Накладные механизмы';
+      else if(/силов|380/.test(n)) it.g = 'Силовые механизмы';
+      else it.g = 'Механизмы';
+    } else if(/свет|люстр|бра|led|лента|профил|трек|шинопровод|армстронг/.test(n)){
+      it.c = 'Освещение';
+      if(/лента|led/.test(n)) it.g = 'LED лента';
+      else if(/профил/.test(n)) it.g = 'Алюминиевый профиль';
+      else if(/улич|фасад|сад|антиванд/.test(n)) it.g = 'Уличное освещение';
+      else it.g = 'Люстры и светильники';
+    } else if(/щит|автомат|узо|диф|реле|счетчик|трансформатор|бп|рубильник/.test(n)){
+      it.c = 'Щитовое';
+      if(/наклад/.test(n)) it.g = 'Монтаж накладных щитов';
+      else if(/реле/.test(n)) it.g = 'Автоматика и реле';
+      else if(/счетчик|трансформатор/.test(n)) it.g = 'Счётчики';
+      else it.g = 'Монтаж';
+    } else {
+      it.c = it.c && it.c !== 'Разное' ? it.c : 'Прочие работы';
+      it.g = it.g || it.sc || 'Без группы';
+    }
+
+    it.sc = it.g;
+    return it;
+  }
+
+  window.epAutoGroupItem = function(type,item){
+    return type === 'work' ? autoGroupWork(item) : autoGroupMaterial(item);
+  };
+
+  window.epAutoRegroupActiveDb = async function(){
+    var s = scope();
+    var msg = 'Автоматически разгруппировать выбранную базу: ' + (s === 'global' ? 'Глобальная' : 'Моя') + '?';
+    if(s === 'global' && !isAdmin()){
+      msg += '\n\nТак как вы не админ, изменения глобальной базы уйдут заявкой админу.';
+    }
+    if(!confirm(msg)) return;
+
+    var mats = activeDb('mat').map(function(x){ return autoGroupMaterial(x); });
+    var works = activeDb('work').map(function(x){ return autoGroupWork(x); });
+
+    if(s === 'global' && !isAdmin()){
+      await epSendCleanProposal('mat', mats, 'auto_regroup_materials');
+      await epSendCleanProposal('work', works, 'auto_regroup_works');
+      toast('✅ Авто-разгруппировка глобальной базы отправлена админу');
+      return;
+    }
+
+    saveActiveDb('mat', unique(mats,'mat'));
+    saveActiveDb('work', unique(works,'work'));
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    toast('✅ Авто-разгруппировка выполнена');
+  };
+
+  window.epOpenDbFactoryResetModal = function(){
+    if(typeof openModal === 'function') openModal('dbFactoryResetModal');
+  };
+
+  function localCleanOnly(){
+    CLEAN_KEYS.forEach(function(k){
+      try { localStorage.removeItem(k); } catch(e){}
+    });
+    try { localStorage.setItem('ep_db_clean_mode_v1','1'); } catch(e){}
+    try { localStorage.setItem('ep_db_scope_v2','my'); } catch(e){}
+    saveLS('user_db_mat_v31', []);
+    saveLS('user_db_work_v31', []);
+    setGlobalCache([], []);
+    setRuntimeDb([], []);
+  }
+
+  window.epFactoryResetMyDb = async function(){
+    if(!confirm('Вы точно желаете удалить всю ЛИЧНУЮ базу мастера?\n\nГлобальная база и сметы не изменятся.')) return;
+    localStorage.setItem('ep_db_clean_mode_v1','1');
+    saveLS('user_db_mat_v31', []);
+    saveLS('user_db_work_v31', []);
+    setRuntimeDb([], []);
+    await epSaveMyCleanDb();
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    if(typeof closeModal === 'function') closeModal('dbFactoryResetModal');
+    toast('✅ Личная база мастера очищена');
+  };
+
+  window.epFactoryResetAllDb = async function(){
+    if(!confirm('ВНИМАНИЕ!\n\nВы точно желаете удалить ВСЮ базу данных приложения?\n\nБудут очищены: моя база, глобальная база, базы мастеров, кэши и заявки.\nСметы, заказчики и настройки не трогаются.')) return;
+    var code = prompt('Для подтверждения напишите: УДАЛИТЬ БАЗЫ');
+    if(code !== 'УДАЛИТЬ БАЗЫ') return toast('Сброс отменён');
+
+    localCleanOnly();
+
+    var serverInfo = '';
+    try {
+      if(typeof db !== 'undefined' && db){
+        if(uid()){
+          await db.collection('user_db').doc(uid()).set({matDB:[],workDB:[],created:true,resetAt:new Date().toISOString()}, {merge:true});
+        }
+
+        if(isAdmin()){
+          await db.collection('settings').doc('global_db').set({matDB:[],workDB:[],resetAt:new Date().toISOString()}, {merge:true});
+
+          try {
+            var snap = await db.collection('user_db').get();
+            var batch = db.batch();
+            var count = 0;
+            snap.forEach(function(doc){
+              batch.set(doc.ref, {matDB:[],workDB:[],resetAt:new Date().toISOString()}, {merge:true});
+              count++;
+            });
+            if(count) await batch.commit();
+            serverInfo += ' Базы мастеров очищены: ' + count + '.';
+          } catch(e) {
+            serverInfo += ' Базы других мастеров не очищены: нет прав или ошибка.';
+            console.warn('clear user_db collection failed', e);
+          }
+
+          try {
+            var ps = await db.collection('db_proposals').get();
+            var b2 = db.batch();
+            var pc = 0;
+            ps.forEach(function(doc){ b2.delete(doc.ref); pc++; });
+            if(pc) await b2.commit();
+            serverInfo += ' Заявки очищены: ' + pc + '.';
+          } catch(e) {
+            serverInfo += ' Заявки не очищены: нет прав или ошибка.';
+            console.warn('clear proposals failed', e);
+          }
+        } else {
+          await epSendCleanProposal('system', [], 'request_full_db_reset');
+          serverInfo += ' Вы не админ: полный серверный сброс отправлен заявкой админу.';
+        }
+      }
+    } catch(e) {
+      console.warn('server factory reset failed', e);
+      serverInfo += ' Серверный сброс не выполнен: проверьте права Firebase.';
+    }
+
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    if(typeof closeModal === 'function') closeModal('dbFactoryResetModal');
+    toast('✅ Локальные базы очищены.' + serverInfo);
+  };
+
+  async function epSaveMyCleanDb(){
+    try {
+      if(typeof db !== 'undefined' && db && uid()){
+        await db.collection('user_db').doc(uid()).set({
+          uid: uid(),
+          masterName: (appUser && (appUser.name || appUser.email)) || '',
+          matDB: arrLS('user_db_mat_v31'),
+          workDB: arrLS('user_db_work_v31'),
+          cleanMode: true,
+          updatedAt: new Date().toISOString()
+        }, {merge:true});
+      }
+    } catch(e) { console.warn('save clean my db failed', e); }
+  }
+
+  async function epSaveGlobalCleanDb(mat,work){
+    try {
+      if(typeof db !== 'undefined' && db){
+        if(isAdmin()){
+          await db.collection('settings').doc('global_db').set({
+            matDB: Array.isArray(mat)?mat:[],
+            workDB: Array.isArray(work)?work:[],
+            cleanMode: true,
+            updatedAt: new Date().toISOString()
+          }, {merge:true});
+        } else if(scope() === 'global') {
+          await epSendCleanProposal('global_db', {matDB:mat||[], workDB:work||[]}, 'update_global_db');
+        }
+      }
+    } catch(e) { console.warn('save clean global db failed', e); }
+  }
+
+  async function epSendCleanProposal(type,items,action){
+    try {
+      if(typeof db !== 'undefined' && db){
+        await db.collection('db_proposals').add({
+          uid: uid() || '',
+          masterName: (appUser && (appUser.name || appUser.email)) || '',
+          type: type,
+          action: action,
+          items: Array.isArray(items) ? items.map(clone) : items,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          target: 'global'
+        });
+      }
+    } catch(e) { console.warn('proposal failed', e); }
+  }
+
+  var oldAddDbItem = window.addDbItem;
+  window.addDbItem = async function(){
+    var catEl = $('db-new-cat'), nameEl = $('db-new-name'), priceEl = $('db-new-price'), unitEl = $('db-new-unit');
+    var name = nameEl ? nameEl.value.trim() : '';
+    if(!name) return toast('Введите название позиции');
+
+    var isMat = true;
+    try { isMat = $('editor-work') && $('editor-work').style.display === 'none'; } catch(e){}
+    var type = isMat ? 'mat' : 'work';
+    var item = {
+      id: (type === 'mat' ? 'm' : 'w') + '_manual_' + Date.now(),
+      c: catEl && catEl.value.trim() ? catEl.value.trim() : 'Разное',
+      n: name,
+      p: priceEl ? Number(String(priceEl.value).replace(',','.').replace(/[^\d.]/g,'')) || 0 : 0,
+      u: unitEl && unitEl.value.trim() ? unitEl.value.trim() : 'шт'
+    };
+    item = window.epAutoGroupItem(type,item);
+
+    if(scope() === 'global' && !isAdmin()){
+      await epSendCleanProposal(type,[item],'add_manual_to_global');
+      toast('✅ Позиция отправлена админу в глобальную базу');
+    } else {
+      var arr = activeDb(type).slice();
+      arr.push(item);
+      saveActiveDb(type, unique(arr,type));
+      toast(scope() === 'global' ? '✅ Добавлено в глобальную базу' : '✅ Добавлено в мою базу');
+    }
+
+    if(nameEl) nameEl.value = '';
+    if(priceEl) priceEl.value = '';
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+  };
+
+  var oldApplyReviewed = window.epApplyReviewedDbItems;
+  window.epApplyReviewedDbItems = async function(mode){
+    var type = (window.EP_DB_REVIEW && window.EP_DB_REVIEW.type) || 'mat';
+    var items = [];
+    try {
+      var src = (window.EP_DB_REVIEW && window.EP_DB_REVIEW.items) || [];
+      for(var i=0;i<src.length;i++){
+        var ch=$('ep-db-check-'+i);
+        if(ch && !ch.checked) continue;
+        var name=$('ep-db-name-'+i), cat=$('ep-db-cat-'+i), sub=$('ep-db-subcat-'+i), price=$('ep-db-price-'+i), unit=$('ep-db-unit-'+i);
+        var it = {
+          id: src[i].id || ((type==='work'?'w':'m')+'_imp_'+Date.now()+'_'+i),
+          c: cat ? cat.value.trim() : (src[i].c || 'Разное'),
+          g: sub ? sub.value.trim() : (src[i].g || src[i].sc || ''),
+          sc: sub ? sub.value.trim() : (src[i].sc || src[i].g || ''),
+          n: name ? name.value.trim() : src[i].n,
+          p: price ? Number(String(price.value).replace(',','.').replace(/[^\d.]/g,''))||0 : Number(src[i].p)||0,
+          u: unit ? unit.value.trim() || 'шт' : (src[i].u || 'шт')
+        };
+        if(it.n) items.push(window.epAutoGroupItem(type,it));
+      }
+    } catch(e) { console.warn('manual review parse failed', e); }
+
+    if(!items.length && typeof oldApplyReviewed === 'function'){
+      return oldApplyReviewed(mode);
+    }
+
+    if(scope() === 'global' && !isAdmin()){
+      await epSendCleanProposal(type,items,'import_to_global');
+      toast('✅ Импорт в глобальную базу отправлен админу');
+    } else {
+      var arr = activeDb(type).slice();
+      items.forEach(function(it){ arr.push(it); });
+      saveActiveDb(type, unique(arr,type));
+      toast(scope()==='global' ? '✅ Импорт добавлен в глобальную базу' : '✅ Импорт сохранён в моей базе');
+    }
+
+    if(typeof renderDbEditors === 'function') renderDbEditors();
+    if(typeof closeModal === 'function') closeModal('ep-db-ai-review-modal');
+  };
+
+  function forceCleanModeIfEnabled(){
+    if(localStorage.getItem('ep_db_clean_mode_v1') === '1'){
+      var g = getGlobalCache();
+      if(scope() === 'global') setRuntimeDb(g.matDB || [], g.workDB || []);
+      else setRuntimeDb(arrLS('user_db_mat_v31'), arrLS('user_db_work_v31'));
+    }
+  }
+
+  var oldRender = window.renderDbEditors;
+  window.renderDbEditors = function(){
+    forceCleanModeIfEnabled();
+    if(typeof oldRender === 'function') oldRender();
+    var cleanBox = $('ep-db-clean-toolbar');
+    if(cleanBox){
+      var active = scope() === 'global' ? '🌍 Глобальная' : '👤 Моя';
+      var statusId = 'ep-clean-status-line';
+      var st = $(statusId);
+      if(!st){
+        st = document.createElement('div');
+        st.id = statusId;
+        st.style.cssText = 'font-size:11px;color:var(--gray);font-weight:800;margin-top:8px;';
+        cleanBox.appendChild(st);
+      }
+      st.textContent = 'Активная база: ' + active + '. Ручное добавление и импорт идут туда же.';
+    }
+  };
+
+  function install(){
+    try {
+      addDbItem = window.addDbItem;
+      renderDbEditors = window.renderDbEditors;
+    } catch(e){}
+    forceCleanModeIfEnabled();
+  }
+
+  install();
+  var n=0,t=setInterval(function(){ install(); n++; if(n>80) clearInterval(t); }, 100);
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ install(); if(typeof renderDbEditors === 'function') renderDbEditors(); }, 700); });
 })();
 </script>
 
