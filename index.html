@@ -1207,10 +1207,26 @@ function confirmQtyAdd() {
     closeModal('qtyPromptModal'); showToast("Добавлено!");
 }
 
-function addAuto(items, tag) { 
-    currentEstimate = currentEstimate.filter(it => it.tag !== tag); 
-    items.forEach(it => { it.tag = tag; currentEstimate.push(it); }); 
-    renderMainTable(); 
+function addAuto(items, tag) {
+    currentEstimate = currentEstimate.filter(it => it.tag !== tag);
+    const map = {};
+    const out = [];
+    (items || []).forEach(src => {
+        if (!src) return;
+        const it = Object.assign({}, src);
+        it.tag = tag;
+        const key = [it.tag || '', it.type || '', it.n || '', Number(it.p) || 0, it.u || 'шт'].join('|');
+        let rec = map[key];
+        if (!rec) {
+            rec = Object.assign({}, it, { q: 0 });
+            map[key] = rec;
+            out.push(rec);
+        }
+        rec.q += Number(it.q) || 0;
+        epV15MergeAssignments(rec, it);
+    });
+    currentEstimate = currentEstimate.concat(out);
+    renderMainTable();
 }
 
 function setPodr(v, el) { st_podr = v; document.querySelectorAll('#podr-tiles .tile').forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
@@ -1441,18 +1457,162 @@ function epFindDbItem(type, words) {
     return bestScore >= Math.max(1, Math.ceil(searchWords.length * 0.55)) ? best : null;
 }
 
+
+function epV15BrandRu(v) {
+    const s = String(v || '').toUpperCase();
+    if (s.includes('IEK') || s.includes('ИЭК')) return 'ИЭК';
+    if (s.includes('ABB')) return 'ABB';
+    if (s.includes('SCHNEIDER') || s.includes('ШНАЙДЕР')) return 'Schneider';
+    if (s.includes('LEGRAND') || s.includes('ЛЕГРАН')) return 'Legrand';
+    if (s.includes('EKF')) return 'EKF';
+    if (s.includes('DEKRAFT')) return 'DEKraft';
+    return String(v || '').trim() || 'ИЭК';
+}
+function epV15BrandCode(v) {
+    const s = String(v || '').toUpperCase();
+    if (s.includes('ИЭК')) return 'IEK';
+    if (s.includes('IEK')) return 'IEK';
+    if (s.includes('ABB')) return 'ABB';
+    if (s.includes('SCHNEIDER')) return 'Schneider';
+    if (s.includes('LEGRAND')) return 'Legrand';
+    if (s.includes('EKF')) return 'EKF';
+    return String(v || '').trim();
+}
+function epV15CleanForName(s) { return String(s || '').replace(/\s+/g,' ').trim(); }
+function epV15DetectModel(s, kind) {
+    s = String(s || '');
+    const patterns = [
+        /ВА\s*47\s*[-–—]?\s*29/iu,
+        /ВД\s*1\s*[-–—]?\s*63/iu,
+        /АВДТ\s*32/iu,
+        /АД\s*12/iu,
+        /Easy\s*9/iu,
+        /Acti\s*9/iu,
+        /SH\s*20\d/iu,
+        /S\s*20\d/iu,
+        /DX\s*3/iu,
+        /TX\s*3/iu
+    ];
+    for (const p of patterns) { const m = s.match(p); if (m) return epV15CleanForName(m[0]).replace(/\s*[-–—]\s*/g,'-'); }
+    const k = String(kind || '').toLowerCase();
+    if (k.includes('dif') || /диф/i.test(s)) return epV15BrandCode(s).toUpperCase()==='IEK' ? 'АВДТ32' : '';
+    if (k.includes('uzo') || k.includes('узо') || /узо|диф/i.test(s)) return epV15BrandCode(s).toUpperCase()==='IEK' ? 'ВД1-63' : '';
+    if (/автомат|breaker|ВА47|IEK|ИЭК/i.test(s)) return epV15BrandCode(s).toUpperCase()==='IEK' ? 'ВА47-29' : '';
+    return '';
+}
+function epV15DetectNominal(src, meta) {
+    const raw = [meta && meta.nominal, meta && meta.rawLabel, src].join(' ');
+    let m = String(raw || '').match(/\b([ABCDАВСД])\s*([0-9]{1,3})\b/iu);
+    if (m) {
+        const c = String(m[1]).toUpperCase().replace('А','A').replace('В','B').replace('С','C').replace('Д','D');
+        return c + m[2];
+    }
+    // Не путать модель ВА47-29 с номиналом A47.
+    return '';
+}
+function epV15DetectPoles(src, meta) {
+    if (meta && meta.poles) return meta.poles;
+    const s = String(src || '');
+    let m = s.match(/\b(1P\+N|1P|2P|3P|4P|1Р\+N|1Р|2Р|3Р|4Р)\b/iu);
+    if (m) return String(m[1]).replace(/Р/g,'P').toUpperCase();
+    return '';
+}
+function epV15AmpFromNominal(n) { const m=String(n||'').match(/(\d{1,3})/); return m?Number(m[1]):0; }
+function epV15FormatAutoName(found, label, meta) {
+    meta = meta || {};
+    const src = [label, found && found.n, meta.rawLabel].join(' ');
+    const brand = epV15BrandRu(meta.brand || epV15BrandCode(src));
+    let nominal = epV15DetectNominal(src, meta);
+    if (!nominal && /A472|А472/i.test(src)) nominal = 'C40';
+    let poles = epV15DetectPoles(src, meta) || '1P';
+    const model = epV15DetectModel(src, 'automatic') || (epV15BrandCode(brand).toUpperCase()==='IEK' ? 'ВА47-29' : '');
+    if (/вводн/i.test(src) && !nominal) return epV15CleanForName(['Вводной автомат', poles === '1P' ? '2P' : poles, brand, model].filter(Boolean).join(' '));
+    return epV15CleanForName([nominal || 'Автомат', poles, brand, model].filter(Boolean).join(' '));
+}
+function epV15DetectLeakage(src, meta) {
+    if (meta && meta.leakage) return Number(meta.leakage);
+    const m = String(src || '').match(/(10|30|100|300)\s*м\s*а/iu);
+    return m ? Number(m[1]) : 0;
+}
+function epV15FormatRcdName(found, label, meta) {
+    meta = meta || {};
+    const src = [label, found && found.n, meta.rawLabel].join(' ');
+    const kraw = String(meta.kind || label || '').toLowerCase();
+    const kind = kraw.includes('dif') || /диф/i.test(src) ? 'ДИФ' : 'УЗО';
+    const brand = epV15BrandRu(meta.brand || epV15BrandCode(src));
+    const poles = epV15DetectPoles(src, meta) || (kind === 'ДИФ' ? '1P+N' : '2P');
+    const amp = Number(meta.amp || meta.current || 40) || 40;
+    const leakage = epV15DetectLeakage(src, meta) || 30;
+    const typ = meta.rcdType || (String(src).match(/тип\s*([AАBВCС]+)/iu)||[])[1] || 'A';
+    const model = epV15DetectModel(src, kind) || (epV15BrandCode(brand).toUpperCase()==='IEK' ? (kind==='ДИФ'?'АВДТ32':'ВД1-63') : '');
+    return epV15CleanForName([kind, poles, amp + 'A', leakage + 'мА', 'тип ' + String(typ).toUpperCase().replace('А','A').replace('В','B').replace('С','C'), brand, model].filter(Boolean).join(' '));
+}
+function epV15DisplayMaterialName(found, label, meta) {
+    meta = meta || {};
+    const k = String(meta.kind || '').toLowerCase();
+    const src = [label, found && found.n].join(' ');
+    if (k.includes('automatic') || k.includes('breaker') || /\bавтомат\b|A472|А472/i.test(src)) return epV15FormatAutoName(found, label, meta);
+    if (k.includes('узо') || k.includes('uzo') || k.includes('dif') || /узо|диф/i.test(src)) return epV15FormatRcdName(found, label, meta);
+    if (found && found.n) return epV15CleanForName(found.n);
+    return epV15CleanForName(label || 'Позиция');
+}
+function epV15MergeAssignments(dst, src) {
+    const vals = [];
+    [src && src.epAssignment, src && src.dbMeta && src.dbMeta.assignment].forEach(v => { if(v) vals.push(v); });
+    if (Array.isArray(src && src.epAssignments)) vals.push(...src.epAssignments);
+    if (Array.isArray(src && src.epMergedDetails)) vals.push(...src.epMergedDetails);
+    if (!dst.epAssignments) dst.epAssignments = [];
+    if (!dst.epMergedDetails) dst.epMergedDetails = [];
+    vals.map(v => String(v || '').trim()).filter(Boolean).forEach(v => {
+        if (v && !/^(позиция щита|назначение не указано)$/i.test(v) && !dst.epAssignments.includes(v)) dst.epAssignments.push(v);
+        if (v && !/^(позиция щита|назначение не указано)$/i.test(v) && !dst.epMergedDetails.includes(v)) dst.epMergedDetails.push(v);
+    });
+}
+
 function epMat(label, q, fallbackPrice, words, meta) {
-    const found = epFindDbItem('mat', words || [label]);
-    if (found) return { n: found.n, q: q, p: Number(found.p) || 0, u: found.u || 'шт', type: 'mat', sourceId: found.id || null };
     const m = meta || {};
-    const extra = m.category ? ` [${m.category}${m.subcategory ? ' → ' + m.subcategory : ''}]` : '';
-    return { n: `⚠️ ${label}${extra} — добавить в БД`, q: q, p: Number(fallbackPrice) || 0, u: m.unit || 'шт', type: 'mat', needDb: true, dbMeta: m };
+    const found = epFindDbItem('mat', words || [label]);
+    const name = epV15DisplayMaterialName(found, label, Object.assign({}, m, { rawLabel: label, brand: m.brand || epGetVal('cfg-brand-auto', 'IEK') }));
+    const out = {
+        n: found ? name : `⚠️ ${name} [${m.category || 'Материалы'}${m.subcategory ? ' → ' + m.subcategory : ''}] — добавить в БД`,
+        q: q,
+        p: found ? (Number(found.p) || Number(fallbackPrice) || 0) : (Number(fallbackPrice) || 0),
+        u: (found && found.u) || m.unit || 'шт',
+        type: 'mat',
+        sourceId: found && found.id ? found.id : null,
+        needDb: !found,
+        dbMeta: Object.assign({}, m, { rawLabel: label, brand: m.brand || epGetVal('cfg-brand-auto', 'IEK'), foundName: found && found.n ? found.n : '' }),
+        epRawLabel: label
+    };
+    if (m.assignment) { out.epAssignment = m.assignment; out.epAssignments = [m.assignment]; out.epMergedDetails = [m.assignment]; }
+    return out;
 }
 
 function epWork(label, q, price, words, meta) {
+    const m = meta || {};
     const found = epFindDbItem('work', words || [label]);
-    if (found) return { n: found.n, q: q, p: Number(found.p) || Number(price) || 0, u: found.u || (meta && meta.unit) || 'шт', type: 'work', sourceId: found.id || null };
-    return { n: label, q: q, p: Number(price) || 0, u: (meta && meta.unit) || 'шт', type: 'work', logicPrice: true };
+    let name = label;
+    if (found && found.n) {
+        const bad = (/установка\s+бп\s+в\s+щит/i.test(found.n) && /установка\s+щит/i.test(label)) ||
+                    (/^\s*(бетон|кирпич|панелька|мягкий)/i.test(found.n) && /штроб|ниша/i.test(label));
+        name = bad ? label : found.n;
+    }
+    if (/штроб/i.test(label) && /100\s*[×xх]\s*50/i.test(label)) name = label.replace(/ВВОДНАЯ\s*/i, '').replace(/\s+/g,' ').trim();
+    const out = {
+        n: name,
+        q: q,
+        p: found ? (Number(found.p) || Number(price) || 0) : (Number(price) || 0),
+        u: (found && found.u) || m.unit || 'шт',
+        type: 'work',
+        sourceId: found && found.id ? found.id : null,
+        logicPrice: !found,
+        dbMeta: Object.assign({}, m, { rawLabel: label, foundName: found && found.n ? found.n : '' }),
+        epRawLabel: label
+    };
+    if (m.category) out.c = m.category;
+    if (m.subcategory) { out.g = m.subcategory; out.sc = m.subcategory; out.subcategory = m.subcategory; }
+    if (m.assignment) { out.epAssignment = m.assignment; out.epAssignments = [m.assignment]; out.epMergedDetails = [m.assignment]; }
+    return out;
 }
 
 function epGetCheck(id) { const el = document.getElementById(id); return !!(el && el.checked); }
@@ -1471,17 +1631,11 @@ function generateCascadePanel() {
     const isMaster = epGetCheck('cfg-master');
     const heavySeparate = epGetCheck('cfg-heavy-separate');
 
-    let m = [];
-    let w = [];
-    let lines = [];
-    let protectionDevices = [];
-    let warnings = [];
-
+    let m = [], w = [], lines = [], protectionDevices = [], warnings = [];
     function addLine(name, nominal, group, opts) {
         const o = opts || {};
         lines.push({ name, nominal, group, curve: o.curve || curve, nonSwitchable: !!o.nonSwitchable, wet: group === 'wet' || !!o.wet });
     }
-
     function addRoom(label, count, wetPower) {
         for (let i = 1; i <= count; i++) {
             const n = count > 1 ? `${label} ${i}` : label;
@@ -1489,13 +1643,11 @@ function generateCascadePanel() {
             addLine(`${n} свет`, 'C10', 'light');
         }
     }
-
     addRoom('Кухня', cfg.kits || 0, false);
     addRoom('Ванная', cfg.baths || 0, true);
     addRoom('Туалет', cfg.toilets || 0, true);
     addRoom('Комната', cfg.rms || 0, false);
     addRoom('Балкон', cfg.bals || 0, false);
-
     if (epGetCheck('c-apron')) addLine('Фартук кухни', 'C16', 'power');
     if (epGetCheck('c-dish')) addLine('Посудомойка', 'C10', 'power');
     if (epGetCheck('c-washer')) addLine('Стиралка/сушилка', 'C10', 'wet', { wet: true });
@@ -1505,7 +1657,6 @@ function generateCascadePanel() {
     if (epGetCheck('c-fridge')) addLine('Холодильник, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
     if (epGetCheck('c-neptun')) addLine('Нептун, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
     if (epGetCheck('c-router')) addLine('Роутер, неотключаемая группа', 'C6', 'alwaysOn', { nonSwitchable: true });
-
     const hobPower = epGetVal('c-hob-power', 'none');
     if (hobPower === '6') addLine('Плита до 6 кВт', 'C25', heavySeparate ? 'heavy' : 'power');
     if (hobPower === '10') addLine('Плита до 10 кВт', 'C32', heavySeparate ? 'heavy' : 'power');
@@ -1513,63 +1664,57 @@ function generateCascadePanel() {
     if (boilerPower === '6') addLine('Бойлер до 6 кВт', 'C25', 'wet', { wet: true });
     if (boilerPower === '10') addLine('Бойлер до 10 кВт', 'C32', 'wet', { wet: true });
 
-    const groupNames = {
-        power: 'Силовые линии',
-        climate: 'Климат',
-        wet: 'Влажные зоны',
-        light: 'Освещение',
-        heavy: 'Большая техника',
-        alwaysOn: 'Неотключаемые группы'
-    };
-
+    const groupNames = { power: 'Силовые линии', climate: 'Климат', wet: 'Влажные зоны', light: 'Освещение', heavy: 'Большая техника', alwaysOn: 'Неотключаемые группы' };
     const presentGroups = Array.from(new Set(lines.map(l => l.group))).filter(Boolean);
+    function groupAssignment(group, leakage) {
+        const ls = lines.filter(l => l.group === group).map(l => l.name);
+        const head = group === 'wet' ? 'Влажные зоны / защита 10 мА' : (groupNames[group] || group);
+        return ls.length ? `${head}: ${ls.join(', ')}` : head;
+    }
     function addProtection(group, mode) {
         const leakage = group === 'wet' ? 10 : 30;
         const kind = mode || (protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО');
-        protectionDevices.push({ group, kind, leakage, rcdType, modules: 2 });
+        protectionDevices.push({ group, kind, leakage, rcdType, modules: 2, assignment: groupAssignment(group, leakage) });
         if (group === 'wet' && leakage !== 10) warnings.push('Влажные зоны должны быть 10 мА');
     }
+    if (protectionType === 'main_dif_auto') protectionDevices.push({ group: 'main', kind: 'Главный ДИФ', leakage: 30, rcdType, modules: 2, assignment: 'Вводная групповая защита всего щита' });
+    else if (protectionType === 'mixed') presentGroups.forEach(g => addProtection(g, g === 'wet' ? 'ДИФ' : 'УЗО'));
+    else presentGroups.forEach(g => addProtection(g, protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО'));
 
-    if (protectionType === 'main_dif_auto') {
-        protectionDevices.push({ group: 'main', kind: 'Главный ДИФ', leakage: 30, rcdType, modules: 2 });
-    } else if (protectionType === 'mixed') {
-        presentGroups.forEach(g => addProtection(g, g === 'wet' ? 'ДИФ' : 'УЗО'));
-    } else {
-        presentGroups.forEach(g => addProtection(g, protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО'));
+    function mat(label, q, price, words, meta, assignment) {
+        meta = Object.assign({}, meta || {}, { brand: bAuto });
+        if (assignment) meta.assignment = assignment;
+        const it = epMat(label, q, price, words, meta);
+        if (assignment) { it.epAssignment = assignment; it.epAssignments = [assignment]; it.epMergedDetails = [assignment]; }
+        return it;
+    }
+    function work(label, q, price, words, meta, assignment) {
+        meta = Object.assign({}, meta || {});
+        if (assignment) meta.assignment = assignment;
+        const it = epWork(label, q, price, words, meta);
+        if (assignment) { it.epAssignment = assignment; it.epAssignments = [assignment]; it.epMergedDetails = [assignment]; }
+        return it;
     }
 
-    // Вводной автомат
-    m.push(epMat(`Вводной автомат ${ph}ф ${bAuto}`, 1, bAuto === 'ABB' ? 3500 : 1800, ['автомат', 'вводной', bAuto, ph + 'ф'], { category: 'Автоматика', subcategory: bAuto, kind: 'input_breaker', unit: 'шт' }));
-
-    // Защита групп
+    m.push(mat(`Вводной автомат ${ph}ф ${bAuto}`, 1, bAuto === 'ABB' ? 3500 : 1800, ['автомат', 'вводной', bAuto, ph + 'ф'], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'input_breaker', unit: 'шт', poles: ph === 3 ? '4P' : '2P' }, 'Вводной аппарат щита'));
     protectionDevices.forEach(pd => {
-        const label = pd.kind === 'Главный ДИФ'
-            ? `Главный ДИФ ${bAuto} ${pd.leakage}мА тип ${pd.rcdType}`
-            : `${pd.kind} ${groupNames[pd.group] || pd.group} ${pd.leakage}мА тип ${pd.rcdType} ${bAuto}`;
-        m.push(epMat(label, 1, epDifPrice(bAuto), [pd.kind, bAuto, pd.leakage + 'мА', pd.rcdType, groupNames[pd.group] || pd.group], { category: 'Автоматика', subcategory: bAuto, kind: pd.kind, leakage: pd.leakage, rcdType: pd.rcdType, modules: 2 }));
+        const label = pd.kind === 'Главный ДИФ' ? `Главный ДИФ ${bAuto} ${pd.leakage}мА тип ${pd.rcdType}` : `${pd.kind} ${groupNames[pd.group] || pd.group} ${pd.leakage}мА тип ${pd.rcdType} ${bAuto}`;
+        m.push(mat(label, 1, epDifPrice(bAuto), [pd.kind, bAuto, pd.leakage + 'мА', pd.rcdType, groupNames[pd.group] || pd.group], { category: 'Автоматика', subcategory: pd.kind === 'ДИФ' || pd.kind === 'Главный ДИФ' ? 'ДИФы' : 'УЗО', kind: pd.kind === 'ДИФ' || pd.kind === 'Главный ДИФ' ? 'dif' : 'uzo', leakage: pd.leakage, rcdType: pd.rcdType, amp: 40, poles: pd.kind === 'ДИФ' ? '1P+N' : '2P', modules: 2 }, pd.assignment));
     });
-
-    // Каждый потребитель/линия своим отдельным автоматом
     lines.forEach(line => {
         const label = `Автомат ${line.nominal} тип ${line.curve} ${bAuto} — ${line.name}`;
-        m.push(epMat(label, 1, epAutoPrice(bAuto), ['автомат', bAuto, line.nominal, line.curve], { category: 'Автоматика', subcategory: bAuto, kind: 'automatic', nominal: line.nominal, curve: line.curve, modules: 1 }));
+        m.push(mat(label, 1, epAutoPrice(bAuto), ['автомат', bAuto, line.nominal, line.curve], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'automatic', nominal: line.nominal, curve: line.curve, modules: 1, poles: '1P' }, line.name));
     });
-
-    // Реле напряжения
     if (epGetCheck('cfg-uzm')) {
         const q = ph === 3 ? 3 : 1;
-        m.push(epMat(`Реле напряжения ${bAuto}`, q, 4500, ['реле напряжения', 'узм', bAuto], { category: 'Автоматика', subcategory: bAuto, kind: 'voltage_relay', modules: ph === 3 ? 6 : 2 }));
+        m.push(mat(`Реле напряжения ${bAuto}`, q, 4500, ['реле напряжения', 'узм', bAuto], { category: 'Автоматика', subcategory: 'УЗМ / реле напряжения', kind: 'voltage_relay', modules: ph === 3 ? 6 : 2 }, 'Защита от перенапряжения'));
     }
-
-    // Мастер-кнопка только на освещение
     if (isMaster) {
-        m.push(epMat(`Контактор C40 ${bAuto} — мастер-кнопка света`, 1, 2200, ['контактор', 'C40', bAuto], { category: 'Автоматика', subcategory: bAuto, kind: 'contactor', modules: 2 }));
-        m.push(epMat(`Автомат C40 тип ${curve} ${bAuto} — байпас мастер-кнопки`, 1, bAuto === 'ABB' ? 600 : 380, ['автомат', 'C40', bAuto, curve], { category: 'Автоматика', subcategory: bAuto, kind: 'bypass_breaker', modules: 1 }));
+        const lightLines = lines.filter(l => l.group === 'light').map(l => l.name).join(', ') || 'световые группы';
+        m.push(mat(`Контактор C40 ${bAuto} — мастер-кнопка света`, 1, 2200, ['контактор', 'C40', bAuto], { category: 'Автоматика', subcategory: 'Контакторы', kind: 'contactor', modules: 2 }, 'Мастер-кнопка только на свет: ' + lightLines));
+        m.push(mat(`Автомат C40 тип ${curve} ${bAuto} — байпас мастер-кнопки`, 1, bAuto === 'ABB' ? 600 : 380, ['автомат', 'C40', bAuto, curve], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'automatic', nominal: 'C40', curve: curve, modules: 1, poles: '1P' }, 'Байпас мастер-кнопки света'));
     }
-
-    currentShieldExtras.forEach(ex => {
-        m.push({ n: ex.n, q: ex.q, p: ex.p, u: ex.u || 'шт', type: 'mat' });
-    });
+    currentShieldExtras.forEach(ex => m.push({ n: ex.n, q: ex.q, p: ex.p, u: ex.u || 'шт', type: 'mat', epAssignment: 'Дополнительный аппарат защиты', epAssignments: ['Дополнительный аппарат защиты'], epMergedDetails: ['Дополнительный аппарат защиты'] }));
 
     const onePoleCount = lines.length + (isMaster ? 1 : 0);
     const twoPoleProtectionCount = protectionDevices.length;
@@ -1577,52 +1722,41 @@ function generateCascadePanel() {
     const masterModules = isMaster ? 3 : 0;
     const extraModules = currentShieldExtras.reduce((s, ex) => s + (Number(ex.modules || 1) * Number(ex.q || 1)), 0);
     const totalModules = Math.ceil(onePoleCount + twoPoleProtectionCount * 2 + relayModules + masterModules + extraModules + (ph === 3 ? 3 : 2));
-
     const boxSize = [6,12,24,36,48,60,72].find(s => s >= totalModules) || 72;
     if (totalModules > 72) warnings.push('Нужно больше 72 модулей — требуется второй щит или пересборка схемы');
 
-    m.unshift(epMat(`Щит ${sWall === 'Накладной' ? 'накладной' : 'встраиваемый'} ${bBox} ${boxSize}М`, 1, bBox === 'ABB' ? 6510 : 2660, ['щит', bBox, String(boxSize), sWall === 'Накладной' ? 'накладной' : 'встраиваемый'], { category: 'Щитовое', subcategory: `Корпуса ${bBox}`, kind: 'shield_box', modules: boxSize, mountType: sWall === 'Накладной' ? 'surface' : 'built_in' }));
+    m.unshift(mat(`Щит ${sWall === 'Накладной' ? 'накладной' : 'встраиваемый'} ${bBox} ${boxSize}М`, 1, bBox === 'ABB' ? 6510 : 2660, ['щит', bBox, String(boxSize), sWall === 'Накладной' ? 'накладной' : 'встраиваемый'], { brand: bBox, category: 'Щитовое', subcategory: 'Корпуса', kind: 'shield_box', modules: boxSize, mountType: sWall === 'Накладной' ? 'surface' : 'built_in' }, 'Корпус щита'));
+    const comb1P = Math.ceil(onePoleCount / 12), comb2P = Math.ceil(twoPoleProtectionCount / 6), rows = Math.ceil(boxSize / 12);
+    const pugvSize = Number(appLogic.shieldPugvSize || 6), pugvMeters = Math.max(4, Math.ceil(totalModules * 0.4)), nshviPacks = Math.max(1, Math.ceil(boxSize / 48));
+    if (comb1P > 0) m.push(mat('Гребёнка 1P 25см', comb1P, 250, ['гребенка', '1P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_1p' }, 'Питание однополюсных автоматов'));
+    if (comb2P > 0) m.push(mat('Гребёнка 2P 25см', comb2P, 450, ['гребенка', '2P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_2p' }, 'Питание УЗО/ДИФ'));
+    if (twoPoleProtectionCount > 0) m.push(mat('Нулевая шинка N на группу УЗО/ДИФ', twoPoleProtectionCount, 285, ['шина', 'N', 'ноль', 'DIN'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'neutral_bus' }, 'N-шинки по группам защиты'));
+    m.push(mat(`PE-шина на ${appLogic.shieldPeBusContacts || 26} контактов`, 1, 770, ['PE', 'шина', '26'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'pe_bus' }, 'Защитное заземление PE'));
+    m.push(mat('DIN-рейка / комплект DIN для щита', rows, 180, ['DIN', 'рейка'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_rail' }, 'Крепление аппаратов на DIN-рейке'));
+    m.push(mat('Ограничитель на DIN-рейку', rows * 2, 35, ['ограничитель', 'DIN'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_stopper' }, 'Фиксация аппаратов на DIN-рейке'));
+    m.push(mat(`Провод ПуГВ 1×${pugvSize}`, pugvMeters, 85, ['ПуГВ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Щитовое', subcategory: 'Провода', kind: 'pugv', unit: 'м.п.' }, 'Внутренняя разводка щита'));
+    m.push(mat(`НШВИ 1×${pugvSize}, упак. 100 шт`, nshviPacks, 225, ['НШВИ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Щитовое', subcategory: 'Наконечники', kind: 'lug_pack' }, 'Опрессовка проводов щита'));
+    m.push(mat('Маркировка линий / бирки', lines.length, 15, ['маркировка', 'бирки'], { category: 'Щитовое', subcategory: 'Маркировка', kind: 'marking_tag' }, 'Маркировка линий'));
+    if (epGetCheck('cfg-cable-glands')) m.push(mat('Кабельные вводы / сальники', 1, 250, ['кабельный ввод', 'сальник'], { category: 'Щитовое', subcategory: 'Кабельные вводы', kind: 'cable_gland' }, 'Ввод кабелей в щит'));
 
-    // Расходка щита по новой логике
-    const comb1P = Math.ceil(onePoleCount / 12);              // 25 см на 12 1P
-    const comb2P = Math.ceil(twoPoleProtectionCount / 6);     // 25 см на 6 2P
-    const rows = Math.ceil(boxSize / 12);
-    const pugvSize = Number(appLogic.shieldPugvSize || 6);
-    const pugvMeters = Math.max(4, Math.ceil(totalModules * 0.4));
-    const nshviPacks = Math.max(1, Math.ceil(boxSize / 48));
-
-    if (comb1P > 0) m.push(epMat('Гребёнка 1P 25см', comb1P, 250, ['гребенка', '1P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_1p' }));
-    if (comb2P > 0) m.push(epMat('Гребёнка 2P 25см', comb2P, 450, ['гребенка', '2P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_2p' }));
-    if (twoPoleProtectionCount > 0) m.push(epMat('Нулевая шинка N на группу УЗО/ДИФ', twoPoleProtectionCount, 285, ['шина', 'N', 'ноль', 'DIN'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'neutral_bus' }));
-    m.push(epMat(`PE-шина на ${appLogic.shieldPeBusContacts || 26} контактов`, 1, 770, ['PE', 'шина', '26'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'pe_bus' }));
-    m.push(epMat('DIN-рейка / комплект DIN для щита', rows, 180, ['DIN', 'рейка'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_rail' }));
-    m.push(epMat('Ограничитель на DIN-рейку', rows * 2, 35, ['ограничитель', 'DIN'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_stopper' }));
-    m.push(epMat(`Провод ПуГВ 1×${pugvSize}`, pugvMeters, 85, ['ПуГВ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Кабель', subcategory: 'ПуГВ', kind: 'pugv', unit: 'м.п.' }));
-    m.push(epMat(`НШВИ 1×${pugvSize}, упак. 100 шт`, nshviPacks, 225, ['НШВИ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Расходники', subcategory: 'НШВИ', kind: 'lug_pack' }));
-    m.push(epMat('Маркировка линий / бирки', lines.length, 15, ['маркировка', 'бирки'], { category: 'Расходники', subcategory: 'Маркировка', kind: 'marking_tag' }));
-    if (epGetCheck('cfg-cable-glands')) m.push(epMat('Кабельные вводы / сальники', 1, 250, ['кабельный ввод', 'сальник'], { category: 'Расходники', subcategory: 'Сальники', kind: 'cable_gland' }));
-
-    // Работы щита
-    if (sWall !== 'Накладной') w.push(epWork(`Ниша щита ${boxSize}М (${sWall})`, boxSize, appLogic.shieldNichePerModule || 400, ['ниша', 'щит', sWall, String(boxSize)], { unit: 'мод.' }));
-    w.push(epWork(`Штроба ВВОДНАЯ 100×50 (${sWall})`, 2, appLogic.shieldInputGroovePrice || 1500, ['штроба', 'вводная', '100x50', sWall], { unit: 'м.п.' }));
-    w.push(epWork('Сборка щита', totalModules, appLogic.priceShield || 500, ['сборка', 'щит'], { unit: 'мод.' }));
-    w.push(epWork('Установка щита', 1, appLogic.shieldInstallPrice || 2500, ['установка', 'щит'], { unit: 'шт' }));
-    w.push(epWork('Подключение вводного кабеля', 1, appLogic.shieldInputConnectPrice || 1500, ['подключение', 'вводного', 'кабеля'], { unit: 'шт' }));
-    w.push(epWork('Прозвонка / проверка линий', lines.length, appLogic.shieldTestLinePrice || 150, ['прозвонка', 'проверка', 'линий'], { unit: 'линия' }));
-    w.push(epWork('Маркировка линий', lines.length, appLogic.shieldMarkLinePrice || 100, ['маркировка', 'линий'], { unit: 'линия' }));
-    if (epGetCheck('cfg-scheme')) w.push(epWork('Составление однолинейной схемы щита', 1, appLogic.shieldSchemePrice || 4000, ['однолинейная', 'схема', 'щит'], { unit: 'шт' }));
-
+    if (sWall !== 'Накладной') w.push(work(`Ниша щита ${boxSize}М (${sWall})`, boxSize, appLogic.shieldNichePerModule || 400, ['ниша', 'щит', sWall, String(boxSize)], { unit: 'мод.', category: 'Штробление и резка', subcategory: 'Ниши щита' }, 'Ниша под корпус щита'));
+    if (sWall !== 'Накладной') w.push(work(`Штроба 100×50, под трассу кабелей (${sWall})`, 2, appLogic.shieldInputGroovePrice || 1500, ['штроба', '100x50', sWall, 'трасса', 'кабелей'], { unit: 'м.п.', category: 'Штробление и резка', subcategory: 'Штроба 100×50 под трассу кабелей' }, 'Штроба под ввод/трассу кабелей'));
+    w.push(work('Сборка щита', totalModules, appLogic.priceShield || 500, ['сборка', 'щит'], { unit: 'мод.', category: 'Щитовое', subcategory: 'Сборка щита' }, 'Сборка модульного щита'));
+    w.push(work('Установка щита', 1, appLogic.shieldInstallPrice || 2500, ['установка', 'щит'], { unit: 'шт', category: 'Щитовое', subcategory: 'Монтаж щита' }, 'Монтаж корпуса щита'));
+    w.push(work('Подключение вводного кабеля', 1, appLogic.shieldInputConnectPrice || 1500, ['подключение', 'вводного', 'кабеля'], { unit: 'шт', category: 'Щитовое', subcategory: 'Монтаж щита' }, 'Подключение ввода'));
+    w.push(work('Прозвонка / проверка линий', lines.length, appLogic.shieldTestLinePrice || 150, ['прозвонка', 'проверка', 'линий'], { unit: 'линия', category: 'Щитовое', subcategory: 'Проверка линий' }, 'Проверка каждой линии'));
+    w.push(work('Маркировка линий', lines.length, appLogic.shieldMarkLinePrice || 100, ['маркировка', 'линий'], { unit: 'линия', category: 'Щитовое', subcategory: 'Маркировка линий' }, 'Маркировка каждой линии'));
+    if (epGetCheck('cfg-scheme')) w.push(work('Составление однолинейной схемы щита', 1, appLogic.shieldSchemePrice || 4000, ['однолинейная', 'схема', 'щит'], { unit: 'шт', category: 'Щитовое', subcategory: 'Документация' }, 'Однолинейная схема'));
     const info = [
-        { n: `ℹ️ Щит: занято ${totalModules} мод.; корпус ${boxSize}М; свободно ${Math.max(0, boxSize - totalModules)} мод.`, q: 1, p: 0, type: 'work' },
-        { n: `ℹ️ Защита: ${protectionType}; автоматы тип ${curve}; УЗО/ДИФ тип ${rcdType}; влажные зоны 10мА`, q: 1, p: 0, type: 'work' },
-        { n: `ℹ️ Гребёнки: 1P ${comb1P}×25см; 2P ${comb2P}×25см; N-шинок ${twoPoleProtectionCount}; PE-шина ${appLogic.shieldPeBusContacts || 26} контактов`, q: 1, p: 0, type: 'work' }
+        { n: `ℹ️ Щит: занято ${totalModules} мод.; корпус ${boxSize}М; свободно ${Math.max(0, boxSize - totalModules)} мод.`, q: 1, p: 0, type: 'work', tag: 'shield_info' },
+        { n: `ℹ️ Защита: ${protectionType}; автоматы тип ${curve}; УЗО/ДИФ тип ${rcdType}; влажные зоны 10мА`, q: 1, p: 0, type: 'work', tag: 'shield_info' },
+        { n: `ℹ️ Гребёнки: 1P ${comb1P}×25см; 2P ${comb2P}×25см; N-шинок ${twoPoleProtectionCount}; PE-шина ${appLogic.shieldPeBusContacts || 26} контактов`, q: 1, p: 0, type: 'work', tag: 'shield_info' }
     ];
-    warnings.forEach(x => info.push({ n: `⚠️ ${x}`, q: 1, p: 0, type: 'work' }));
-
+    warnings.forEach(x => info.push({ n: `⚠️ ${x}`, q: 1, p: 0, type: 'work', tag: 'shield_info' }));
     addAuto(m.concat(w).concat(info), 'shield');
     currentShieldExtras = [];
     closeModal('configModal');
-    showToast('✅ Щит сгенерирован!');
+    showToast('✅ Щит сгенерирован V15');
 }
 
 
@@ -1775,9 +1909,19 @@ function showPreview(mode, isActOverride = false, customTitle = null) {
     } else {
         document.getElementById('pdf-filters').style.display = 'none';
         if(mode === 'details') {
-            let shieldItems = currentEstimate.filter(it => it.n.includes('Автомат') || it.n.includes('ДИФ') || it.n.includes('УЗО') || it.n.includes('Реле'));
-            html += '<table class="pdf-table"><tr><th>Помещение/Линия</th><th>Аппарат защиты</th></tr>';
-            shieldItems.forEach(it => { let match = it.n.match(/\((.*?)\)/); let room = match ? match[1] : 'Общая / Вводная'; html += `<tr><td style="font-weight:bold; color:var(--primary);">${room}</td><td>${it.n}</td></tr>`; }); 
+            if (typeof epV15NormalizeCurrentEstimate === 'function') epV15NormalizeCurrentEstimate();
+            let shieldItems = currentEstimate.filter(it => typeof epV15IsShieldDevice === 'function' ? epV15IsShieldDevice(it) : (it.n.includes('Автомат') || it.n.includes('ДИФ') || it.n.includes('УЗО') || it.n.includes('Реле')));
+            html += '<table class="pdf-table"><tr><th>Что отвечает / линия</th><th>Аппарат</th><th>Назначение</th></tr>';
+            if (!shieldItems.length) {
+                html += '<tr><td colspan="3" style="text-align:center;color:var(--gray);font-weight:bold;">Щит ещё не сгенерирован</td></tr>';
+            } else {
+                shieldItems.forEach(it => {
+                    let lines = typeof epV15GetAssignments === 'function' ? epV15GetAssignments(it) : [];
+                    if (!lines.length) lines = ['назначение не указано — пересобери щит'];
+                    let purpose = typeof epV15Purpose === 'function' ? epV15Purpose(it) : 'аппарат щита';
+                    html += `<tr><td style="font-weight:bold; color:var(--primary);">${lines.map(x => String(x||'')).join('<br>')}</td><td>${it.n}${Number(it.q)>1 ? ' × '+Number(it.q) : ''}</td><td>${purpose}</td></tr>`;
+                });
+            }
             html += '</table>';
         } 
         else if(mode === 'vendor') {
@@ -6675,23 +6819,28 @@ async function deleteUser(uid) {
 
   function editorTop(type){
     var title=type==='work'?'работ':'материалов';
-    var count=activeArr(type).length;
-    var hint=scope()==='my' ? 'Все изменения сразу сохраняются в личную базу мастера.' : (isAdmin() ? 'Админ меняет базу сервера напрямую.' : 'Мастер может смотреть базу сервера и копировать позиции себе. Изменения сервера — только заявкой админу.');
-    return '<div style="border:1px solid var(--primary);border-radius:14px;padding:10px;margin:0 0 12px;background:rgba(79,70,229,.06);">'+
-      '<div style="font-weight:900;color:var(--primary);margin-bottom:6px;">'+activeLabel()+' — '+title+'</div>'+
-      '<div style="font-size:11px;color:var(--gray);margin-bottom:8px;">'+hint+' Сейчас позиций: '+count+'. Вперемешку база не считается.</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
-        '<button class="'+(scope()==='my'?'btn-success':'btn-info')+'" style="margin:0;padding:10px;" onclick="epSetDbScope(&quot;my&quot;)">👤 Моя база</button>'+
-        '<button class="'+(scope()==='global'?'btn-success':'btn-info')+'" style="margin:0;padding:10px;" onclick="epSetDbScope(&quot;global&quot;)">🌍 База сервера</button>'+
-      '</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
-        '<button class="btn-vendor" style="margin:0;padding:9px;" onclick="epExportActiveDb()">📤 Экспорт</button>'+
-        '<button class="btn-info" style="margin:0;padding:9px;" onclick="epAutoRegroupActiveDb()">🧠 Разгруппировать</button>'+
-      '</div>'+
-      (scope()==='my'
-        ? '<button class="btn-info" style="width:100%;margin:8px 0 0;padding:10px;" onclick="epSetDbScope(&quot;global&quot;)">🌍 Открыть базу сервера и взять позиции</button><button class="btn-danger" style="width:100%;margin:8px 0 0;padding:10px;" onclick="epClearMyDbType(&quot;'+type+'&quot;)">🗑 Очистить мою базу '+title+'</button><button class="btn-danger" style="width:100%;margin:8px 0 0;padding:10px;" onclick="epDeleteMySelected()">Удалить выбранные у мастера</button>'
-        : (isAdmin() ? '<button class="btn-danger" style="width:100%;margin:8px 0 0;padding:10px;background:#7F1D1D;" onclick="epClearServerDbType(&quot;'+type+'&quot;)">🧹 Очистить базу сервера '+title+'</button>' : '<div style="font-size:11px;color:var(--gray);font-weight:800;margin-top:8px;">На сервер мастер напрямую не пишет. Используй “В мою” или отправляй заявку админу.</div>'))+
-    '</div>';
+    var s=scope(), admin=isAdmin(), editable=canEditActive();
+    var hint=s==='my'?'Редактируется личная база мастера.':(admin?'Редактируется база сервера.':'Сервер открыт только для просмотра и копирования в мою базу.');
+    var html='<div style="border:1px solid var(--primary);border-radius:14px;padding:10px;margin:0 0 12px;background:rgba(79,70,229,.05);">'+
+      '<div style="font-weight:900;color:var(--primary);">'+label()+' — '+title+'</div>'+
+      '<div style="font-size:11px;color:var(--gray);font-weight:800;margin-top:4px;">'+hint+' Позиций: '+active(type).length+'.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'+
+      '<button class="'+(s==='my'?'btn-success':'btn-info')+'" style="margin:0;padding:10px;" onclick="epSetDbScope(\'my\')">👤 Моя база</button>'+
+      '<button class="'+(s==='global'?'btn-success':'btn-info')+'" style="margin:0;padding:10px;" onclick="epSetDbScope(\'global\')">🌍 База сервера</button></div>';
+    if(editable){
+      html+='<div style="border:1px dashed var(--border);border-radius:12px;padding:8px;margin-top:8px;background:rgba(255,255,255,.35);">'+
+        '<div style="font-weight:900;color:var(--primary);font-size:12px;margin-bottom:6px;">Массовые действия: выделить → перенести / удалить</div>'+
+        '<input id="ep-v15-move-cat-'+type+'" placeholder="Категория, куда перенести" style="margin-bottom:6px;">'+
+        '<input id="ep-v15-move-sub-'+type+'" placeholder="Группа / подкатегория" style="margin-bottom:8px;">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<button class="btn-info" style="margin:0;padding:9px;" onclick="epV15SelectVisible(\''+type+'\',true)">✅ Выделить</button>'+
+        '<button class="btn-vendor" style="margin:0;padding:9px;" onclick="epV15SelectVisible(\''+type+'\',false)">⬜ Снять</button>'+
+        '<button class="btn-success" style="margin:0;padding:9px;" onclick="epV15MoveSelectedActive(\''+type+'\')">📦 Перенести</button>'+
+        '<button class="btn-danger" style="margin:0;padding:9px;" onclick="epDeleteSelectedActiveV7()">🗑 Удалить выбранные</button></div></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"><button class="btn-success" style="margin:0;padding:9px;" onclick="epSaveActiveDbV7()">💾 Сохранить</button><button class="btn-info" style="margin:0;padding:9px;" onclick="epReloadActiveDbV7()">🔄 Обновить</button></div>';
+    }
+    if(s==='global'&&!admin){ html+='<div class="ep-v7-note">Серверные цены и позиции мастер не меняет. Для своей сметы нажми «В мою».</div>'; }
+    return html+'</div>';
   }
 
   function renderDbRows(type){
@@ -9596,403 +9745,298 @@ async function deleteUser(uid) {
 
 
 <script id="EP_V13_SHIELD_DETAIL_NAMES_BULK_DB">
-/* EP V13 — surgical finish:
-   1) Shield details show real line assignments instead of "Позиция щита".
-   2) Shield automation names use readable full device names: C16 1P ИЭК ВА47-29, UZO/DIF with poles, current, leakage, type and model.
-   3) Database editor gets bulk select -> move category/subcategory and delete selected for active editable DB.
-   Does not change socket pool, routes, AI or global DB rules.
-*/
+/* EP V13/V14 removed in V15: direct functions fixed instead. */
+</script>
+
+
+<script>
+/* EP V15 verification and compatibility patch: direct shield details + DB bulk move */
 (function(){
-  if(window.EP_V13_SHIELD_DETAIL_NAMES_BULK_DB) return;
-  window.EP_V13_SHIELD_DETAIL_NAMES_BULK_DB = true;
-
   function $(id){ return document.getElementById(id); }
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
-  function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[×х]/g,'x').replace(/[‐‑‒–—]/g,'-').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
-  function compact(s){ return norm(s).replace(/\s+/g,''); }
-  function money(v){ var n=Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
-  function toast(t){ try{ if(typeof showToast==='function') showToast(t); else alert(t); }catch(e){ console.log(t); } }
-  function scope(){ try{ return localStorage.getItem('ep_db_scope_v2')==='global'?'global':'my'; }catch(e){ return 'my'; } }
-  function isAdmin(){ try{ var u=window.appUser||{}; var e=String(u.email||u.userEmail||u.mail||'').toLowerCase(); return !!(u.role==='admin'||u.isAdmin===true||e==='vits0007@gmail.com'); }catch(e){ return false; } }
-  function canEditActive(){ return scope()==='my' || (scope()==='global' && isAdmin() && window.EP_ADMIN_SERVER_DB_EDIT===true); }
-  function getVal(id, def){ var el=$(id); return el ? el.value : def; }
-  function getCheck(id){ var el=$(id); return !!(el && el.checked); }
-  function toNum(v, def){ var n=Number(v); return Number.isFinite(n)?n:(def||0); }
-  function logicPrice(key, def){ try{ return money((window.appLogic||{})[key]) || def; }catch(e){ return def; } }
-  function groupOf(it){ return (it && (it.g || it.sc || it.subcategory || it.group)) || ''; }
-  function clone(it){ return Object.assign({}, it||{}); }
-  function uniq(arr){ var out=[], seen={}; (arr||[]).forEach(function(x){ x=String(x||'').trim(); if(x&&!seen[x]){seen[x]=1; out.push(x);} }); return out; }
-  function readArr(k){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-  function writeArr(k,a){ try{ localStorage.setItem(k, JSON.stringify(a||[])); }catch(e){} }
-  function readObj(k){ try{ var o=JSON.parse(localStorage.getItem(k)||'{}'); return o&&typeof o==='object'?o:{}; }catch(e){ return {}; } }
-  function writeObj(k,o){ try{ localStorage.setItem(k, JSON.stringify(o||{})); }catch(e){} }
-
-  var LS_MY_MAT='user_db_mat_v31', LS_MY_WORK='user_db_work_v31', LS_SERVER_CACHE='ep_global_cache_force_v1';
-
-  function getMy(type){ var a=type==='work'?window.EP_MY_WORK:window.EP_MY_MAT; return Array.isArray(a)?a.slice():readArr(type==='work'?LS_MY_WORK:LS_MY_MAT); }
-  function getServer(type){ var a=type==='work'?window.EP_GLOBAL_WORK:window.EP_GLOBAL_MAT; if(Array.isArray(a)) return a.slice(); var c=readObj(LS_SERVER_CACHE); a=type==='work'?c.workDB:c.matDB; return Array.isArray(a)?a.slice():[]; }
-  function setMy(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work') window.EP_MY_WORK=arr; else window.EP_MY_MAT=arr; writeArr(type==='work'?LS_MY_WORK:LS_MY_MAT,arr); try{ window.userMatDB=getMy('mat'); window.userWorkDB=getMy('work'); }catch(e){} if(scope()==='my'){ try{ window.matDB=getMy('mat'); window.workDB=getMy('work'); }catch(e){} } }
-  function setServer(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work') window.EP_GLOBAL_WORK=arr; else window.EP_GLOBAL_MAT=arr; var mat=type==='mat'?arr:getServer('mat'), work=type==='work'?arr:getServer('work'); writeObj(LS_SERVER_CACHE,{matDB:mat,workDB:work,ts:Date.now()}); try{ window.EP_FORCE_GLOBAL={matDB:mat,workDB:work}; window.EP_ULTIMATE_DB_CACHE={matDB:mat,workDB:work,ts:Date.now()}; window.EP_GLOBAL_DB_VISIBLE_CACHE={matDB:mat,workDB:work,ts:Date.now()}; }catch(e){} if(scope()==='global'){ try{ window.matDB=getServer('mat'); window.workDB=getServer('work'); }catch(e){} } }
-  function activeArr(type){ return scope()==='global'?getServer(type):getMy(type); }
-  function setActiveArr(type,arr){ if(scope()==='global') setServer(type,arr); else setMy(type,arr); }
-
-  function cfgCount(key,id,def){ try{ if(window.cfg && Number.isFinite(Number(window.cfg[key]))) return Number(window.cfg[key]); }catch(e){} var el=$(id||('v-'+key)); if(el) return toNum(el.textContent||el.value,def||0); return def||0; }
-  function brandCode(s){ var n=norm(s); if(n.indexOf('abb')>=0) return 'ABB'; if(n.indexOf('iek')>=0||n.indexOf('иэк')>=0||n.indexOf('иек')>=0) return 'IEK'; if(n.indexOf('schneider')>=0||n.indexOf('шнайдер')>=0) return 'Schneider'; if(n.indexOf('legrand')>=0) return 'Legrand'; if(n.indexOf('ekf')>=0) return 'EKF'; if(n.indexOf('hager')>=0) return 'Hager'; if(n.indexOf('tekfor')>=0||n.indexOf('текфор')>=0) return 'Tekfor'; return ''; }
-  function brandDisplay(s){ var b=brandCode(s); if(b==='IEK') return 'ИЭК'; return b||String(s||'').trim(); }
-  function detectPoles(s){ var raw=String(s||''); var m=raw.match(/([1-4])\s*[PРП]/i); if(m) return m[1]+'P'; m=raw.match(/([1-4])\s*пол/i); if(m) return m[1]+'P'; return ''; }
-  function detectAmp(s){ var raw=String(s||''); var m=raw.match(/(\d{1,3})\s*[AaАа]\b/); return m?Number(m[1]):0; }
-  function detectCurveNominal(s){ var raw=String(s||'').replace(/[Сс]/g,'C'); var m=raw.match(/\b([ABCD])\s*([0-9]{1,3})\b/i); if(m) return m[1].toUpperCase()+m[2]; return ''; }
-  function detectLeakage(s){ var m=String(s||'').match(/(10|30|100|300)\s*м?а/i); return m?Number(m[1]):0; }
-  function detectRcdType(s){ var raw=String(s||''); var m=raw.match(/тип\s*(AC|A|B|АС|А|В)\b/i); if(!m) return ''; var t=m[1].toUpperCase(); if(t==='АС') return 'AC'; if(t==='А') return 'A'; if(t==='В') return 'B'; return t; }
-  function detectModel(s){ var raw=String(s||''); var patterns=[/ВА\s*47\s*[-–—]?\s*\d+/i,/ВД\s*1\s*[-–—]?\s*\d+/i,/АД\s*12\s*[-–—]?\s*\d*/i,/DSH\s*\d+/i,/SH\s*\d+/i,/S\s*20\d/i,/TX\s*3/i,/DX\s*3/i,/RX\s*3/i,/Easy\s*9/i,/Resi\s*9/i,/Acti\s*9/i,/ЩРВ\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i,/ЩРН\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i];
-    for(var i=0;i<patterns.length;i++){ var m=raw.match(patterns[i]); if(m) return m[0].replace(/\s+/g,'').replace(/[–—]/g,'-').toUpperCase(); }
-    var p=raw.match(/\(([\s\S]*?)\)/); if(p){ var inside=p[1]; var mm=inside.match(/(ВА\s*47\s*[-–—]?\s*\d+|ВД\s*1\s*[-–—]?\s*\d+|DSH\s*\d+|SH\s*\d+|TX\s*3|DX\s*3|RX\s*3|Easy\s*9|Resi\s*9|Acti\s*9)/i); if(mm) return mm[0].replace(/\s+/g,'').replace(/[–—]/g,'-').toUpperCase(); }
-    return '';
-  }
-  function nominalAmp(nom){ var m=String(nom||'').match(/(\d{1,3})/); return m?Number(m[1]):0; }
-  function itemBlob(it){ return String([it&&it.c,it&&it.g,it&&it.sc,it&&it.subcategory,it&&it.kind,it&&it.brand,it&&it.nominal,it&&it.leakage,it&&it.rcdType,it&&it.n].filter(Boolean).join(' ')); }
-  function isAutoLike(it){ var b=norm(itemBlob(it)); return b.indexOf('автомат')>=0 || b.indexOf('automatic')>=0 || b.indexOf('breaker')>=0 || /\b[abcd]\s*\d{1,3}\b/.test(b) || /\b\d{1,3}\s*a\b/.test(b); }
-  function matchNominal(it, nominal){ if(!nominal) return true; var amp=nominalAmp(nominal); var b=compact(itemBlob(it)); if(b.indexOf(compact(nominal))>=0) return true; if(amp && (b.indexOf(String(amp)+'a')>=0 || b.indexOf(String(amp)+'а')>=0 || Number(it&&it.nominal)===amp)) return true; var rawNom=detectCurveNominal(itemBlob(it)); return rawNom && nominalAmp(rawNom)===amp; }
-  function matchLeakage(it, leakage){ if(!leakage) return true; var b=compact(itemBlob(it)); return b.indexOf(String(leakage)+'ма')>=0 || b.indexOf(String(leakage)+'ma')>=0 || String(it&&it.leakage)===String(leakage); }
-
-  function findDbMaterial(meta,label){
-    meta=meta||{}; var arr=activeArr('mat').concat(scope()==='global'?getMy('mat'):getServer('mat')); var kind=String(meta.kind||'').toLowerCase(); var brand=brandCode(meta.brand||label||''); var nominal=meta.nominal||detectCurveNominal(label); var leakage=meta.leakage||detectLeakage(label); var rcdType=meta.rcdType||detectRcdType(label); var want='other';
-    if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0||nominal) want='auto'; else if(kind.indexOf('dif')>=0||/диф/i.test(label)) want='dif'; else if(kind.indexOf('uzo')>=0||kind.indexOf('узо')>=0||/узо/i.test(label)) want='uzo'; else if(kind.indexOf('contactor')>=0||/контактор/i.test(label)) want='contactor'; else if(kind.indexOf('voltage')>=0||/узм|реле напряж/i.test(label)) want='voltage'; else if(kind.indexOf('shield_box')>=0||/щит|корпус|шкаф|бокс/i.test(label)) want='shield_box'; else if(kind.indexOf('comb')>=0||/греб/i.test(label)) want='comb'; else if(kind.indexOf('bus')>=0||/шина|клемм/i.test(label)) want='bus'; else if(kind.indexOf('din')>=0||/din|дин|рейк|огранич/i.test(label)) want='din'; else if(kind.indexOf('pugv')>=0||/пугв/i.test(label)) want='pugv'; else if(kind.indexOf('lug')>=0||/ншви|наконеч/i.test(label)) want='lug'; else if(kind.indexOf('mark')>=0||/маркир|бирк/i.test(label)) want='marking';
-    var best=null, bestScore=-999;
-    arr.forEach(function(it){ if(!it||!it.n) return; var b=norm(itemBlob(it)); var score=0;
-      if(want==='auto'){ if(!isAutoLike(it)) return; if(!matchNominal(it,nominal)) return; score+=50; }
-      else if(want==='dif'){ if(b.indexOf('диф')<0) return; if(!matchLeakage(it,leakage)) return; score+=50; }
-      else if(want==='uzo'){ if(b.indexOf('узо')<0) return; if(!matchLeakage(it,leakage)) return; score+=50; }
-      else if(want==='contactor'){ if(b.indexOf('контактор')<0&&b.indexOf('пускател')<0) return; score+=40; }
-      else if(want==='voltage'){ if(b.indexOf('узм')<0&&b.indexOf('реле напряж')<0) return; score+=40; }
-      else if(want==='shield_box'){ if(b.indexOf('щит')<0&&b.indexOf('корпус')<0&&b.indexOf('шкаф')<0&&b.indexOf('бокс')<0) return; score+=40; }
-      else if(want==='comb'){ if(b.indexOf('греб')<0) return; score+=40; }
-      else if(want==='bus'){ if(b.indexOf('шина')<0&&b.indexOf('клемм')<0) return; score+=40; }
-      else if(want==='din'){ if(b.indexOf('din')<0&&b.indexOf('дин')<0&&b.indexOf('рейк')<0&&b.indexOf('огранич')<0) return; score+=40; }
-      else if(want==='pugv'){ if(b.indexOf('пугв')<0) return; score+=40; }
-      else if(want==='lug'){ if(b.indexOf('ншви')<0&&b.indexOf('наконеч')<0) return; score+=40; }
-      else if(want==='marking'){ if(b.indexOf('маркир')<0&&b.indexOf('бирк')<0) return; score+=40; }
-      if(brand){ if(brandCode(itemBlob(it))===brand) score+=18; else if(want==='auto'||want==='dif'||want==='uzo') score-=30; }
-      if(nominal && matchNominal(it,nominal)) score+=20;
-      if(leakage && matchLeakage(it,leakage)) score+=20;
-      if(rcdType && (String(it.rcdType||'').toUpperCase()===String(rcdType).toUpperCase() || norm(it.n).indexOf(norm('тип '+rcdType))>=0)) score+=8;
-      if(detectModel(it.n)) score+=5;
-      if(score>bestScore){ bestScore=score; best=it; }
-    });
-    return bestScore>=35?best:null;
-  }
-
-  function autoDisplay(found, meta, label){
-    meta=meta||{}; var src=String((found&&found.n)||label||''); var nominal=meta.nominal||detectCurveNominal(label)||detectCurveNominal(src); if(!nominal && meta.amp) nominal=(meta.curve||'C')+meta.amp; var poles=meta.poles||detectPoles(src)||'1P'; var brand=brandDisplay(meta.brand||brandCode(src)||label); var model=detectModel(src); return [nominal,poles,brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-  }
-  function rcdDisplay(found, meta, label){
-    meta=meta||{}; var src=String((found&&found.n)||label||''); var kind=(String(meta.kind||'').toLowerCase().indexOf('dif')>=0||/диф/i.test(label))?'ДИФ':'УЗО'; var poles=meta.poles||detectPoles(src)||'2P'; var amp=meta.amp||detectAmp(src)||40; var leakage=meta.leakage||detectLeakage(label)||detectLeakage(src); var typ=meta.rcdType||detectRcdType(label)||detectRcdType(src); var brand=brandDisplay(meta.brand||brandCode(src)||label); var model=detectModel(src); return [kind,poles,amp?amp+'A':'',leakage?leakage+'мА':'',typ?'тип '+typ:'',brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
-  }
-  function materialDisplay(found, meta, label){
-    meta=meta||{}; var kind=String(meta.kind||'').toLowerCase(); if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0) return autoDisplay(found,meta,label); if(kind.indexOf('dif')>=0||kind.indexOf('uzo')>=0) return rcdDisplay(found,meta,label); if(found&&found.n) return String(found.n).trim(); return String(label||'Позиция').replace(/\s+—\s+.*$/,'').trim();
-  }
-  function makeMat(label,q,fallbackPrice,meta,assign){
-    meta=Object.assign({},meta||{}); var found=findDbMaterial(meta,label); var display=materialDisplay(found,meta,label); var raw=display+(assign?' — '+assign:'');
-    return {n:display,q:q,p:found?money(found.p):money(fallbackPrice),u:(found&&found.u)||meta.unit||'шт',type:'mat',sourceId:(found&&found.id)||null,dbMeta:Object.assign({},meta,{sourceName:(found&&found.n)||'', assignment:assign||''}),epRawLabel:raw,epMergedDetails:assign?[assign]:[]};
-  }
-  function wallFromName(s){ var n=norm(s); if(/кирпич/.test(n)) return 'Кирпич'; if(/панел/.test(n)) return 'Панелька'; if(/мягк|гкл|гипс/.test(n)) return 'Мягкий материал'; if(/наклад/.test(n)) return 'Накладной'; return 'Бетон'; }
-  function findWork(label, meta){ var arr=activeArr('work').concat(scope()==='global'?getMy('work'):getServer('work')); var wanted=norm(label); var wall=wallFromName(label); var best=null,score=-999; arr.forEach(function(it){ if(!it||!it.n)return; var b=norm([it.c,it.g,it.sc,it.n].join(' ')); var s=0; if(/установка\s+щита/i.test(label)){ if(/установка\s+бп\s+в\s+щит/i.test(it.n)) return; if(/установка.*щит|монтаж.*щит/.test(b)) s+=50; else return; }
-      else if(/штроба.*100.*50/i.test(label)){ if(/штроб|алмаз|резк/.test(b)&&/100/.test(b)&&/50/.test(b)) s+=50; else if(/^(бетон|кирпич|панелька|мягкий мат)/i.test(String(it.n))) s+=15; else return; if(norm(it.n).indexOf(norm(wall))>=0||b.indexOf(norm(wall))>=0) s+=12; }
-      else { wanted.split(' ').forEach(function(w){ if(w.length>2&&b.indexOf(w)>=0)s++; }); }
-      if(s>score){score=s; best=it;} }); return score>=15?best:null; }
-  function makeWork(label,q,price,meta){ meta=Object.assign({},meta||{}); var found=findWork(label,meta); var name=label, cat=meta.category||'Щитовое', grp=meta.subcategory||'Щитовое'; if(/штроба.*100.*50/i.test(label)){ var wall=wallFromName(label); name='Штроба 100×50, под трассу кабелей ('+wall+')'; cat='Штробление и резка'; grp='Штроба 100×50 под трассу кабелей'; } if(/установка\s+щита/i.test(label)){ name='Установка щита'; grp='Монтаж щита'; }
-    return {n:name,q:q,p:found?money(found.p):money(price),u:(found&&found.u)||meta.unit||'шт',type:'work',sourceId:(found&&!/^(бетон|кирпич|панелька|мягкий мат)/i.test(String(found.n)))?found.id:null,c:cat,g:grp,sc:grp,dbMeta:Object.assign({},meta,{category:cat,subcategory:grp,sourceName:(found&&found.n)||''}),epRawLabel:label}; }
-
-  function epGenerateShieldV13(){
+  function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/×/g,'x').replace(/х/g,'x').trim(); }
+  function clean(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+  window.epV15IsShieldDevice = function(it){
+    var n=String((it&&it.n)||''); var k=String((it&&it.dbMeta&&it.dbMeta.kind)||'');
+    return it && it.type==='mat' && (/\b[ABCDАВСД]\s*\d{1,3}\b|автомат|узо|диф|реле|контактор|вводной/i.test(n) || /automatic|breaker|uzo|dif|relay|contactor/i.test(k));
+  };
+  window.epV15Purpose = function(it){
+    var n=String((it&&it.n)||''); var a=window.epV15GetAssignments?window.epV15GetAssignments(it):[];
+    if(/вводн/i.test(n)) return 'вводной аппарат щита';
+    if(/10\s*мА/i.test(n)) return 'защита влажных зон 10 мА';
+    if(/УЗО|ДИФ/i.test(n)) return 'групповая защита линий';
+    if(/Контактор/i.test(n)) return 'мастер-кнопка только на свет';
+    if(/Реле напряж|УЗМ/i.test(n)) return 'защита от перенапряжения';
+    if(/Автомат|\b[ABCDАВСД]\d/i.test(n)) return 'отдельный автомат линии';
+    return a.length ? 'позиция щита' : 'назначение не указано';
+  };
+  window.epV15GetAssignments = function(it){
+    var out=[];
+    function add(v){ v=clean(v); if(v && !/^(позиция щита|общая|общая \/ вводная|назначение не указано)$/i.test(v) && out.indexOf(v)<0) out.push(v); }
+    if(it){
+      if(Array.isArray(it.epAssignments)) it.epAssignments.forEach(add);
+      if(Array.isArray(it.epMergedDetails)) it.epMergedDetails.forEach(add);
+      add(it.epAssignment);
+      if(it.dbMeta) add(it.dbMeta.assignment);
+    }
+    if(!out.length && window.epV15InferAssignments) out = window.epV15InferAssignments(it);
+    return out;
+  };
+  window.epV15BuildLinesFromConfig = function(){
+    var lines=[]; function val(id){ var e=$(id); return e?e.value:''; } function chk(id){ var e=$(id); return !!(e&&e.checked); }
+    function add(name,nom,group){ lines.push({name:name,nominal:nom,group:group}); }
+    function room(label,count,wet){ count=Number(count)||0; for(var i=1;i<=count;i++){ var n=count>1?label+' '+i:label; add(n+' розетки','C16',wet?'wet':'power'); add(n+' свет','C10','light'); } }
+    try{ room('Кухня',window.cfg&&cfg.kits,false); room('Ванная',window.cfg&&cfg.baths,true); room('Туалет',window.cfg&&cfg.toilets,true); room('Комната',window.cfg&&cfg.rms,false); room('Балкон',window.cfg&&cfg.bals,false); }catch(e){}
+    if(chk('c-apron')) add('Фартук кухни','C16','power'); if(chk('c-dish')) add('Посудомойка','C10','power'); if(chk('c-washer')) add('Стиралка/сушилка','C10','wet'); if(chk('c-towel')) add('Полотенцесушитель','C10','wet');
+    var acs=(window.cfg&&Number(cfg.acs))||0, fls=(window.cfg&&Number(cfg.fls))||0; for(var a=1;a<=acs;a++) add('Кондиционер '+a,'C10','climate'); for(var f=1;f<=fls;f++) add('Тёплый пол '+f,'C10','climate');
+    if(chk('c-fridge')) add('Холодильник, неотключаемая группа','C10','alwaysOn'); if(chk('c-neptun')) add('Нептун, неотключаемая группа','C10','alwaysOn'); if(chk('c-router')) add('Роутер, неотключаемая группа','C6','alwaysOn');
+    if(val('c-hob-power')==='6') add('Плита до 6 кВт','C25','heavy'); if(val('c-hob-power')==='10') add('Плита до 10 кВт','C32','heavy'); if(val('c-boiler-power')==='6') add('Бойлер до 6 кВт','C25','wet'); if(val('c-boiler-power')==='10') add('Бойлер до 10 кВт','C32','wet');
+    return lines;
+  };
+  window.epV15InferAssignments=function(it){
+    var n=String((it&&it.n)||''); var q=Number((it&&it.q)||1)||1; var lines=window.epV15BuildLinesFromConfig?window.epV15BuildLinesFromConfig():[];
+    if(/вводн/i.test(n)) return ['Вводной аппарат щита'];
+    if(/10\s*мА/i.test(n) && /УЗО|ДИФ/i.test(n)) return ['Влажные зоны / защита 10 мА: '+lines.filter(function(x){return x.group==='wet';}).map(function(x){return x.name;}).join(', ')].filter(function(x){return !/:\s*$/.test(x);});
+    if(/30\s*мА/i.test(n) && /УЗО|ДИФ/i.test(n)) return ['Группа защиты: силовые/световые/климатические линии'];
+    var m=n.match(/\b([ABCDАВСД])\s*(\d{1,3})\b/i); if(m){ var nom=String(m[1]).toUpperCase().replace('А','A').replace('В','B').replace('С','C').replace('Д','D')+m[2]; return lines.filter(function(x){return x.nominal===nom;}).slice(0,Math.max(q,1)).map(function(x){return x.name;}); }
+    return [];
+  };
+  window.epV15NormalizeCurrentEstimate=function(){
+    if(!Array.isArray(window.currentEstimate)) return;
     try{
-      if(typeof window.addAuto!=='function') throw new Error('addAuto не найден');
-      var bBox=getVal('cfg-brand-box','Tekfor'), bAuto=getVal('cfg-brand-auto','IEK'), wall=getVal('cfg-shield-wall','Бетон');
-      var ph=parseInt(getVal('cfg-phase','1'),10)||1, curve=getVal('cfg-auto-curve','C'), rcdType=getVal('cfg-rcd-type','A'), protectionType=getVal('cfg-protection-type','uzo_auto');
-      var isMaster=getCheck('cfg-master'), heavySeparate=getCheck('cfg-heavy-separate');
-      var m=[], w=[], lines=[], protection=[], warnings=[];
-      var groupNames={power:'Силовые линии',climate:'Климат',wet:'Влажные зоны',light:'Освещение',heavy:'Большая техника',alwaysOn:'Неотключаемые группы',main:'Главная защита'};
-      function addLine(name,nominal,group,opts){ opts=opts||{}; lines.push({name:name,nominal:nominal,group:group,curve:opts.curve||curve,wet:group==='wet'||!!opts.wet,nonSwitchable:!!opts.nonSwitchable}); }
-      function addRoom(label,count,wetPower){ for(var i=1;i<=count;i++){ var n=count>1?label+' '+i:label; addLine(n+' розетки','C16',wetPower?'wet':'power',{wet:wetPower}); addLine(n+' свет','C10','light'); } }
-      addRoom('Кухня',cfgCount('kits','v-kits',1),false); addRoom('Ванная',cfgCount('baths','v-baths',1),true); addRoom('Туалет',cfgCount('toilets','v-toilets',1),true); addRoom('Комната',cfgCount('rms','v-rms',1),false); addRoom('Балкон',cfgCount('bals','v-bals',0),false);
-      if(getCheck('c-apron')) addLine('Фартук кухни','C16','power'); if(getCheck('c-dish')) addLine('Посудомойка','C10','power'); if(getCheck('c-washer')) addLine('Стиралка/сушилка','C10','wet',{wet:true}); if(getCheck('c-towel')) addLine('Полотенцесушитель','C10','wet',{wet:true});
-      for(var ac=1; ac<=cfgCount('acs','v-acs',0); ac++) addLine('Кондиционер '+ac,'C10','climate'); for(var fl=1; fl<=cfgCount('fls','v-fls',0); fl++) addLine('Тёплый пол '+fl,'C10','climate');
-      if(getCheck('c-fridge')) addLine('Холодильник, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true}); if(getCheck('c-neptun')) addLine('Нептун, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true}); if(getCheck('c-router')) addLine('Роутер, неотключаемая группа','C6','alwaysOn',{nonSwitchable:true});
-      var hob=getVal('c-hob-power','none'); if(hob==='6') addLine('Плита до 6 кВт','C25',heavySeparate?'heavy':'power'); if(hob==='10') addLine('Плита до 10 кВт','C32',heavySeparate?'heavy':'power'); var boiler=getVal('c-boiler-power','none'); if(boiler==='6') addLine('Бойлер до 6 кВт','C25','wet',{wet:true}); if(boiler==='10') addLine('Бойлер до 10 кВт','C32','wet',{wet:true});
-      var present=uniq(lines.map(function(l){return l.group;})); function addProt(group,kind){ protection.push({group:group,kind:kind,leakage:group==='wet'?10:30,rcdType:rcdType,modules:2}); }
-      if(protectionType==='main_dif_auto') protection.push({group:'main',kind:'Главный ДИФ',leakage:30,rcdType:rcdType,modules:2}); else if(protectionType==='mixed') present.forEach(function(g){ addProt(g,g==='wet'?'ДИФ':'УЗО'); }); else present.forEach(function(g){ addProt(g,protectionType==='dif_auto'?'ДИФ':'УЗО'); });
-      function autoPrice(){ return bAuto==='ABB'?350:155; } function difPrice(){ return bAuto==='ABB'?4500:3600; }
-      m.push(makeMat('Вводной автомат '+ph+'ф '+bAuto,1,bAuto==='ABB'?3500:1800,{kind:'input_breaker',brand:bAuto,poles:ph===3?'3P':'2P',category:'Автоматика',subcategory:'Автоматы'},'Вводная линия щита'));
-      protection.forEach(function(pd){ var assign=(groupNames[pd.group]||pd.group)+(pd.leakage===10?' / защита 10 мА':' / групповая защита 30 мА'); var kind=pd.kind==='УЗО'?'uzo':'dif'; var label=pd.kind+' '+assign+' '+bAuto+' тип '+pd.rcdType; m.push(makeMat(label,1,difPrice(),{kind:kind,brand:bAuto,poles:'2P',amp:40,leakage:pd.leakage,rcdType:pd.rcdType,category:'Автоматика',subcategory:pd.kind==='УЗО'?'УЗО':'ДИФы'},assign)); });
-      lines.forEach(function(line){ m.push(makeMat(line.nominal+' 1P '+bAuto+' — '+line.name,1,autoPrice(),{kind:'automatic',brand:bAuto,nominal:line.nominal,curve:line.curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы',group:line.group},line.name)); });
-      var relayModules=0; if(getCheck('cfg-uzm')){ var rq=ph===3?3:1; relayModules=ph===3?6:2; m.push(makeMat('Реле напряжения '+bAuto,rq,4500,{kind:'voltage_relay',brand:bAuto,category:'Автоматика',subcategory:'УЗМ / реле напряжения'},'Защита от перенапряжения')); }
-      if(isMaster){ m.push(makeMat('Контактор C40 '+bAuto+' — мастер-кнопка света',1,2200,{kind:'contactor',brand:bAuto,amp:40,poles:'2P',category:'Автоматика',subcategory:'Контакторы'},'Мастер-кнопка света')); m.push(makeMat('C40 1P '+bAuto+' — байпас мастер-кнопки света',1,autoPrice(),{kind:'bypass_breaker',brand:bAuto,nominal:'C40',curve:curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы'},'Байпас мастер-кнопки света')); }
-      try{ (window.currentShieldExtras||[]).forEach(function(ex){ m.push({n:ex.n,q:Number(ex.q)||1,p:Number(ex.p)||0,u:ex.u||'шт',type:'mat',epRawLabel:ex.n}); }); }catch(e){}
-      var onePole=lines.length+(isMaster?1:0), twoPole=protection.length, masterModules=isMaster?3:0, extraModules=0; try{ extraModules=(window.currentShieldExtras||[]).reduce(function(s,ex){return s+(Number(ex.modules||1)*Number(ex.q||1));},0); }catch(e){}
-      var totalModules=Math.ceil(onePole+twoPole*2+relayModules+masterModules+extraModules+(ph===3?3:2)); var boxSize=[6,12,24,36,48,60,72].find(function(s){return s>=totalModules;})||72; if(totalModules>72) warnings.push('Нужно больше 72 модулей — требуется второй щит или пересборка схемы');
-      m.unshift(makeMat('Щит '+(wall==='Накладной'?'накладной':'встраиваемый')+' '+bBox+' '+boxSize+'М',1,bBox==='ABB'?6510:2660,{kind:'shield_box',brand:bBox,modules:boxSize,category:'Щитовое',subcategory:wall==='Накладной'?'Корпуса → Накладной':'Корпуса → Встраиваемый'},'Корпус щита '+boxSize+' мод.'));
-      var comb1P=Math.ceil(onePole/12), comb2P=Math.ceil(twoPole/6), rows=Math.ceil(boxSize/12), pugvSize=Number((window.appLogic||{}).shieldPugvSize||6), pugvMeters=Math.max(4,Math.ceil(totalModules*.4)), nshviPacks=Math.max(1,Math.ceil(boxSize/48));
-      if(comb1P>0) m.push(makeMat('Гребёнка 1P 25см',comb1P,250,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание однополюсных автоматов'));
-      if(comb2P>0) m.push(makeMat('Гребёнка 2P 25см',comb2P,450,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание УЗО/ДИФ'));
-      if(twoPole>0) m.push(makeMat('Нулевая шинка N на группу УЗО/ДИФ',twoPole,285,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'N-шинки по группам защиты'));
-      m.push(makeMat('PE-шина на '+((window.appLogic||{}).shieldPeBusContacts||26)+' контактов',1,770,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'Защитное заземление PE'));
-      m.push(makeMat('DIN-рейка / комплект DIN для щита',rows,180,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Крепление модульных аппаратов'));
-      m.push(makeMat('Ограничитель на DIN-рейку',rows*2,35,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Фиксация аппаратов на DIN-рейке'));
-      m.push(makeMat('Провод ПуГВ 1×'+pugvSize,pugvMeters,85,{kind:'pugv',unit:'м.п.',category:'Щитовое',subcategory:'Расходка под сборку → Провода'},'Внутренняя разводка щита'));
-      m.push(makeMat('НШВИ 1×'+pugvSize+', упак. 100 шт',nshviPacks,225,{kind:'lug_pack',category:'Щитовое',subcategory:'Расходка под сборку → Наконечники'},'Опрессовка проводов щита'));
-      m.push(makeMat('Маркировка линий / бирки',lines.length,15,{kind:'marking',category:'Щитовое',subcategory:'Расходка под сборку → Маркировка'},'Маркировка '+lines.length+' линий'));
-      if(getCheck('cfg-cable-glands')) m.push(makeMat('Кабельные вводы / сальники',1,250,{kind:'glands',category:'Щитовое',subcategory:'Расходка под сборку → Кабельные вводы'},'Ввод кабелей в щит'));
-      if(wall!=='Накладной') w.push(makeWork('Ниша щита '+boxSize+'М ('+wall+')',boxSize,logicPrice('shieldNichePerModule',400),{unit:'мод.',category:'Штробление и резка',subcategory:'Ниши щита'}));
-      if(wall!=='Накладной') w.push(makeWork('Штроба 100×50, под трассу кабелей ('+wall+')',2,logicPrice('shieldInputGroovePrice',1500),{unit:'м.п.',category:'Штробление и резка',subcategory:'Штроба 100×50 под трассу кабелей'}));
-      w.push(makeWork('Сборка щита',totalModules,logicPrice('priceShield',500),{unit:'мод.',category:'Щитовое',subcategory:'Сборка щита'}));
-      w.push(makeWork('Установка щита',1,logicPrice('shieldInstallPrice',2500),{unit:'шт',category:'Щитовое',subcategory:'Монтаж щита'}));
-      w.push(makeWork('Подключение вводного кабеля',1,logicPrice('shieldInputConnectPrice',1500),{unit:'шт',category:'Щитовое',subcategory:'Монтаж щита'}));
-      w.push(makeWork('Прозвонка / проверка линий',lines.length,logicPrice('shieldTestLinePrice',150),{unit:'линия',category:'Щитовое',subcategory:'Проверка линий'}));
-      w.push(makeWork('Маркировка линий',lines.length,logicPrice('shieldMarkLinePrice',100),{unit:'линия',category:'Щитовое',subcategory:'Маркировка линий'}));
-      if(getCheck('cfg-scheme')) w.push(makeWork('Составление однолинейной схемы щита',1,logicPrice('shieldSchemePrice',4000),{unit:'шт',category:'Щитовое',subcategory:'Документация'}));
-      var info=[{n:'ℹ️ Щит: занято '+totalModules+' мод.; корпус '+boxSize+'М; свободно '+Math.max(0,boxSize-totalModules)+' мод.',q:1,p:0,type:'work',tag:'shield_info'},{n:'ℹ️ Защита: '+protectionType+'; автоматы тип '+curve+'; УЗО/ДИФ тип '+rcdType+'; влажные зоны 10мА',q:1,p:0,type:'work',tag:'shield_info'},{n:'ℹ️ Гребёнки: 1P '+comb1P+'×25см; 2P '+comb2P+'×25см; N-шинок '+twoPole+'; PE-шина '+((window.appLogic||{}).shieldPeBusContacts||26)+' контактов',q:1,p:0,type:'work',tag:'shield_info'}]; warnings.forEach(function(x){info.push({n:'⚠️ '+x,q:1,p:0,type:'work',tag:'shield_info'});});
-      window.addAuto(m.concat(w).concat(info),'shield'); try{ window.currentShieldExtras=[]; }catch(e){} if(typeof closeModal==='function') closeModal('configModal'); toast('✅ Щит сгенерирован');
-    }catch(err){ console.error('EP V13 shield generate',err); toast('❌ Ошибка генерации щита: '+(err&&err.message?err.message:err)); }
-  }
-
-  function lineFromRaw(raw,fallback){ raw=String(raw||''); var after=raw.split('—').slice(1).join('—').trim(); if(after) return after; var n=String(fallback||raw||''); if(/вводн/i.test(n)) return 'Вводная линия'; if(/реле напряж|узм/i.test(n)) return 'Защита от перенапряжения'; if(/контактор/i.test(n)) return 'Мастер-кнопка света'; if(/байпас/i.test(n)) return 'Байпас мастер-кнопки света'; if(/греб/i.test(n)) return 'Питание модульной автоматики'; if(/нулев|N-шин/i.test(n)) return 'N-шинки по группам защиты'; if(/PE-шина/i.test(n)) return 'Защитное заземление PE'; return ''; }
-  function canonicalName(it){ var n=String((it&&it.n)||'').replace(/^⚠️\s*/,'').replace(/\s*\[[^\]]+\]\s*—\s*добавить в БД/i,'').trim(); var meta=(it&&it.dbMeta)||{}; if(meta&&meta.kind){ if(String(meta.kind).indexOf('automatic')>=0||String(meta.kind).indexOf('breaker')>=0) return autoDisplay(null,meta,n); if(String(meta.kind).indexOf('uzo')>=0||String(meta.kind).indexOf('dif')>=0) return rcdDisplay(null,meta,n); } if(/Автомат\s+A472/i.test(n)&&meta.sourceName) return autoDisplay({n:meta.sourceName},meta,n); return n.replace(/\s+—\s+.*$/,'').trim(); }
-  function normalizeEstimateV13(){ try{ if(!Array.isArray(currentEstimate)) return; var map={}; var out=[]; currentEstimate.forEach(function(src){ if(!src) return; var it=clone(src); if(/^ДИФ$/i.test(String(it.n||'').trim())||/^УЗО$/i.test(String(it.n||'').trim())) return; var nm=canonicalName(it); var key=[it.type||'',nm,money(it.p),it.u||'шт',it.tag||''].join('|'); var rec=map[key]; if(!rec){ rec=Object.assign({},it,{n:nm,q:0,epMergedDetails:[],epRawLabels:[]}); map[key]=rec; out.push(rec); } rec.q+=Number(it.q)||0; var details=[]; if(Array.isArray(it.epMergedDetails)) details=details.concat(it.epMergedDetails); if(it.dbMeta&&it.dbMeta.assignment) details.push(it.dbMeta.assignment); var l=lineFromRaw(it.epRawLabel||it.n,nm); if(l) details.push(l); details.forEach(function(d){ d=String(d||'').trim(); if(d&&rec.epMergedDetails.indexOf(d)<0) rec.epMergedDetails.push(d); }); if(it.epRawLabel&&rec.epRawLabels.indexOf(it.epRawLabel)<0) rec.epRawLabels.push(it.epRawLabel); }); currentEstimate=out.filter(function(x){return Number(x.q)!==0;}); }catch(e){ console.warn('EP V13 normalize estimate',e); } }
-
-  function fPriceSafe(it){ try{ return typeof fPrice==='function'?fPrice(it):money(it&&it.p); }catch(e){ return money(it&&it.p); } }
-  function renderMainTableV13(){ normalizeEstimateV13(); var tb=document.querySelector('#mainTable tbody'); if(!tb) return; tb.innerHTML=''; var total=0; (currentEstimate||[]).forEach(function(it,idx){ var sum=fPriceSafe(it)*(Number(it.q)||0); total+=sum; tb.innerHTML += '<tr><td class="col-name editable-name" onclick="openSwapModal('+idx+')" title="Нажмите для замены">'+esc(it.n)+'</td><td class="col-qty"><input type="number" value="'+esc(it.q)+'" onchange="currentEstimate['+idx+'].q=Number(this.value); renderMainTable();" style="width:50px; padding:6px; margin:0; text-align:center;"></td><td class="col-sum">'+sum+' P</td><td style="text-align:right;"><button onclick="currentEstimate.splice('+idx+',1);renderMainTable();" class="btn-danger" style="padding:6px; border-radius:8px; width:auto; margin:0;">✕</button></td></tr>'; }); var tot=$('tot-all'); if(tot) tot.innerText=total.toLocaleString()+' P'; try{ if(typeof syncDraft==='function') syncDraft(); }catch(e){} }
-
-  function detailNote(it){ var n=String((it&&it.n)||''); if(/вводн/i.test(n)) return 'ввод питания щита'; if(/ДИФ|УЗО/i.test(n)) return /10\s*мА/i.test(n)?'защита влажных зон 10 мА':'групповая защита 30 мА'; if(/C\d|С\d|Автомат/i.test(n)) return 'отдельные автоматы линий, '+(Number(it.q)||1)+' шт.'; if(/Реле напряж|УЗМ/i.test(n)) return 'защита от перенапряжения'; if(/Контактор/i.test(n)) return 'мастер-кнопка только на свет'; return 'позиция щита'; }
-  function detailsAssignments(it){ var arr=[]; if(Array.isArray(it.epMergedDetails)) arr=arr.concat(it.epMergedDetails); if(it.dbMeta&&it.dbMeta.assignment) arr.push(it.dbMeta.assignment); if(it.epRawLabel){ var l=lineFromRaw(it.epRawLabel,it.n); if(l) arr.push(l); } arr=uniq(arr).filter(function(x){ return x && x!=='Позиция щита'; }); return arr.length?arr:['назначение не указано']; }
-  function isShieldDevice(it){ var n=String((it&&it.n)||''); return it&&it.type==='mat'&&/(\bC\d|\bС\d|Автомат|ДИФ|УЗО|Реле|Контактор|Вводной)/i.test(n); }
-  function showDetailsV13(mode,isActOverride,customTitle){
-    if(mode!=='details') return oldShowPreviewV13.apply(this,arguments);
-    normalizeEstimateV13(); currentPreviewMode=mode; var title=customTitle||'ДЕТАЛИЗАЦИЯ ЩИТА'; var html=(typeof getPDFHeader==='function'?getPDFHeader(title):'<h2>'+esc(title)+'</h2>'); var filters=$('pdf-filters'); if(filters) filters.style.display='none';
-    var items=(currentEstimate||[]).filter(isShieldDevice); html+='<table class="pdf-table"><tr><th>Что отвечает / линия</th><th>Аппарат</th><th>Назначение</th></tr>'; if(!items.length) html+='<tr><td colspan="3" style="text-align:center;color:var(--gray);">Щит ещё не сгенерирован</td></tr>'; else items.forEach(function(it){ var assignments=detailsAssignments(it); html+='<tr><td style="font-weight:bold;color:var(--primary);">'+assignments.map(esc).join('<br>')+'</td><td>'+esc(it.n)+(Number(it.q)>1?' × '+esc(it.q):'')+'</td><td>'+esc(detailNote(it))+'</td></tr>'; }); html+='</table>'; var p=$('p-cont'); if(p) p.innerHTML=html; if(typeof openModal==='function') openModal('previewModal'); };
-  var oldShowPreviewV13=window.showPreview||function(){};
-
-  function selectedIds(type){ var box=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!box) return []; return Array.prototype.map.call(box.querySelectorAll('.ep-v7-select:checked'),function(x){return String(x.dataset.id||'');}).filter(Boolean); }
-  function ensureBulkPanels(){ ['mat','work'].forEach(function(type){ var box=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!box || box.querySelector('.ep-v13-bulk-panel')) return; var editable=!!box.querySelector('.ep-v7-select'); var p=document.createElement('div'); p.className='ep-v13-bulk-panel'; p.style.cssText='border:1px solid var(--primary);border-radius:14px;padding:10px;margin:0 0 12px;background:rgba(79,70,229,.055);'; var title=type==='work'?'работы':'материалы'; p.innerHTML='<div style="font-weight:900;color:var(--primary);margin-bottom:6px;">🧩 Массовые действия: '+title+'</div><div style="font-size:11px;color:var(--gray);font-weight:800;margin-bottom:8px;">Выдели позиции галочками, потом перенеси в нужную категорию/группу или удали. Работает только в редактируемой базе.</div><input id="ep-v13-cat-'+type+'" placeholder="Новая категория" style="margin-bottom:6px;"><input id="ep-v13-sub-'+type+'" placeholder="Новая группа / подкатегория" style="margin-bottom:8px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button class="btn-info" style="margin:0;padding:9px;" onclick="epV13SelectVisible(\''+type+'\',true)">✅ Выделить видимые</button><button class="btn-vendor" style="margin:0;padding:9px;" onclick="epV13SelectVisible(\''+type+'\',false)">⬜ Снять</button><button class="btn-success" style="margin:0;padding:9px;" onclick="epV13MoveSelected(\''+type+'\')">📦 Переместить</button><button class="btn-danger" style="margin:0;padding:9px;" onclick="epV13DeleteSelected(\''+type+'\')">🗑 Удалить</button></div>'+(editable?'':'<div style="font-size:11px;color:var(--danger);font-weight:900;margin-top:8px;">Эта база сейчас только для просмотра. Для базы сервера открой редактирование через Настройки → Админ панель.</div>'); box.insertBefore(p, box.firstChild); }); }
-  window.epV13SelectVisible=function(type,on){ var box=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!box) return; Array.prototype.forEach.call(box.querySelectorAll('.ep-v7-select'),function(ch){ ch.checked=!!on; }); };
-  async function saveAfterBulk(){ try{ if(typeof window.epSaveActiveDbV7==='function') await window.epSaveActiveDbV7(); else { if(typeof renderDbEditors==='function') renderDbEditors(); } }catch(e){ toast('⚠️ Изменено локально, но сервер не подтвердил: '+(e&&e.message?e.message:e)); } }
-  window.epV13MoveSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выделите позиции'); var cat=$('ep-v13-cat-'+type), sub=$('ep-v13-sub-'+type); var c=cat?cat.value.trim():''; var g=sub?sub.value.trim():''; if(!c&&!g) return toast('Укажи категорию или группу для перемещения'); var arr=activeArr(type).map(function(it){ if(ids.indexOf(String(it.id||''))>=0){ var x=clone(it); if(c) x.c=c; if(g){ x.g=g; x.sc=g; x.subcategory=g; } return x; } return it; }); setActiveArr(type,arr); toast('📦 Перемещено позиций: '+ids.length); await saveAfterBulk(); try{ renderDbEditors(); ensureBulkPanels(); }catch(e){} };
-  window.epV13DeleteSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выделите позиции'); var ok=true; try{ if(typeof customConfirm==='function') ok=await customConfirm('Удаление позиций','Удалить выбранные позиции: '+ids.length+'?'); else ok=confirm('Удалить выбранные позиции: '+ids.length+'?'); }catch(e){ ok=confirm('Удалить выбранные позиции: '+ids.length+'?'); } if(!ok) return; var arr=activeArr(type).filter(function(it){return ids.indexOf(String(it.id||''))<0;}); setActiveArr(type,arr); toast('🗑 Удалено позиций: '+ids.length); await saveAfterBulk(); try{ renderDbEditors(); ensureBulkPanels(); }catch(e){} };
-
-  function patchAll(){
-    window.generateCascadePanel=epGenerateShieldV13; window.epGenerateShieldFixed=epGenerateShieldV13; try{ generateCascadePanel=epGenerateShieldV13; }catch(e){}
-    Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ if((btn.textContent||'').indexOf('Сгенерировать щит')>=0) btn.onclick=epGenerateShieldV13; });
-    window.renderMainTable=renderMainTableV13; try{ renderMainTable=window.renderMainTable; }catch(e){}
-    window.showPreview=showDetailsV13; try{ showPreview=window.showPreview; }catch(e){}
-  }
-  var oldRenderDbV13=window.renderDbEditors;
-  if(typeof oldRenderDbV13==='function' && !oldRenderDbV13.__ep_v13_wrapped){ window.renderDbEditors=function(){ var r=oldRenderDbV13.apply(this,arguments); setTimeout(ensureBulkPanels,0); return r; }; window.renderDbEditors.__ep_v13_wrapped=true; try{ renderDbEditors=window.renderDbEditors; }catch(e){} }
-  var oldSwitchTabV13=window.switchDbTab; if(typeof oldSwitchTabV13==='function'&&!oldSwitchTabV13.__ep_v13_wrapped){ window.switchDbTab=function(){ var r=oldSwitchTabV13.apply(this,arguments); setTimeout(ensureBulkPanels,80); return r; }; window.switchDbTab.__ep_v13_wrapped=true; try{ switchDbTab=window.switchDbTab; }catch(e){} }
-  var oldSetScopeV13=window.epSetDbScope; if(typeof oldSetScopeV13==='function'&&!oldSetScopeV13.__ep_v13_wrapped){ window.epSetDbScope=async function(){ var r=await oldSetScopeV13.apply(this,arguments); setTimeout(function(){ try{ if(typeof renderDbEditors==='function') renderDbEditors(); ensureBulkPanels(); }catch(e){} },120); return r; }; window.epSetDbScope.__ep_v13_wrapped=true; }
-  function boot(){ patchAll(); normalizeEstimateV13(); try{ renderMainTableV13(); }catch(e){} try{ ensureBulkPanels(); }catch(e){} }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,250); }); else setTimeout(boot,80);
-  setTimeout(boot,900); setTimeout(boot,1800);
+      var map={}, out=[];
+      window.currentEstimate.forEach(function(src){
+        if(!src) return; var it=Object.assign({},src); var n=String(it.n||'');
+        if(/Автомат\s+A\s*472|Автомат\s+A472/i.test(n)) it.n='C40 1P ИЭК ВА47-29';
+        else if(/^Автомат\s+IEK$/i.test(n) || /^Автомат\s+ИЭК$/i.test(n)) it.n='Вводной автомат 2P ИЭК ВА47-29';
+        else if(/^Автомат\s+C\s*16\s+IEK/i.test(n) || /^Автомат\s+C16\s+IEK/i.test(n)) it.n='C16 1P ИЭК ВА47-29';
+        else if(/^Автомат\s+C\s*10\s+IEK/i.test(n) || /^Автомат\s+C10\s+IEK/i.test(n)) it.n='C10 1P ИЭК ВА47-29';
+        else if(/^Автомат\s+C\s*6\s+IEK/i.test(n) || /^Автомат\s+C6\s+IEK/i.test(n)) it.n='C6 1P ИЭК ВА47-29';
+        else if(/^УЗО\s+30\s*мА\s+IEK/i.test(n)) it.n='УЗО 2P 40A 30мА тип A ИЭК ВД1-63';
+        else if(/^УЗО\s+10\s*мА\s+IEK/i.test(n) || /^УЗО\s+10\s*мА/i.test(n)) it.n='УЗО 2P 40A 10мА тип A ИЭК ВД1-63';
+        var key=[it.tag||'',it.type||'',it.n||'',Number(it.p)||0,it.u||'шт'].join('|'); var rec=map[key];
+        if(!rec){ rec=Object.assign({},it,{q:0,epAssignments:[],epMergedDetails:[]}); map[key]=rec; out.push(rec); }
+        rec.q += Number(it.q)||0;
+        if(typeof epV15MergeAssignments==='function') epV15MergeAssignments(rec,it);
+      });
+      window.currentEstimate=out; try{ currentEstimate=out; }catch(e){}
+    }catch(e){ console.warn('V15 normalize failed',e); }
+  };
+  window.epV15SelectVisible=function(type,on){ var box=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!box) return; Array.prototype.forEach.call(box.querySelectorAll('.ep-v7-select'),function(ch){ ch.checked=!!on; }); };
+  window.epV15MoveSelectedActive=async function(type){
+    var cat=$('ep-v15-move-cat-'+type), sub=$('ep-v15-move-sub-'+type); var c=cat?cat.value.trim():'', g=sub?sub.value.trim():''; if(!c&&!g) return showToast('Укажи категорию или подкатегорию');
+    var checks=Array.from(document.querySelectorAll('#settModal .ep-v7-select:checked')).filter(function(ch){return ch.dataset.type===type;}); if(!checks.length) return showToast('Выбери позиции галочками');
+    var ids=new Set(checks.map(function(ch){return String(ch.dataset.id||'');})); var arr=(typeof active==='function'?active(type):[]).map(function(it){ if(ids.has(String(it.id||''))){ var x=Object.assign({},it); if(c) x.c=c; if(g){ x.g=g; x.sc=g; x.subcategory=g; } return x; } return it; });
+    if(typeof scope==='function' && scope()==='global' && typeof setServer==='function') setServer(type,arr); else if(typeof setMy==='function') setMy(type,arr);
+    showToast('📦 Перенесено: '+ids.size); if(typeof epSaveActiveDbV7==='function') await epSaveActiveDbV7(); else if(typeof renderDbEditors==='function') renderDbEditors();
+  };
+  var oldRender=window.renderMainTable;
+  window.renderMainTable=function(){ try{ window.epV15NormalizeCurrentEstimate(); }catch(e){} return oldRender ? oldRender.apply(this,arguments) : undefined; };
+  try{ renderMainTable=window.renderMainTable; }catch(e){}
+  var oldGen=window.generateCascadePanel;
+  // generateCascadePanel is already directly replaced in V15; keep a badge so user can verify version.
+  function boot(){ try{ window.epV15NormalizeCurrentEstimate(); if(typeof oldRender==='function') oldRender(); }catch(e){} }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(boot,100);}); else setTimeout(boot,100);
+  setTimeout(function(){ try{ showToast('V15 загружена'); }catch(e){} },600);
 })();
 </script>
-<!-- EP_V13_SHIELD_DETAIL_NAMES_BULK_DB: end -->
 
 
-
-<script id="EP_V14_SHIELD_DETAIL_BULK_FORCE">
-/* EP V14 — force-applied surgical patch:
-   - real shield line assignments in details;
-   - readable automation names (C16 1P ИЭК ВА47-29 etc.);
-   - visible bulk move/delete panel in active DB.
-*/
+<script>
+/* EP V16 absolute final override: force shield generator + details after all old patches */
 (function(){
-  if(window.EP_V14_SHIELD_DETAIL_BULK_FORCE) return;
-  window.EP_V14_SHIELD_DETAIL_BULK_FORCE = true;
+  function $(id){return document.getElementById(id);}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function epV16GenerateCascadePanel() {
+    const bBox = epGetVal('cfg-brand-box', 'Tekfor');
+    const bAuto = epGetVal('cfg-brand-auto', 'IEK');
+    const sWall = epGetVal('cfg-shield-wall', 'Бетон');
+    const ph = parseInt(epGetVal('cfg-phase', '1')) || 1;
+    const curve = epGetVal('cfg-auto-curve', 'C');
+    const rcdType = epGetVal('cfg-rcd-type', 'A');
+    const protectionType = epGetVal('cfg-protection-type', 'uzo_auto');
+    const isMaster = epGetCheck('cfg-master');
+    const heavySeparate = epGetCheck('cfg-heavy-separate');
 
-  function $(id){ return document.getElementById(id); }
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
-  function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[×х]/g,'x').replace(/[‐‑‒–—]/g,'-').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
-  function compact(s){ return norm(s).replace(/\s+/g,''); }
-  function money(v){ var n=Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
-  function toast(t){ try{ if(typeof showToast==='function') showToast(t); else console.log(t); }catch(e){ console.log(t); } }
-  function uniq(a){ var out=[]; (a||[]).forEach(function(x){ x=String(x||'').trim(); if(x && out.indexOf(x)<0) out.push(x); }); return out; }
-  function clone(o){ try{return JSON.parse(JSON.stringify(o||{}));}catch(e){return Object.assign({},o||{});} }
-  function scope(){ try{return localStorage.getItem('ep_db_scope_v2')==='global'?'global':'my';}catch(e){return 'my';} }
-  function isAdmin(){ try{return !!(window.appUser && appUser.role==='admin');}catch(e){return false;} }
-  function canEditActive(){ return scope()==='my' || (scope()==='global' && isAdmin()); }
-  function readArr(k){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-  function writeArr(k,a){ try{ if(typeof safeSet==='function') safeSet(k, JSON.stringify(a||[])); else localStorage.setItem(k, JSON.stringify(a||[])); }catch(e){ try{localStorage.setItem(k,JSON.stringify(a||[]));}catch(_e){} } }
-  function readObj(k){ try{ var o=JSON.parse(localStorage.getItem(k)||'{}'); return o&&typeof o==='object'?o:{}; }catch(e){ return {}; } }
-  function writeObj(k,o){ try{ localStorage.setItem(k,JSON.stringify(o||{})); }catch(e){} }
-  function getMy(type){ var a=type==='work'?window.EP_MY_WORK:window.EP_MY_MAT; if(Array.isArray(a)) return a.slice(); return readArr(type==='work'?'user_db_work_v31':'user_db_mat_v31'); }
-  function getServer(type){ var a=type==='work'?window.EP_GLOBAL_WORK:window.EP_GLOBAL_MAT; if(Array.isArray(a)) return a.slice(); var c=readObj('ep_global_cache_force_v1'); a=type==='work'?c.workDB:c.matDB; return Array.isArray(a)?a.slice():[]; }
-  function setMy(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work'){ window.EP_MY_WORK=arr; writeArr('user_db_work_v31',arr); } else { window.EP_MY_MAT=arr; writeArr('user_db_mat_v31',arr); } try{ window.userMatDB=getMy('mat'); window.userWorkDB=getMy('work'); }catch(e){} if(scope()==='my') syncMain('my'); }
-  function setServer(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work') window.EP_GLOBAL_WORK=arr; else window.EP_GLOBAL_MAT=arr; var mat=type==='mat'?arr:getServer('mat'), work=type==='work'?arr:getServer('work'); window.EP_FORCE_GLOBAL={matDB:mat,workDB:work}; window.EP_ULTIMATE_DB_CACHE={matDB:mat,workDB:work,ts:Date.now()}; window.EP_GLOBAL_DB_VISIBLE_CACHE={matDB:mat,workDB:work,ts:Date.now()}; writeObj('ep_global_cache_force_v1',{matDB:mat,workDB:work,ts:Date.now()}); if(scope()==='global') syncMain('global'); }
-  function activeArr(type){ return scope()==='global'?getServer(type):getMy(type); }
-  function setActiveArr(type,arr){ if(scope()==='global') setServer(type,arr); else setMy(type,arr); }
-  function syncMain(target){ target=target||scope(); try{ window.matDB=(target==='global'?getServer('mat'):getMy('mat')); window.workDB=(target==='global'?getServer('work'):getMy('work')); try{ matDB=window.matDB; workDB=window.workDB; }catch(e){} }catch(e){} }
-  function groupOf(it){ return (it&&(it.g||it.sc||it.subcategory||it.group))||''; }
+    let m = [], w = [], lines = [], protectionDevices = [], warnings = [];
+    function addLine(name, nominal, group, opts) {
+        const o = opts || {};
+        lines.push({ name, nominal, group, curve: o.curve || curve, nonSwitchable: !!o.nonSwitchable, wet: group === 'wet' || !!o.wet });
+    }
+    function addRoom(label, count, wetPower) {
+        for (let i = 1; i <= count; i++) {
+            const n = count > 1 ? `${label} ${i}` : label;
+            addLine(`${n} розетки`, 'C16', wetPower ? 'wet' : 'power', { wet: wetPower });
+            addLine(`${n} свет`, 'C10', 'light');
+        }
+    }
+    addRoom('Кухня', cfg.kits || 0, false);
+    addRoom('Ванная', cfg.baths || 0, true);
+    addRoom('Туалет', cfg.toilets || 0, true);
+    addRoom('Комната', cfg.rms || 0, false);
+    addRoom('Балкон', cfg.bals || 0, false);
+    if (epGetCheck('c-apron')) addLine('Фартук кухни', 'C16', 'power');
+    if (epGetCheck('c-dish')) addLine('Посудомойка', 'C10', 'power');
+    if (epGetCheck('c-washer')) addLine('Стиралка/сушилка', 'C10', 'wet', { wet: true });
+    if (epGetCheck('c-towel')) addLine('Полотенцесушитель', 'C10', 'wet', { wet: true });
+    for (let i = 1; i <= (cfg.acs || 0); i++) addLine(`Кондиционер ${i}`, 'C10', 'climate');
+    for (let i = 1; i <= (cfg.fls || 0); i++) addLine(`Тёплый пол ${i}`, 'C10', 'climate');
+    if (epGetCheck('c-fridge')) addLine('Холодильник, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
+    if (epGetCheck('c-neptun')) addLine('Нептун, неотключаемая группа', 'C10', 'alwaysOn', { nonSwitchable: true });
+    if (epGetCheck('c-router')) addLine('Роутер, неотключаемая группа', 'C6', 'alwaysOn', { nonSwitchable: true });
+    const hobPower = epGetVal('c-hob-power', 'none');
+    if (hobPower === '6') addLine('Плита до 6 кВт', 'C25', heavySeparate ? 'heavy' : 'power');
+    if (hobPower === '10') addLine('Плита до 10 кВт', 'C32', heavySeparate ? 'heavy' : 'power');
+    const boilerPower = epGetVal('c-boiler-power', 'none');
+    if (boilerPower === '6') addLine('Бойлер до 6 кВт', 'C25', 'wet', { wet: true });
+    if (boilerPower === '10') addLine('Бойлер до 10 кВт', 'C32', 'wet', { wet: true });
 
-  function brandCode(s){ var n=norm(s); if(n.indexOf('abb')>=0) return 'ABB'; if(n.indexOf('iek')>=0||n.indexOf('иэк')>=0||n.indexOf('иек')>=0) return 'IEK'; if(n.indexOf('schneider')>=0||n.indexOf('шнайдер')>=0) return 'Schneider'; if(n.indexOf('legrand')>=0) return 'Legrand'; if(n.indexOf('ekf')>=0) return 'EKF'; if(n.indexOf('hager')>=0) return 'Hager'; if(n.indexOf('tekfor')>=0||n.indexOf('текфор')>=0) return 'Tekfor'; return ''; }
-  function brandRu(s){ var b=brandCode(s)||String(s||'').trim(); if(b==='IEK') return 'ИЭК'; return b; }
-  function detectModel(s){ var raw=String(s||''); var pats=[/ВА\s*47\s*[-–—]?\s*\d+/i,/ВД\s*1\s*[-–—]?\s*\d+/i,/АД\s*12\s*[-–—]?\s*\d*/i,/DSH\s*\d+/i,/SH\s*\d+/i,/S\s*20\d/i,/TX\s*3/i,/DX\s*3/i,/RX\s*3/i,/Easy\s*9/i,/Resi\s*9/i,/Acti\s*9/i,/ЩРВ\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i,/ЩРН\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i];
-    for(var i=0;i<pats.length;i++){ var m=raw.match(pats[i]); if(m) return m[0].replace(/\s+/g,'').replace(/[–—]/g,'-').toUpperCase(); }
-    var p=raw.match(/\((.*?)\)/); if(p) return detectModel(p[1]);
-    return '';
-  }
-  function detectPoles(s){ var m=String(s||'').match(/([1-4])\s*[PРП]/i); if(m) return m[1]+'P'; m=String(s||'').match(/([1-4])\s*пол/i); return m?m[1]+'P':''; }
-  function detectAmp(s){ var m=String(s||'').match(/(\d{1,3})\s*[AaАа]\b/); return m?Number(m[1]):0; }
-  function detectLeakage(s){ var m=String(s||'').match(/(10|30|100|300)\s*м?а/i); return m?Number(m[1]):0; }
-  function nominalAmp(n){ var m=String(n||'').match(/(\d{1,3})/); return m?Number(m[1]):0; }
-  function itemBlob(it){ return String([it&&it.c,it&&it.g,it&&it.sc,it&&it.subcategory,it&&it.kind,it&&it.brand,it&&it.nominal,it&&it.leakage,it&&it.rcdType,it&&it.n].filter(Boolean).join(' ')); }
-  function itemHasAmp(it, amp){ var b=compact(itemBlob(it)); return !amp || b.indexOf(String(amp)+'a')>=0 || b.indexOf(String(amp)+'а')>=0 || b.indexOf('c'+amp)>=0 || b.indexOf('b'+amp)>=0 || b.indexOf('a'+amp)>=0 || b.indexOf('d'+amp)>=0 || Number(it&&it.nominal)===amp; }
-  function itemHasLeak(it, leak){ var b=compact(itemBlob(it)); return !leak || b.indexOf(String(leak)+'ма')>=0 || b.indexOf(String(leak)+'ma')>=0 || String(it&&it.leakage)===String(leak); }
+    const groupNames = { power: 'Силовые линии', climate: 'Климат', wet: 'Влажные зоны', light: 'Освещение', heavy: 'Большая техника', alwaysOn: 'Неотключаемые группы' };
+    const presentGroups = Array.from(new Set(lines.map(l => l.group))).filter(Boolean);
+    function groupAssignment(group, leakage) {
+        const ls = lines.filter(l => l.group === group).map(l => l.name);
+        const head = group === 'wet' ? 'Влажные зоны / защита 10 мА' : (groupNames[group] || group);
+        return ls.length ? `${head}: ${ls.join(', ')}` : head;
+    }
+    function addProtection(group, mode) {
+        const leakage = group === 'wet' ? 10 : 30;
+        const kind = mode || (protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО');
+        protectionDevices.push({ group, kind, leakage, rcdType, modules: 2, assignment: groupAssignment(group, leakage) });
+        if (group === 'wet' && leakage !== 10) warnings.push('Влажные зоны должны быть 10 мА');
+    }
+    if (protectionType === 'main_dif_auto') protectionDevices.push({ group: 'main', kind: 'Главный ДИФ', leakage: 30, rcdType, modules: 2, assignment: 'Вводная групповая защита всего щита' });
+    else if (protectionType === 'mixed') presentGroups.forEach(g => addProtection(g, g === 'wet' ? 'ДИФ' : 'УЗО'));
+    else presentGroups.forEach(g => addProtection(g, protectionType === 'dif_auto' ? 'ДИФ' : 'УЗО'));
 
-  function findMat(meta,label){
-    meta=meta||{}; label=String(label||''); syncMain(scope());
-    var arr=[]; try{ arr=(window.matDB||matDB||[]).slice(); }catch(e){ arr=activeArr('mat'); }
-    if(!arr.length) arr=activeArr('mat');
-    var kind=String(meta.kind||'').toLowerCase(), brand=brandCode(meta.brand||label), amp=nominalAmp(meta.nominal||label), leak=meta.leakage||detectLeakage(label);
-    var want='other';
-    if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0||meta.nominal) want='auto';
-    else if(kind.indexOf('dif')>=0||/диф/i.test(label)) want='dif';
-    else if(kind.indexOf('uzo')>=0||kind.indexOf('узо')>=0||/узо/i.test(label)) want='uzo';
-    else if(kind.indexOf('shield_box')>=0||/щит|корпус|шкаф|бокс/i.test(label)) want='shield';
-    else if(kind.indexOf('comb')>=0||/греб/i.test(label)) want='comb';
-    else if(kind.indexOf('bus')>=0||/шина|клемм/i.test(label)) want='bus';
-    else if(kind.indexOf('din')>=0||/din|дин|рейк|огранич/i.test(label)) want='din';
-    else if(kind.indexOf('pugv')>=0||/пугв/i.test(label)) want='pugv';
-    else if(kind.indexOf('lug')>=0||/ншви|наконеч/i.test(label)) want='lug';
-    else if(kind.indexOf('mark')>=0||/маркир|бирк/i.test(label)) want='mark';
-    var best=null, score=-999;
-    arr.forEach(function(it){ if(!it||!it.n) return; var b=norm(itemBlob(it)); var s=0;
-      if(want==='auto'){ if(b.indexOf('автомат')<0 && !/[abcd]\s*\d{1,3}/i.test(b) && b.indexOf('breaker')<0) return; if(!itemHasAmp(it,amp)) return; s+=70; }
-      else if(want==='dif'){ if(b.indexOf('диф')<0) return; if(!itemHasLeak(it,leak)) return; s+=70; }
-      else if(want==='uzo'){ if(b.indexOf('узо')<0) return; if(!itemHasLeak(it,leak)) return; s+=70; }
-      else if(want==='shield'){ if(b.indexOf('щит')<0&&b.indexOf('корпус')<0&&b.indexOf('шкаф')<0&&b.indexOf('бокс')<0) return; s+=50; }
-      else if(want==='comb'){ if(b.indexOf('греб')<0) return; s+=50; }
-      else if(want==='bus'){ if(b.indexOf('шина')<0&&b.indexOf('клемм')<0) return; s+=50; }
-      else if(want==='din'){ if(b.indexOf('din')<0&&b.indexOf('дин')<0&&b.indexOf('рейк')<0&&b.indexOf('огранич')<0) return; s+=50; }
-      else if(want==='pugv'){ if(b.indexOf('пугв')<0) return; s+=50; }
-      else if(want==='lug'){ if(b.indexOf('ншви')<0&&b.indexOf('наконеч')<0) return; s+=50; }
-      else if(want==='mark'){ if(b.indexOf('маркир')<0&&b.indexOf('бирк')<0) return; s+=50; }
-      if(brand){ if(brandCode(itemBlob(it))===brand) s+=20; else if(want==='auto'||want==='dif'||want==='uzo') s-=50; }
-      if(amp && itemHasAmp(it,amp)) s+=20;
-      if(leak && itemHasLeak(it,leak)) s+=20;
-      if(detectModel(it.n)) s+=7;
-      if(s>score){ score=s; best=it; }
+    function mat(label, q, price, words, meta, assignment) {
+        meta = Object.assign({}, meta || {}, { brand: bAuto });
+        if (assignment) meta.assignment = assignment;
+        const it = epMat(label, q, price, words, meta);
+        if (assignment) { it.epAssignment = assignment; it.epAssignments = [assignment]; it.epMergedDetails = [assignment]; }
+        return it;
+    }
+    function work(label, q, price, words, meta, assignment) {
+        meta = Object.assign({}, meta || {});
+        if (assignment) meta.assignment = assignment;
+        const it = epWork(label, q, price, words, meta);
+        if (assignment) { it.epAssignment = assignment; it.epAssignments = [assignment]; it.epMergedDetails = [assignment]; }
+        return it;
+    }
+
+    m.push(mat(`Вводной автомат ${ph}ф ${bAuto}`, 1, bAuto === 'ABB' ? 3500 : 1800, ['автомат', 'вводной', bAuto, ph + 'ф'], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'input_breaker', unit: 'шт', poles: ph === 3 ? '4P' : '2P' }, 'Вводной аппарат щита'));
+    protectionDevices.forEach(pd => {
+        const label = pd.kind === 'Главный ДИФ' ? `Главный ДИФ ${bAuto} ${pd.leakage}мА тип ${pd.rcdType}` : `${pd.kind} ${groupNames[pd.group] || pd.group} ${pd.leakage}мА тип ${pd.rcdType} ${bAuto}`;
+        m.push(mat(label, 1, epDifPrice(bAuto), [pd.kind, bAuto, pd.leakage + 'мА', pd.rcdType, groupNames[pd.group] || pd.group], { category: 'Автоматика', subcategory: pd.kind === 'ДИФ' || pd.kind === 'Главный ДИФ' ? 'ДИФы' : 'УЗО', kind: pd.kind === 'ДИФ' || pd.kind === 'Главный ДИФ' ? 'dif' : 'uzo', leakage: pd.leakage, rcdType: pd.rcdType, amp: 40, poles: pd.kind === 'ДИФ' ? '1P+N' : '2P', modules: 2 }, pd.assignment));
     });
-    return score>=45?best:null;
-  }
-  function autoName(found,meta,label){ meta=meta||{}; var src=String((found&&found.n)||label||''); var nominal=String(meta.nominal||'').toUpperCase(); if(!nominal){ var amp=nominalAmp(label)||detectAmp(src); nominal=(meta.curve||'C')+(amp||''); } var poles=meta.poles||detectPoles(src)||'1P'; var brand=brandRu(meta.brand||brandCode(src)||label); var model=detectModel(src); return [nominal,poles,brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim(); }
-  function rcdName(found,meta,label){ meta=meta||{}; var src=String((found&&found.n)||label||''); var kind=(String(meta.kind||'').toLowerCase().indexOf('dif')>=0||/диф/i.test(label))?'ДИФ':'УЗО'; var poles=meta.poles||detectPoles(src)||'2P'; var amp=meta.amp||detectAmp(src)||40; var leakage=meta.leakage||detectLeakage(label)||detectLeakage(src); var typ=meta.rcdType||''; var brand=brandRu(meta.brand||brandCode(src)||label); var model=detectModel(src); return [kind,poles,amp?amp+'A':'',leakage?leakage+'мА':'',typ?'тип '+typ:'',brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim(); }
-  function displayMat(found,meta,label){ meta=meta||{}; var kind=String(meta.kind||'').toLowerCase(); if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0) return autoName(found,meta,label); if(kind.indexOf('dif')>=0||kind.indexOf('uzo')>=0) return rcdName(found,meta,label); return found&&found.n?String(found.n).trim():String(label||'Позиция').replace(/\s+—\s+.*$/,'').trim(); }
-  function makeMat(label,q,price,meta,assignment){ var found=findMat(meta,label); var name=displayMat(found,meta,label); return {n:name,q:q,p:found?money(found.p):money(price),u:(found&&found.u)||(meta&&meta.unit)||'шт',type:'mat',tag:'shield',sourceId:(found&&found.id)||null,dbMeta:Object.assign({},meta||{},{assignment:assignment||'',sourceName:(found&&found.n)||''}),epAssignment:assignment||'',epAssignments:assignment?[assignment]:[],epRawLabel:label}; }
-  function makeWork(name,q,price,unit,cat,grp){ return {n:name,q:q,p:money(price),u:unit||'шт',type:'work',tag:'shield',c:cat||'Щитовое',g:grp||'',sc:grp||'',epRawLabel:name}; }
-  function getVal(id,def){ var el=$(id); return el?el.value:def; }
-  function getCheck(id){ var el=$(id); return !!(el&&el.checked); }
-  function count(key,id,def){ var el=$(id); var n=Number(el?(el.textContent||el.value):NaN); if(Number.isFinite(n)) return n; try{ if(window.cfg&&Number.isFinite(Number(window.cfg[key]))) return Number(window.cfg[key]); }catch(e){} return def||0; }
-  function logic(key,def){ try{ if(window.appLogic && Number(appLogic[key])) return Number(appLogic[key]); }catch(e){} return def; }
+    lines.forEach(line => {
+        const label = `Автомат ${line.nominal} тип ${line.curve} ${bAuto} — ${line.name}`;
+        m.push(mat(label, 1, epAutoPrice(bAuto), ['автомат', bAuto, line.nominal, line.curve], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'automatic', nominal: line.nominal, curve: line.curve, modules: 1, poles: '1P' }, line.name));
+    });
+    if (epGetCheck('cfg-uzm')) {
+        const q = ph === 3 ? 3 : 1;
+        m.push(mat(`Реле напряжения ${bAuto}`, q, 4500, ['реле напряжения', 'узм', bAuto], { category: 'Автоматика', subcategory: 'УЗМ / реле напряжения', kind: 'voltage_relay', modules: ph === 3 ? 6 : 2 }, 'Защита от перенапряжения'));
+    }
+    if (isMaster) {
+        const lightLines = lines.filter(l => l.group === 'light').map(l => l.name).join(', ') || 'световые группы';
+        m.push(mat(`Контактор C40 ${bAuto} — мастер-кнопка света`, 1, 2200, ['контактор', 'C40', bAuto], { category: 'Автоматика', subcategory: 'Контакторы', kind: 'contactor', modules: 2 }, 'Мастер-кнопка только на свет: ' + lightLines));
+        m.push(mat(`Автомат C40 тип ${curve} ${bAuto} — байпас мастер-кнопки`, 1, bAuto === 'ABB' ? 600 : 380, ['автомат', 'C40', bAuto, curve], { category: 'Автоматика', subcategory: 'Автоматы', kind: 'automatic', nominal: 'C40', curve: curve, modules: 1, poles: '1P' }, 'Байпас мастер-кнопки света'));
+    }
+    currentShieldExtras.forEach(ex => m.push({ n: ex.n, q: ex.q, p: ex.p, u: ex.u || 'шт', type: 'mat', epAssignment: 'Дополнительный аппарат защиты', epAssignments: ['Дополнительный аппарат защиты'], epMergedDetails: ['Дополнительный аппарат защиты'] }));
 
-  function epGenerateShieldV14(){
-    try{
-      syncMain(scope());
-      var bBox=getVal('cfg-brand-box','Tekfor'), bAuto=getVal('cfg-brand-auto','IEK'), wall=getVal('cfg-shield-wall','Бетон');
-      var ph=parseInt(getVal('cfg-phase','1'),10)||1, curve=getVal('cfg-auto-curve','C'), rcdType=getVal('cfg-rcd-type','A'), protectionType=getVal('cfg-protection-type','uzo_auto');
-      var isMaster=getCheck('cfg-master'), heavySeparate=getCheck('cfg-heavy-separate');
-      var mats=[], works=[], lines=[], prot=[];
-      function addLine(name,nom,group,opts){ opts=opts||{}; lines.push({name:name,nominal:nom,group:group,wet:group==='wet'||!!opts.wet,nonSwitchable:!!opts.nonSwitchable}); }
-      function addRoom(label,cnt,wet){ for(var i=1;i<=cnt;i++){ var nm=cnt>1?label+' '+i:label; addLine(nm+' розетки','C16',wet?'wet':'power',{wet:wet}); addLine(nm+' свет','C10','light'); } }
-      addRoom('Кухня',count('kits','v-kits',1),false); addRoom('Ванная',count('baths','v-baths',1),true); addRoom('Туалет',count('toilets','v-toilets',1),true); addRoom('Комната',count('rms','v-rms',1),false); addRoom('Балкон',count('bals','v-bals',0),false);
-      if(getCheck('c-apron')) addLine('Фартук кухни','C16','power');
-      if(getCheck('c-dish')) addLine('Посудомойка','C10','power');
-      if(getCheck('c-washer')) addLine('Стиралка/сушилка','C10','wet',{wet:true});
-      if(getCheck('c-towel')) addLine('Полотенцесушитель','C10','wet',{wet:true});
-      for(var ac=1; ac<=count('acs','v-acs',0); ac++) addLine('Кондиционер '+ac,'C10','climate');
-      for(var fl=1; fl<=count('fls','v-fls',0); fl++) addLine('Тёплый пол '+fl,'C10','climate');
-      if(getCheck('c-fridge')) addLine('Холодильник, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true});
-      if(getCheck('c-neptun')) addLine('Нептун, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true});
-      if(getCheck('c-router')) addLine('Роутер, неотключаемая группа','C6','alwaysOn',{nonSwitchable:true});
-      var hob=getVal('c-hob-power','none'); if(hob==='6') addLine('Плита до 6 кВт','C25',heavySeparate?'heavy':'power'); if(hob==='10') addLine('Плита до 10 кВт','C32',heavySeparate?'heavy':'power');
-      var boiler=getVal('c-boiler-power','none'); if(boiler==='6') addLine('Бойлер до 6 кВт','C25','wet',{wet:true}); if(boiler==='10') addLine('Бойлер до 10 кВт','C32','wet',{wet:true});
-      var groups={power:'Силовые линии',climate:'Климат',wet:'Влажные зоны',light:'Освещение',heavy:'Большая техника',alwaysOn:'Неотключаемые группы',main:'Главная защита'};
-      var present=uniq(lines.map(function(l){return l.group;}));
-      function addProt(g,kind){ prot.push({group:g,kind:kind,leakage:g==='wet'?10:30}); }
-      if(protectionType==='main_dif_auto') prot.push({group:'main',kind:'Главный ДИФ',leakage:30});
-      else if(protectionType==='mixed') present.forEach(function(g){ addProt(g,g==='wet'?'ДИФ':'УЗО'); });
-      else present.forEach(function(g){ addProt(g,protectionType==='dif_auto'?'ДИФ':'УЗО'); });
-      var autoPrice=bAuto==='ABB'?350:155, difPrice=bAuto==='ABB'?4500:3600;
-      mats.push(makeMat('Вводной автомат '+(ph===3?'3P':'2P')+' '+bAuto,1,bAuto==='ABB'?3500:1800,{kind:'input_breaker',brand:bAuto,poles:ph===3?'3P':'2P',category:'Автоматика',subcategory:'Автоматы'},'Вводная линия щита'));
-      prot.forEach(function(p){ var assign=(groups[p.group]||p.group)+(p.leakage===10?' / защита 10 мА':' / групповая защита 30 мА'); var kind=p.kind==='УЗО'?'uzo':'dif'; mats.push(makeMat(p.kind+' '+assign+' '+bAuto,1,difPrice,{kind:kind,brand:bAuto,poles:'2P',amp:40,leakage:p.leakage,rcdType:rcdType,category:'Автоматика',subcategory:p.kind==='УЗО'?'УЗО':'ДИФы'},assign)); });
-      lines.forEach(function(line){ mats.push(makeMat(line.nominal+' 1P '+bAuto,1,autoPrice,{kind:'automatic',brand:bAuto,nominal:line.nominal,curve:curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы',group:line.group},line.name)); });
-      var relayModules=0; if(getCheck('cfg-uzm')){ relayModules=ph===3?6:2; mats.push(makeMat('Реле напряжения '+bAuto,ph===3?3:1,4500,{kind:'voltage_relay',brand:bAuto,category:'Автоматика',subcategory:'УЗМ / реле напряжения'},'Защита от перенапряжения')); }
-      if(isMaster){ mats.push(makeMat('Контактор C40 '+bAuto,1,2200,{kind:'contactor',brand:bAuto,amp:40,poles:'2P',category:'Автоматика',subcategory:'Контакторы'},'Мастер-кнопка света')); mats.push(makeMat('C40 1P '+bAuto,1,autoPrice,{kind:'automatic',brand:bAuto,nominal:'C40',curve:curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы'},'Байпас мастер-кнопки света')); }
-      try{ (window.currentShieldExtras||[]).forEach(function(ex){ mats.push({n:ex.n,q:Number(ex.q)||1,p:Number(ex.p)||0,u:ex.u||'шт',type:'mat',tag:'shield',epAssignments:['Дополнительный аппарат защиты'],epAssignment:'Дополнительный аппарат защиты'}); }); }catch(e){}
-      var onePole=lines.length+(isMaster?1:0), twoPole=prot.length, masterModules=isMaster?3:0; var extraModules=0; try{ extraModules=(window.currentShieldExtras||[]).reduce(function(s,ex){return s+(Number(ex.modules||1)*Number(ex.q||1));},0); }catch(e){}
-      var totalModules=Math.ceil(onePole+twoPole*2+relayModules+masterModules+extraModules+(ph===3?3:2)); var sizes=[6,12,24,36,48,60,72], boxSize=sizes.find(function(x){return x>=totalModules;})||72;
-      mats.unshift(makeMat('Щит '+(wall==='Накладной'?'накладной':'встраиваемый')+' '+bBox+' '+boxSize+'М',1,bBox==='ABB'?6510:2660,{kind:'shield_box',brand:bBox,modules:boxSize,category:'Щитовое',subcategory:wall==='Накладной'?'Корпуса → Накладной':'Корпуса → Встраиваемый'},'Корпус щита '+boxSize+' мод.'));
-      var rows=Math.ceil(boxSize/12), comb1P=Math.ceil(onePole/12), comb2P=Math.ceil(twoPole/6), pugvSize=Number((window.appLogic||{}).shieldPugvSize||6), pugvMeters=Math.max(4,Math.ceil(totalModules*.4)), nshviPacks=Math.max(1,Math.ceil(boxSize/48));
-      if(comb1P>0) mats.push(makeMat('Гребёнка 1P 25см',comb1P,250,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание однополюсных автоматов'));
-      if(comb2P>0) mats.push(makeMat('Гребёнка 2P 25см',comb2P,450,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание УЗО/ДИФ'));
-      if(twoPole>0) mats.push(makeMat('Нулевая шинка N на группу УЗО/ДИФ',twoPole,285,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'N-шинки по группам защиты'));
-      mats.push(makeMat('PE-шина на 26 контактов',1,770,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'Защитное заземление PE'));
-      mats.push(makeMat('DIN-рейка / комплект DIN для щита',rows,180,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Крепление модульных аппаратов'));
-      mats.push(makeMat('Ограничитель на DIN-рейку',rows*2,35,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Фиксация аппаратов на DIN-рейке'));
-      mats.push(makeMat('Провод ПуГВ 1×'+pugvSize,pugvMeters,85,{kind:'pugv',unit:'м.п.',category:'Щитовое',subcategory:'Расходка под сборку → Провода'},'Внутренняя разводка щита'));
-      mats.push(makeMat('НШВИ 1×'+pugvSize+', упак. 100 шт',nshviPacks,225,{kind:'lug_pack',category:'Щитовое',subcategory:'Расходка под сборку → Наконечники'},'Опрессовка проводов щита'));
-      mats.push(makeMat('Маркировка линий / бирки',lines.length,15,{kind:'marking',category:'Щитовое',subcategory:'Расходка под сборку → Маркировка'},'Маркировка '+lines.length+' линий'));
-      if(getCheck('cfg-cable-glands')) mats.push(makeMat('Кабельные вводы / сальники',1,250,{kind:'glands',category:'Щитовое',subcategory:'Расходка под сборку → Кабельные вводы'},'Ввод кабелей в щит'));
-      if(wall!=='Накладной') works.push(makeWork('Ниша щита '+boxSize+'М ('+wall+')',boxSize,logic('shieldNichePerModule',400),'мод.','Штробление и резка','Ниши щита'));
-      if(wall!=='Накладной') works.push(makeWork('Штроба 100×50, под трассу кабелей ('+wall+')',2,logic('shieldInputGroovePrice',1500),'м.п.','Штробление и резка','Штроба 100×50 под трассу кабелей'));
-      works.push(makeWork('Сборка щита',totalModules,logic('priceShield',500),'мод.','Щитовое','Сборка щита'));
-      works.push(makeWork('Установка щита',1,logic('shieldInstallPrice',2500),'шт','Щитовое','Монтаж щита'));
-      works.push(makeWork('Подключение вводного кабеля',1,logic('shieldInputConnectPrice',1500),'шт','Щитовое','Монтаж щита'));
-      works.push(makeWork('Прозвонка / проверка линий',lines.length,logic('shieldTestLinePrice',150),'линия','Щитовое','Проверка линий'));
-      works.push(makeWork('Маркировка линий',lines.length,logic('shieldMarkLinePrice',100),'линия','Щитовое','Маркировка линий'));
-      if(getCheck('cfg-scheme')) works.push(makeWork('Составление однолинейной схемы щита',1,logic('shieldSchemePrice',4000),'шт','Щитовое','Документация'));
-      works.push({n:'ℹ️ Щит: занято '+totalModules+' мод.; корпус '+boxSize+'М; свободно '+Math.max(0,boxSize-totalModules)+' мод.',q:1,p:0,type:'work',tag:'shield_info'});
-      works.push({n:'ℹ️ Защита: '+protectionType+'; автоматы тип '+curve+'; УЗО/ДИФ тип '+rcdType+'; влажные зоны 10мА',q:1,p:0,type:'work',tag:'shield_info'});
-      works.push({n:'ℹ️ Гребёнки: 1P '+comb1P+'×25см; 2P '+comb2P+'×25см; N-шинок '+twoPole+'; PE-шина 26 контактов',q:1,p:0,type:'work',tag:'shield_info'});
-      if(typeof window.addAuto==='function') window.addAuto(mats.concat(works),'shield'); else { window.currentEstimate=(window.currentEstimate||[]).filter(function(x){return x.tag!=='shield'&&x.tag!=='shield_info';}).concat(mats,works); }
-      normalizeEstimateV14(); renderMainTableV14(); try{ closeModal('configModal'); }catch(e){} toast('✅ Щит сгенерирован V14');
-    }catch(err){ console.error('EP V14 shield generate failed',err); toast('❌ Ошибка щита: '+(err&&err.message?err.message:err)); }
-  }
+    const onePoleCount = lines.length + (isMaster ? 1 : 0);
+    const twoPoleProtectionCount = protectionDevices.length;
+    const relayModules = epGetCheck('cfg-uzm') ? (ph === 3 ? 6 : 2) : 0;
+    const masterModules = isMaster ? 3 : 0;
+    const extraModules = currentShieldExtras.reduce((s, ex) => s + (Number(ex.modules || 1) * Number(ex.q || 1)), 0);
+    const totalModules = Math.ceil(onePoleCount + twoPoleProtectionCount * 2 + relayModules + masterModules + extraModules + (ph === 3 ? 3 : 2));
+    const boxSize = [6,12,24,36,48,60,72].find(s => s >= totalModules) || 72;
+    if (totalModules > 72) warnings.push('Нужно больше 72 модулей — требуется второй щит или пересборка схемы');
 
-  function canonicalName(it){ var n=String((it&&it.n)||'').replace(/^⚠️\s*/,'').trim(); var meta=(it&&it.dbMeta)||{}; if(meta.kind){ var k=String(meta.kind).toLowerCase(); if(k.indexOf('automatic')>=0||k.indexOf('breaker')>=0) return autoName(null,meta,n); if(k.indexOf('uzo')>=0||k.indexOf('dif')>=0) return rcdName(null,meta,n); } if(/Автомат\s+A\s*472/i.test(n)||/Автомат\s+A472/i.test(n)){ var amp=0; if(/C16|С16|16/i.test(String(it.epRawLabel||''))) amp=16; return 'C'+(amp||'')+' 1P ИЭК ВА47-29'; } return n.replace(/\s+—\s+.*$/,'').trim(); }
-  function collectAssignments(it,nm){ var a=[]; if(Array.isArray(it.epAssignments)) a=a.concat(it.epAssignments); if(Array.isArray(it.epMergedDetails)) a=a.concat(it.epMergedDetails); if(it.epAssignment) a.push(it.epAssignment); if(it.dbMeta&&it.dbMeta.assignment) a.push(it.dbMeta.assignment); var raw=String(it.epRawLabel||''); if(raw.indexOf('—')>=0){ var after=raw.split('—').slice(1).join('—').trim(); if(after) a.push(after); } return uniq(a).filter(function(x){return x && x!=='Позиция щита' && x!==nm;}); }
-  function normalizeEstimateV14(){
-    try{ if(!Array.isArray(currentEstimate)) return; var map={}, out=[]; currentEstimate.forEach(function(src){ if(!src) return; var it=clone(src); if(/^ДИФ$/i.test(String(it.n||'').trim())||/^УЗО$/i.test(String(it.n||'').trim())) return; var nm=canonicalName(it); var key=[it.type||'',nm,money(it.p),it.u||'шт',it.tag||''].join('|'); var rec=map[key]; if(!rec){ rec=Object.assign({},it,{n:nm,q:0,epAssignments:[],epMergedDetails:[]}); map[key]=rec; out.push(rec); } rec.q+=Number(it.q)||0; var ass=collectAssignments(it,nm); ass.forEach(function(x){ if(rec.epAssignments.indexOf(x)<0) rec.epAssignments.push(x); if(rec.epMergedDetails.indexOf(x)<0) rec.epMergedDetails.push(x); }); }); currentEstimate=out; try{ window.currentEstimate=currentEstimate; }catch(e){} }catch(e){ console.warn('EP V14 normalize failed',e); }
-  }
-  function fPriceSafe(it){ try{return typeof fPrice==='function'?fPrice(it):money(it&&it.p);}catch(e){return money(it&&it.p);} }
-  function renderMainTableV14(){ normalizeEstimateV14(); var tb=document.querySelector('#mainTable tbody'); if(!tb) return; tb.innerHTML=''; var total=0; (currentEstimate||[]).forEach(function(it,idx){ var q=Number(it.q)||0, sum=fPriceSafe(it)*q; total+=sum; tb.innerHTML+='<tr><td class="col-name editable-name" onclick="openSwapModal('+idx+')" title="Нажмите для замены">'+esc(it.n)+'</td><td class="col-qty"><input type="number" value="'+esc(q)+'" onchange="currentEstimate['+idx+'].q=Number(this.value); renderMainTable();" style="width:50px; padding:6px; margin:0; text-align:center;"></td><td class="col-sum">'+sum+' P</td><td style="text-align:right;"><button onclick="currentEstimate.splice('+idx+',1);renderMainTable();" class="btn-danger" style="padding:6px; border-radius:8px; width:auto; margin:0;">✕</button></td></tr>'; }); var t=$('tot-all'); if(t) t.innerText=total.toLocaleString()+' P'; try{ if(typeof syncDraft==='function') syncDraft(); }catch(e){} }
-  function isShieldDevice(it){ var n=String((it&&it.n)||''); return it && it.type==='mat' && /(\b[ABCD]\d{1,3}\b|\b[АВСД]\d{1,3}\b|Автомат|ДИФ|УЗО|Реле|Контактор|Вводной)/i.test(n); }
-  function detailPurpose(it){ var n=String((it&&it.n)||''); if(/УЗО|ДИФ/i.test(n)) return /10\s*мА/i.test(n)?'защита влажных зон 10 мА':'групповая защита 30 мА'; if(/Контактор/i.test(n)) return 'мастер-кнопка только на свет'; if(/Реле напряж|УЗМ/i.test(n)) return 'защита от перенапряжения'; if(/[ABCDАВСД]\d{1,3}|Автомат/i.test(n)) return 'отдельный автомат линии'; return 'позиция щита'; }
-  function showDetailsV14(mode,isActOverride,customTitle){
-    if(mode!=='details') return oldShowPreviewV14.apply(this,arguments);
-    normalizeEstimateV14(); currentPreviewMode=mode; var html=(typeof getPDFHeader==='function'?getPDFHeader(customTitle||'ДЕТАЛИЗАЦИЯ ЩИТА'):'<h2>ДЕТАЛИЗАЦИЯ ЩИТА</h2>'); var filters=$('pdf-filters'); if(filters) filters.style.display='none';
-    var items=(currentEstimate||[]).filter(isShieldDevice); html+='<table class="pdf-table"><tr><th>Что отвечает / линия</th><th>Аппарат</th><th>Назначение</th></tr>'; if(!items.length){ html+='<tr><td colspan="3" style="text-align:center;color:var(--gray);">Щит ещё не сгенерирован</td></tr>'; } else { items.forEach(function(it){ var a=uniq((it.epAssignments||[]).concat(it.epMergedDetails||[])); if(!a.length) a=['назначение не указано']; html+='<tr><td style="font-weight:bold;color:var(--primary);">'+a.map(esc).join('<br>')+'</td><td>'+esc(it.n)+(Number(it.q)>1?' × '+Number(it.q):'')+'</td><td>'+esc(detailPurpose(it))+'</td></tr>'; }); } html+='</table>'; var p=$('p-cont'); if(p) p.innerHTML=html; try{ openModal('previewModal'); }catch(e){} }
-  var oldShowPreviewV14=window.showPreview||function(){};
+    m.unshift(mat(`Щит ${sWall === 'Накладной' ? 'накладной' : 'встраиваемый'} ${bBox} ${boxSize}М`, 1, bBox === 'ABB' ? 6510 : 2660, ['щит', bBox, String(boxSize), sWall === 'Накладной' ? 'накладной' : 'встраиваемый'], { brand: bBox, category: 'Щитовое', subcategory: 'Корпуса', kind: 'shield_box', modules: boxSize, mountType: sWall === 'Накладной' ? 'surface' : 'built_in' }, 'Корпус щита'));
+    const comb1P = Math.ceil(onePoleCount / 12), comb2P = Math.ceil(twoPoleProtectionCount / 6), rows = Math.ceil(boxSize / 12);
+    const pugvSize = Number(appLogic.shieldPugvSize || 6), pugvMeters = Math.max(4, Math.ceil(totalModules * 0.4)), nshviPacks = Math.max(1, Math.ceil(boxSize / 48));
+    if (comb1P > 0) m.push(mat('Гребёнка 1P 25см', comb1P, 250, ['гребенка', '1P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_1p' }, 'Питание однополюсных автоматов'));
+    if (comb2P > 0) m.push(mat('Гребёнка 2P 25см', comb2P, 450, ['гребенка', '2P', '25'], { category: 'Щитовое', subcategory: 'Гребёнки', kind: 'comb_bus_2p' }, 'Питание УЗО/ДИФ'));
+    if (twoPoleProtectionCount > 0) m.push(mat('Нулевая шинка N на группу УЗО/ДИФ', twoPoleProtectionCount, 285, ['шина', 'N', 'ноль', 'DIN'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'neutral_bus' }, 'N-шинки по группам защиты'));
+    m.push(mat(`PE-шина на ${appLogic.shieldPeBusContacts || 26} контактов`, 1, 770, ['PE', 'шина', '26'], { category: 'Щитовое', subcategory: 'Шины N/PE', kind: 'pe_bus' }, 'Защитное заземление PE'));
+    m.push(mat('DIN-рейка / комплект DIN для щита', rows, 180, ['DIN', 'рейка'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_rail' }, 'Крепление аппаратов на DIN-рейке'));
+    m.push(mat('Ограничитель на DIN-рейку', rows * 2, 35, ['ограничитель', 'DIN'], { category: 'Щитовое', subcategory: 'DIN', kind: 'din_stopper' }, 'Фиксация аппаратов на DIN-рейке'));
+    m.push(mat(`Провод ПуГВ 1×${pugvSize}`, pugvMeters, 85, ['ПуГВ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Щитовое', subcategory: 'Провода', kind: 'pugv', unit: 'м.п.' }, 'Внутренняя разводка щита'));
+    m.push(mat(`НШВИ 1×${pugvSize}, упак. 100 шт`, nshviPacks, 225, ['НШВИ', '1x' + pugvSize, '1×' + pugvSize], { category: 'Щитовое', subcategory: 'Наконечники', kind: 'lug_pack' }, 'Опрессовка проводов щита'));
+    m.push(mat('Маркировка линий / бирки', lines.length, 15, ['маркировка', 'бирки'], { category: 'Щитовое', subcategory: 'Маркировка', kind: 'marking_tag' }, 'Маркировка линий'));
+    if (epGetCheck('cfg-cable-glands')) m.push(mat('Кабельные вводы / сальники', 1, 250, ['кабельный ввод', 'сальник'], { category: 'Щитовое', subcategory: 'Кабельные вводы', kind: 'cable_gland' }, 'Ввод кабелей в щит'));
 
-  function selectedIds(type){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root) return []; return Array.prototype.map.call(root.querySelectorAll('.ep-v7-select:checked'),function(x){return String(x.dataset.id||'');}).filter(Boolean); }
-  function injectBulkPanel(){ ['mat','work'].forEach(function(type){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root || root.querySelector('.ep-v14-bulk-panel')) return; var editable=canEditActive(); var title=type==='work'?'работы':'материалы'; var p=document.createElement('div'); p.className='ep-v14-bulk-panel'; p.style.cssText='border:2px solid var(--primary);border-radius:16px;padding:12px;margin:0 0 12px;background:rgba(79,70,229,.07);'; p.innerHTML='<div style="font-weight:900;color:var(--primary);margin-bottom:5px;">🧩 Массовые действия V14: '+title+'</div><div style="font-size:11px;color:var(--gray);font-weight:800;margin-bottom:8px;">Выдели галочками позиции ниже. Можно перенести в категорию/подкатегорию или удалить выбранные. Активная база: '+(scope()==='global'?'База сервера':'Моя база')+'.</div><input id="ep-v14-cat-'+type+'" placeholder="Категория, куда перенести" style="margin-bottom:6px;"><input id="ep-v14-sub-'+type+'" placeholder="Группа / подкатегория" style="margin-bottom:8px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button class="btn-info" style="margin:0;padding:9px;" onclick="epV14SelectVisible(\''+type+'\',true)">✅ Выделить видимые</button><button class="btn-vendor" style="margin:0;padding:9px;" onclick="epV14SelectVisible(\''+type+'\',false)">⬜ Снять</button><button class="btn-success" style="margin:0;padding:9px;" onclick="epV14MoveSelected(\''+type+'\')">📦 Переместить</button><button class="btn-danger" style="margin:0;padding:9px;" onclick="epV14DeleteSelected(\''+type+'\')">🗑 Удалить</button></div>'+(!editable?'<div style="font-size:11px;color:var(--danger);font-weight:900;margin-top:8px;">Эта база сейчас только для просмотра. Сервер редактируется только админом через нужный режим.</div>':''); root.insertBefore(p, root.firstChild); }); }
-  window.epV14SelectVisible=function(type,on){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root) return; Array.prototype.forEach.call(root.querySelectorAll('.ep-v7-select'),function(x){x.checked=!!on;}); };
-  async function saveActiveAfterBulk(){ try{ if(typeof window.epSaveActiveDbV7==='function') await window.epSaveActiveDbV7(); else if(typeof renderDbEditors==='function') renderDbEditors(); }catch(e){ toast('⚠️ Изменено локально, но сервер не подтвердил: '+(e&&e.message?e.message:e)); } }
-  window.epV14MoveSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выдели позиции галочками'); var cat=$('ep-v14-cat-'+type), sub=$('ep-v14-sub-'+type); var c=cat?cat.value.trim():'', g=sub?sub.value.trim():''; if(!c&&!g) return toast('Укажи категорию или подкатегорию'); var arr=activeArr(type).map(function(it){ if(ids.indexOf(String(it.id||''))>=0){ var x=Object.assign({},it); if(c) x.c=c; if(g){ x.g=g; x.sc=g; x.subcategory=g; } return x; } return it; }); setActiveArr(type,arr); toast('📦 Перемещено: '+ids.length); await saveActiveAfterBulk(); setTimeout(injectBulkPanel,150); };
-  window.epV14DeleteSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выдели позиции галочками'); var ok=true; try{ ok=typeof customConfirm==='function'?await customConfirm('Удаление позиций','Удалить выбранные позиции: '+ids.length+'?'):confirm('Удалить выбранные позиции: '+ids.length+'?'); }catch(e){ ok=confirm('Удалить выбранные позиции: '+ids.length+'?'); } if(!ok) return; var arr=activeArr(type).filter(function(it){return ids.indexOf(String(it.id||''))<0;}); setActiveArr(type,arr); toast('🗑 Удалено: '+ids.length); await saveActiveAfterBulk(); setTimeout(injectBulkPanel,150); };
-
-  function patchAll(){
-    window.epGenerateShieldV14=epGenerateShieldV14;
-    window.generateCascadePanel=epGenerateShieldV14;
-    window.epGenerateShieldFixed=epGenerateShieldV14;
-    try{ generateCascadePanel=epGenerateShieldV14; }catch(e){}
-    window.renderMainTable=renderMainTableV14; try{ renderMainTable=renderMainTableV14; }catch(e){}
-    window.showPreview=showDetailsV14; try{ showPreview=showDetailsV14; }catch(e){}
-    Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ var txt=btn.textContent||''; if(txt.indexOf('Сгенерировать щит')>=0) btn.onclick=epGenerateShieldV14; });
-    injectBulkPanel();
+    if (sWall !== 'Накладной') w.push(work(`Ниша щита ${boxSize}М (${sWall})`, boxSize, appLogic.shieldNichePerModule || 400, ['ниша', 'щит', sWall, String(boxSize)], { unit: 'мод.', category: 'Штробление и резка', subcategory: 'Ниши щита' }, 'Ниша под корпус щита'));
+    if (sWall !== 'Накладной') w.push(work(`Штроба 100×50, под трассу кабелей (${sWall})`, 2, appLogic.shieldInputGroovePrice || 1500, ['штроба', '100x50', sWall, 'трасса', 'кабелей'], { unit: 'м.п.', category: 'Штробление и резка', subcategory: 'Штроба 100×50 под трассу кабелей' }, 'Штроба под ввод/трассу кабелей'));
+    w.push(work('Сборка щита', totalModules, appLogic.priceShield || 500, ['сборка', 'щит'], { unit: 'мод.', category: 'Щитовое', subcategory: 'Сборка щита' }, 'Сборка модульного щита'));
+    w.push(work('Установка щита', 1, appLogic.shieldInstallPrice || 2500, ['установка', 'щит'], { unit: 'шт', category: 'Щитовое', subcategory: 'Монтаж щита' }, 'Монтаж корпуса щита'));
+    w.push(work('Подключение вводного кабеля', 1, appLogic.shieldInputConnectPrice || 1500, ['подключение', 'вводного', 'кабеля'], { unit: 'шт', category: 'Щитовое', subcategory: 'Монтаж щита' }, 'Подключение ввода'));
+    w.push(work('Прозвонка / проверка линий', lines.length, appLogic.shieldTestLinePrice || 150, ['прозвонка', 'проверка', 'линий'], { unit: 'линия', category: 'Щитовое', subcategory: 'Проверка линий' }, 'Проверка каждой линии'));
+    w.push(work('Маркировка линий', lines.length, appLogic.shieldMarkLinePrice || 100, ['маркировка', 'линий'], { unit: 'линия', category: 'Щитовое', subcategory: 'Маркировка линий' }, 'Маркировка каждой линии'));
+    if (epGetCheck('cfg-scheme')) w.push(work('Составление однолинейной схемы щита', 1, appLogic.shieldSchemePrice || 4000, ['однолинейная', 'схема', 'щит'], { unit: 'шт', category: 'Щитовое', subcategory: 'Документация' }, 'Однолинейная схема'));
+    const info = [
+        { n: `ℹ️ Щит: занято ${totalModules} мод.; корпус ${boxSize}М; свободно ${Math.max(0, boxSize - totalModules)} мод.`, q: 1, p: 0, type: 'work', tag: 'shield_info' },
+        { n: `ℹ️ Защита: ${protectionType}; автоматы тип ${curve}; УЗО/ДИФ тип ${rcdType}; влажные зоны 10мА`, q: 1, p: 0, type: 'work', tag: 'shield_info' },
+        { n: `ℹ️ Гребёнки: 1P ${comb1P}×25см; 2P ${comb2P}×25см; N-шинок ${twoPoleProtectionCount}; PE-шина ${appLogic.shieldPeBusContacts || 26} контактов`, q: 1, p: 0, type: 'work', tag: 'shield_info' }
+    ];
+    warnings.forEach(x => info.push({ n: `⚠️ ${x}`, q: 1, p: 0, type: 'work', tag: 'shield_info' }));
+    addAuto(m.concat(w).concat(info), 'shield');
+    currentShieldExtras = [];
+    closeModal('configModal');
+    showToast('✅ Щит сгенерирован V16');
+}
+  function isShieldDeviceV16(it){
+    if(!it || it.type!=='mat') return false;
+    var n=String(it.n||''), k=String(it.dbMeta&&it.dbMeta.kind||'');
+    return /[ABCDАВСД]\s*\d{1,3}|автомат|узо|диф|реле|контактор|вводной/i.test(n) || /automatic|breaker|uzo|dif|relay|contactor/i.test(k);
   }
-  var oldRenderDbV14=window.renderDbEditors;
-  if(typeof oldRenderDbV14==='function' && !oldRenderDbV14.__ep_v14_wrapped){ window.renderDbEditors=function(){ var r=oldRenderDbV14.apply(this,arguments); setTimeout(injectBulkPanel,0); return r; }; window.renderDbEditors.__ep_v14_wrapped=true; try{ renderDbEditors=window.renderDbEditors; }catch(e){} }
-  document.addEventListener('click',function(ev){ var t=ev.target&&ev.target.closest?ev.target.closest('button'):null; if(!t) return; var txt=t.textContent||''; if(txt.indexOf('Сгенерировать щит')>=0){ ev.preventDefault(); ev.stopImmediatePropagation(); epGenerateShieldV14(); } }, true);
-  function boot(){ patchAll(); try{ normalizeEstimateV14(); }catch(e){} try{ renderMainTableV14(); }catch(e){} }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,250); }); else setTimeout(boot,80);
-  setTimeout(boot,900); setTimeout(boot,2000); setInterval(function(){ try{ Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ if((btn.textContent||'').indexOf('Сгенерировать щит')>=0) btn.onclick=epGenerateShieldV14; }); }catch(e){} },3000);
+  function getAssignV16(it){
+    if(window.epV15GetAssignments) return window.epV15GetAssignments(it);
+    var out=[]; function add(v){v=String(v||'').trim(); if(v && !/позиция щита|общая \/ вводная|назначение не указано/i.test(v) && out.indexOf(v)<0) out.push(v);}
+    if(it){ if(Array.isArray(it.epAssignments)) it.epAssignments.forEach(add); if(Array.isArray(it.epMergedDetails)) it.epMergedDetails.forEach(add); add(it.epAssignment); if(it.dbMeta) add(it.dbMeta.assignment); }
+    return out;
+  }
+  function purposeV16(it){ return window.epV15Purpose ? window.epV15Purpose(it) : 'аппарат щита'; }
+  function normalizeV16(){ if(window.epV15NormalizeCurrentEstimate) window.epV15NormalizeCurrentEstimate(); }
+  function showDetailsV16(customTitle){
+    normalizeV16();
+    try{ currentPreviewMode='details'; }catch(e){}
+    var html = (typeof getPDFHeader==='function') ? getPDFHeader(customTitle || 'ДЕТАЛИЗАЦИЯ ЩИТА') : '<h2>ДЕТАЛИЗАЦИЯ ЩИТА</h2>';
+    var f=$('pdf-filters'); if(f) f.style.display='none';
+    var items=(window.currentEstimate||[]).filter(isShieldDeviceV16);
+    html += '<table class="pdf-table"><tr><th>Что отвечает / линия</th><th>Аппарат</th><th>Назначение</th></tr>';
+    if(!items.length) html += '<tr><td colspan="3" style="text-align:center;color:var(--gray);font-weight:900;">Щит ещё не сгенерирован</td></tr>';
+    else items.forEach(function(it){
+      var lines=getAssignV16(it); if(!lines.length) lines=['назначение не указано — нажми «Сгенерировать щит» ещё раз'];
+      html += '<tr><td style="font-weight:bold;color:var(--primary);">'+lines.map(esc).join('<br>')+'</td><td>'+esc(it.n)+(Number(it.q)>1?' × '+Number(it.q):'')+'</td><td>'+esc(purposeV16(it))+'</td></tr>';
+    });
+    html += '</table>';
+    var p=$('p-cont'); if(p) p.innerHTML=html;
+    if(typeof openModal==='function') openModal('previewModal');
+  }
+  var previousPreview = window.showPreview;
+  window.showPreview=function(mode,isActOverride,customTitle){
+    if(mode==='details') return showDetailsV16(customTitle);
+    return previousPreview ? previousPreview.apply(this,arguments) : undefined;
+  };
+  try{ showPreview=window.showPreview; }catch(e){}
+  window.epV16GenerateCascadePanel = epV16GenerateCascadePanel;
+  window.generateCascadePanel = epV16GenerateCascadePanel;
+  window.epGenerateShieldFixed = epV16GenerateCascadePanel;
+  try{ generateCascadePanel = epV16GenerateCascadePanel; }catch(e){}
+  function bindButtons(){
+    try{ Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ if((btn.textContent||'').indexOf('Сгенерировать щит')>=0) btn.onclick=epV16GenerateCascadePanel; }); }catch(e){}
+  }
+  document.addEventListener('click',function(ev){
+    var t=ev.target&&ev.target.closest?ev.target.closest('button'):null; if(!t) return;
+    if((t.textContent||'').indexOf('Сгенерировать щит')>=0){ ev.preventDefault(); ev.stopImmediatePropagation(); epV16GenerateCascadePanel(); }
+  },true);
+  var oldRender = window.renderMainTable;
+  window.renderMainTable=function(){ try{normalizeV16();}catch(e){} return oldRender?oldRender.apply(this,arguments):undefined; };
+  try{ renderMainTable=window.renderMainTable; }catch(e){}
+  function boot(){ bindButtons(); try{normalizeV16(); if(typeof oldRender==='function') oldRender();}catch(e){} }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(boot,150);}); else setTimeout(boot,150);
+  setTimeout(boot,800); setInterval(bindButtons,2500);
+  setTimeout(function(){ try{showToast('V16 загружена');}catch(e){} },700);
 })();
 </script>
 
