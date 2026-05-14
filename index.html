@@ -9794,6 +9794,208 @@ async function deleteUser(uid) {
 </script>
 <!-- EP_V13_SHIELD_DETAIL_NAMES_BULK_DB: end -->
 
+
+
+<script id="EP_V14_SHIELD_DETAIL_BULK_FORCE">
+/* EP V14 — force-applied surgical patch:
+   - real shield line assignments in details;
+   - readable automation names (C16 1P ИЭК ВА47-29 etc.);
+   - visible bulk move/delete panel in active DB.
+*/
+(function(){
+  if(window.EP_V14_SHIELD_DETAIL_BULK_FORCE) return;
+  window.EP_V14_SHIELD_DETAIL_BULK_FORCE = true;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+  function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[×х]/g,'x').replace(/[‐‑‒–—]/g,'-').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
+  function compact(s){ return norm(s).replace(/\s+/g,''); }
+  function money(v){ var n=Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
+  function toast(t){ try{ if(typeof showToast==='function') showToast(t); else console.log(t); }catch(e){ console.log(t); } }
+  function uniq(a){ var out=[]; (a||[]).forEach(function(x){ x=String(x||'').trim(); if(x && out.indexOf(x)<0) out.push(x); }); return out; }
+  function clone(o){ try{return JSON.parse(JSON.stringify(o||{}));}catch(e){return Object.assign({},o||{});} }
+  function scope(){ try{return localStorage.getItem('ep_db_scope_v2')==='global'?'global':'my';}catch(e){return 'my';} }
+  function isAdmin(){ try{return !!(window.appUser && appUser.role==='admin');}catch(e){return false;} }
+  function canEditActive(){ return scope()==='my' || (scope()==='global' && isAdmin()); }
+  function readArr(k){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function writeArr(k,a){ try{ if(typeof safeSet==='function') safeSet(k, JSON.stringify(a||[])); else localStorage.setItem(k, JSON.stringify(a||[])); }catch(e){ try{localStorage.setItem(k,JSON.stringify(a||[]));}catch(_e){} } }
+  function readObj(k){ try{ var o=JSON.parse(localStorage.getItem(k)||'{}'); return o&&typeof o==='object'?o:{}; }catch(e){ return {}; } }
+  function writeObj(k,o){ try{ localStorage.setItem(k,JSON.stringify(o||{})); }catch(e){} }
+  function getMy(type){ var a=type==='work'?window.EP_MY_WORK:window.EP_MY_MAT; if(Array.isArray(a)) return a.slice(); return readArr(type==='work'?'user_db_work_v31':'user_db_mat_v31'); }
+  function getServer(type){ var a=type==='work'?window.EP_GLOBAL_WORK:window.EP_GLOBAL_MAT; if(Array.isArray(a)) return a.slice(); var c=readObj('ep_global_cache_force_v1'); a=type==='work'?c.workDB:c.matDB; return Array.isArray(a)?a.slice():[]; }
+  function setMy(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work'){ window.EP_MY_WORK=arr; writeArr('user_db_work_v31',arr); } else { window.EP_MY_MAT=arr; writeArr('user_db_mat_v31',arr); } try{ window.userMatDB=getMy('mat'); window.userWorkDB=getMy('work'); }catch(e){} if(scope()==='my') syncMain('my'); }
+  function setServer(type,arr){ arr=Array.isArray(arr)?arr:[]; if(type==='work') window.EP_GLOBAL_WORK=arr; else window.EP_GLOBAL_MAT=arr; var mat=type==='mat'?arr:getServer('mat'), work=type==='work'?arr:getServer('work'); window.EP_FORCE_GLOBAL={matDB:mat,workDB:work}; window.EP_ULTIMATE_DB_CACHE={matDB:mat,workDB:work,ts:Date.now()}; window.EP_GLOBAL_DB_VISIBLE_CACHE={matDB:mat,workDB:work,ts:Date.now()}; writeObj('ep_global_cache_force_v1',{matDB:mat,workDB:work,ts:Date.now()}); if(scope()==='global') syncMain('global'); }
+  function activeArr(type){ return scope()==='global'?getServer(type):getMy(type); }
+  function setActiveArr(type,arr){ if(scope()==='global') setServer(type,arr); else setMy(type,arr); }
+  function syncMain(target){ target=target||scope(); try{ window.matDB=(target==='global'?getServer('mat'):getMy('mat')); window.workDB=(target==='global'?getServer('work'):getMy('work')); try{ matDB=window.matDB; workDB=window.workDB; }catch(e){} }catch(e){} }
+  function groupOf(it){ return (it&&(it.g||it.sc||it.subcategory||it.group))||''; }
+
+  function brandCode(s){ var n=norm(s); if(n.indexOf('abb')>=0) return 'ABB'; if(n.indexOf('iek')>=0||n.indexOf('иэк')>=0||n.indexOf('иек')>=0) return 'IEK'; if(n.indexOf('schneider')>=0||n.indexOf('шнайдер')>=0) return 'Schneider'; if(n.indexOf('legrand')>=0) return 'Legrand'; if(n.indexOf('ekf')>=0) return 'EKF'; if(n.indexOf('hager')>=0) return 'Hager'; if(n.indexOf('tekfor')>=0||n.indexOf('текфор')>=0) return 'Tekfor'; return ''; }
+  function brandRu(s){ var b=brandCode(s)||String(s||'').trim(); if(b==='IEK') return 'ИЭК'; return b; }
+  function detectModel(s){ var raw=String(s||''); var pats=[/ВА\s*47\s*[-–—]?\s*\d+/i,/ВД\s*1\s*[-–—]?\s*\d+/i,/АД\s*12\s*[-–—]?\s*\d*/i,/DSH\s*\d+/i,/SH\s*\d+/i,/S\s*20\d/i,/TX\s*3/i,/DX\s*3/i,/RX\s*3/i,/Easy\s*9/i,/Resi\s*9/i,/Acti\s*9/i,/ЩРВ\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i,/ЩРН\s*[-–—]?\s*П\s*[-–—]?\s*\d+/i];
+    for(var i=0;i<pats.length;i++){ var m=raw.match(pats[i]); if(m) return m[0].replace(/\s+/g,'').replace(/[–—]/g,'-').toUpperCase(); }
+    var p=raw.match(/\((.*?)\)/); if(p) return detectModel(p[1]);
+    return '';
+  }
+  function detectPoles(s){ var m=String(s||'').match(/([1-4])\s*[PРП]/i); if(m) return m[1]+'P'; m=String(s||'').match(/([1-4])\s*пол/i); return m?m[1]+'P':''; }
+  function detectAmp(s){ var m=String(s||'').match(/(\d{1,3})\s*[AaАа]\b/); return m?Number(m[1]):0; }
+  function detectLeakage(s){ var m=String(s||'').match(/(10|30|100|300)\s*м?а/i); return m?Number(m[1]):0; }
+  function nominalAmp(n){ var m=String(n||'').match(/(\d{1,3})/); return m?Number(m[1]):0; }
+  function itemBlob(it){ return String([it&&it.c,it&&it.g,it&&it.sc,it&&it.subcategory,it&&it.kind,it&&it.brand,it&&it.nominal,it&&it.leakage,it&&it.rcdType,it&&it.n].filter(Boolean).join(' ')); }
+  function itemHasAmp(it, amp){ var b=compact(itemBlob(it)); return !amp || b.indexOf(String(amp)+'a')>=0 || b.indexOf(String(amp)+'а')>=0 || b.indexOf('c'+amp)>=0 || b.indexOf('b'+amp)>=0 || b.indexOf('a'+amp)>=0 || b.indexOf('d'+amp)>=0 || Number(it&&it.nominal)===amp; }
+  function itemHasLeak(it, leak){ var b=compact(itemBlob(it)); return !leak || b.indexOf(String(leak)+'ма')>=0 || b.indexOf(String(leak)+'ma')>=0 || String(it&&it.leakage)===String(leak); }
+
+  function findMat(meta,label){
+    meta=meta||{}; label=String(label||''); syncMain(scope());
+    var arr=[]; try{ arr=(window.matDB||matDB||[]).slice(); }catch(e){ arr=activeArr('mat'); }
+    if(!arr.length) arr=activeArr('mat');
+    var kind=String(meta.kind||'').toLowerCase(), brand=brandCode(meta.brand||label), amp=nominalAmp(meta.nominal||label), leak=meta.leakage||detectLeakage(label);
+    var want='other';
+    if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0||meta.nominal) want='auto';
+    else if(kind.indexOf('dif')>=0||/диф/i.test(label)) want='dif';
+    else if(kind.indexOf('uzo')>=0||kind.indexOf('узо')>=0||/узо/i.test(label)) want='uzo';
+    else if(kind.indexOf('shield_box')>=0||/щит|корпус|шкаф|бокс/i.test(label)) want='shield';
+    else if(kind.indexOf('comb')>=0||/греб/i.test(label)) want='comb';
+    else if(kind.indexOf('bus')>=0||/шина|клемм/i.test(label)) want='bus';
+    else if(kind.indexOf('din')>=0||/din|дин|рейк|огранич/i.test(label)) want='din';
+    else if(kind.indexOf('pugv')>=0||/пугв/i.test(label)) want='pugv';
+    else if(kind.indexOf('lug')>=0||/ншви|наконеч/i.test(label)) want='lug';
+    else if(kind.indexOf('mark')>=0||/маркир|бирк/i.test(label)) want='mark';
+    var best=null, score=-999;
+    arr.forEach(function(it){ if(!it||!it.n) return; var b=norm(itemBlob(it)); var s=0;
+      if(want==='auto'){ if(b.indexOf('автомат')<0 && !/[abcd]\s*\d{1,3}/i.test(b) && b.indexOf('breaker')<0) return; if(!itemHasAmp(it,amp)) return; s+=70; }
+      else if(want==='dif'){ if(b.indexOf('диф')<0) return; if(!itemHasLeak(it,leak)) return; s+=70; }
+      else if(want==='uzo'){ if(b.indexOf('узо')<0) return; if(!itemHasLeak(it,leak)) return; s+=70; }
+      else if(want==='shield'){ if(b.indexOf('щит')<0&&b.indexOf('корпус')<0&&b.indexOf('шкаф')<0&&b.indexOf('бокс')<0) return; s+=50; }
+      else if(want==='comb'){ if(b.indexOf('греб')<0) return; s+=50; }
+      else if(want==='bus'){ if(b.indexOf('шина')<0&&b.indexOf('клемм')<0) return; s+=50; }
+      else if(want==='din'){ if(b.indexOf('din')<0&&b.indexOf('дин')<0&&b.indexOf('рейк')<0&&b.indexOf('огранич')<0) return; s+=50; }
+      else if(want==='pugv'){ if(b.indexOf('пугв')<0) return; s+=50; }
+      else if(want==='lug'){ if(b.indexOf('ншви')<0&&b.indexOf('наконеч')<0) return; s+=50; }
+      else if(want==='mark'){ if(b.indexOf('маркир')<0&&b.indexOf('бирк')<0) return; s+=50; }
+      if(brand){ if(brandCode(itemBlob(it))===brand) s+=20; else if(want==='auto'||want==='dif'||want==='uzo') s-=50; }
+      if(amp && itemHasAmp(it,amp)) s+=20;
+      if(leak && itemHasLeak(it,leak)) s+=20;
+      if(detectModel(it.n)) s+=7;
+      if(s>score){ score=s; best=it; }
+    });
+    return score>=45?best:null;
+  }
+  function autoName(found,meta,label){ meta=meta||{}; var src=String((found&&found.n)||label||''); var nominal=String(meta.nominal||'').toUpperCase(); if(!nominal){ var amp=nominalAmp(label)||detectAmp(src); nominal=(meta.curve||'C')+(amp||''); } var poles=meta.poles||detectPoles(src)||'1P'; var brand=brandRu(meta.brand||brandCode(src)||label); var model=detectModel(src); return [nominal,poles,brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim(); }
+  function rcdName(found,meta,label){ meta=meta||{}; var src=String((found&&found.n)||label||''); var kind=(String(meta.kind||'').toLowerCase().indexOf('dif')>=0||/диф/i.test(label))?'ДИФ':'УЗО'; var poles=meta.poles||detectPoles(src)||'2P'; var amp=meta.amp||detectAmp(src)||40; var leakage=meta.leakage||detectLeakage(label)||detectLeakage(src); var typ=meta.rcdType||''; var brand=brandRu(meta.brand||brandCode(src)||label); var model=detectModel(src); return [kind,poles,amp?amp+'A':'',leakage?leakage+'мА':'',typ?'тип '+typ:'',brand,model].filter(Boolean).join(' ').replace(/\s+/g,' ').trim(); }
+  function displayMat(found,meta,label){ meta=meta||{}; var kind=String(meta.kind||'').toLowerCase(); if(kind.indexOf('automatic')>=0||kind.indexOf('breaker')>=0) return autoName(found,meta,label); if(kind.indexOf('dif')>=0||kind.indexOf('uzo')>=0) return rcdName(found,meta,label); return found&&found.n?String(found.n).trim():String(label||'Позиция').replace(/\s+—\s+.*$/,'').trim(); }
+  function makeMat(label,q,price,meta,assignment){ var found=findMat(meta,label); var name=displayMat(found,meta,label); return {n:name,q:q,p:found?money(found.p):money(price),u:(found&&found.u)||(meta&&meta.unit)||'шт',type:'mat',tag:'shield',sourceId:(found&&found.id)||null,dbMeta:Object.assign({},meta||{},{assignment:assignment||'',sourceName:(found&&found.n)||''}),epAssignment:assignment||'',epAssignments:assignment?[assignment]:[],epRawLabel:label}; }
+  function makeWork(name,q,price,unit,cat,grp){ return {n:name,q:q,p:money(price),u:unit||'шт',type:'work',tag:'shield',c:cat||'Щитовое',g:grp||'',sc:grp||'',epRawLabel:name}; }
+  function getVal(id,def){ var el=$(id); return el?el.value:def; }
+  function getCheck(id){ var el=$(id); return !!(el&&el.checked); }
+  function count(key,id,def){ var el=$(id); var n=Number(el?(el.textContent||el.value):NaN); if(Number.isFinite(n)) return n; try{ if(window.cfg&&Number.isFinite(Number(window.cfg[key]))) return Number(window.cfg[key]); }catch(e){} return def||0; }
+  function logic(key,def){ try{ if(window.appLogic && Number(appLogic[key])) return Number(appLogic[key]); }catch(e){} return def; }
+
+  function epGenerateShieldV14(){
+    try{
+      syncMain(scope());
+      var bBox=getVal('cfg-brand-box','Tekfor'), bAuto=getVal('cfg-brand-auto','IEK'), wall=getVal('cfg-shield-wall','Бетон');
+      var ph=parseInt(getVal('cfg-phase','1'),10)||1, curve=getVal('cfg-auto-curve','C'), rcdType=getVal('cfg-rcd-type','A'), protectionType=getVal('cfg-protection-type','uzo_auto');
+      var isMaster=getCheck('cfg-master'), heavySeparate=getCheck('cfg-heavy-separate');
+      var mats=[], works=[], lines=[], prot=[];
+      function addLine(name,nom,group,opts){ opts=opts||{}; lines.push({name:name,nominal:nom,group:group,wet:group==='wet'||!!opts.wet,nonSwitchable:!!opts.nonSwitchable}); }
+      function addRoom(label,cnt,wet){ for(var i=1;i<=cnt;i++){ var nm=cnt>1?label+' '+i:label; addLine(nm+' розетки','C16',wet?'wet':'power',{wet:wet}); addLine(nm+' свет','C10','light'); } }
+      addRoom('Кухня',count('kits','v-kits',1),false); addRoom('Ванная',count('baths','v-baths',1),true); addRoom('Туалет',count('toilets','v-toilets',1),true); addRoom('Комната',count('rms','v-rms',1),false); addRoom('Балкон',count('bals','v-bals',0),false);
+      if(getCheck('c-apron')) addLine('Фартук кухни','C16','power');
+      if(getCheck('c-dish')) addLine('Посудомойка','C10','power');
+      if(getCheck('c-washer')) addLine('Стиралка/сушилка','C10','wet',{wet:true});
+      if(getCheck('c-towel')) addLine('Полотенцесушитель','C10','wet',{wet:true});
+      for(var ac=1; ac<=count('acs','v-acs',0); ac++) addLine('Кондиционер '+ac,'C10','climate');
+      for(var fl=1; fl<=count('fls','v-fls',0); fl++) addLine('Тёплый пол '+fl,'C10','climate');
+      if(getCheck('c-fridge')) addLine('Холодильник, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true});
+      if(getCheck('c-neptun')) addLine('Нептун, неотключаемая группа','C10','alwaysOn',{nonSwitchable:true});
+      if(getCheck('c-router')) addLine('Роутер, неотключаемая группа','C6','alwaysOn',{nonSwitchable:true});
+      var hob=getVal('c-hob-power','none'); if(hob==='6') addLine('Плита до 6 кВт','C25',heavySeparate?'heavy':'power'); if(hob==='10') addLine('Плита до 10 кВт','C32',heavySeparate?'heavy':'power');
+      var boiler=getVal('c-boiler-power','none'); if(boiler==='6') addLine('Бойлер до 6 кВт','C25','wet',{wet:true}); if(boiler==='10') addLine('Бойлер до 10 кВт','C32','wet',{wet:true});
+      var groups={power:'Силовые линии',climate:'Климат',wet:'Влажные зоны',light:'Освещение',heavy:'Большая техника',alwaysOn:'Неотключаемые группы',main:'Главная защита'};
+      var present=uniq(lines.map(function(l){return l.group;}));
+      function addProt(g,kind){ prot.push({group:g,kind:kind,leakage:g==='wet'?10:30}); }
+      if(protectionType==='main_dif_auto') prot.push({group:'main',kind:'Главный ДИФ',leakage:30});
+      else if(protectionType==='mixed') present.forEach(function(g){ addProt(g,g==='wet'?'ДИФ':'УЗО'); });
+      else present.forEach(function(g){ addProt(g,protectionType==='dif_auto'?'ДИФ':'УЗО'); });
+      var autoPrice=bAuto==='ABB'?350:155, difPrice=bAuto==='ABB'?4500:3600;
+      mats.push(makeMat('Вводной автомат '+(ph===3?'3P':'2P')+' '+bAuto,1,bAuto==='ABB'?3500:1800,{kind:'input_breaker',brand:bAuto,poles:ph===3?'3P':'2P',category:'Автоматика',subcategory:'Автоматы'},'Вводная линия щита'));
+      prot.forEach(function(p){ var assign=(groups[p.group]||p.group)+(p.leakage===10?' / защита 10 мА':' / групповая защита 30 мА'); var kind=p.kind==='УЗО'?'uzo':'dif'; mats.push(makeMat(p.kind+' '+assign+' '+bAuto,1,difPrice,{kind:kind,brand:bAuto,poles:'2P',amp:40,leakage:p.leakage,rcdType:rcdType,category:'Автоматика',subcategory:p.kind==='УЗО'?'УЗО':'ДИФы'},assign)); });
+      lines.forEach(function(line){ mats.push(makeMat(line.nominal+' 1P '+bAuto,1,autoPrice,{kind:'automatic',brand:bAuto,nominal:line.nominal,curve:curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы',group:line.group},line.name)); });
+      var relayModules=0; if(getCheck('cfg-uzm')){ relayModules=ph===3?6:2; mats.push(makeMat('Реле напряжения '+bAuto,ph===3?3:1,4500,{kind:'voltage_relay',brand:bAuto,category:'Автоматика',subcategory:'УЗМ / реле напряжения'},'Защита от перенапряжения')); }
+      if(isMaster){ mats.push(makeMat('Контактор C40 '+bAuto,1,2200,{kind:'contactor',brand:bAuto,amp:40,poles:'2P',category:'Автоматика',subcategory:'Контакторы'},'Мастер-кнопка света')); mats.push(makeMat('C40 1P '+bAuto,1,autoPrice,{kind:'automatic',brand:bAuto,nominal:'C40',curve:curve,poles:'1P',category:'Автоматика',subcategory:'Автоматы'},'Байпас мастер-кнопки света')); }
+      try{ (window.currentShieldExtras||[]).forEach(function(ex){ mats.push({n:ex.n,q:Number(ex.q)||1,p:Number(ex.p)||0,u:ex.u||'шт',type:'mat',tag:'shield',epAssignments:['Дополнительный аппарат защиты'],epAssignment:'Дополнительный аппарат защиты'}); }); }catch(e){}
+      var onePole=lines.length+(isMaster?1:0), twoPole=prot.length, masterModules=isMaster?3:0; var extraModules=0; try{ extraModules=(window.currentShieldExtras||[]).reduce(function(s,ex){return s+(Number(ex.modules||1)*Number(ex.q||1));},0); }catch(e){}
+      var totalModules=Math.ceil(onePole+twoPole*2+relayModules+masterModules+extraModules+(ph===3?3:2)); var sizes=[6,12,24,36,48,60,72], boxSize=sizes.find(function(x){return x>=totalModules;})||72;
+      mats.unshift(makeMat('Щит '+(wall==='Накладной'?'накладной':'встраиваемый')+' '+bBox+' '+boxSize+'М',1,bBox==='ABB'?6510:2660,{kind:'shield_box',brand:bBox,modules:boxSize,category:'Щитовое',subcategory:wall==='Накладной'?'Корпуса → Накладной':'Корпуса → Встраиваемый'},'Корпус щита '+boxSize+' мод.'));
+      var rows=Math.ceil(boxSize/12), comb1P=Math.ceil(onePole/12), comb2P=Math.ceil(twoPole/6), pugvSize=Number((window.appLogic||{}).shieldPugvSize||6), pugvMeters=Math.max(4,Math.ceil(totalModules*.4)), nshviPacks=Math.max(1,Math.ceil(boxSize/48));
+      if(comb1P>0) mats.push(makeMat('Гребёнка 1P 25см',comb1P,250,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание однополюсных автоматов'));
+      if(comb2P>0) mats.push(makeMat('Гребёнка 2P 25см',comb2P,450,{kind:'comb_bus',category:'Щитовое',subcategory:'Расходка под сборку → Гребёнки'},'Питание УЗО/ДИФ'));
+      if(twoPole>0) mats.push(makeMat('Нулевая шинка N на группу УЗО/ДИФ',twoPole,285,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'N-шинки по группам защиты'));
+      mats.push(makeMat('PE-шина на 26 контактов',1,770,{kind:'busbar',category:'Щитовое',subcategory:'Расходка под сборку → Шинки / клеммники'},'Защитное заземление PE'));
+      mats.push(makeMat('DIN-рейка / комплект DIN для щита',rows,180,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Крепление модульных аппаратов'));
+      mats.push(makeMat('Ограничитель на DIN-рейку',rows*2,35,{kind:'din',category:'Щитовое',subcategory:'Расходка под сборку → DIN-рейки / ограничители'},'Фиксация аппаратов на DIN-рейке'));
+      mats.push(makeMat('Провод ПуГВ 1×'+pugvSize,pugvMeters,85,{kind:'pugv',unit:'м.п.',category:'Щитовое',subcategory:'Расходка под сборку → Провода'},'Внутренняя разводка щита'));
+      mats.push(makeMat('НШВИ 1×'+pugvSize+', упак. 100 шт',nshviPacks,225,{kind:'lug_pack',category:'Щитовое',subcategory:'Расходка под сборку → Наконечники'},'Опрессовка проводов щита'));
+      mats.push(makeMat('Маркировка линий / бирки',lines.length,15,{kind:'marking',category:'Щитовое',subcategory:'Расходка под сборку → Маркировка'},'Маркировка '+lines.length+' линий'));
+      if(getCheck('cfg-cable-glands')) mats.push(makeMat('Кабельные вводы / сальники',1,250,{kind:'glands',category:'Щитовое',subcategory:'Расходка под сборку → Кабельные вводы'},'Ввод кабелей в щит'));
+      if(wall!=='Накладной') works.push(makeWork('Ниша щита '+boxSize+'М ('+wall+')',boxSize,logic('shieldNichePerModule',400),'мод.','Штробление и резка','Ниши щита'));
+      if(wall!=='Накладной') works.push(makeWork('Штроба 100×50, под трассу кабелей ('+wall+')',2,logic('shieldInputGroovePrice',1500),'м.п.','Штробление и резка','Штроба 100×50 под трассу кабелей'));
+      works.push(makeWork('Сборка щита',totalModules,logic('priceShield',500),'мод.','Щитовое','Сборка щита'));
+      works.push(makeWork('Установка щита',1,logic('shieldInstallPrice',2500),'шт','Щитовое','Монтаж щита'));
+      works.push(makeWork('Подключение вводного кабеля',1,logic('shieldInputConnectPrice',1500),'шт','Щитовое','Монтаж щита'));
+      works.push(makeWork('Прозвонка / проверка линий',lines.length,logic('shieldTestLinePrice',150),'линия','Щитовое','Проверка линий'));
+      works.push(makeWork('Маркировка линий',lines.length,logic('shieldMarkLinePrice',100),'линия','Щитовое','Маркировка линий'));
+      if(getCheck('cfg-scheme')) works.push(makeWork('Составление однолинейной схемы щита',1,logic('shieldSchemePrice',4000),'шт','Щитовое','Документация'));
+      works.push({n:'ℹ️ Щит: занято '+totalModules+' мод.; корпус '+boxSize+'М; свободно '+Math.max(0,boxSize-totalModules)+' мод.',q:1,p:0,type:'work',tag:'shield_info'});
+      works.push({n:'ℹ️ Защита: '+protectionType+'; автоматы тип '+curve+'; УЗО/ДИФ тип '+rcdType+'; влажные зоны 10мА',q:1,p:0,type:'work',tag:'shield_info'});
+      works.push({n:'ℹ️ Гребёнки: 1P '+comb1P+'×25см; 2P '+comb2P+'×25см; N-шинок '+twoPole+'; PE-шина 26 контактов',q:1,p:0,type:'work',tag:'shield_info'});
+      if(typeof window.addAuto==='function') window.addAuto(mats.concat(works),'shield'); else { window.currentEstimate=(window.currentEstimate||[]).filter(function(x){return x.tag!=='shield'&&x.tag!=='shield_info';}).concat(mats,works); }
+      normalizeEstimateV14(); renderMainTableV14(); try{ closeModal('configModal'); }catch(e){} toast('✅ Щит сгенерирован V14');
+    }catch(err){ console.error('EP V14 shield generate failed',err); toast('❌ Ошибка щита: '+(err&&err.message?err.message:err)); }
+  }
+
+  function canonicalName(it){ var n=String((it&&it.n)||'').replace(/^⚠️\s*/,'').trim(); var meta=(it&&it.dbMeta)||{}; if(meta.kind){ var k=String(meta.kind).toLowerCase(); if(k.indexOf('automatic')>=0||k.indexOf('breaker')>=0) return autoName(null,meta,n); if(k.indexOf('uzo')>=0||k.indexOf('dif')>=0) return rcdName(null,meta,n); } if(/Автомат\s+A\s*472/i.test(n)||/Автомат\s+A472/i.test(n)){ var amp=0; if(/C16|С16|16/i.test(String(it.epRawLabel||''))) amp=16; return 'C'+(amp||'')+' 1P ИЭК ВА47-29'; } return n.replace(/\s+—\s+.*$/,'').trim(); }
+  function collectAssignments(it,nm){ var a=[]; if(Array.isArray(it.epAssignments)) a=a.concat(it.epAssignments); if(Array.isArray(it.epMergedDetails)) a=a.concat(it.epMergedDetails); if(it.epAssignment) a.push(it.epAssignment); if(it.dbMeta&&it.dbMeta.assignment) a.push(it.dbMeta.assignment); var raw=String(it.epRawLabel||''); if(raw.indexOf('—')>=0){ var after=raw.split('—').slice(1).join('—').trim(); if(after) a.push(after); } return uniq(a).filter(function(x){return x && x!=='Позиция щита' && x!==nm;}); }
+  function normalizeEstimateV14(){
+    try{ if(!Array.isArray(currentEstimate)) return; var map={}, out=[]; currentEstimate.forEach(function(src){ if(!src) return; var it=clone(src); if(/^ДИФ$/i.test(String(it.n||'').trim())||/^УЗО$/i.test(String(it.n||'').trim())) return; var nm=canonicalName(it); var key=[it.type||'',nm,money(it.p),it.u||'шт',it.tag||''].join('|'); var rec=map[key]; if(!rec){ rec=Object.assign({},it,{n:nm,q:0,epAssignments:[],epMergedDetails:[]}); map[key]=rec; out.push(rec); } rec.q+=Number(it.q)||0; var ass=collectAssignments(it,nm); ass.forEach(function(x){ if(rec.epAssignments.indexOf(x)<0) rec.epAssignments.push(x); if(rec.epMergedDetails.indexOf(x)<0) rec.epMergedDetails.push(x); }); }); currentEstimate=out; try{ window.currentEstimate=currentEstimate; }catch(e){} }catch(e){ console.warn('EP V14 normalize failed',e); }
+  }
+  function fPriceSafe(it){ try{return typeof fPrice==='function'?fPrice(it):money(it&&it.p);}catch(e){return money(it&&it.p);} }
+  function renderMainTableV14(){ normalizeEstimateV14(); var tb=document.querySelector('#mainTable tbody'); if(!tb) return; tb.innerHTML=''; var total=0; (currentEstimate||[]).forEach(function(it,idx){ var q=Number(it.q)||0, sum=fPriceSafe(it)*q; total+=sum; tb.innerHTML+='<tr><td class="col-name editable-name" onclick="openSwapModal('+idx+')" title="Нажмите для замены">'+esc(it.n)+'</td><td class="col-qty"><input type="number" value="'+esc(q)+'" onchange="currentEstimate['+idx+'].q=Number(this.value); renderMainTable();" style="width:50px; padding:6px; margin:0; text-align:center;"></td><td class="col-sum">'+sum+' P</td><td style="text-align:right;"><button onclick="currentEstimate.splice('+idx+',1);renderMainTable();" class="btn-danger" style="padding:6px; border-radius:8px; width:auto; margin:0;">✕</button></td></tr>'; }); var t=$('tot-all'); if(t) t.innerText=total.toLocaleString()+' P'; try{ if(typeof syncDraft==='function') syncDraft(); }catch(e){} }
+  function isShieldDevice(it){ var n=String((it&&it.n)||''); return it && it.type==='mat' && /(\b[ABCD]\d{1,3}\b|\b[АВСД]\d{1,3}\b|Автомат|ДИФ|УЗО|Реле|Контактор|Вводной)/i.test(n); }
+  function detailPurpose(it){ var n=String((it&&it.n)||''); if(/УЗО|ДИФ/i.test(n)) return /10\s*мА/i.test(n)?'защита влажных зон 10 мА':'групповая защита 30 мА'; if(/Контактор/i.test(n)) return 'мастер-кнопка только на свет'; if(/Реле напряж|УЗМ/i.test(n)) return 'защита от перенапряжения'; if(/[ABCDАВСД]\d{1,3}|Автомат/i.test(n)) return 'отдельный автомат линии'; return 'позиция щита'; }
+  function showDetailsV14(mode,isActOverride,customTitle){
+    if(mode!=='details') return oldShowPreviewV14.apply(this,arguments);
+    normalizeEstimateV14(); currentPreviewMode=mode; var html=(typeof getPDFHeader==='function'?getPDFHeader(customTitle||'ДЕТАЛИЗАЦИЯ ЩИТА'):'<h2>ДЕТАЛИЗАЦИЯ ЩИТА</h2>'); var filters=$('pdf-filters'); if(filters) filters.style.display='none';
+    var items=(currentEstimate||[]).filter(isShieldDevice); html+='<table class="pdf-table"><tr><th>Что отвечает / линия</th><th>Аппарат</th><th>Назначение</th></tr>'; if(!items.length){ html+='<tr><td colspan="3" style="text-align:center;color:var(--gray);">Щит ещё не сгенерирован</td></tr>'; } else { items.forEach(function(it){ var a=uniq((it.epAssignments||[]).concat(it.epMergedDetails||[])); if(!a.length) a=['назначение не указано']; html+='<tr><td style="font-weight:bold;color:var(--primary);">'+a.map(esc).join('<br>')+'</td><td>'+esc(it.n)+(Number(it.q)>1?' × '+Number(it.q):'')+'</td><td>'+esc(detailPurpose(it))+'</td></tr>'; }); } html+='</table>'; var p=$('p-cont'); if(p) p.innerHTML=html; try{ openModal('previewModal'); }catch(e){} }
+  var oldShowPreviewV14=window.showPreview||function(){};
+
+  function selectedIds(type){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root) return []; return Array.prototype.map.call(root.querySelectorAll('.ep-v7-select:checked'),function(x){return String(x.dataset.id||'');}).filter(Boolean); }
+  function injectBulkPanel(){ ['mat','work'].forEach(function(type){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root || root.querySelector('.ep-v14-bulk-panel')) return; var editable=canEditActive(); var title=type==='work'?'работы':'материалы'; var p=document.createElement('div'); p.className='ep-v14-bulk-panel'; p.style.cssText='border:2px solid var(--primary);border-radius:16px;padding:12px;margin:0 0 12px;background:rgba(79,70,229,.07);'; p.innerHTML='<div style="font-weight:900;color:var(--primary);margin-bottom:5px;">🧩 Массовые действия V14: '+title+'</div><div style="font-size:11px;color:var(--gray);font-weight:800;margin-bottom:8px;">Выдели галочками позиции ниже. Можно перенести в категорию/подкатегорию или удалить выбранные. Активная база: '+(scope()==='global'?'База сервера':'Моя база')+'.</div><input id="ep-v14-cat-'+type+'" placeholder="Категория, куда перенести" style="margin-bottom:6px;"><input id="ep-v14-sub-'+type+'" placeholder="Группа / подкатегория" style="margin-bottom:8px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button class="btn-info" style="margin:0;padding:9px;" onclick="epV14SelectVisible(\''+type+'\',true)">✅ Выделить видимые</button><button class="btn-vendor" style="margin:0;padding:9px;" onclick="epV14SelectVisible(\''+type+'\',false)">⬜ Снять</button><button class="btn-success" style="margin:0;padding:9px;" onclick="epV14MoveSelected(\''+type+'\')">📦 Переместить</button><button class="btn-danger" style="margin:0;padding:9px;" onclick="epV14DeleteSelected(\''+type+'\')">🗑 Удалить</button></div>'+(!editable?'<div style="font-size:11px;color:var(--danger);font-weight:900;margin-top:8px;">Эта база сейчас только для просмотра. Сервер редактируется только админом через нужный режим.</div>':''); root.insertBefore(p, root.firstChild); }); }
+  window.epV14SelectVisible=function(type,on){ var root=type==='work'?$('editor-work-list'):$('editor-mat-list'); if(!root) return; Array.prototype.forEach.call(root.querySelectorAll('.ep-v7-select'),function(x){x.checked=!!on;}); };
+  async function saveActiveAfterBulk(){ try{ if(typeof window.epSaveActiveDbV7==='function') await window.epSaveActiveDbV7(); else if(typeof renderDbEditors==='function') renderDbEditors(); }catch(e){ toast('⚠️ Изменено локально, но сервер не подтвердил: '+(e&&e.message?e.message:e)); } }
+  window.epV14MoveSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выдели позиции галочками'); var cat=$('ep-v14-cat-'+type), sub=$('ep-v14-sub-'+type); var c=cat?cat.value.trim():'', g=sub?sub.value.trim():''; if(!c&&!g) return toast('Укажи категорию или подкатегорию'); var arr=activeArr(type).map(function(it){ if(ids.indexOf(String(it.id||''))>=0){ var x=Object.assign({},it); if(c) x.c=c; if(g){ x.g=g; x.sc=g; x.subcategory=g; } return x; } return it; }); setActiveArr(type,arr); toast('📦 Перемещено: '+ids.length); await saveActiveAfterBulk(); setTimeout(injectBulkPanel,150); };
+  window.epV14DeleteSelected=async function(type){ if(!canEditActive()) return toast('Эта база сейчас не редактируется'); var ids=selectedIds(type); if(!ids.length) return toast('Сначала выдели позиции галочками'); var ok=true; try{ ok=typeof customConfirm==='function'?await customConfirm('Удаление позиций','Удалить выбранные позиции: '+ids.length+'?'):confirm('Удалить выбранные позиции: '+ids.length+'?'); }catch(e){ ok=confirm('Удалить выбранные позиции: '+ids.length+'?'); } if(!ok) return; var arr=activeArr(type).filter(function(it){return ids.indexOf(String(it.id||''))<0;}); setActiveArr(type,arr); toast('🗑 Удалено: '+ids.length); await saveActiveAfterBulk(); setTimeout(injectBulkPanel,150); };
+
+  function patchAll(){
+    window.epGenerateShieldV14=epGenerateShieldV14;
+    window.generateCascadePanel=epGenerateShieldV14;
+    window.epGenerateShieldFixed=epGenerateShieldV14;
+    try{ generateCascadePanel=epGenerateShieldV14; }catch(e){}
+    window.renderMainTable=renderMainTableV14; try{ renderMainTable=renderMainTableV14; }catch(e){}
+    window.showPreview=showDetailsV14; try{ showPreview=showDetailsV14; }catch(e){}
+    Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ var txt=btn.textContent||''; if(txt.indexOf('Сгенерировать щит')>=0) btn.onclick=epGenerateShieldV14; });
+    injectBulkPanel();
+  }
+  var oldRenderDbV14=window.renderDbEditors;
+  if(typeof oldRenderDbV14==='function' && !oldRenderDbV14.__ep_v14_wrapped){ window.renderDbEditors=function(){ var r=oldRenderDbV14.apply(this,arguments); setTimeout(injectBulkPanel,0); return r; }; window.renderDbEditors.__ep_v14_wrapped=true; try{ renderDbEditors=window.renderDbEditors; }catch(e){} }
+  document.addEventListener('click',function(ev){ var t=ev.target&&ev.target.closest?ev.target.closest('button'):null; if(!t) return; var txt=t.textContent||''; if(txt.indexOf('Сгенерировать щит')>=0){ ev.preventDefault(); ev.stopImmediatePropagation(); epGenerateShieldV14(); } }, true);
+  function boot(){ patchAll(); try{ normalizeEstimateV14(); }catch(e){} try{ renderMainTableV14(); }catch(e){} }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,250); }); else setTimeout(boot,80);
+  setTimeout(boot,900); setTimeout(boot,2000); setInterval(function(){ try{ Array.prototype.forEach.call(document.querySelectorAll('button'),function(btn){ if((btn.textContent||'').indexOf('Сгенерировать щит')>=0) btn.onclick=epGenerateShieldV14; }); }catch(e){} },3000);
+})();
+</script>
+
 </body>
 </html>
 
