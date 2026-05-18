@@ -1,4 +1,4 @@
-<!-- EP_BUILD: V18 BULK CHECKBOX SHIELD STATUS. If this comment is absent in page source, wrong file is loaded. -->
+<!-- EP_BUILD: V89 CLEAN DB IMPORT ADMIN SCHEME. Based on V18/V87/V88.  If this comment is absent in page source, wrong file is loaded. -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -11717,6 +11717,229 @@ async function deleteUser(uid) {
 })();
 </script>
 <!-- EP_V88_CLEAN_INDEPENDENT_DB_END -->
+
+
+
+<!-- EP_V89_DB_IMPORT_ADMIN_SCHEME_START -->
+<style id="EP_V89_STYLE">
+/* V89: база как независимый файловый менеджер + импорт + схема fullscreen */
+.epv89-extra-card{border:1px solid rgba(14,165,233,.28);border-radius:16px;padding:12px;margin:10px 0;background:rgba(14,165,233,.07)}
+.epv89-extra-card h3{margin:0 0 8px;color:var(--primary);font-size:14px;font-weight:1000}
+.epv89-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.epv89-grid button{margin:0!important;padding:11px 8px!important;border-radius:12px!important;font-size:12px!important}
+.epv89-note{font-size:11px;color:var(--gray);font-weight:800;line-height:1.35;margin-top:8px}
+.epv89-danger{border-color:rgba(239,68,68,.28);background:rgba(239,68,68,.07)}
+.epv89-master-row{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;padding:9px;margin:7px 0;background:rgba(255,255,255,.42)}
+[data-theme="dark"] .epv89-master-row{background:rgba(15,23,42,.42)}
+.epv89-master-row input[type="checkbox"]{width:20px;height:20px;margin-top:6px;accent-color:var(--primary)}
+.epv89-mini-title{font-size:12px;font-weight:950;color:var(--text);line-height:1.25}.epv89-mini-meta{font-size:10px;color:var(--gray);font-weight:750;margin-top:3px}
+#epv89-import-modal,#epv89-master-modal{position:fixed;inset:0;background:rgba(15,23,42,.72);display:none;align-items:flex-start;justify-content:center;z-index:2147483647;padding:12px;overflow:auto}
+.epv89-modal-card{width:100%;max-width:760px;margin:18px auto;background:var(--modal-bg);color:var(--text);border:1px solid var(--border);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.28);padding:16px}.epv89-modal-card h2{margin:0 0 10px;color:var(--primary);font-size:18px}.epv89-modal-card textarea{width:100%;min-height:220px;border:1px solid var(--border);border-radius:14px;padding:12px;background:rgba(255,255,255,.52);color:var(--text);font-size:13px;box-sizing:border-box}
+#swapModal #epv89-swap-hint{font-size:11px;color:var(--gray);font-weight:800;line-height:1.3;margin:-6px 0 10px}
+#schemeModal.modal{padding:0!important;align-items:stretch!important;justify-content:stretch!important;background:rgba(0,0,0,.75)!important}
+#schemeModal .ep-v87-scheme-content{width:100vw!important;max-width:100vw!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border-radius:0!important;padding:8px!important;box-sizing:border-box!important}
+#schemeModal .close-x{top:8px!important;right:8px!important}.ep-v87-scheme-toolbar{padding-right:46px!important}.ep-v87-scheme-toolbar{grid-template-columns:1fr 1fr 1fr 1fr!important}
+#ep-v87-scheme-frame{border-radius:12px!important;min-height:0!important}
+@media(max-width:560px){.epv89-grid,.ep-v87-scheme-toolbar{grid-template-columns:1fr!important}.ep-v87-scheme-toolbar{padding-right:46px!important}}
+</style>
+<script id="EP_V89_DB_IMPORT_ADMIN_SCHEME_SCRIPT">
+(function(){
+  'use strict';
+  var BUILD='V89 DB IMPORT ADMIN SCHEME';
+  var FIRE_USER_COLLECTION='user_db_v88_clean';
+  var FIRE_SERVER_DOC='global_db_v88_clean';
+  var LS_MY='epv88_my_db_clean', LS_SERVER='epv88_server_db_clean_cache', LS_META='epv88_db_meta_clean';
+  var importKind='text', masterCache=null, masterOpened=null;
+  function $(id){return document.getElementById(id)}
+  function qsa(sel,root){return Array.prototype.slice.call((root||document).querySelectorAll(sel))}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+  function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim()}
+  function norm(v){return clean(v).toLowerCase().replace(/ё/g,'е')}
+  function money(v){var n=Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:0}
+  function toast(msg){try{if(typeof showToast==='function')return showToast(msg)}catch(e){};try{if(window.EPDB&&EPDB.state)console.log(msg)}catch(e){};alert(msg)}
+  function isAdmin(){try{var email=String((appUser&&appUser.email)||'').toLowerCase();return !!(appUser&&(appUser.role==='admin'||appUser.isAdmin||appUser.admin||email==='vits0007@gmail.com'))}catch(e){return false}}
+  function state(){return window.EPDB&&EPDB.state?EPDB.state:null}
+  function panelSource(){var s=state();return s&&s.panel==='server'?'server':'my'}
+  function activeSource(){var s=state();return s&&s.source==='server'?'server':'my'}
+  function currentType(){var s=state();return s&&s.type==='work'?'work':'mat'}
+  function canEditSource(src){return src==='my'||isAdmin()}
+  function sourceLabel(src){return src==='server'?'База сервера':'Моя база'}
+  function sanitizeItem(raw,type){
+    raw=raw||{}; var n=clean(raw.n||raw.name||raw['наименование']||raw['название']); if(!n)return null;
+    var c=clean(raw.c||raw.category||raw['категория']||'Без категории')||'Без категории';
+    var sc=clean(raw.sc||raw.g||raw.subcategory||raw['подкатегория']||'Без подкатегории')||'Без подкатегории';
+    var p=money(raw.p||raw.price||raw['цена']||raw['стоимость']||0);
+    var u=clean(raw.u||raw.unit||raw['ед']||raw['единица']||raw['ед.']||'шт')||'шт';
+    type=raw.type==='work'||raw['тип']==='work'||/работ/i.test(clean(raw['тип']||''))?'work':(type==='work'?'work':'mat');
+    return {id:clean(raw.id)||((type==='work'?'w':'m')+'_v89_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),n:n,c:c,sc:sc,g:sc,p:p,u:u,type:type};
+  }
+  function getDb(){var s=state(); if(!s) return {my:{mat:[],work:[]},server:{mat:[],work:[]},meta:{my:{mat:{cats:[]},work:{cats:[]}},server:{mat:{cats:[]},work:{cats:[]}}}}; return s.db?{my:s.db.my,server:s.db.server,meta:s.meta}:s}
+  function writeLocal(){var s=state(); if(!s)return; try{localStorage.setItem(LS_MY,JSON.stringify(s.db.my));localStorage.setItem(LS_SERVER,JSON.stringify(s.db.server));localStorage.setItem(LS_META,JSON.stringify(s.meta))}catch(e){} }
+  async function saveSource(src){
+    var s=state(); if(!s)return; writeLocal();
+    try{
+      if(typeof db!=='undefined'&&db){
+        if(src==='my'){
+          var uid=(appUser&&appUser.uid)||'local_master';
+          await db.collection(FIRE_USER_COLLECTION).doc(uid).set({uid:uid,masterName:(appUser&&(appUser.name||appUser.displayName||appUser.email))||'',matDB:s.db.my.mat,workDB:s.db.my.work,meta:s.meta.my,updatedAt:new Date().toISOString(),version:BUILD},{merge:true});
+        }else if(src==='server'&&isAdmin()){
+          await db.collection('settings').doc(FIRE_SERVER_DOC).set({matDB:s.db.server.mat,workDB:s.db.server.work,meta:s.meta.server,updatedAt:new Date().toISOString(),version:BUILD},{merge:true});
+        }
+      }
+    }catch(e){console.warn('V89 save failed',e)}
+    try{if(window.EPDB&&EPDB.reload)EPDB.reload()}catch(e){}
+  }
+  function upsert(src,type,item,zeroPrice){
+    var s=state(); if(!s)return false; item=sanitizeItem(item,type); if(!item)return false; if(zeroPrice)item.p=0;
+    var arr=s.db[src][type]||[], key=norm([item.c,item.sc,item.n,item.u].join('|'));
+    var idx=arr.findIndex(function(x){return String(x.id)===String(item.id)||norm([x.c,x.sc,x.n,x.u].join('|'))===key});
+    if(idx>=0)arr[idx]=Object.assign({},arr[idx],item,{id:arr[idx].id||item.id}); else arr.push(item);
+    s.db[src][type]=arr;
+    try{var cats=s.meta[src][type].cats; var c=cats.find(function(x){return x.name===item.c}); if(!c){c={name:item.c,subs:[]};cats.push(c)} if(c.subs.indexOf(item.sc)<0)c.subs.push(item.sc)}catch(e){}
+    return true;
+  }
+  function parseRowsToDb(rows, fallbackType){
+    var out={matDB:[],workDB:[]}; if(!Array.isArray(rows)||!rows.length)return out;
+    var header=(rows[0]||[]).map(function(x){return norm(x)}); var hasHeader=header.some(function(h){return /назв|наимен|цена|стоим|катег|подкат|ед/.test(h)});
+    var start=hasHeader?1:0;
+    function idx(re,def){var i=header.findIndex(function(h){return re.test(h)});return i>=0?i:def}
+    var iName=idx(/назв|наимен|позиция/,0), iPrice=idx(/цена|стоим|сумма/,1), iUnit=idx(/^ед|единиц|изм/,2), iCat=idx(/катег(?!.*под)/,3), iSub=idx(/подкат|группа|раздел/,4), iType=idx(/тип|type/,5);
+    for(var r=start;r<rows.length;r++){
+      var row=rows[r]||[]; if(!row.length)continue; var n=clean(row[iName]); if(!n)continue;
+      var type=norm(row[iType]); if(!type) type = fallbackType || (/работ|монтаж|штроб|проклад|установ|сборк|подключ|демонтаж|резк/.test(norm(n))?'work':'mat'); else type=/работ|work/.test(type)?'work':'mat';
+      var item=sanitizeItem({n:n,p:row[iPrice],u:row[iUnit]||'шт',c:row[iCat]||'Импорт',sc:row[iSub]||'Без подкатегории',type:type},type); if(item)(type==='work'?out.workDB:out.matDB).push(item);
+    }
+    return out;
+  }
+  function parseTextLocal(t,fallbackType){
+    var lines=String(t||'').split(/\r?\n/).map(clean).filter(Boolean); var rows=[];
+    lines.forEach(function(line){
+      var sep=line.indexOf(';')>=0?';':(line.indexOf('\t')>=0?'\t':null);
+      if(sep){rows.push(line.split(sep).map(clean));return}
+      var m=line.match(/(.+?)\s+([0-9][0-9\s.,]*)\s*(₽|руб|р)?\s*(\/\s*([\wа-яА-Я.]+))?$/i);
+      if(m) rows.push([m[1],m[2],m[5]||'шт','Импорт','Без подкатегории']); else rows.push([line,0,'шт','Импорт','Без подкатегории']);
+    });
+    return parseRowsToDb(rows,fallbackType);
+  }
+  function extractJson(txt){txt=String(txt||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim(); var a=txt.indexOf('{'), b=txt.lastIndexOf('}'); if(a>=0&&b>a)txt=txt.slice(a,b+1); return JSON.parse(txt)}
+  function getAiKey(){try{return (window.EP_AI_CONFIG&&window.EP_AI_CONFIG.geminiKey)||(typeof GEMINI_API_KEY!=='undefined'?GEMINI_API_KEY:'')||localStorage.getItem('gemini_key_v31')||''}catch(e){return ''}}
+  async function geminiParseText(textData, imageData, mime){
+    var key=getAiKey(); if(!key)throw new Error('Нужен Gemini API ключ в настройках');
+    var prompt='Разбери прайс/смету электромонтажника в JSON. Верни строго JSON без markdown: {"matDB":[{"n":"","c":"","sc":"","p":0,"u":"шт"}],"workDB":[{"n":"","c":"","sc":"","p":0,"u":"шт"}]}. Материалы отдельно, работы отдельно. Категории и подкатегории придумай аккуратно по смыслу. Цены только числа. Текст: '+String(textData||'').slice(0,12000);
+    var parts=[{text:prompt}]; if(imageData)parts.push({inline_data:{mime_type:mime||'image/jpeg',data:String(imageData).split(',').pop()}});
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}]})});
+    var data=await res.json(); if(!res.ok)throw new Error((data&&data.error&&data.error.message)||'Ошибка ИИ');
+    var txt=(((data.candidates||[])[0]||{}).content||{}).parts||[]; txt=txt.map(function(p){return p.text||''}).join('\n'); return extractJson(txt);
+  }
+  function importIntoCurrent(raw){ if(!window.EPDB||!EPDB.importData)return toast('Модуль базы ещё не загружен'); EPDB.importData(raw); setTimeout(enhanceDbUi,200); }
+  function ensureImportModal(){
+    if($('epv89-import-modal'))return;
+    var div=document.createElement('div'); div.id='epv89-import-modal'; div.innerHTML='<div class="epv89-modal-card"><h2>📥 Импорт в базу</h2><div class="epv89-note" id="epv89-import-hint">Вставь текст прайса или сметы. Можно разобрать локально или через ИИ.</div><textarea id="epv89-import-text" placeholder="Например: Кабель ВВГнг 3х2.5; 120; м; Кабель; Силовой\nМонтаж розетки; 500; шт; Чистовая установка; Розетки"></textarea><div class="epv89-grid" style="margin-top:10px"><button class="btn-success" onclick="EPV89.importTextLocal()">Разобрать без ИИ</button><button class="btn-primary" onclick="EPV89.importTextAI()">✨ Разобрать через ИИ</button><button class="btn-ghost" onclick="EPV89.closeImportModal()">Закрыть</button><button class="btn-info" onclick="document.getElementById(\'epv89-import-text\').value=\'\'">Очистить</button></div></div>'; document.body.appendChild(div);
+  }
+  function ensureMasterModal(){ if($('epv89-master-modal'))return; var div=document.createElement('div'); div.id='epv89-master-modal'; div.innerHTML='<div class="epv89-modal-card"><h2>👥 Позиции мастера</h2><div id="epv89-master-content" class="epv89-note">Загрузка...</div><div class="epv89-grid" style="margin-top:10px"><button class="btn-success" onclick="EPV89.copyMasterSelected(false)">Добавить с ценой</button><button class="btn-info" onclick="EPV89.copyMasterSelected(true)">Добавить без цены</button><button class="btn-primary" onclick="EPV89.masterSelectAll(true)">Выделить всё</button><button class="btn-ghost" onclick="EPV89.closeMasterModal()">Закрыть</button></div></div>'; document.body.appendChild(div); }
+  function enhanceDbUi(){
+    var root=$('epv88-db-root'); if(!root||!window.EPDB)return; var src=panelSource(); var type=currentType();
+    if(!$('epv89-import-tools')&&canEditSource(src)){
+      var search=root.querySelector('.epv88-search'); var card=document.createElement('div'); card.id='epv89-import-tools'; card.className='epv89-extra-card';
+      card.innerHTML='<h3>📥 Импорт позиций</h3><div class="epv89-grid"><button class="btn-info" onclick="EPV89.startFile(\'excel\')">Excel / CSV</button><button class="btn-vendor" onclick="EPV89.startFile(\'json\')">JSON</button><button class="btn-primary" onclick="EPV89.openTextImport()">Текст</button><button class="btn-success" onclick="EPV89.startFile(\'photo\')">Фото + ИИ</button></div><div class="epv89-note">Импорт идёт в открытую сейчас базу: <b>'+esc(sourceLabel(src))+'</b>. Серверную базу может изменять только админ.</div><input type="file" id="epv89-import-file" style="display:none" onchange="EPV89.handleFile(this)">';
+      if(search&&search.parentNode)search.parentNode.insertBefore(card,search.nextSibling); else root.appendChild(card);
+    }
+    if(!$('epv89-db-admin-tools')){
+      var box=document.createElement('div'); box.id='epv89-db-admin-tools'; box.className='epv89-extra-card epv89-danger';
+      box.innerHTML='<h3>🧹 Управление и очистка</h3><div class="epv89-grid"><button class="btn-danger" onclick="EPV89.clearMyAll()">Удалить мою базу полностью</button><button class="btn-vendor" onclick="EPV89.partialDeleteHint()">Частичное удаление галочками</button>'+(isAdmin()?'<button class="btn-danger" onclick="EPV89.clearServerAll()">Удалить базу сервера полностью</button><button class="btn-info" onclick="EPV89.loadMasters()">Посмотреть у мастеров</button>':'')+'</div><div class="epv89-note">Частично: выдели позиции галочками в открытой базе и нажми “Удалить”.</div><div id="epv89-masters-list"></div>';
+      root.appendChild(box);
+    }
+  }
+  function installSettingsPanel(){
+    var modal=$('settingsModal'); var cont=modal&&modal.querySelector('.modal-content'); if(!cont||$('epv89-settings-db-card'))return;
+    var div=document.createElement('div'); div.id='epv89-settings-db-card'; div.className='epv89-extra-card epv89-danger';
+    div.innerHTML='<h3>🗄 Управление базами V89</h3><div class="epv89-grid"><button class="btn-primary" onclick="EPV89.openDb()">Открыть базу</button><button class="btn-danger" onclick="EPV89.clearMyAll()">Удалить мою базу</button>'+(isAdmin()?'<button class="btn-danger" onclick="EPV89.clearServerAll()">Удалить базу сервера</button><button class="btn-info" onclick="EPV89.loadMasters()">Позиции мастеров</button>':'')+'</div><div class="epv89-note">Частичное удаление делается в базе через галочки. Добавление позиций мастеров на сервер доступно только админу.</div>';
+    cont.appendChild(div);
+  }
+  async function clearAll(src){
+    if(src==='server'&&!isAdmin())return toast('Серверную базу редактирует только админ');
+    var ok=confirm(src==='server'?'Удалить ВСЮ базу сервера? Это опасное действие.':'Удалить ВСЮ мою базу?'); if(!ok)return;
+    var s=state(); if(!s)return; s.db[src]={mat:[],work:[]}; s.meta[src]={mat:{cats:[]},work:{cats:[]}}; await saveSource(src); toast(src==='server'?'База сервера очищена':'Моя база очищена');
+  }
+  async function loadMasters(){
+    if(!isAdmin())return toast('Только админ может смотреть базы мастеров');
+    ensureMasterModal(); $('epv89-master-content').innerHTML='Загрузка баз мастеров...'; $('epv89-master-modal').style.display='flex';
+    try{var snap=await db.collection(FIRE_USER_COLLECTION).get(); masterCache=[]; snap.forEach(function(doc){var d=doc.data()||{}; d.__id=doc.id; masterCache.push(d)}); renderMastersList()}catch(e){$('epv89-master-content').innerHTML='Ошибка загрузки: '+esc(e.message||e)}
+  }
+  function renderMastersList(){
+    var c=$('epv89-master-content'); if(!c)return; if(!masterCache||!masterCache.length){c.innerHTML='<div class="epv89-note">Базы мастеров не найдены.</div>'; return}
+    c.innerHTML=masterCache.map(function(m,i){var count=(m.matDB||[]).length+(m.workDB||[]).length; return '<div class="epv89-master-row"><div>👤</div><div><div class="epv89-mini-title">'+esc(m.masterName||m.uid||m.__id)+'</div><div class="epv89-mini-meta">'+count+' позиций</div><button class="btn-info" style="margin-top:8px;padding:8px!important" onclick="EPV89.openMaster('+i+')">Открыть позиции</button></div></div>'}).join('');
+  }
+  function renderMasterItems(i){
+    masterOpened=masterCache[i]; var c=$('epv89-master-content'); if(!masterOpened||!c)return;
+    var items=[]; (masterOpened.matDB||[]).forEach(function(x){items.push({type:'mat',item:x})}); (masterOpened.workDB||[]).forEach(function(x){items.push({type:'work',item:x})});
+    if(!items.length){c.innerHTML='<div class="epv89-note">У мастера пока пусто.</div>';return}
+    c.innerHTML='<div class="epv89-note" style="margin-bottom:8px">Мастер: <b>'+esc(masterOpened.masterName||masterOpened.uid||masterOpened.__id)+'</b></div>'+items.map(function(x,idx){var it=sanitizeItem(x.item,x.type)||{}; return '<label class="epv89-master-row"><input type="checkbox" class="epv89-master-check" data-idx="'+idx+'" checked><div><div class="epv89-mini-title">'+esc(it.n)+'</div><div class="epv89-mini-meta">'+esc((x.type==='work'?'Работа':'Материал')+' / '+it.c+' / '+it.sc+' / '+it.p+' ₽ / '+it.u)+'</div></div></label>'}).join('');
+  }
+  async function copyMasterSelected(zeroPrice){
+    if(!isAdmin()||!masterOpened)return toast('Сначала открой мастера'); var items=[]; (masterOpened.matDB||[]).forEach(function(x){items.push({type:'mat',item:x})}); (masterOpened.workDB||[]).forEach(function(x){items.push({type:'work',item:x})});
+    var count=0; qsa('.epv89-master-check:checked').forEach(function(ch){var x=items[Number(ch.dataset.idx)]; if(x&&upsert('server',x.type,x.item,zeroPrice))count++}); await saveSource('server'); toast('На сервер добавлено: '+count+(zeroPrice?' без цен':''));
+  }
+  function fileAccept(kind){if(kind==='excel')return '.xlsx,.xls,.csv,text/csv'; if(kind==='json')return '.json,application/json'; if(kind==='photo')return 'image/*'; return '.txt,text/plain'}
+  var EPV89={
+    openDb:function(){try{if(window.EPDB)EPDB.open()}catch(e){}; if(typeof openModal==='function')openModal('settModal')},
+    startFile:function(kind){importKind=kind; var f=$('epv89-import-file'); if(!f){enhanceDbUi(); f=$('epv89-import-file')} if(!f)return; f.value=''; f.accept=fileAccept(kind); f.click()},
+    handleFile:function(input){var file=input.files&&input.files[0]; if(!file)return; var kind=importKind; if(kind==='json'){var r=new FileReader();r.onload=function(){try{importIntoCurrent(JSON.parse(r.result))}catch(e){toast('Ошибка JSON: '+(e.message||e))}};r.readAsText(file,'utf-8');return}
+      if(kind==='excel'){var rr=new FileReader();rr.onload=function(){try{var data=rr.result;if(file.name.toLowerCase().endsWith('.csv')){importIntoCurrent(parseTextLocal(data,currentType()))}else{if(!window.XLSX)throw new Error('Библиотека Excel не загружена');var wb=XLSX.read(new Uint8Array(data),{type:'array'});var sh=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(sh,{header:1,raw:false});importIntoCurrent(parseRowsToDb(rows,currentType()))}}catch(e){toast('Ошибка Excel: '+(e.message||e))}}; if(file.name.toLowerCase().endsWith('.csv'))rr.readAsText(file,'utf-8');else rr.readAsArrayBuffer(file);return}
+      if(kind==='photo'){var pr=new FileReader();pr.onload=async function(){try{toast('ИИ разбирает фото...'); var raw=await geminiParseText('',pr.result,file.type||'image/jpeg'); importIntoCurrent(raw)}catch(e){toast('Фото-импорт: '+(e.message||e))}};pr.readAsDataURL(file);return}
+    },
+    openTextImport:function(){ensureImportModal(); $('epv89-import-modal').style.display='flex'}, closeImportModal:function(){var m=$('epv89-import-modal'); if(m)m.style.display='none'},
+    importTextLocal:function(){var t=($('epv89-import-text')||{}).value||''; importIntoCurrent(parseTextLocal(t,currentType())); this.closeImportModal()},
+    importTextAI:async function(){try{var t=($('epv89-import-text')||{}).value||''; if(!clean(t))return toast('Вставь текст'); toast('ИИ разбирает текст...'); var raw=await geminiParseText(t); importIntoCurrent(raw); this.closeImportModal()}catch(e){toast('ИИ-импорт: '+(e.message||e))}},
+    clearMyAll:function(){clearAll('my')}, clearServerAll:function(){clearAll('server')}, partialDeleteHint:function(){toast('Выдели позиции галочками в открытой базе и нажми “Удалить”')},
+    loadMasters:loadMasters, openMaster:renderMasterItems, closeMasterModal:function(){var m=$('epv89-master-modal'); if(m)m.style.display='none'}, masterSelectAll:function(on){qsa('.epv89-master-check').forEach(function(ch){ch.checked=!!on})}, copyMasterSelected:copyMasterSelected,
+    enhance:enhanceDbUi
+  };
+  window.EPV89=EPV89;
+
+  function installDbHooks(){
+    if(window.__epv89DbHooks||!window.EPDB)return; window.__epv89DbHooks=true;
+    ['open','setSource','openPanel','setType','search','selectAll','clearSelection','reload','importData'].forEach(function(name){var old=EPDB[name]; if(typeof old==='function'){EPDB[name]=function(){var r=old.apply(EPDB,arguments); setTimeout(enhanceDbUi,160); return r}}});
+    setInterval(function(){if($('settModal')&&getComputedStyle($('settModal')).display!=='none')enhanceDbUi()},2500);
+  }
+  function installOpenModalHook(){
+    if(window.__epv89OpenHook)return; var old=window.openModal; if(typeof old==='function'){window.openModal=function(id){var r=old.apply(this,arguments); if(id==='settModal')setTimeout(enhanceDbUi,180); if(id==='settingsModal')setTimeout(installSettingsPanel,180); return r}; try{openModal=window.openModal}catch(e){} } window.__epv89OpenHook=true;
+  }
+  function installSwapOverride(){
+    window.openSwapModal=function(idx){
+      try{var est=Array.isArray(window.currentEstimate)?window.currentEstimate:currentEstimate; var cur=est[idx]; if(!cur)return; window.swapTargetIdx=idx; try{swapTargetIdx=idx}catch(e){}; var type=cur.type==='work'?'work':'mat'; var list=(window.EPDB&&EPDB.getActive)?EPDB.getActive(type):(type==='work'?workDB:matDB); var sel=$('swap-select'); if(!sel)return; var groups={}; list.forEach(function(x){var c=x.c||'Без категории', s=x.sc||x.g||'Без подкатегории'; groups[c]=groups[c]||{}; groups[c][s]=groups[c][s]||[]; groups[c][s].push(x)}); var html=''; Object.keys(groups).sort().forEach(function(c){Object.keys(groups[c]).sort().forEach(function(s){html+='<optgroup label="'+esc(c+' / '+s)+'">'; groups[c][s].forEach(function(x){html+='<option value="'+esc(x.id)+'" '+(x.n===cur.n?'selected':'')+'>'+esc(x.n+' — '+x.p+' ₽ / '+(x.u||'шт'))+'</option>'}); html+='</optgroup>'})}); sel.innerHTML=html||'<option>В активной базе нет позиций</option>'; var card=$('swapModal')&&$('swapModal').querySelector('.modal-content'); if(card&&!$('epv89-swap-hint')){var p=document.createElement('div');p.id='epv89-swap-hint';p.textContent='Выбор идёт только из подключённой активной базы: '+sourceLabel(activeSource()); sel.parentNode.insertBefore(p,sel)} if(typeof openModal==='function')openModal('swapModal'); else $('swapModal').style.display='flex'}catch(e){console.error(e);toast('Не удалось открыть замену')}
+    };
+    window.applySwap=function(){
+      try{var idx=typeof swapTargetIdx!=='undefined'?swapTargetIdx:window.swapTargetIdx; if(idx<0)return; var est=Array.isArray(window.currentEstimate)?window.currentEstimate:currentEstimate; var cur=est[idx]; var type=cur.type==='work'?'work':'mat'; var list=(window.EPDB&&EPDB.getActive)?EPDB.getActive(type):(type==='work'?workDB:matDB); var id=$('swap-select').value; var it=list.find(function(x){return String(x.id)===String(id)}); if(it){est[idx]=Object.assign({},cur,{id:it.id,n:it.n,p:it.p,u:it.u,c:it.c,g:it.sc||it.g,sc:it.sc||it.g,epResolvedFromDb:true,epDbSourceId:it.id}); try{currentEstimate=est;window.currentEstimate=est}catch(e){} if(typeof renderMainTable==='function')renderMainTable(); if(typeof closeModal==='function')closeModal('swapModal'); toast('Заменено из активной базы')}}catch(e){console.error(e)}};
+    try{openSwapModal=window.openSwapModal;applySwap=window.applySwap}catch(e){}
+  }
+  function decodeSchemeDoc(){
+    var el=$('EP_V87_SCHEME_DATA'); if(!el)return '<!doctype html><html><body>Схема не найдена</body></html>'; var b64=clean(el.textContent||'');
+    try{var bin=atob(b64), bytes=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i); return window.TextDecoder?new TextDecoder('utf-8').decode(bytes):decodeURIComponent(escape(bin))}catch(e){return '<!doctype html><html><body>Ошибка схемы</body></html>'}
+  }
+  function schemeInjectScript(){
+    return '<style id="epv89-scheme-print">body{height:100dvh!important}.control-panel{max-height:42dvh!important}.epv89-scheme-tools{border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;padding:10px;margin:10px 0}.epv89-scheme-tools button{margin:4px 0!important;width:100%!important}.epv89-scheme-status{font-size:12px;font-weight:bold;color:#475569;line-height:1.35;margin-top:6px}@media print{@page{size:A4 landscape;margin:6mm}html,body{width:297mm!important;height:210mm!important;overflow:hidden!important;background:#fff!important}.control-panel{display:none!important}.main-layout{display:block!important;width:100%!important;height:100%!important}.canvas-container{overflow:visible!important;box-shadow:none!important;padding:0!important}svg{max-width:285mm!important;max-height:198mm!important;width:100%!important;height:auto!important;margin:0 auto!important}}<\/style><script id="epv89-scheme-logic">(function(){function clean(v){return String(v==null?\'\':v).replace(/\\s+/g,\' \').trim()}function typeOf(n){n=clean(n).toLowerCase().replace(/ё/g,\'е\');if(/узип/.test(n))return\'spd\';if(/контактор/.test(n))return\'contactor\';if(/реле/.test(n))return\'relay\';if(/диф|авдт/.test(n))return\'rcbo\';if(/узо|вдт/.test(n))return\'rcd\';if(/рубиль|выключатель нагрузки|ввод/.test(n))return\'switch\';return\'mcb\'}function pref(t){return{mcb:\'QF\',rcd:\'QD\',rcbo:\'QFD\',switch:\'QS\',relay:\'KV\',spd:\'FV\',contactor:\'KM\'}[t]||\'QF\'}function rating(n){var m=clean(n).match(/(?:[ABCDBАВСД]\\s*)?\\d+\\s*(?:A|А|а)|\\d+\\s*(?:mA|мА|ма)|T\\d/);return m?m[0].replace(/А/g,\'A\').replace(/а/g,\'A\'):\'\'}function estimate(){try{return (parent.currentEstimate||[]).filter(function(x){return String(x.tag||\'\')===\'shield\'||/автомат|узо|диф|реле|контактор|узип|рубиль/i.test(String(x.n||\'\'))})}catch(e){return[]}}function build(){try{var items=estimate();if(!items.length){alert(\'В смете нет автоматов/щита. Сначала сгенерируй конфигуратор щита.\');return}var counters={};var root={id:\'QS1\',type:\'switch\',label:\'Ввод / щит\',rating:\'\',isCrossModule:false,children:[]};var unplaced=[];items.forEach(function(it){var t=typeOf(it.n),q=Math.max(1,Math.round(Number(it.q)||1));for(var i=0;i<q;i++){counters[t]=(counters[t]||0)+1;var node={id:pref(t)+counters[t],type:t,label:clean(it.n).slice(0,34),rating:rating(it.n)||clean(it.u)||\'\',isCrossModule:false,children:[]};root.children.push(node);if(t===\'mcb\'||t===\'rcd\'||t===\'rcbo\')unplaced.push(node.id+\' — \'+node.label)}});schemeTree=root;render();var st=document.getElementById(\'epv89-scheme-status\');if(st)st.innerHTML=\'Взято из конфигуратора: <b>\'+root.children.length+\'</b> аппаратов.<br>Требуют ручной расстановки/группировки: <b>\'+unplaced.length+\'</b>.\';try{localStorage.setItem(\'ep_one_line_scheme_tree_v1\',JSON.stringify(schemeTree))}catch(e){}}catch(e){alert(\'Ошибка построения: \'+(e.message||e))}}function tools(){var panel=document.querySelector(\'.control-panel\');if(!panel||document.getElementById(\'epv89-scheme-tools\'))return;var box=document.createElement(\'div\');box.id=\'epv89-scheme-tools\';box.className=\'epv89-scheme-tools\';box.innerHTML=\'<button class="primary" id="epv89-from-shield">⚡ Взять автоматы из конфигуратора</button><button id="epv89-ai" type="button">✨ ИИ-расстановка beta</button><div id="epv89-scheme-status" class="epv89-scheme-status">Сначала сгенерируй щит, затем нажми кнопку выше. ИИ-расстановка пока beta: будет учиться группировать линии.</div>\';panel.appendChild(box);document.getElementById(\'epv89-from-shield\').onclick=build;document.getElementById(\'epv89-ai\').onclick=function(){alert(\'ИИ-расстановка заложена как следующий этап: сначала собираем статистику ручных правок схемы.\')}}if(document.readyState===\'loading\')document.addEventListener(\'DOMContentLoaded\',tools);else tools();window.EPV89_SCHEME_FROM_SHIELD=build})();<\/script>';
+  }
+  function makeSchemeDoc(){var doc=decodeSchemeDoc(); var inj=schemeInjectScript(); return doc.replace('</body>',inj+'</body>')}
+  function installSchemeOverride(){
+    window.epV87SchemeReload=function(){var fr=$('ep-v87-scheme-frame'); if(fr)fr.srcdoc=makeSchemeDoc()};
+    window.epV87OpenScheme=function(){try{var ensure=window.epV87SchemeReload; if(!$('schemeModal')){ /* old module creates it by calling old open? */ } }catch(e){}; if(!$('schemeModal')&&typeof window.epV87SchemeReload==='function'){}; try{var oldEnsure=qsa('button').length}catch(e){}; if(typeof window.epV87SchemeReload==='function'){ if(!$('schemeModal')){try{var ev=new Event('epv89needmodal');document.dispatchEvent(ev)}catch(e){}} } try{if(!$('schemeModal')&&typeof epV87OpenScheme==='function'&&epV87OpenScheme!==window.epV87OpenScheme){}}catch(e){}; ensureSchemeModalV89(); window.epV87SchemeReload(); if(typeof openModal==='function')openModal('schemeModal'); else $('schemeModal').style.display='flex'};
+    window.epV87SchemePrint=function(){var fr=$('ep-v87-scheme-frame');try{if(fr&&fr.contentWindow){fr.contentWindow.focus();fr.contentWindow.print()}}catch(e){toast('Печать схемы недоступна')}};
+  }
+  function ensureSchemeModalV89(){
+    if($('schemeModal'))return; var div=document.createElement('div'); div.className='modal'; div.id='schemeModal';
+    div.innerHTML='<div class="modal-content glass ep-v87-scheme-content"><div class="close-x" onclick="closeModal(\'schemeModal\')">×</div><h2 style="margin:0 0 8px;color:var(--primary);font-size:18px;">📐 Однолинейная схема</h2><div class="ep-v87-scheme-toolbar"><button class="btn-primary" onclick="epV87SchemePrint()">🖨 Печать A4 горизонтально</button><button class="btn-success" onclick="EPV89.schemeFromShield()">⚡ Из щита</button><button class="btn-info" onclick="epV87SchemeReload()">🔄 Перезагрузить</button><button class="btn-vendor" onclick="epV87SchemeResetStorage&&epV87SchemeResetStorage()">♻️ Сброс</button></div><iframe id="ep-v87-scheme-frame" title="Однолинейная схема"></iframe></div>'; document.body.appendChild(div);
+  }
+  EPV89.schemeFromShield=function(){var fr=$('ep-v87-scheme-frame');try{if(fr&&fr.contentWindow&&fr.contentWindow.EPV89_SCHEME_FROM_SHIELD)fr.contentWindow.EPV89_SCHEME_FROM_SHIELD();else toast('Схема ещё загружается')}catch(e){toast('Не удалось взять автоматы')}};
+  function rebindSchemeButtons(){
+    qsa('#ep-v87-main-scheme-btn,#ep-v87-menu-scheme-btn').forEach(function(b){b.onclick=window.epV87OpenScheme});
+    var bar=document.querySelector('#schemeModal .ep-v87-scheme-toolbar');
+    if(bar&&!document.getElementById('epv89-parent-from-shield')){var btn=document.createElement('button');btn.id='epv89-parent-from-shield';btn.className='btn-success';btn.textContent='⚡ Из щита';btn.onclick=function(){EPV89.schemeFromShield()};bar.insertBefore(btn,bar.children[1]||null)}
+  }
+  function boot(){installDbHooks();installOpenModalHook();installSwapOverride();installSchemeOverride();ensureImportModal();ensureMasterModal();installSettingsPanel();rebindSchemeButtons();setTimeout(function(){installDbHooks();enhanceDbUi();installSettingsPanel();installSchemeOverride();rebindSchemeButtons()},1200);setInterval(rebindSchemeButtons,2500);console.log(BUILD+' loaded')}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<!-- EP_V89_DB_IMPORT_ADMIN_SCHEME_END -->
 
 </body>
 </html>
