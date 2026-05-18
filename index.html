@@ -597,53 +597,11 @@ button:active { transform: scale(.985); }
 </div>
 
 <div class="modal" id="settModal">
-    <div class="modal-content glass" style="max-width: 600px;">
+    <div class="modal-content glass" style="max-width: 720px; padding: 16px;">
         <div class="close-x" onclick="closeModal('settModal')">×</div>
-        <h2 style="margin-top:0; color: var(--primary); font-size:18px;"> База данных (Редактор)</h2>
-
-        <div id="ep-db-scope-toolbar" style="border:2px solid var(--primary); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(79,70,229,.06);">
-            <div style="font-weight:900; color:var(--primary); margin-bottom:6px;">📚 Источник базы данных</div>
-            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">Выбери, куда добавлять/импортировать/редактировать позиции.</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <button id="ep-scope-my-btn" class="btn-success" onclick="epSetDbScope && epSetDbScope('my')" style="margin:0; padding:12px;">👤 Моя база</button>
-                <button id="ep-scope-global-btn" class="btn-info" onclick="epSetDbScope && epSetDbScope('global')" style="margin:0; padding:12px;">🌍 База сервера</button>
-            </div>
-            <button class="btn-success" onclick="epCreateMasterDb && epCreateMasterDb()" style="width:100%; margin:8px 0 0; padding:12px;">+ Создать свою базу</button>
-            <div id="ep-db-scope-status" style="font-size:11px; color:var(--gray); margin-top:8px; font-weight:700;"></div>
+        <div id="epv88-db-root">
+            <div style="padding:18px; text-align:center; color:var(--gray); font-weight:800;">Загрузка новой независимой базы V88...</div>
         </div>
-
-        <div id="ep-db-clean-toolbar" style="border:2px solid var(--danger); border-radius:16px; padding:12px; margin:10px 0 15px; background:rgba(239,68,68,.06);">
-            <div style="font-weight:900; color:var(--danger); margin-bottom:6px;">🧨 Чистая база / полный сброс</div>
-            <div style="font-size:12px; color:var(--gray); margin-bottom:10px;">
-                Очищает материалы и работы в ноль. Сметы, заказчики, настройки, щиты, пулы и логика расчётов не трогаются.
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <button class="btn-info" onclick="epAutoRegroupActiveDb && epAutoRegroupActiveDb()" style="margin:0; padding:10px;">🧠 Авто-разгруппировать</button>
-                <button class="btn-vendor" onclick="epExportActiveDb && epExportActiveDb()" style="margin:0; padding:10px;">📤 Экспорт выбранной</button>
-            </div>
-            <button class="btn-danger" onclick="epOpenDbFactoryResetModal && epOpenDbFactoryResetModal()" style="width:100%; margin:8px 0 0; padding:12px;">🧹 Полный сброс баз данных</button>
-            <div id="ep-clean-status-line" style="font-size:11px; color:var(--gray); margin-top:8px; font-weight:800;"></div>
-        </div>
-
-        
-        <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
-            <b style="font-size:12px; display:block; margin-bottom:8px;">Добавить новую позицию:</b>
-            <input type="text" list="db-cats" id="db-new-cat" placeholder="Категория (выбрать или вписать)" style="margin-bottom:6px;">
-            <datalist id="db-cats"></datalist>
-            <input type="text" id="db-new-name" placeholder="Название позиции" style="margin-bottom:6px;">
-            <div style="display:flex; gap:6px;">
-                <input type="number" id="db-new-price" placeholder="Цена (₽)" style="margin:0; flex:1;">
-                <input type="text" id="db-new-unit" placeholder="Ед. изм (шт/м)" value="шт" style="margin:0; flex:1;">
-            </div>
-            <button onclick="addDbItem()" class="btn-success" style="width:100%; margin-top:8px; padding:12px;">+ Добавить в базу</button>
-        </div>
-
-        <div class="tabs-container">
-            <button class="tab-btn active" id="btnTabMat" onclick="switchDbTab('mat')">Материалы</button>
-            <button class="tab-btn" id="btnTabWork" onclick="switchDbTab('work')">Работы</button>
-        </div>
-        <div id="editor-mat-list" style="max-height:40vh; overflow-y:auto;"></div>
-        <div id="editor-work-list" style="max-height:40vh; overflow-y:auto; display:none;"></div>
     </div>
 </div>
 
@@ -11293,6 +11251,472 @@ async function deleteUser(uid) {
 })();
 </script>
 <!-- EP_V87_SAFE_DB_RESOLVER_AND_SCHEME_END -->
+
+
+
+<!-- EP_V88_CLEAN_INDEPENDENT_DB_START -->
+<style id="EP_V88_CLEAN_DB_STYLE">
+#epv88-db-root { font-size: 13px; }
+.epv88-top { display:grid; grid-template-columns: 1fr; gap:10px; }
+.epv88-title { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.epv88-title h2 { margin:0; color:var(--primary); font-size:19px; font-weight:900; }
+.epv88-sub { color:var(--gray); font-size:12px; line-height:1.35; margin-top:5px; font-weight:700; }
+.epv88-badge { display:inline-flex; align-items:center; justify-content:center; padding:8px 10px; border-radius:999px; background:rgba(79,70,229,.10); color:var(--primary); font-weight:900; font-size:11px; white-space:nowrap; }
+.epv88-card { border:1px solid var(--border); border-radius:16px; padding:12px; background:rgba(255,255,255,.42); margin-bottom:10px; }
+[data-theme="dark"] .epv88-card { background:rgba(15,23,42,.35); }
+.epv88-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.epv88-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.epv88-source-btn { padding:13px 10px !important; border-radius:13px !important; font-size:12px !important; font-weight:900 !important; margin:0 !important; }
+.epv88-source-btn.active { outline:3px solid rgba(79,70,229,.22); box-shadow:0 8px 18px rgba(79,70,229,.16); }
+.epv88-section-btn { background:rgba(100,116,139,.14) !important; color:var(--text) !important; border:1px solid var(--border) !important; padding:12px 10px !important; border-radius:13px !important; margin:0 !important; }
+.epv88-section-btn.active { background:linear-gradient(135deg,#4f46e5,#0ea5e9) !important; color:#fff !important; border-color:transparent !important; }
+.epv88-toolbar { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+.epv88-toolbar button { padding:11px 8px !important; font-size:12px !important; border-radius:12px !important; margin:0 !important; }
+.epv88-search { margin:0 !important; padding:11px !important; border-radius:12px !important; }
+.epv88-type-tabs { display:flex; gap:7px; background:rgba(0,0,0,.04); padding:5px; border-radius:14px; margin:10px 0; }
+.epv88-type-tabs button { flex:1; margin:0 !important; padding:11px 8px !important; border-radius:11px !important; background:transparent; color:var(--gray); border:0; }
+.epv88-type-tabs button.active { background:var(--card) !important; color:var(--primary) !important; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+.epv88-tree { max-height:50vh; overflow:auto; padding-right:2px; }
+.epv88-cat { border:1px solid var(--border); border-radius:15px; margin-bottom:9px; overflow:hidden; background:rgba(255,255,255,.30); }
+.epv88-cat-head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:12px; cursor:pointer; font-weight:900; color:var(--primary); background:rgba(79,70,229,.07); }
+.epv88-cat-body { display:none; padding:8px; }
+.epv88-cat.open .epv88-cat-body { display:block; }
+.epv88-subhead { margin:7px 0 6px; padding:8px 10px; border-radius:10px; background:rgba(100,116,139,.10); color:var(--gray); font-weight:900; font-size:11px; text-transform:uppercase; }
+.epv88-row { display:grid; grid-template-columns:28px 1fr; gap:8px; align-items:flex-start; border:1px solid rgba(100,116,139,.20); border-radius:14px; padding:10px; margin-bottom:8px; background:rgba(255,255,255,.44); }
+[data-theme="dark"] .epv88-row { background:rgba(15,23,42,.42); }
+.epv88-row input[type="checkbox"] { width:21px; height:21px; margin-top:8px; accent-color:var(--primary); }
+.epv88-row-title { font-weight:900; line-height:1.25; color:var(--text); }
+.epv88-meta { font-size:11px; color:var(--gray); margin-top:4px; font-weight:700; }
+.epv88-fields { display:grid; grid-template-columns:1fr; gap:6px; }
+.epv88-fields input, .epv88-fields select { margin:0 !important; padding:8px !important; font-size:12px !important; border-radius:9px !important; }
+.epv88-mini2 { display:grid; grid-template-columns:1fr 92px; gap:6px; }
+.epv88-mini3 { display:grid; grid-template-columns:1fr 1fr 80px; gap:6px; }
+.epv88-actions-row { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:7px; }
+.epv88-actions-row button { margin:0 !important; padding:9px 8px !important; font-size:11px !important; border-radius:10px !important; }
+.epv88-empty { text-align:center; padding:22px 12px; color:var(--gray); font-weight:800; border:1px dashed var(--border); border-radius:15px; }
+.epv88-lock { border:1px dashed rgba(245,158,11,.4); background:rgba(245,158,11,.08); color:var(--orange); padding:10px; border-radius:13px; font-weight:900; font-size:12px; line-height:1.35; }
+.epv88-toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(90px); z-index:10050; opacity:0; transition:.25s; background:var(--text); color:var(--bg); padding:11px 16px; border-radius:999px; font-size:12px; font-weight:900; max-width:90vw; text-align:center; }
+.epv88-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#epv88-qty-modal { position:fixed; inset:0; background:rgba(0,0,0,.58); display:none; align-items:center; justify-content:center; z-index:5200; padding:16px; }
+#epv88-qty-card { width:100%; max-width:300px; border-radius:20px; padding:18px; background:var(--modal-bg); border:1px solid var(--border); box-shadow:0 20px 40px rgba(0,0,0,.25); text-align:center; }
+#epv88-qty-card h3 { margin:0 0 8px; color:var(--primary); }
+#epv88-qty-card input { text-align:center; font-weight:900; font-size:18px; }
+@media (max-width:520px){ .epv88-grid2,.epv88-grid3,.epv88-toolbar,.epv88-mini3 { grid-template-columns:1fr; } .epv88-mini2 { grid-template-columns:1fr 80px; } }
+</style>
+<script id="EP_V88_CLEAN_INDEPENDENT_DB_SCRIPT">
+(function(){
+  'use strict';
+  var BUILD = 'V88 CLEAN INDEPENDENT DB';
+  var LS_SOURCE = 'epv88_active_source';
+  var LS_MY = 'epv88_my_db_clean';
+  var LS_SERVER = 'epv88_server_db_clean_cache';
+  var LS_META = 'epv88_db_meta_clean';
+  var FIRE_USER_COLLECTION = 'user_db_v88_clean';
+  var FIRE_SERVER_DOC = 'global_db_v88_clean';
+  var state = {
+    loaded:false,
+    source:'my',
+    panel:'my',
+    type:'mat',
+    search:'',
+    selected:{},
+    visible:[],
+    qtyItem:null,
+    db:{ my:{mat:[],work:[]}, server:{mat:[],work:[]} },
+    meta:{ my:{mat:{cats:[]},work:{cats:[]}}, server:{mat:{cats:[]},work:{cats:[]}} }
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function qsa(sel,root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+  function text(v){ return String(v==null?'':v).replace(/\s+/g,' ').trim(); }
+  function norm(v){ return text(v).toLowerCase().replace(/ё/g,'е').replace(/[×х]/g,'x').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
+  function money(v){ var n=Number(String(v==null?'':v).replace(',','.').replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
+  function clone(o){ return Object.assign({}, o||{}); }
+  function nowId(type){ return (type==='work'?'w':'m') + '_v88_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+  function getUserId(){ try{ return appUser && appUser.uid ? appUser.uid : 'local_master'; }catch(e){ return 'local_master'; } }
+  function getUserName(){ try{ return (appUser && (appUser.name || appUser.displayName || appUser.email)) || ''; }catch(e){ return ''; } }
+  function isAdmin(){
+    try{
+      var email = String((appUser && appUser.email) || '').toLowerCase();
+      return !!(appUser && (appUser.role === 'admin' || appUser.isAdmin || appUser.admin || email === 'vits0007@gmail.com'));
+    }catch(e){ return false; }
+  }
+  function toast(msg){
+    try{ if(typeof showToast==='function') return showToast(msg); }catch(e){}
+    var el=$('epv88-toast');
+    if(!el){ el=document.createElement('div'); el.id='epv88-toast'; el.className='epv88-toast'; document.body.appendChild(el); }
+    el.textContent=msg; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(function(){ el.classList.remove('show'); }, 5000);
+  }
+  function readObj(key, fallback){ try{ var x=JSON.parse(localStorage.getItem(key)||''); return x && typeof x==='object' ? x : fallback; }catch(e){ return fallback; } }
+  function writeObj(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+  function sanitizeItem(raw,type){
+    var it = clone(raw);
+    if(!text(it.n || it.name)) return null;
+    it.id = text(it.id) || nowId(type);
+    it.n = text(it.n || it.name);
+    it.c = text(it.c || it.category || 'Без категории') || 'Без категории';
+    it.sc = text(it.sc || it.g || it.subcategory || it.group || 'Без подкатегории') || 'Без подкатегории';
+    it.g = it.sc;
+    it.p = money(it.p || it.price || 0);
+    it.u = text(it.u || it.unit || 'шт') || 'шт';
+    it.type = type;
+    delete it.__src; delete it.__encoded; delete it.category; delete it.subcategory; delete it.group; delete it.name; delete it.price; delete it.unit;
+    return it;
+  }
+  function sig(it){ return norm([it.c,it.sc,it.n,it.u].join('|')); }
+  function unique(arr,type){
+    var seen={}, out=[];
+    (arr||[]).forEach(function(x){ var it=sanitizeItem(x,type); if(!it) return; var k=sig(it); if(seen[k]) return; seen[k]=1; out.push(it); });
+    return out;
+  }
+  function normalizeDb(db){
+    db=db||{};
+    return { mat: unique(db.mat || db.matDB || [], 'mat'), work: unique(db.work || db.workDB || [], 'work') };
+  }
+  function normalizeMeta(meta){
+    function side(s){
+      s=s||{};
+      return { mat:{cats:Array.isArray(s.mat&&s.mat.cats)?s.mat.cats:[]}, work:{cats:Array.isArray(s.work&&s.work.cats)?s.work.cats:[]} };
+    }
+    meta=meta||{};
+    return { my:side(meta.my), server:side(meta.server) };
+  }
+  function arr(source,type){ return state.db[source][type]; }
+  function metaCats(source,type){ return state.meta[source][type].cats; }
+  function setArr(source,type,next){ state.db[source][type]=unique(next,type); save(source); syncLegacy(); }
+  function currentSource(){ return state.source === 'server' ? 'server' : 'my'; }
+  function activeArr(type){ return arr(currentSource(), type); }
+  function editable(source){ return source === 'my' || isAdmin(); }
+  function sourceLabel(source){ return source==='server' ? '🌍 База сервера' : '👤 Моя база'; }
+
+  function persistLocal(){ writeObj(LS_MY, state.db.my); writeObj(LS_SERVER, state.db.server); writeObj(LS_META, state.meta); }
+  async function save(source){
+    persistLocal();
+    if(source === 'my'){
+      try{
+        if(typeof db !== 'undefined' && db && getUserId()){
+          await db.collection(FIRE_USER_COLLECTION).doc(getUserId()).set({
+            uid:getUserId(), masterName:getUserName(), matDB:state.db.my.mat, workDB:state.db.my.work, meta:state.meta.my, updatedAt:new Date().toISOString(), version:BUILD
+          }, {merge:true});
+        }
+      }catch(e){ console.warn('V88 save my failed', e); }
+    } else if(source === 'server' && isAdmin()){
+      try{
+        if(typeof db !== 'undefined' && db){
+          await db.collection('settings').doc(FIRE_SERVER_DOC).set({ matDB:state.db.server.mat, workDB:state.db.server.work, meta:state.meta.server, updatedAt:new Date().toISOString(), version:BUILD }, {merge:true});
+        }
+      }catch(e){ console.warn('V88 save server failed', e); }
+    }
+  }
+  async function load(){
+    var localMy = normalizeDb(readObj(LS_MY, {}));
+    var localServer = normalizeDb(readObj(LS_SERVER, {}));
+    state.db.my = localMy;
+    state.db.server = localServer;
+    state.meta = normalizeMeta(readObj(LS_META, state.meta));
+    state.source = localStorage.getItem(LS_SOURCE) === 'server' ? 'server' : 'my';
+    state.panel = state.source;
+    try{
+      if(typeof db !== 'undefined' && db){
+        var sd = await db.collection('settings').doc(FIRE_SERVER_DOC).get();
+        if(sd && sd.exists){
+          var sdata=sd.data()||{};
+          state.db.server = normalizeDb(sdata);
+          if(sdata.meta) state.meta.server = normalizeMeta({server:sdata.meta}).server;
+        }
+        var uid=getUserId();
+        if(uid){
+          var ud = await db.collection(FIRE_USER_COLLECTION).doc(uid).get();
+          if(ud && ud.exists){
+            var udata=ud.data()||{};
+            state.db.my = normalizeDb(udata);
+            if(udata.meta) state.meta.my = normalizeMeta({my:udata.meta}).my;
+          }
+        }
+      }
+    }catch(e){ console.warn('V88 load firebase failed', e); }
+    state.loaded=true;
+    persistLocal();
+    syncLegacy();
+    render();
+  }
+
+  function syncLegacy(){
+    var mat = activeArr('mat').slice();
+    var work = activeArr('work').slice();
+    try{ matDB = mat; workDB = work; }catch(e){}
+    try{ window.matDB = mat; window.workDB = work; }catch(e){}
+    try{ window.EP_V88_DB = state; }catch(e){}
+    try{ window.EP_FORCE_GLOBAL = {matDB:state.db.server.mat, workDB:state.db.server.work}; }catch(e){}
+    try{ window.EP_ULTIMATE_DB_CACHE = {matDB:state.db.server.mat, workDB:state.db.server.work, ts:Date.now()}; }catch(e){}
+    try{ window.EP_GLOBAL_DB_VISIBLE_CACHE = {matDB:state.db.server.mat, workDB:state.db.server.work, ts:Date.now()}; }catch(e){}
+    try{ window.userMatDB = state.db.my.mat; window.userWorkDB = state.db.my.work; }catch(e){}
+    try{ localStorage.setItem('ep_db_scope_v2', state.source==='server'?'global':'my'); }catch(e){}
+    try{ localStorage.setItem('ep_v86_main_source', state.source==='server'?'server':'my'); }catch(e){}
+  }
+
+  function allCategories(source,type){
+    var map={};
+    metaCats(source,type).forEach(function(c){ if(c && c.name) map[c.name]=c; });
+    arr(source,type).forEach(function(it){ if(!map[it.c]) map[it.c]={name:it.c,subs:[]}; if(it.sc && map[it.c].subs.indexOf(it.sc)<0) map[it.c].subs.push(it.sc); });
+    return Object.keys(map).sort(function(a,b){ return a.localeCompare(b,'ru'); }).map(function(k){ var c=map[k]; c.subs=(c.subs||[]).filter(Boolean).sort(function(a,b){ return a.localeCompare(b,'ru'); }); return c; });
+  }
+  function ensureCat(source,type,cat,sub){
+    cat=text(cat)||'Без категории'; sub=text(sub)||'';
+    var cats=metaCats(source,type); var c=cats.find(function(x){ return x.name===cat; });
+    if(!c){ c={name:cat,subs:[]}; cats.push(c); }
+    if(sub && c.subs.indexOf(sub)<0) c.subs.push(sub);
+    persistLocal();
+  }
+  function filtered(source,type){
+    var q=norm(state.search);
+    var list=arr(source,type).filter(function(it){ if(!q) return true; return norm([it.c,it.sc,it.n,it.u,it.p].join(' ')).indexOf(q)>=0; });
+    state.visible=list.map(function(it){ return source+'|'+type+'|'+it.id; });
+    return list;
+  }
+  function selectedIds(){ return Object.keys(state.selected).filter(function(k){ return state.selected[k]; }); }
+
+  function render(){
+    var root=$('epv88-db-root');
+    if(!root) return;
+    var src=state.panel;
+    var type=state.type;
+    var canEdit=editable(src);
+    var countMy=state.db.my.mat.length+state.db.my.work.length;
+    var countServer=state.db.server.mat.length+state.db.server.work.length;
+    root.innerHTML =
+      '<div class="epv88-title"><div><h2>🗄 База данных V88</h2><div class="epv88-sub">Новая независимая база: старая БД не управляет каталогами. Все функции получают позиции через общий мост.</div></div><div class="epv88-badge">'+esc(sourceLabel(state.source))+'</div></div>'+
+      '<div class="epv88-card"><div style="font-weight:900;color:var(--primary);margin-bottom:8px;">1. Активная база для работы</div><div class="epv88-grid2">'+
+      '<button class="epv88-source-btn btn-success '+(state.source==='my'?'active':'')+'" onclick="EPDB.setSource(\'my\')">👤 Работать по моей базе</button>'+
+      '<button class="epv88-source-btn btn-info '+(state.source==='server'?'active':'')+'" onclick="EPDB.setSource(\'server\')">🌍 Работать по базе сервера</button></div>'+
+      '<div class="epv88-sub">Главный экран “+ Материалы / + Работы” показывает только выбранную базу. Без смешивания.</div></div>'+
+      '<div class="epv88-card"><div style="font-weight:900;color:var(--primary);margin-bottom:8px;">2. Открыть базу как файловый менеджер</div><div class="epv88-grid2">'+
+      '<button class="epv88-section-btn '+(src==='my'?'active':'')+'" onclick="EPDB.openPanel(\'my\')">👤 Моя база <br><span style="font-size:11px;opacity:.8;">'+countMy+' поз.</span></button>'+
+      '<button class="epv88-section-btn '+(src==='server'?'active':'')+'" onclick="EPDB.openPanel(\'server\')">🌍 База сервера <br><span style="font-size:11px;opacity:.8;">'+countServer+' поз.</span></button></div></div>'+
+      (src==='server' && !isAdmin() ? '<div class="epv88-lock">🔒 Вы вошли как мастер. Базу сервера можно только просматривать и копировать позиции в свою базу. Редактирование сервера доступно только админу.</div>' : '')+
+      '<div class="epv88-card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;"><div style="font-weight:900;color:var(--primary);">'+esc(sourceLabel(src))+'</div><div class="epv88-badge">'+(canEdit?'редактирование':'только просмотр')+'</div></div>'+
+      '<div class="epv88-type-tabs"><button class="'+(type==='mat'?'active':'')+'" onclick="EPDB.setType(\'mat\')">Материалы</button><button class="'+(type==='work'?'active':'')+'" onclick="EPDB.setType(\'work\')">Работы</button></div>'+
+      '<input class="epv88-search" id="epv88-search" value="'+esc(state.search)+'" oninput="EPDB.search(this.value)" placeholder="Поиск по названию, категории, цене...">'+
+      renderCommands(src,type,canEdit)+renderTree(src,type,canEdit)+'</div>';
+  }
+  function renderCommands(src,type,canEdit){
+    var createHtml = canEdit ?
+      '<div class="epv88-toolbar"><button class="btn-success" onclick="EPDB.createItem()">+ Создать позицию</button><button class="btn-info" onclick="EPDB.createCategory()">+ Категория</button><button class="btn-info" onclick="EPDB.createSubcategory()">+ Подкатегория</button><button class="btn-vendor" onclick="EPDB.importJson()">📥 Импорт JSON</button></div>' :
+      '<div class="epv88-toolbar"><button class="btn-success" onclick="EPDB.copySelectedToMy()">⬇ В мою базу</button><button class="btn-vendor" onclick="EPDB.exportJson()">📤 Экспорт просмотра</button></div>';
+    return createHtml +
+      '<div class="epv88-toolbar"><button class="btn-primary" onclick="EPDB.selectAll()">☑ Выделить всё</button><button class="btn-ghost" onclick="EPDB.clearSelection()">☐ Снять всё</button>'+
+      (canEdit?'<button class="btn-vendor" onclick="EPDB.moveSelected()">↪ Переместить</button><button class="btn-danger" onclick="EPDB.deleteSelected()">🗑 Удалить</button>':'<button class="btn-success" onclick="EPDB.copySelectedToMy()">⬇ Перенести</button><button class="btn-ghost" onclick="EPDB.clearSelection()">Сброс</button>')+
+      '</div><div class="epv88-toolbar"><button class="btn-vendor" onclick="EPDB.exportJson()">📤 Экспорт этой базы</button><button class="btn-info" onclick="EPDB.reload()">🔄 Обновить</button></div>'+
+      '<input type="file" id="epv88-import-file" accept=".json,application/json" style="display:none" onchange="EPDB.handleImportFile(this)">';
+  }
+  function renderTree(src,type,canEdit){
+    var list=filtered(src,type);
+    if(!list.length && !allCategories(src,type).length) return '<div class="epv88-empty">Пока пусто. Создай позицию вручную или импортируй JSON.</div>';
+    var byCat={}; list.forEach(function(it){ if(!byCat[it.c]) byCat[it.c]={}; var s=it.sc||'Без подкатегории'; if(!byCat[it.c][s]) byCat[it.c][s]=[]; byCat[it.c][s].push(it); });
+    var cats=allCategories(src,type); var html='<div class="epv88-tree">';
+    cats.forEach(function(cat,idx){
+      var cname=cat.name||'Без категории'; var groups=byCat[cname]||{}; var total=Object.keys(groups).reduce(function(n,k){ return n+(groups[k]||[]).length; },0);
+      html+='<div class="epv88-cat '+(idx<2?'open':'')+'"><div class="epv88-cat-head" onclick="this.parentNode.classList.toggle(\'open\')"><span>'+esc(cname)+'</span><small>'+total+' поз.</small></div><div class="epv88-cat-body">';
+      var subs=(cat.subs||[]).slice(); Object.keys(groups).forEach(function(s){ if(subs.indexOf(s)<0) subs.push(s); });
+      if(!subs.length) html+='<div class="epv88-empty">Категория создана, позиций пока нет.</div>';
+      subs.forEach(function(sub){ var items=groups[sub]||[]; html+='<div class="epv88-subhead">'+esc(sub||'Без подкатегории')+'</div>'; if(!items.length) html+='<div class="epv88-empty" style="padding:12px;">Подкатегория пустая</div>'; items.forEach(function(it){ html+=renderRow(src,type,it,canEdit); }); });
+      html+='</div></div>';
+    });
+    return html+'</div>';
+  }
+  function optionsHtml(src,type,selectedCat,selectedSub,mode){
+    var cats=allCategories(src,type); var html='';
+    if(mode==='cat') cats.forEach(function(c){ html+='<option value="'+esc(c.name)+'" '+(c.name===selectedCat?'selected':'')+'>'+esc(c.name)+'</option>'; });
+    else {
+      var cat=cats.find(function(c){ return c.name===selectedCat; }); var subs=(cat&&cat.subs)||[];
+      if(subs.indexOf(selectedSub)<0 && selectedSub) subs=subs.concat([selectedSub]);
+      subs.forEach(function(s){ html+='<option value="'+esc(s)+'" '+(s===selectedSub?'selected':'')+'>'+esc(s)+'</option>'; });
+    }
+    return html;
+  }
+  function renderRow(src,type,it,canEdit){
+    var key=src+'|'+type+'|'+it.id; var checked=state.selected[key]?'checked':'';
+    if(canEdit){
+      return '<div class="epv88-row"><input type="checkbox" '+checked+' onchange="EPDB.toggle(\''+esc(key)+'\',this.checked)"><div class="epv88-fields">'+
+        '<input value="'+esc(it.n)+'" onchange="EPDB.updateItem(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\',\'n\',this.value)" placeholder="Название">'+
+        '<div class="epv88-mini3"><select onchange="EPDB.updateItem(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\',\'c\',this.value)">'+optionsHtml(src,type,it.c,it.sc,'cat')+'</select><select onchange="EPDB.updateItem(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\',\'sc\',this.value)">'+optionsHtml(src,type,it.c,it.sc,'sub')+'</select><input value="'+esc(it.u)+'" onchange="EPDB.updateItem(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\',\'u\',this.value)" placeholder="ед."></div>'+
+        '<div class="epv88-mini2"><input type="number" value="'+esc(it.p)+'" onchange="EPDB.updateItem(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\',\'p\',this.value)" placeholder="Цена"><button class="btn-success" onclick="EPDB.addQty(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\')">+ В смету</button></div>'+
+      '</div></div>';
+    }
+    return '<div class="epv88-row"><input type="checkbox" '+checked+' onchange="EPDB.toggle(\''+esc(key)+'\',this.checked)"><div><div class="epv88-row-title">'+esc(it.n)+'</div><div class="epv88-meta">'+esc([it.c,it.sc,it.p+' ₽ / '+it.u].filter(Boolean).join(' / '))+'</div><div class="epv88-actions-row"><button class="btn-success" onclick="EPDB.copyOneToMy(\''+type+'\',\''+esc(it.id)+'\')">⬇ В мою базу</button><button class="btn-primary" onclick="EPDB.addQty(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\')">+ В смету</button></div></div></div>';
+  }
+
+  function findById(source,type,id){ return arr(source,type).find(function(x){ return String(x.id)===String(id); }); }
+  function upsert(source,type,it){
+    it=sanitizeItem(it,type); if(!it) return;
+    ensureCat(source,type,it.c,it.sc);
+    var a=arr(source,type).slice();
+    var idx=a.findIndex(function(x){ return String(x.id)===String(it.id) || sig(x)===sig(it); });
+    if(idx>=0) a[idx]=Object.assign({}, a[idx], it, {id:a[idx].id||it.id}); else a.push(it);
+    setArr(source,type,a);
+  }
+  function addToEstimate(item,type,q){
+    item=sanitizeItem(item,type); if(!item) return;
+    q=money(q)||1;
+    var row={ id:item.id, n:item.n, c:item.c, g:item.sc, sc:item.sc, p:item.p, u:item.u, q:q, type:type, tag:'manual_v88', epResolvedFromDb:true, epDbSourceId:item.id };
+    try{
+      if(!Array.isArray(currentEstimate)) currentEstimate=[];
+      currentEstimate.push(row);
+      try{ window.currentEstimate=currentEstimate; }catch(e){}
+      if(typeof renderMainTable==='function') renderMainTable();
+      if(typeof syncDraft==='function') syncDraft();
+      toast('✅ Добавлено в смету');
+    }catch(e){
+      try{ if(typeof addAuto==='function') addAuto([row], 'manual_v88'); }catch(x){ toast('Не удалось добавить'); }
+    }
+  }
+
+  var EPDB={
+    state:state,
+    reload:function(){ load(); toast('Обновляю базу V88'); },
+    open:function(){ if(!state.loaded) load(); syncLegacy(); render(); },
+    setSource:function(src){ state.source=src==='server'?'server':'my'; state.panel=state.source; localStorage.setItem(LS_SOURCE,state.source); syncLegacy(); render(); toast('Активная база: '+sourceLabel(state.source)); },
+    openPanel:function(src){ state.panel=src==='server'?'server':'my'; state.selected={}; state.search=''; render(); },
+    setType:function(type){ state.type=type==='work'?'work':'mat'; state.selected={}; render(); },
+    search:function(v){ state.search=v||''; render(); },
+    toggle:function(key,val){ state.selected[key]=!!val; },
+    selectAll:function(){ state.visible.forEach(function(k){ state.selected[k]=true; }); render(); },
+    clearSelection:function(){ state.selected={}; render(); },
+    updateItem:function(src,type,id,field,value){
+      if(!editable(src)) return toast('Редактирование сервера доступно только админу');
+      var a=arr(src,type).slice(); var it=a.find(function(x){ return String(x.id)===String(id); }); if(!it) return;
+      if(field==='p') it.p=money(value); else if(field==='sc'){ it.sc=text(value)||'Без подкатегории'; it.g=it.sc; ensureCat(src,type,it.c,it.sc); } else if(field==='c'){ it.c=text(value)||'Без категории'; ensureCat(src,type,it.c,it.sc); } else it[field]=text(value);
+      setArr(src,type,a); render();
+    },
+    createCategory:function(){
+      var src=state.panel, type=state.type; if(!editable(src)) return toast('Нет прав');
+      var name=prompt('Название категории'); if(!text(name)) return;
+      ensureCat(src,type,name,'Без подкатегории'); save(src); render(); toast('Категория создана');
+    },
+    createSubcategory:function(){
+      var src=state.panel, type=state.type; if(!editable(src)) return toast('Нет прав');
+      var cat=prompt('Категория'); if(!text(cat)) return; var sub=prompt('Название подкатегории'); if(!text(sub)) return;
+      ensureCat(src,type,cat,sub); save(src); render(); toast('Подкатегория создана');
+    },
+    createItem:function(){
+      var src=state.panel, type=state.type; if(!editable(src)) return toast('Нет прав');
+      var n=prompt(type==='work'?'Название работы':'Название материала'); if(!text(n)) return;
+      var c=prompt('Категория','Без категории') || 'Без категории';
+      var sc=prompt('Подкатегория','Без подкатегории') || 'Без подкатегории';
+      var p=prompt('Цена','0') || '0';
+      var u=prompt('Единица измерения','шт') || 'шт';
+      upsert(src,type,{n:n,c:c,sc:sc,g:sc,p:p,u:u,type:type}); render(); toast('Позиция создана');
+    },
+    moveSelected:function(){
+      var src=state.panel, type=state.type; if(!editable(src)) return toast('Нет прав');
+      var ids=selectedIds(); if(!ids.length) return toast('Ничего не выбрано');
+      var cat=prompt('Новая категория'); if(!text(cat)) return; var sub=prompt('Новая подкатегория','Без подкатегории') || 'Без подкатегории';
+      ensureCat(src,type,cat,sub);
+      var a=arr(src,type).slice(); ids.forEach(function(k){ var parts=k.split('|'); if(parts[0]!==src||parts[1]!==type)return; var it=a.find(function(x){return String(x.id)===parts[2];}); if(it){ it.c=text(cat); it.sc=text(sub); it.g=it.sc; }});
+      state.selected={}; setArr(src,type,a); render(); toast('Перемещено');
+    },
+    deleteSelected:function(){
+      var src=state.panel, type=state.type; if(!editable(src)) return toast('Нет прав');
+      var ids=selectedIds(); if(!ids.length) return toast('Ничего не выбрано');
+      if(!confirm('Удалить выбранные позиции?')) return;
+      var kill={}; ids.forEach(function(k){ var p=k.split('|'); if(p[0]===src&&p[1]===type) kill[p[2]]=1; });
+      setArr(src,type,arr(src,type).filter(function(it){ return !kill[it.id]; })); state.selected={}; render(); toast('Удалено');
+    },
+    copyOneToMy:function(type,id){ var it=findById('server',type,id); if(!it) return; upsert('my',type,it); render(); toast('Скопировано в мою базу'); },
+    copySelectedToMy:function(){
+      var ids=selectedIds(); if(!ids.length) return toast('Ничего не выбрано'); var count=0;
+      ids.forEach(function(k){ var p=k.split('|'); if(p[0]!=='server')return; var it=findById('server',p[1],p[2]); if(it){ upsert('my',p[1],it); count++; }});
+      state.selected={}; render(); toast('В мою базу перенесено: '+count);
+    },
+    addQty:function(src,type,id){ var it=findById(src,type,id); if(!it) return toast('Позиция не найдена'); state.qtyItem={item:it,type:type}; ensureQtyModal(); $('epv88-qty-name').textContent=it.n; $('epv88-qty-input').value='1'; $('epv88-qty-modal').style.display='flex'; },
+    confirmQty:function(){ var q=($('epv88-qty-input')||{}).value||1; var x=state.qtyItem; $('epv88-qty-modal').style.display='none'; if(x) addToEstimate(x.item,x.type,q); state.qtyItem=null; },
+    importJson:function(){ if(!editable(state.panel)) return toast('Нет прав'); var f=$('epv88-import-file'); if(f){ f.value=''; f.click(); } },
+    handleImportFile:function(input){
+      var file=input.files&&input.files[0]; if(!file) return; var reader=new FileReader();
+      reader.onload=function(){ try{ var raw=JSON.parse(reader.result); EPDB.importData(raw); }catch(e){ toast('Ошибка JSON'); } }; reader.readAsText(file,'utf-8');
+    },
+    importData:function(raw){
+      var src=state.panel; if(!editable(src)) return toast('Нет прав');
+      var replace=confirm('ОК — заменить эту базу импортом. Отмена — добавить к существующей.');
+      var m=[],w=[];
+      if(Array.isArray(raw)){ if(state.type==='work') w=raw; else m=raw; }
+      else { m=raw.matDB||raw.mat||[]; w=raw.workDB||raw.work||[]; if(raw.meta) state.meta[src]=normalizeMeta({my:src==='my'?raw.meta:null,server:src==='server'?raw.meta:null})[src]; }
+      if(m.length){ setArr(src,'mat', replace ? m : arr(src,'mat').concat(m)); }
+      if(w.length){ setArr(src,'work', replace ? w : arr(src,'work').concat(w)); }
+      save(src); render(); toast('Импорт завершён');
+    },
+    exportJson:function(){
+      var src=state.panel; var data={version:BUILD, source:src, exportedAt:new Date().toISOString(), matDB:arr(src,'mat'), workDB:arr(src,'work'), meta:state.meta[src]};
+      var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(src==='server'?'server':'my')+'_db_v88.json'; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},300);
+    },
+    getActive:function(type){ return activeArr(type==='work'?'work':'mat').slice(); },
+    find:function(type,query){ var q=norm(query); return activeArr(type).filter(function(it){ return norm([it.c,it.sc,it.n].join(' ')).indexOf(q)>=0; }); }
+  };
+  window.EPDB=EPDB;
+
+  function ensureQtyModal(){
+    if($('epv88-qty-modal')) return;
+    var div=document.createElement('div'); div.id='epv88-qty-modal';
+    div.innerHTML='<div id="epv88-qty-card"><h3>Количество</h3><div id="epv88-qty-name" style="font-size:12px;font-weight:900;color:var(--gray);margin-bottom:10px;"></div><input id="epv88-qty-input" type="number" value="1" min="0" step="1"><div class="epv88-grid2" style="margin-top:10px;"><button class="btn-ghost" onclick="document.getElementById(\'epv88-qty-modal\').style.display=\'none\'">Отмена</button><button class="btn-success" onclick="EPDB.confirmQty()">Добавить</button></div></div>';
+    document.body.appendChild(div);
+  }
+
+  function groupCatalog(list,type,src){
+    if(!list.length) return '<div class="epv88-empty">В выбранной базе нет позиций. Открой базу данных и добавь позиции.</div>';
+    var by={}; list.forEach(function(it){ if(!by[it.c]) by[it.c]={}; var s=it.sc||'Без подкатегории'; if(!by[it.c][s]) by[it.c][s]=[]; by[it.c][s].push(it); });
+    var html='<div class="epv88-sub" style="margin-bottom:10px;">Источник: '+esc(sourceLabel(state.source))+'</div>';
+    Object.keys(by).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(c,i){
+      html+='<div class="epv88-cat '+(i<2?'open':'')+'"><div class="epv88-cat-head" onclick="this.parentNode.classList.toggle(\'open\')"><span>'+esc(c)+'</span><small>открыть</small></div><div class="epv88-cat-body">';
+      Object.keys(by[c]).sort(function(a,b){return a.localeCompare(b,'ru');}).forEach(function(s){ html+='<div class="epv88-subhead">'+esc(s)+'</div>'; by[c][s].forEach(function(it){ html+='<div class="mat-item"><div style="flex:1;"><div class="epv88-row-title">'+esc(it.n)+'</div><div class="epv88-meta">'+esc(it.p+' ₽ / '+it.u)+'</div></div><button class="mat-add-btn" style="width:auto;margin:0;" onclick="EPDB.addQty(\''+src+'\',\''+type+'\',\''+esc(it.id)+'\')">+ Добавить</button></div>'; }); });
+      html+='</div></div>';
+    });
+    return html;
+  }
+  function openCatalog(type){
+    syncLegacy();
+    type=type==='work'?'work':'mat'; var src=currentSource(); var list=activeArr(type);
+    if(type==='mat'){
+      var el=$('mat-cat-list'); if(el) el.innerHTML=groupCatalog(list,'mat',src);
+      if(typeof openModal==='function') openModal('matCatModal'); else { var m=$('matCatModal'); if(m)m.style.display='flex'; }
+    } else {
+      var ew=$('work-cat-list'); if(ew) ew.innerHTML=groupCatalog(list,'work',src);
+      if(typeof openModal==='function') openModal('workModal'); else { var wm=$('workModal'); if(wm)wm.style.display='flex'; }
+    }
+  }
+
+  function installOverrides(){
+    window.openMatCatalog=function(){ openCatalog('mat'); };
+    window.openWorkCatalog=function(){ openCatalog('work'); };
+    window.renderDbEditors=function(){ render(); };
+    window.addDbItem=function(){ EPDB.createItem(); };
+    window.switchDbTab=function(t){ EPDB.setType(t); };
+    window.requestPriceChange=function(type,id,value){
+      var src=state.panel; if(!editable(src)) return toast('Нет прав'); EPDB.updateItem(src,type,id,'p',value);
+    };
+    window.epSetDbScope=function(v){ EPDB.setSource(v==='global'?'server':'my'); };
+    window.epCreateMasterDb=function(){ state.panel='my'; state.source='my'; localStorage.setItem(LS_SOURCE,'my'); save('my'); syncLegacy(); render(); toast('Моя база создана'); };
+    var oldOpen=window.openModal;
+    if(typeof oldOpen==='function' && !oldOpen.__epv88){
+      var wrapped=function(id){ if(id==='settModal'){ EPDB.open(); } return oldOpen.apply(this,arguments); };
+      wrapped.__epv88=true; window.openModal=wrapped;
+      try{ openModal=wrapped; }catch(e){}
+    }
+    var menuBtn=qsa('#burger-menu button').filter(function(b){ return (b.textContent||'').indexOf('База данных')>=0; })[0];
+    if(menuBtn) menuBtn.onclick=function(){ try{ if(typeof toggleMenu==='function') toggleMenu(); }catch(e){} EPDB.open(); if(typeof openModal==='function') openModal('settModal'); };
+  }
+
+  function boot(){
+    installOverrides(); ensureQtyModal();
+    load();
+    setTimeout(function(){ installOverrides(); syncLegacy(); }, 1200);
+    setInterval(function(){ installOverrides(); syncLegacy(); }, 2500);
+    console.log(BUILD+' loaded');
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<!-- EP_V88_CLEAN_INDEPENDENT_DB_END -->
 
 </body>
 </html>
