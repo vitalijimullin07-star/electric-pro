@@ -1,10 +1,10 @@
-<!-- EP_BUILD: V18 BULK CHECKBOX SHIELD STATUS. If this comment is absent in page source, wrong file is loaded. -->
+<!-- EP_BUILD: V85 SINGLE HTML DB VISUAL SCHEME. If this comment is absent in page source, wrong file is loaded. -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Электрик PRO v16.9 ERP</title>
+    <title>Электрик PRO v16.9 ERP — V85 single HTML</title>
     
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
@@ -337,6 +337,192 @@ button:active { transform: scale(.985); }
 .ep-shield-generate-error { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25); color: var(--danger); border-radius: 12px; padding: 10px; margin: 8px 0; font-size: 12px; font-weight: 800; }
 </style>
 
+
+
+<!-- EP_V84_DB_VISUAL_SCHEME_STYLE_START -->
+<style id="EP_V84_DB_VISUAL_SCHEME_STYLE">
+/* === EP V84: база + визуал + подключение схемы === */
+:root{
+    --ep-radius-xl: 22px;
+    --ep-radius-lg: 18px;
+    --ep-soft-shadow: 0 14px 36px rgba(15, 23, 42, .12);
+    --ep-soft-shadow-strong: 0 18px 48px rgba(15, 23, 42, .20);
+}
+body{
+    min-height: 100dvh;
+    background:
+        radial-gradient(circle at top left, rgba(79,70,229,.14), transparent 34%),
+        radial-gradient(circle at top right, rgba(16,185,129,.12), transparent 30%),
+        var(--bg) !important;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) !important;
+}
+.card.glass, .modal-content.glass{
+    border-radius: var(--ep-radius-xl) !important;
+    box-shadow: var(--ep-soft-shadow) !important;
+}
+.header{
+    margin-bottom: 12px !important;
+}
+#master-badge{
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(79,70,229,.08);
+    border: 1px solid rgba(79,70,229,.12);
+}
+.controls{
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+}
+.controls button, .controls-3 button, .burger-menu button{
+    min-height: 46px;
+    border-radius: 14px !important;
+    letter-spacing: .01em;
+    box-shadow: 0 7px 18px rgba(15,23,42,.08);
+}
+.controls button:active, .controls-3 button:active, .burger-menu button:active{
+    transform: scale(.985) translateY(1px) !important;
+}
+.btn-scheme{
+    background: linear-gradient(135deg, #0EA5E9, #2563EB, #7C3AED) !important;
+    color:#fff !important;
+    box-shadow: 0 12px 26px rgba(37,99,235,.22) !important;
+}
+#settModal .modal-content{
+    max-width: 760px !important;
+}
+#settModal h2{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px !important;
+}
+#settModal h2:before{
+    content:'🗄';
+    display:inline-flex;
+}
+#ep-db-scope-toolbar,
+#ep-db-clean-toolbar,
+#ep-v21-bulk-box{
+    border-radius: 18px !important;
+    box-shadow: 0 10px 28px rgba(15,23,42,.08) !important;
+}
+#ep-db-scope-toolbar{
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    backdrop-filter: blur(14px);
+}
+#settModal .tabs-container{
+    position: sticky;
+    top: 100px;
+    z-index: 20;
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+}
+#settModal .emp-row,
+#settModal .mat-item{
+    border-radius: 14px !important;
+    margin-bottom: 8px !important;
+    border: 1px solid rgba(100,116,139,.12) !important;
+    background: rgba(255,255,255,.52) !important;
+}
+[data-theme="dark"] #settModal .emp-row,
+[data-theme="dark"] #settModal .mat-item{
+    background: rgba(15,23,42,.42) !important;
+}
+#settModal input,
+#settModal select{
+    border-radius: 13px !important;
+}
+#ep-v17-bulk-box,
+#ep-v18-bulk-box{
+    display:none !important;
+}
+.ep-v84-db-toast{
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(24px);
+    z-index: 12000;
+    min-width: min(92vw, 360px);
+    max-width: 92vw;
+    padding: 14px 16px;
+    border-radius: 999px;
+    color:#fff;
+    background: linear-gradient(135deg, #4F46E5, #0EA5E9);
+    box-shadow: var(--ep-soft-shadow-strong);
+    font-size: 13px;
+    font-weight: 900;
+    text-align:center;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+}
+.ep-v84-db-toast.show{
+    opacity:1;
+    transform: translateX(-50%) translateY(0);
+}
+#schemeModal{
+    z-index: 2600 !important;
+    padding: 8px !important;
+    align-items: stretch !important;
+}
+.ep-scheme-modal-content{
+    width: 100% !important;
+    max-width: 1180px !important;
+    height: calc(100dvh - 16px) !important;
+    margin: 0 auto !important;
+    padding: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+.ep-scheme-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    padding-right:28px;
+}
+.ep-scheme-head h2{
+    margin:0 !important;
+    color:var(--primary);
+    font-size:18px;
+    line-height:1.2;
+}
+.ep-scheme-hint{
+    color:var(--gray);
+    font-size:11px;
+    font-weight:700;
+    margin-top:4px;
+}
+.ep-scheme-toolbar{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:8px;
+    margin:12px 0;
+}
+.ep-scheme-toolbar button{
+    border-radius:14px !important;
+    min-height:42px;
+}
+#ep-scheme-frame{
+    width:100%;
+    flex:1;
+    min-height:0;
+    border:1px solid var(--border);
+    border-radius:18px;
+    background:#fff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.2);
+}
+@media (max-width: 520px){
+    .ep-scheme-toolbar{ grid-template-columns: 1fr; }
+    .ep-scheme-modal-content{ padding: 10px !important; }
+    #settModal .tabs-container{ top: 108px; }
+}
+</style>
+<!-- EP_V84_DB_VISUAL_SCHEME_STYLE_END -->
+
 </head>
 <body>
 
@@ -350,6 +536,7 @@ button:active { transform: scale(.985); }
     <button class="btn-vendor" style="background: rgba(139,92,246,0.15); color: #8B5CF6;" onclick="runAiCheck(); toggleMenu();">✨ ИИ-Анализ сметы</button>
     <button class="btn-vendor" style="background: rgba(59,130,246,0.15); color: #3B82F6;" onclick="aiSupply(); toggleMenu();">📦 ИИ-Снабженец</button>
     <button class="btn-vendor" style="background: rgba(16,185,129,0.15); color: #10B981;" onclick="openModal('settModal'); toggleMenu();">🗄 База данных</button>
+    <button class="btn-vendor" style="background: rgba(14,165,233,0.15); color: #0EA5E9;" onclick="epOpenSchemeModal(); toggleMenu();">📐 Однолинейная схема</button>
     <button class="btn-vendor" style="background: rgba(245,158,11,0.15); color: #F59E0B;" onclick="openModal('buhModal'); toggleMenu();">💰 Бухгалтерия (Акты)</button>
     
     <div style="border-top: 1px solid var(--border); margin-top:10px; padding-top:10px;">
@@ -373,6 +560,7 @@ button:active { transform: scale(.985); }
             <button onclick="openModal('roughModal')" class="btn-rough btn-full">2. Пул розеток и ВІM</button>
             <button onclick="openMatCatalog()" class="btn-mat">+ Материалы</button>
             <button onclick="openWorkCatalog()" class="btn-work">+ Работы</button>
+            <button onclick="epOpenSchemeModal()" class="btn-scheme btn-full">3. Однолинейная схема</button>
         </div>
         <div class="controls-3">
             <button onclick="showPreview('vendor')" class="btn-vendor">Поставщику</button>
@@ -10932,6 +11120,789 @@ async function deleteUser(uid) {
 })();
 </script>
 <!-- EP_V21_STABLE_BULK_PANEL_FIX_LOADED -->
+
+
+
+<!-- EP_V85_SINGLE_HTML_SCHEME_START -->
+<div class="modal" id="schemeModal">
+    <div class="modal-content glass ep-scheme-modal-content">
+        <div class="close-x" onclick="closeModal('schemeModal')">×</div>
+        <div class="ep-scheme-head">
+            <div>
+                <h2>📐 Однолинейная схема</h2>
+                <div class="ep-scheme-hint">Схема встроена внутрь этого файла. Для APK больше не нужен отдельный scheme.html.</div>
+            </div>
+        </div>
+        <div class="ep-scheme-toolbar">
+            <button class="btn-primary" onclick="epSchemePrint()">🖨 Печать</button>
+            <button class="btn-info" onclick="epSchemeExportJson()">📤 JSON схемы</button>
+            <button class="btn-vendor" onclick="epSchemeReset()">♻️ Сброс схемы</button>
+        </div>
+        <iframe id="ep-scheme-frame" title="Однолинейная схема"></iframe>
+    </div>
+</div>
+<textarea id="EP_EMBEDDED_SCHEME_HTML" style="display:none"><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Electrician PRO - Схема</title>
+    <style>
+        /* Адаптация под современные Android (учет скрывающейся панели навигации) */
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; display: flex; height: 100dvh; overflow: hidden; flex-direction: column; }
+        
+        .main-layout { display: flex; width: 100%; flex: 1; flex-direction: column; overflow: hidden; }
+        @media (min-width: 992px) { .main-layout { flex-direction: row; } }
+        
+        .canvas-container { flex: 1; background: white; padding: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); overflow: auto; position: relative; }
+        svg { display: block; background-color: #fff; margin: 0 auto; }
+
+        /* Компактная нижняя панель */
+        .control-panel { 
+            width: 100%; max-width: none; background: #fff; border-top: 1px solid #ddd; 
+            display: flex; flex-direction: column; padding: 12px 15px; box-sizing: border-box; 
+            overflow-y: auto; z-index: 10; box-shadow: 0 -4px 15px rgba(0,0,0,0.08); 
+            max-height: 48dvh; /* Не больше половины экрана */
+            border-top-left-radius: 12px; border-top-right-radius: 12px;
+        }
+        @media (min-width: 992px) { 
+            .control-panel { width: 320px; border-top: none; border-left: 1px solid #ddd; box-shadow: none; max-height: none; border-radius: 0; } 
+        }
+
+        .panel-header { display: flex; justify-content: space-between; align-items: center; }
+        .panel-header h2 { font-size: 16px; margin: 0; color: #333; }
+        
+        /* Кнопка-крестик */
+        .close-btn { background: none; border: none; font-size: 26px; color: #999; cursor: pointer; padding: 0 5px; line-height: 1; margin-top: -4px; display: none; }
+        .close-btn:hover { color: #333; }
+
+        .editor-form { display: none; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .actions-form { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 2px; }
+        .form-row { display: flex; align-items: center; gap: 8px; margin-top: 2px;}
+        label { font-size: 12px; color: #666; font-weight: bold; }
+        input[type="text"], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 100%; box-sizing: border-box; }
+        input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; margin: 0; }
+        
+        button { padding: 10px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; transition: background 0.2s; font-weight: bold; }
+        button.primary { background-color: #007bff; color: white; }
+        button.add-btn { background-color: #28a745; color: white; flex: 1; }
+        button.delete { background-color: #dc3545; color: white; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .no-selection { color: #888; font-style: italic; text-align: center; margin: 10px 0; font-size: 13px; }
+
+        /* Стили схемы */
+        .device-id { font-size: 14px; font-weight: bold; text-anchor: start; fill: #111; pointer-events: none; }
+        .device-label { font-size: 12px; text-anchor: start; fill: #444; pointer-events: none; }
+        .device-rating { font-size: 13px; text-anchor: start; fill: #0056b3; font-weight: bold; pointer-events: none; }
+        .device-group { cursor: pointer; outline: none; }
+        .symbol-draw { stroke: black; stroke-width: 2; fill: none; }
+        .device-group.selected .symbol-draw { stroke: #007bff; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(0, 123, 255, 0.4)); }
+        .device-group.selected .hitbox { fill: rgba(0, 123, 255, 0.05); stroke: #007bff; stroke-dasharray: 4; }
+        .text-backdrop { fill: white; pointer-events: none; }
+
+        /* EP V84: автосохранение и кнопки обмена схемой */
+        .scheme-save-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 4px; }
+        .scheme-save-row button { border-radius: 8px; padding: 9px 6px; font-size: 11px; color: #fff; }
+        .scheme-save-row .blue { background:#007bff; }
+        .scheme-save-row .green { background:#28a745; }
+        .scheme-save-row .gray { background:#6c757d; }
+        #scheme-save-status { font-size: 11px; color:#666; font-weight: bold; text-align:center; margin-bottom: 4px; }
+        @media (max-width: 520px) { .scheme-save-row { grid-template-columns: 1fr; } }
+
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    <div class="canvas-container" id="canvas-scroll-area">
+        <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <symbol id="sym-mcb" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <line x1="20" y1="30" x2="10" y2="50" class="symbol-draw"/>
+                    <circle cx="20" cy="55" r="2" fill="black" />
+                    <line x1="20" y1="55" x2="20" y2="100" class="symbol-draw"/>
+                    <rect x="15" y="65" width="10" height="15" class="symbol-draw" stroke-width="1.5"/>
+                    <line x1="15" y1="65" x2="25" y2="80" class="symbol-draw" stroke-width="1.5"/>
+                </symbol>
+                <symbol id="sym-rcd" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <line x1="20" y1="30" x2="10" y2="50" class="symbol-draw"/>
+                    <circle cx="20" cy="55" r="2" fill="black" />
+                    <line x1="20" y1="55" x2="20" y2="100" class="symbol-draw"/>
+                    <ellipse cx="20" cy="75" rx="10" ry="15" class="symbol-draw" stroke-width="1.5"/>
+                </symbol>
+                <symbol id="sym-rcbo" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <line x1="20" y1="30" x2="10" y2="50" class="symbol-draw"/>
+                    <circle cx="20" cy="55" r="2" fill="black" />
+                    <line x1="20" y1="55" x2="20" y2="100" class="symbol-draw"/>
+                    <rect x="15" y="62" width="10" height="10" class="symbol-draw" stroke-width="1.5"/>
+                    <line x1="15" y1="62" x2="25" y2="72" class="symbol-draw" stroke-width="1.5"/>
+                    <ellipse cx="20" cy="85" rx="8" ry="12" class="symbol-draw" stroke-width="1.5"/>
+                </symbol>
+                <symbol id="sym-switch" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <line x1="20" y1="30" x2="10" y2="50" class="symbol-draw"/>
+                    <circle cx="20" cy="55" r="2" fill="black" />
+                    <line x1="20" y1="55" x2="20" y2="100" class="symbol-draw"/>
+                    <line x1="3" y1="50" x2="17" y2="50" class="symbol-draw"/>
+                </symbol>
+                <symbol id="sym-relay" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="25" class="symbol-draw"/>
+                    <rect x="5" y="25" width="30" height="50" class="symbol-draw" stroke-width="1.5"/>
+                    <text x="20" y="55" font-size="14" text-anchor="middle" font-weight="bold" pointer-events="none">U</text>
+                    <line x1="20" y1="75" x2="20" y2="100" class="symbol-draw"/>
+                </symbol>
+                <symbol id="sym-meter" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="20" class="symbol-draw"/>
+                    <rect x="5" y="20" width="30" height="60" class="symbol-draw" stroke-width="1.5"/>
+                    <text x="20" y="55" font-size="10" text-anchor="middle" font-weight="bold" pointer-events="none">kWh</text>
+                    <line x1="20" y1="80" x2="20" y2="100" class="symbol-draw"/>
+                </symbol>
+                <symbol id="sym-spd" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <rect x="10" y="30" width="20" height="40" class="symbol-draw" stroke-width="1.5"/>
+                    <line x1="10" y1="70" x2="30" y2="30" class="symbol-draw"/> 
+                    <line x1="20" y1="70" x2="20" y2="100" class="symbol-draw"/>
+                </symbol>
+                <symbol id="sym-contactor" viewBox="0 0 40 100">
+                    <line x1="20" y1="0" x2="20" y2="30" class="symbol-draw"/>
+                    <line x1="20" y1="30" x2="10" y2="50" class="symbol-draw"/>
+                    <circle cx="20" cy="55" r="2" fill="black" />
+                    <line x1="20" y1="55" x2="20" y2="100" class="symbol-draw"/>
+                    <rect x="15" y="70" width="10" height="15" class="symbol-draw" stroke-width="1.5"/>
+                    <line x1="15" y1="70" x2="25" y2="85" class="symbol-draw"/>
+                </symbol>
+            </defs>
+            <g id="scheme-root"></g>
+        </svg>
+    </div>
+
+    <aside class="control-panel">
+        <div class="panel-header">
+            <h2>Редактор</h2>
+            <button id="btn-close-panel" class="close-btn">&times;</button>
+        </div>
+        <div class="scheme-save-row">
+            <button type="button" class="green" onclick="EP_SCHEME_API && EP_SCHEME_API.downloadJson()">📤 JSON</button>
+            <button type="button" class="blue" onclick="document.getElementById('scheme-import-json').click()">📥 JSON</button>
+            <button type="button" class="gray" onclick="EP_SCHEME_API && EP_SCHEME_API.reset()">♻️ Сброс</button>
+        </div>
+        <input id="scheme-import-json" type="file" accept=".json,application/json" style="display:none">
+        <div id="scheme-save-status">Автосохранение включено</div>
+        
+        <div id="no-selection-msg" class="no-selection">Кликните на аппарат для настройки</div>
+
+        <form id="editor-form" class="editor-form">
+            <div class="form-group">
+                <label>Тип аппарата:</label>
+                <select id="edit-type">
+                    <option value="switch">Рубильник (ВН)</option>
+                    <option value="mcb">Автомат (MCB)</option>
+                    <option value="rcd">УЗО (ВДТ)</option>
+                    <option value="rcbo">Дифавтомат (АВДТ)</option>
+                    <option value="relay">Реле напряжения</option>
+                    <option value="meter">Счетчик</option>
+                    <option value="spd">УЗИП</option>
+                    <option value="contactor">Контактор</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>ID:</label>
+                    <input type="text" id="edit-id" placeholder="QF2">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Номинал:</label>
+                    <input type="text" id="edit-rating" placeholder="16A">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Название группы:</label>
+                <input type="text" id="edit-label" placeholder="Свет Зал">
+            </div>
+            
+            <div class="form-row">
+                <input type="checkbox" id="edit-cross">
+                <label for="edit-cross" style="cursor:pointer; color:#333;">Кросс-модуль под аппаратом</label>
+            </div>
+
+            <button type="submit" class="primary" style="margin-top: 2px;">Сохранить изменения</button>
+        </form>
+
+        <div id="actions-form" class="actions-form" style="display:none;">
+            <div style="border-top: 1px solid #eee; padding-top: 10px;">
+                <label style="margin-bottom: 6px; display:block;">Добавить вниз:</label>
+                <div style="display: flex; gap: 8px;">
+                    <select id="add-new-type" style="flex: 1.2;">
+                        <option value="mcb">Автомат</option>
+                        <option value="rcd">УЗО</option>
+                        <option value="rcbo">Дифавтомат</option>
+                        <option value="switch">Рубильник</option>
+                        <option value="relay">Реле</option>
+                    </select>
+                    <button id="btn-add" class="add-btn">+ Добавить</button>
+                </div>
+            </div>
+            <button id="btn-delete" class="delete" style="margin-top: 8px;">Удалить весь узел</button>
+        </div>
+    </aside>
+</div>
+
+<script>
+    const defaults = {
+        mcb: { label: 'Новая линия', rating: '16A', prefix: 'QF' },
+        rcd: { label: 'Групповое УЗО', rating: '40A/30mA', prefix: 'QD' },
+        rcbo: { label: 'Дифавтомат', rating: '16A/30mA', prefix: 'QFD' },
+        switch: { label: 'Рубильник', rating: '40A', prefix: 'QS' },
+        relay: { label: 'Реле напр.', rating: '63A', prefix: 'KV' },
+        meter: { label: 'Счетчик', rating: '60A', prefix: 'PI' },
+        spd: { label: 'УЗИП', rating: 'T2', prefix: 'FV' },
+        contactor: { label: 'Контактор', rating: '25A', prefix: 'KM' }
+    };
+
+    let schemeTree = {
+        id: 'QS1', type: 'switch', label: 'Вводной рубильник', rating: '63A', isCrossModule: false,
+        children: [
+            {
+                id: 'KV1', type: 'relay', label: 'Реле напр.', rating: '63A', isCrossModule: true,
+                children: [
+                    { id: 'QD1', type: 'rcd', label: 'УЗО С/У', rating: '40A/30mA', children: [
+                        { id: 'QF1', type: 'mcb', label: 'Бойлер', rating: '16A' }
+                    ]},
+                    { id: 'QFD1', type: 'rcbo', label: 'Стиральная маш.', rating: '16A/30mA', children: [] }
+                ]
+            }
+        ]
+    };
+
+
+
+    // EP V84: хранение схемы в localStorage + API для основного index.html
+    const EP_SCHEME_STORAGE_KEY = 'ep_one_line_scheme_tree_v1';
+    function epSchemeCloneClean(node) {
+        node = node || {};
+        const clean = {
+            id: String(node.id || 'QF'),
+            type: String(node.type || 'mcb'),
+            label: String(node.label || ''),
+            rating: String(node.rating || ''),
+            isCrossModule: !!node.isCrossModule,
+            children: []
+        };
+        if (Array.isArray(node.children)) clean.children = node.children.map(epSchemeCloneClean);
+        return clean;
+    }
+    function epSchemeSave() {
+        try {
+            localStorage.setItem(EP_SCHEME_STORAGE_KEY, JSON.stringify(epSchemeCloneClean(schemeTree)));
+            const st = document.getElementById('scheme-save-status');
+            if (st) st.textContent = '✅ Схема сохранена автоматически';
+        } catch(e) {
+            const st = document.getElementById('scheme-save-status');
+            if (st) st.textContent = '⚠️ Не удалось сохранить схему';
+        }
+    }
+    function epSchemeLoad(defaultTree) {
+        try {
+            const raw = localStorage.getItem(EP_SCHEME_STORAGE_KEY);
+            if (!raw) return defaultTree;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !parsed.id) return defaultTree;
+            return epSchemeCloneClean(parsed);
+        } catch(e) { return defaultTree; }
+    }
+    function epSchemeDownloadJson() {
+        try {
+            const data = JSON.stringify(epSchemeCloneClean(schemeTree), null, 2);
+            const blob = new Blob([data], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'electric-pro-scheme.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1200);
+        } catch(e) { alert('Не удалось экспортировать JSON'); }
+    }
+    function epSchemeSetTree(data) {
+        if (!data || !data.id) { alert('Неверный файл схемы'); return; }
+        schemeTree = epSchemeCloneClean(data);
+        selectedNodeId = null;
+        epSchemeSave();
+        render();
+        selectNode(null);
+    }
+    function epSchemeReset() {
+        if (!confirm('Сбросить схему к начальному примеру?')) return;
+        try { localStorage.removeItem(EP_SCHEME_STORAGE_KEY); } catch(e) {}
+        location.reload();
+    }
+    schemeTree = epSchemeLoad(schemeTree);
+    window.EP_SCHEME_API = {
+        getTree: function(){ return epSchemeCloneClean(schemeTree); },
+        setTree: epSchemeSetTree,
+        save: epSchemeSave,
+        downloadJson: epSchemeDownloadJson,
+        reset: epSchemeReset
+    };
+
+
+    const SPACING_X = 140; 
+    const SPACING_Y = 220; 
+    const START_Y = 100; 
+    const TEXT_OFFSET_X = 30; 
+    
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.getElementById('diagram');
+    const schemeRoot = document.getElementById('scheme-root');
+    
+    let leafCount = 0;       
+    let selectedNodeId = null; 
+    let maxDrawY = 0; // Переменная для вычисления максимальной высоты холста
+
+    function drawLine(x1, y1, x2, y2, color = 'black', width = 2, dash = '') {
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+        line.setAttribute('stroke', color); line.setAttribute('stroke-width', width);
+        if (dash) line.setAttribute('stroke-dasharray', dash);
+        schemeRoot.appendChild(line);
+    }
+
+    function drawTerminalCircle(x, y) {
+        const circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+        circle.setAttribute('r', '3.5'); circle.setAttribute('fill', 'black');
+        schemeRoot.appendChild(circle);
+    }
+
+    function drawDevice(node) {
+        const group = document.createElementNS(svgNS, 'g');
+        group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+        group.setAttribute('class', 'device-group');
+        group.setAttribute('data-id', node.id); 
+
+        const hitbox = document.createElementNS(svgNS, 'rect');
+        hitbox.setAttribute('x', -30); hitbox.setAttribute('y', -20); 
+        hitbox.setAttribute('width', 180); hitbox.setAttribute('height', 160); 
+        hitbox.setAttribute('fill', 'transparent'); hitbox.setAttribute('class', 'hitbox');
+        group.appendChild(hitbox);
+
+        const use = document.createElementNS(svgNS, 'use');
+        use.setAttribute('href', `#sym-${node.type}`);
+        use.setAttribute('x', -20); use.setAttribute('y', 0); 
+        use.setAttribute('width', 40); use.setAttribute('height', 100);
+        group.appendChild(use);
+
+        const textId = document.createElementNS(svgNS, 'text');
+        textId.setAttribute('x', TEXT_OFFSET_X); textId.setAttribute('y', 20); 
+        textId.setAttribute('class', 'device-id'); textId.textContent = node.id;
+        group.appendChild(textId);
+
+        const hasChildren = node.children && node.children.length > 0;
+        
+        if (hasChildren || node.isCrossModule) {
+            const textLabel = document.createElementNS(svgNS, 'text');
+            textLabel.setAttribute('x', TEXT_OFFSET_X); textLabel.setAttribute('y', 45); 
+            textLabel.setAttribute('class', 'device-label'); textLabel.textContent = node.label;
+            group.appendChild(textLabel);
+
+            const textRating = document.createElementNS(svgNS, 'text');
+            textRating.setAttribute('x', TEXT_OFFSET_X); textRating.setAttribute('y', 65); 
+            textRating.setAttribute('class', 'device-rating'); textRating.textContent = node.rating;
+            group.appendChild(textRating);
+        } else {
+            const labelGroup = document.createElementNS(svgNS, 'g');
+            labelGroup.setAttribute('transform', 'translate(0, 115)'); 
+
+            const backdrop = document.createElementNS(svgNS, 'rect');
+            backdrop.setAttribute('x', TEXT_OFFSET_X - 5); backdrop.setAttribute('y', -10); 
+            backdrop.setAttribute('width', 150); backdrop.setAttribute('height', 35); 
+            backdrop.setAttribute('class', 'text-backdrop');
+            labelGroup.appendChild(backdrop);
+
+            const textLabel = document.createElementNS(svgNS, 'text');
+            textLabel.setAttribute('x', TEXT_OFFSET_X); textLabel.setAttribute('y', 5); 
+            textLabel.setAttribute('class', 'device-label'); textLabel.textContent = node.label;
+            labelGroup.appendChild(textLabel);
+
+            const textRating = document.createElementNS(svgNS, 'text');
+            textRating.setAttribute('x', TEXT_OFFSET_X); textRating.setAttribute('y', 23); 
+            textRating.setAttribute('class', 'device-rating'); textRating.textContent = node.rating;
+            labelGroup.appendChild(textRating);
+
+            group.appendChild(labelGroup);
+        }
+        schemeRoot.appendChild(group);
+    }
+
+    function calculatePositions(node, depth = 0) {
+        node.y = START_Y + depth * SPACING_Y;
+        if (node.y > maxDrawY) maxDrawY = node.y; // Запоминаем самую глубокую точку схемы
+        
+        if (!node.children || node.children.length === 0) {
+            node.x = leafCount * SPACING_X;
+            leafCount++;
+        } else {
+            node.children.forEach(child => calculatePositions(child, depth + 1));
+            const firstChildX = node.children[0].x;
+            const lastChildX = node.children[node.children.length - 1].x;
+            node.x = (firstChildX + lastChildX) / 2;
+        }
+    }
+
+    function shiftTree(node, offsetX) {
+        node.x += offsetX;
+        if (node.children) node.children.forEach(child => shiftTree(child, offsetX));
+    }
+
+    function drawTree(node) {
+        drawDevice(node);
+        
+        if (node.id === schemeTree.id) {
+            const totalWidth = Math.max(1, leafCount - 1) * SPACING_X;
+            const busStartX = node.x - 50;
+            const busEndX = node.x + totalWidth + 50;
+            
+            drawLine(busStartX, 30, busEndX, 30, '#28a745', 3, '6 4');
+            drawLine(node.x, 30, node.x, node.y, '#28a745', 2); 
+            
+            drawLine(busStartX, 50, busEndX, 50, '#007bff', 3);
+            drawLine(node.x - 10, 50, node.x - 10, node.y, '#007bff', 2); 
+        }
+
+        if (node.children && node.children.length > 0) {
+            let busbarY = node.y + 115; 
+            let lineStartY = node.y + 100; 
+            
+            if (node.isCrossModule) {
+                const cx = node.x - 20;
+                const cy = node.y + 110;
+                
+                const rect = document.createElementNS(svgNS, 'rect');
+                rect.setAttribute('x', cx); rect.setAttribute('y', cy); 
+                rect.setAttribute('width', 40); rect.setAttribute('height', 45); 
+                rect.setAttribute('fill', '#f8f9fa'); rect.setAttribute('stroke', '#adb5bd'); rect.setAttribute('rx', 4);
+                schemeRoot.appendChild(rect);
+                
+                drawLine(cx + 8, cy + 8, cx + 8, cy + 37, '#dc3545', 2);
+                drawLine(cx + 16, cy + 8, cx + 16, cy + 37, '#dc3545', 2);
+                drawLine(cx + 24, cy + 8, cx + 24, cy + 37, '#dc3545', 2);
+                drawLine(cx + 32, cy + 8, cx + 32, cy + 37, '#007bff', 2);
+
+                busbarY = cy + 65; 
+                lineStartY = cy + 45; 
+                drawLine(node.x, node.y + 100, node.x, cy);
+            }
+
+            drawLine(node.x, lineStartY, node.x, busbarY);
+
+            if (node.children.length > 1) {
+                const firstX = node.children[0].x;
+                const lastX = node.children[node.children.length - 1].x;
+                drawLine(firstX, busbarY, lastX, busbarY, 'black', 3);
+            }
+
+            node.children.forEach(child => {
+                drawLine(child.x, busbarY, child.x, child.y);
+                drawTree(child); 
+            });
+            
+        } else {
+            const tailY = node.y + 140;
+            drawLine(node.x, node.y + 100, node.x, tailY);
+            drawTerminalCircle(node.x, tailY);
+        }
+    }
+
+    function render() {
+        schemeRoot.innerHTML = ''; 
+        leafCount = 0;
+        maxDrawY = 0; // Сбрасываем перед вычислением
+        
+        calculatePositions(schemeTree);
+        shiftTree(schemeTree, 120); 
+        
+        // ДИНАМИЧЕСКИЙ РАЗМЕР ХОЛСТА (Фикс обрезания снизу)
+        svg.setAttribute('width', Math.max(500, (leafCount * SPACING_X) + 160)); 
+        svg.setAttribute('height', maxDrawY + 300); // 300px запас для хвостиков и текста внизу
+        
+        drawTree(schemeTree);
+        reapplySelection(); 
+        epSchemeSave();
+    }
+
+    // --- ЛОГИКА ИНТЕРФЕЙСА ---
+
+    const msg = document.getElementById('no-selection-msg');
+    const editorForm = document.getElementById('editor-form');
+    const actionsForm = document.getElementById('actions-form');
+    const btnClosePanel = document.getElementById('btn-close-panel');
+    
+    const editType = document.getElementById('edit-type');
+    const editId = document.getElementById('edit-id');
+    const editLabel = document.getElementById('edit-label');
+    const editRating = document.getElementById('edit-rating');
+    const editCross = document.getElementById('edit-cross');
+    
+    const addNewType = document.getElementById('add-new-type');
+    const btnAdd = document.getElementById('btn-add');
+
+    const schemeImportJson = document.getElementById('scheme-import-json');
+    if (schemeImportJson) {
+        schemeImportJson.addEventListener('change', function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function() {
+                try { epSchemeSetTree(JSON.parse(String(reader.result || '{}'))); }
+                catch(err) { alert('Не удалось прочитать JSON схемы'); }
+                schemeImportJson.value = '';
+            };
+            reader.readAsText(file, 'utf-8');
+        });
+    }
+
+
+    function findNodeById(root, id) {
+        if (root.id === id) return root;
+        if (root.children) {
+            for (let child of root.children) {
+                let found = findNodeById(child, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    // Клик по схеме
+    svg.addEventListener('click', (e) => {
+        let group = e.target;
+        while (group && group !== svg) {
+            if (group.classList && group.classList.contains('device-group')) break;
+            group = group.parentNode;
+        }
+        if (group && group !== svg) {
+            selectNode(group.getAttribute('data-id'));
+        } else {
+            selectNode(null);
+        }
+    });
+
+    // Кнопка-крестик
+    btnClosePanel.addEventListener('click', () => selectNode(null));
+
+    function selectNode(id) {
+        selectedNodeId = id;
+        document.querySelectorAll('.device-group.selected').forEach(el => el.classList.remove('selected'));
+        
+        if (id) {
+            const group = document.querySelector(`.device-group[data-id="${id}"]`);
+            if (group) group.classList.add('selected');
+            
+            const node = findNodeById(schemeTree, id);
+            if (node) {
+                editType.value = node.type;
+                editId.value = node.id; 
+                editLabel.value = node.label; 
+                editRating.value = node.rating;
+                editCross.checked = !!node.isCrossModule;
+                
+                actionsForm.style.display = 'block';
+                msg.style.display = 'none'; 
+                editorForm.style.display = 'flex';
+                btnClosePanel.style.display = 'block'; // Показываем крестик
+            }
+        } else {
+            msg.style.display = 'block'; 
+            editorForm.style.display = 'none'; 
+            actionsForm.style.display = 'none';
+            btnClosePanel.style.display = 'none'; // Прячем крестик
+        }
+    }
+
+    function reapplySelection() {
+        if (selectedNodeId) {
+            const group = document.querySelector(`.device-group[data-id="${selectedNodeId}"]`);
+            if (group) group.classList.add('selected');
+        }
+    }
+
+    editorForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (selectedNodeId) {
+            const node = findNodeById(schemeTree, selectedNodeId);
+            if (node) {
+                node.type = editType.value;
+                node.id = editId.value; 
+                node.label = editLabel.value; 
+                node.rating = editRating.value;
+                node.isCrossModule = editCross.checked;
+                render(); 
+            }
+        }
+    });
+
+    function getNextNodeId(type) {
+        let prefix = defaults[type].prefix || 'QF';
+        let count = 0;
+        function countNodes(n) {
+            if (n.id.startsWith(prefix)) count++;
+            if (n.children) n.children.forEach(countNodes);
+        }
+        countNodes(schemeTree);
+        return prefix + (count + 1);
+    }
+
+    btnAdd.addEventListener('click', () => {
+        if (selectedNodeId) {
+            const parentNode = findNodeById(schemeTree, selectedNodeId);
+            if (parentNode) {
+                if (!parentNode.children) parentNode.children = [];
+                
+                const type = addNewType.value;
+                const newId = getNextNodeId(type);
+                const def = defaults[type];
+                
+                parentNode.children.push({ 
+                    id: newId, 
+                    type: type, 
+                    label: def.label, 
+                    rating: def.rating,
+                    isCrossModule: false 
+                });
+                
+                render(); 
+            }
+        }
+    });
+
+    document.getElementById('btn-delete').addEventListener('click', () => {
+        if (selectedNodeId && selectedNodeId !== schemeTree.id) { 
+            if (!confirm('Точно удалить аппарат и все его отходящие линии?')) return;
+            removeNode(schemeTree, selectedNodeId);
+            selectedNodeId = null;
+            render(); selectNode(null);
+        }
+    });
+
+    function removeNode(parent, id) {
+        if (parent.children) {
+            for (let i = 0; i < parent.children.length; i++) {
+                if (parent.children[i].id === id) { parent.children.splice(i, 1); return true; }
+                if (removeNode(parent.children[i], id)) return true;
+            }
+        }
+        return false;
+    }
+
+    render();
+</script>
+</body>
+</html>
+</textarea>
+<script id="EP_V85_SINGLE_HTML_SCHEME_BRIDGE_SCRIPT">
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function say(msg){
+    try{ if(typeof toast === 'function'){ toast(msg); return; } }catch(e){}
+    alert(msg);
+  }
+  function frameWin(){
+    var f = $('ep-scheme-frame');
+    return f && f.contentWindow ? f.contentWindow : null;
+  }
+  function epGetEmbeddedSchemeHtml(){
+    var box = $('EP_EMBEDDED_SCHEME_HTML');
+    if(!box) return '';
+    return String(box.value || box.textContent || '').replace(/<\\\/textarea/gi, '</text' + 'area');
+  }
+  function epEnsureSchemeLoaded(){
+    var frame = $('ep-scheme-frame');
+    if(!frame) return;
+    if(frame.dataset && frame.dataset.epSchemeLoaded === '1') return;
+    var html = epGetEmbeddedSchemeHtml();
+    if(!html){ say('Встроенный модуль схемы не найден'); return; }
+    frame.setAttribute('srcdoc', html);
+    if(frame.dataset) frame.dataset.epSchemeLoaded = '1';
+  }
+  window.epOpenSchemeModal = function(){
+    var modal = $('schemeModal');
+    epEnsureSchemeLoaded();
+    if(typeof openModal === 'function') openModal('schemeModal');
+    else if(modal) modal.style.display = 'flex';
+    setTimeout(function(){ try{ if(frameWin()) frameWin().focus(); }catch(e){} }, 250);
+  };
+  window.epSchemePrint = function(){
+    try{
+      epEnsureSchemeLoaded();
+      var w = frameWin();
+      if(w){ w.focus(); w.print(); return; }
+    }catch(e){}
+    say('Схема ещё не загрузилась');
+  };
+  window.epSchemeExportJson = function(){
+    try{
+      epEnsureSchemeLoaded();
+      var w = frameWin();
+      if(w && w.EP_SCHEME_API && typeof w.EP_SCHEME_API.downloadJson === 'function'){
+        w.EP_SCHEME_API.downloadJson();
+        return;
+      }
+    }catch(e){}
+    say('Открой схему и попробуй экспорт ещё раз');
+  };
+  window.epSchemeReset = function(){
+    try{
+      epEnsureSchemeLoaded();
+      var w = frameWin();
+      if(w && w.EP_SCHEME_API && typeof w.EP_SCHEME_API.reset === 'function'){
+        w.EP_SCHEME_API.reset();
+        return;
+      }
+    }catch(e){}
+    say('Открой схему и попробуй сброс ещё раз');
+  };
+
+  function showDbScopeBubble(scopeText){
+    var el = $('ep-v84-db-toast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'ep-v84-db-toast';
+      el.className = 'ep-v84-db-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'Активная база: ' + scopeText;
+    el.classList.add('show');
+    clearTimeout(window.__epV84DbToastTimer);
+    window.__epV84DbToastTimer = setTimeout(function(){ el.classList.remove('show'); }, 5000);
+  }
+  function getScopeLabel(s){ return s === 'global' ? 'База сервера' : 'Моя база'; }
+  function readScope(){
+    try{ return localStorage.getItem('ep_db_scope_v2') === 'global' ? 'global' : 'my'; }catch(e){ return 'my'; }
+  }
+  var oldSetDbScope = window.epSetDbScope;
+  if(typeof oldSetDbScope === 'function' && !oldSetDbScope.__ep_v85_wrapped){
+    var wrapped = function(s){
+      var normalized = s === 'global' ? 'global' : 'my';
+      showDbScopeBubble(getScopeLabel(normalized));
+      return oldSetDbScope.apply(this, arguments);
+    };
+    wrapped.__ep_v85_wrapped = true;
+    window.epSetDbScope = wrapped;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){ showDbScopeBubble(getScopeLabel(readScope())); }, 700);
+  });
+})();
+</script>
+<!-- EP_V85_SINGLE_HTML_SCHEME_END -->
 
 </body>
 </html>
