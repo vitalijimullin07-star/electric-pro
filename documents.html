@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport"/>
+  <title>
+   Документы · Electric Pro
+  </title>
+  <link href="assets/css/app.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js">
+  </script>
+  <script src="assets/js/firebase-config.js">
+  </script>
+  <script src="assets/js/core.js">
+  </script>
+  <script src="assets/js/seed-data.js">
+  </script>
+  <script src="assets/js/db.js">
+  </script>
+  <script src="assets/js/estimate.js">
+  </script>
+  <script src="assets/js/documents-page.js">
+  </script>
+ </head>
+ <body>
+  <div class="app wide">
+   <div class="header no-print">
+    <div class="brand">
+     <h1>
+      Документы
+     </h1>
+     <p>
+      Заготовка под договор, акт, КП и чек-лист
+     </p>
+    </div>
+    <div class="badge" data-user-badge="">
+     ...
+    </div>
+   </div>
+   <nav class="nav no-print" id="main-nav">
+   </nav>
+   <div class="card no-print" data-auth="guest">
+    <button class="btn-blue" onclick="EP.auth.login()">
+     Войти через Google
+    </button>
+    <button class="btn-success" onclick="EP.auth.demo()">
+     Демо без входа
+    </button>
+   </div>
+   <div class="hidden" data-auth="user">
+    <div class="card no-print">
+     <h2 class="section-title">
+      Данные для документов
+     </h2>
+     <div class="grid">
+      <input id="c-name" placeholder="ФИО заказчика"/>
+      <input id="c-phone" placeholder="Телефон заказчика"/>
+      <input class="full" id="c-addr" placeholder="Адрес объекта"/>
+      <input id="c-ceil" placeholder="Высота потолка" type="number"/>
+      <input id="c-performer" placeholder="Исполнитель / ИП / Самозанятый"/>
+      <input id="c-tg" placeholder="Telegram"/>
+      <input id="c-wa" placeholder="WhatsApp"/>
+      <input id="c-site" placeholder="Сайт / VK"/>
+     </div>
+     <div class="grid">
+      <select id="doc-type" onchange="EP.docs.render(this.value)">
+       <option value="contract">
+        Договор
+       </option>
+       <option value="act">
+        Акт выполненных работ
+       </option>
+       <option value="offer">
+        Коммерческое предложение
+       </option>
+       <option value="checklist">
+        Чек-лист объекта
+       </option>
+      </select>
+      <button class="btn-success" onclick="EP.docs.saveCustomer()">
+       Сохранить данные
+      </button>
+      <button onclick="window.print()">
+       Печать / PDF
+      </button>
+      <a class="button btn-gray" href="index.html">
+       Назад
+      </a>
+     </div>
+    </div>
+    <div id="doc-output">
+    </div>
+    <div class="card no-print">
+     <h2 class="section-title">
+      Текущая смета
+     </h2>
+     <div id="estimate-box">
+     </div>
+    </div>
+   </div>
+  </div>
+  <div class="toast" id="toast">
+  </div>
+ </body>
+</html>

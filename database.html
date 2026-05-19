@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport"/>
+  <title>
+   База · Electric Pro
+  </title>
+  <link href="assets/css/app.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js">
+  </script>
+  <script src="assets/js/firebase-config.js">
+  </script>
+  <script src="assets/js/core.js">
+  </script>
+  <script src="assets/js/seed-data.js">
+  </script>
+  <script src="assets/js/db.js">
+  </script>
+  <script src="assets/js/estimate.js">
+  </script>
+  <script src="assets/js/catalog-page.js">
+  </script>
+ </head>
+ <body>
+  <div class="app wide">
+   <div class="header">
+    <div class="brand">
+     <h1>
+      База данных
+     </h1>
+     <p>
+      Моя база и база сервера без смешивания
+     </p>
+    </div>
+    <div class="badge" data-user-badge="">
+     ...
+    </div>
+   </div>
+   <nav class="nav" id="main-nav">
+   </nav>
+   <div class="card" data-auth="guest">
+    <h2>
+     Вход
+    </h2>
+    <button class="btn-blue" onclick="EP.auth.login()">
+     Войти через Google
+    </button>
+    <button class="btn-success" onclick="EP.auth.demo()">
+     Демо без входа
+    </button>
+   </div>
+   <div class="hidden" data-auth="user">
+    <div class="card">
+     <div class="grid">
+      <button id="src-my" onclick="EP.catalog.setSource('my')">
+       👤 Моя база
+      </button>
+      <button id="src-server" onclick="EP.catalog.setSource('server')">
+       🌍 База сервера
+      </button>
+      <button id="type-material" onclick="EP.catalog.setType('material')">
+       Материалы
+      </button>
+      <button id="type-work" onclick="EP.catalog.setType('work')">
+       Работы
+      </button>
+     </div>
+     <div class="status" style="margin-top:10px">
+      <span id="db-title">
+       База
+      </span>
+      ·
+      <span id="db-count">
+       0
+      </span>
+     </div>
+     <input id="db-search" oninput="EP.catalog.load()" placeholder="Поиск по названию, категории, цене..."/>
+     <div class="grid">
+      <button onclick="EP.catalog.selectAll()">
+       ☑ Выделить видимые
+      </button>
+      <button class="btn-ghost" onclick="EP.catalog.clearSel()">
+       ☐ Снять
+      </button>
+      <button class="btn-success hidden" data-server-only="" onclick="EP.catalog.copySelected()">
+       ⬇ В мою базу
+      </button>
+      <button class="btn-danger" data-edit-only="" onclick="EP.catalog.deleteSelected()">
+       🗑 Удалить выбранное
+      </button>
+     </div>
+    </div>
+    <div class="card" data-edit-only="">
+     <h2 class="section-title">
+      Добавить позицию
+     </h2>
+     <input id="new-name" placeholder="Название"/>
+     <div class="grid">
+      <input id="new-cat" placeholder="Категория"/>
+      <input id="new-sub" placeholder="Подкатегория"/>
+      <input id="new-price" placeholder="Цена" type="number"/>
+      <input id="new-unit" placeholder="Ед." value="шт"/>
+     </div>
+     <button class="btn-success" onclick="EP.catalog.createItem()">
+      + Сохранить
+     </button>
+    </div>
+    <div class="card" data-edit-only="">
+     <h2 class="section-title">
+      Импорт / экспорт
+     </h2>
+     <div class="note">
+      Текст: Название; Категория; Подкатегория; Цена; Ед. JSON тоже поддерживается через файл.
+     </div>
+     <textarea id="import-text" placeholder="Автомат C16; Автоматика; Автоматы; 250; шт"></textarea>
+     <div class="grid">
+      <button onclick="EP.catalog.importText()">
+       📥 Импорт текста
+      </button>
+      <button onclick="document.getElementById('import-file').click()">
+       📁 Импорт файла
+      </button>
+      <button class="btn-success" onclick="EP.catalog.exportActive()">
+       📤 Экспорт
+      </button>
+      <button class="btn-orange" onclick="EP.catalog.seedActive()">
+       🧠 Стартовая база
+      </button>
+     </div>
+     <input accept=".json,.txt,.csv" class="hidden" id="import-file" onchange="EP.catalog.importFile(event)" type="file"/>
+    </div>
+    <div id="db-list">
+    </div>
+   </div>
+  </div>
+  <div class="toast" id="toast">
+  </div>
+ </body>
+</html>

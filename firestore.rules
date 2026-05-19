@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myUser() { return signedIn() && request.auth.uid == userId; }
+    function isAdmin() {
+      return signedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        request.auth.token.email in ['vits0007@gmail.com']
+      );
+    }
+    function approved() {
+      return signedIn() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isApproved == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved'
+      );
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow update, delete: if isAdmin() || (signedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','isAdmin','admin','isApproved','status']));
+    }
+
+    match /server_db/{itemId} {
+      allow read: if approved();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /user_db/{userId}/items/{itemId} {
+      allow read, create, update, delete: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /estimate_drafts/{userId} {
+      allow read, write: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+  }
+}

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport"/>
+  <title>
+   Щит · Electric Pro
+  </title>
+  <link href="assets/css/app.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js">
+  </script>
+  <script src="assets/js/firebase-config.js">
+  </script>
+  <script src="assets/js/core.js">
+  </script>
+  <script src="assets/js/seed-data.js">
+  </script>
+  <script src="assets/js/db.js">
+  </script>
+  <script src="assets/js/estimate.js">
+  </script>
+  <script src="assets/js/shield-page.js">
+  </script>
+ </head>
+ <body>
+  <div class="app wide">
+   <div class="header">
+    <div class="brand">
+     <h1>
+      Конфигуратор щита
+     </h1>
+     <p>
+      Новая чистая логика без старых патчей
+     </p>
+    </div>
+    <div class="badge" data-user-badge="">
+     ...
+    </div>
+   </div>
+   <nav class="nav" id="main-nav">
+   </nav>
+   <div class="card" data-auth="guest">
+    <button class="btn-blue" onclick="EP.auth.login()">
+     Войти через Google
+    </button>
+    <button class="btn-success" onclick="EP.auth.demo()">
+     Демо без входа
+    </button>
+   </div>
+   <div class="hidden" data-auth="user">
+    <div class="card">
+     <div class="status" data-active-db-badge="">
+      Активная база
+     </div>
+     <details class="logic-group" open="">
+      <summary class="logic-label">
+       Настройки автоматики и щита
+      </summary>
+      <div class="grid">
+       <div>
+        <label>
+         Марка щита
+        </label>
+        <select id="cfg-box-brand">
+         <option>
+          Tekfor
+         </option>
+         <option>
+          ABB
+         </option>
+         <option>
+          Schneider
+         </option>
+         <option>
+          IEK
+         </option>
+         <option>
+          EKF
+         </option>
+         <option>
+          Legrand
+         </option>
+        </select>
+       </div>
+       <div>
+        <label>
+         Марка автоматики
+        </label>
+        <select id="cfg-auto-brand">
+         <option>
+          IEK
+         </option>
+         <option>
+          ABB
+         </option>
+         <option>
+          Schneider
+         </option>
+         <option>
+          EKF
+         </option>
+         <option>
+          Legrand
+         </option>
+        </select>
+       </div>
+       <div>
+        <label>
+         Фаза
+        </label>
+        <select id="cfg-phase">
+         <option value="1">
+          220В / 1 фаза
+         </option>
+         <option value="3">
+          380В / 3 фазы
+         </option>
+        </select>
+       </div>
+       <div>
+        <label>
+         Характеристика
+        </label>
+        <select id="cfg-curve">
+         <option>
+          C
+         </option>
+         <option>
+          B
+         </option>
+         <option>
+          A
+         </option>
+         <option>
+          D
+         </option>
+        </select>
+       </div>
+       <div>
+        <label>
+         Тип УЗО/ДИФ
+        </label>
+        <select id="cfg-rcd">
+         <option>
+          A
+         </option>
+         <option>
+          AC
+         </option>
+         <option>
+          B
+         </option>
+        </select>
+       </div>
+       <div>
+        <label>
+         Тип защиты
+        </label>
+        <select id="cfg-protection">
+         <option value="uzo_auto">
+          УЗО + автоматы линий
+         </option>
+         <option value="dif_auto">
+          ДИФы + автоматы линий
+         </option>
+         <option value="main_dif_auto">
+          Главный ДИФ + автоматы
+         </option>
+         <option value="mixed">
+          Смешанный вариант
+         </option>
+        </select>
+       </div>
+       <div class="full">
+        <label>
+         Монтаж щита
+        </label>
+        <select id="cfg-install">
+         <option>
+          Встраиваемый бетон
+         </option>
+         <option>
+          Встраиваемый кирпич
+         </option>
+         <option>
+          Встраиваемый ГКЛ
+         </option>
+         <option>
+          Накладной
+         </option>
+        </select>
+       </div>
+      </div>
+     </details>
+     <div class="grid">
+      <div class="card" style="box-shadow:none">
+       <h3 class="section-title">
+        Помещения
+       </h3>
+       <div class="counter-row">
+        <span>
+         Кухни
+        </span>
+        <div class="counter">
+         <button onclick="EP.shield.mod('kits',-1)">
+          -
+         </button>
+         <span id="kits">
+          1
+         </span>
+         <button onclick="EP.shield.mod('kits',1)">
+          +
+         </button>
+        </div>
+       </div>
+       <div class="counter-row">
+        <span>
+         Ванные
+        </span>
+        <div class="counter">
+         <button onclick="EP.shield.mod('baths',-1)">
+          -
+         </button>
+         <span id="baths">
+          1
+         </span>
+         <button onclick="EP.shield.mod('baths',1)">
+          +
+         </button>
+        </div>
+       </div>
+       <div class="counter-row">
+        <span>
+         Туалеты
+        </span>
+        <div class="counter">
+         <button onclick="EP.shield.mod('toilets',-1)">
+          -
+         </button>
+         <span id="toilets">
+          1
+         </span>
+         <button onclick="EP.shield.mod('toilets',1)">
+          +
+         </button>
+        </div>
+       </div>
+       <div class="counter-row">
+        <span>
+         Комнаты
+        </span>
+        <div class="counter">
+         <button onclick="EP.shield.mod('rooms',-1)">
+          -
+         </button>
+         <span id="rooms">
+          1
+         </span>
+         <button onclick="EP.shield.mod('rooms',1)">
+          +
+         </button>
+        </div>
+       </div>
+       <div class="counter-row">
+        <span>
+         Балконы
+        </span>
+        <div class="counter">
+         <button onclick="EP.shield.mod('bals',-1)">
+          -
+         </button>
+         <span id="bals">
+          0
+         </span>
+         <button onclick="EP.shield.mod('bals',1)">
+          +
+         </button>
+        </div>
+       </div>
+      </div>
+      <div class="card" style="box-shadow:none">
+       <h3 class="section-title">
+        Отдельные линии
+       </h3>
+       <div class="check-grid">
+        <label class="check">
+         <input checked="" id="c-apron" type="checkbox"/>
+         Фартук C16
+        </label>
+        <label class="check">
+         <input checked="" id="c-dish" type="checkbox"/>
+         Посудомойка C10
+        </label>
+        <label class="check">
+         <input checked="" id="c-washer" type="checkbox"/>
+         Стиралка C10
+        </label>
+        <label class="check">
+         <input id="c-towel" type="checkbox"/>
+         Полотенцесушитель
+        </label>
+        <label class="check">
+         <input checked="" id="c-fridge" type="checkbox"/>
+         Холодильник
+        </label>
+        <label class="check">
+         <input checked="" id="c-router" type="checkbox"/>
+         Роутер
+        </label>
+        <label class="check">
+         <input id="c-oven" type="checkbox"/>
+         Духовой шкаф
+        </label>
+        <label class="check">
+         <input id="c-hob" type="checkbox"/>
+         Варочная панель
+        </label>
+        <label class="check">
+         <input id="c-ac" type="checkbox"/>
+         Кондиционер
+        </label>
+        <label class="check">
+         <input id="cfg-master" type="checkbox"/>
+         Мастер-кнопка свет
+        </label>
+        <label class="check">
+         <input checked="" id="cfg-relay" type="checkbox"/>
+         Реле напряжения
+        </label>
+       </div>
+      </div>
+     </div>
+     <button class="btn-shield" onclick="EP.shield.generate()">
+      ⚡ Сгенерировать щит в смету
+     </button>
+    </div>
+    <div class="card">
+     <h2 class="section-title">
+      Детализация щита
+     </h2>
+     <div class="empty" id="shield-details">
+      После генерации здесь появится список линий и аппаратов.
+     </div>
+    </div>
+    <div class="card">
+     <h2 class="section-title">
+      Смета
+     </h2>
+     <div id="estimate-box">
+     </div>
+    </div>
+   </div>
+  </div>
+  <div class="toast" id="toast">
+  </div>
+ </body>
+</html>

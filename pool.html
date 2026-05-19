@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport"/>
+  <title>
+   Пул · Electric Pro
+  </title>
+  <link href="assets/css/app.css" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js">
+  </script>
+  <script src="assets/js/firebase-config.js">
+  </script>
+  <script src="assets/js/core.js">
+  </script>
+  <script src="assets/js/seed-data.js">
+  </script>
+  <script src="assets/js/db.js">
+  </script>
+  <script src="assets/js/estimate.js">
+  </script>
+  <script src="assets/js/pool-page.js">
+  </script>
+ </head>
+ <body>
+  <div class="app wide">
+   <div class="header">
+    <div class="brand">
+     <h1>
+      Пул розеток и BIM
+     </h1>
+     <p>
+      Группы механизмов, трассы, расходка и работы
+     </p>
+    </div>
+    <div class="badge" data-user-badge="">
+     ...
+    </div>
+   </div>
+   <nav class="nav" id="main-nav">
+   </nav>
+   <div class="card" data-auth="guest">
+    <button class="btn-blue" onclick="EP.auth.login()">
+     Войти через Google
+    </button>
+    <button class="btn-success" onclick="EP.auth.demo()">
+     Демо без входа
+    </button>
+   </div>
+   <div class="hidden" data-auth="user">
+    <div class="card">
+     <div class="status" data-active-db-badge="">
+      Активная база
+     </div>
+     <h2 class="section-title">
+      Новая группа
+     </h2>
+     <div class="grid">
+      <input id="p-room" placeholder="Помещение" value="Комната"/>
+      <input id="p-name" placeholder="Название группы" value="Розеточный блок"/>
+      <input id="p-sockets" placeholder="Розетки" type="number" value="3"/>
+      <input id="p-switches" placeholder="Выключатели" type="number" value="1"/>
+      <input id="p-lights" placeholder="Светильники" type="number" value="1"/>
+      <input id="p-utp" placeholder="Интернет" type="number" value="0"/>
+      <input id="p-tv" placeholder="TV" type="number" value="0"/>
+      <input id="p-distance" placeholder="Трасса до щита, м" type="number" value="8"/>
+      <input id="p-height" placeholder="Высота потолка, см" type="number" value="270"/>
+      <select id="p-wall">
+       <option>
+        Бетон
+       </option>
+       <option>
+        Панель
+       </option>
+       <option>
+        Кирпич
+       </option>
+       <option>
+        Газоблок
+       </option>
+       <option>
+        ГКЛ
+       </option>
+      </select>
+      <select id="p-box">
+       <option>
+        Подрозетник бетон
+       </option>
+       <option>
+        Подрозетник ГКЛ
+       </option>
+      </select>
+     </div>
+     <div class="grid">
+      <button class="btn-success" onclick="EP.pool.addGroup()">
+       + Добавить группу
+      </button>
+      <button class="btn-danger" onclick="EP.pool.clear()">
+       Очистить группы
+      </button>
+     </div>
+    </div>
+    <div class="card">
+     <h2 class="section-title">
+      Группы пула
+     </h2>
+     <div id="pool-list">
+     </div>
+     <button class="btn-orange" onclick="EP.pool.generate()">
+      🔌 Рассчитать пул и добавить в смету
+     </button>
+     <div id="pool-summary" style="margin-top:10px">
+     </div>
+    </div>
+    <div class="card">
+     <h2 class="section-title">
+      Смета
+     </h2>
+     <div id="estimate-box">
+     </div>
+    </div>
+   </div>
+  </div>
+  <div class="toast" id="toast">
+  </div>
+ </body>
+</html>
