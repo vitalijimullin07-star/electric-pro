@@ -6,7 +6,7 @@
       await window.ServerAPI.initFirebase();
     }
     if (!window.firebase?.functions) {
-      throw new Error("Firebase Functions SDK не подключён.");
+      throw new Error("Firebase Functions SDK не подключён. Обновите страницу без кэша.");
     }
     return {
       db: window.ServerAPI.db(),
