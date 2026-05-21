@@ -1,5 +1,5 @@
 {
-  "version": "v12-clean-toggle-visual-20260521-07",
-  "updatedAt": "2026-05-21T22:32:41+03:00",
-  "note": "Remove text from security toggle switches and fix mobile layout"
+  "version": "v12-fix-subscription-api-methods-20260521-08",
+  "updatedAt": "2026-05-21T22:41:10+03:00",
+  "note": "Fix missing SubscriptionAPI methods for admin subscription buttons"
 }
