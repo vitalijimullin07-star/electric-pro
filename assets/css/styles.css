@@ -667,3 +667,124 @@ button,
   color: #0f172a;
   opacity: 1;
 }
+
+/* === Security Policy Toggles V11 === */
+
+.security-toggle-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.security-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr 74px;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.075);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.security-toggle-row strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.security-toggle-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.security-toggle {
+  width: 74px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(239,68,68,.25);
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+  padding: 0;
+  color: transparent;
+}
+
+.security-toggle::before {
+  content: "ВЫКЛ";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 950;
+  color: rgba(255,255,255,.78);
+}
+
+.security-toggle::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  left: 4px;
+  top: 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 5px 16px rgba(0,0,0,.26);
+  transition: transform .16s ease;
+}
+
+.security-toggle.is-on {
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.security-toggle.is-on::before {
+  content: "ВКЛ";
+  left: 9px;
+  right: auto;
+}
+
+.security-toggle.is-on::after {
+  transform: translateX(35px);
+}
+
+.security-policy-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.security-policy-actions .btn {
+  min-height: 46px;
+}
+
+.security-policy-save {
+  margin-top: 12px !important;
+  width: 100%;
+}
+
+.security-policy-hint {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(59,130,246,.12);
+  border: 1px solid rgba(59,130,246,.22);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (min-width: 620px) {
+  .security-toggle-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .security-policy-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

@@ -123,6 +123,48 @@
     if (action === "safe-policy") return callAi("safe-policy",()=>window.AiSecurityAPI.setUserSecurityPolicy({uid,allowLogin:true,allowReadData:true,allowLocalCache:false,allowAi:true,allowOfflineMode:false,reason:"admin_safe_policy"}));
     if (action === "online-only-policy") return callAi("online-only-policy",()=>window.AiSecurityAPI.setUserSecurityPolicy({uid,allowLogin:true,allowReadData:true,allowLocalCache:false,allowAi:false,allowOfflineMode:false,reason:"admin_online_only_no_cache"}));
     if (action === "lock-data-policy") { if (!confirm("Запретить пользователю получение данных, кэш и ИИ?")) return; return callAi("lock-data-policy",()=>window.AiSecurityAPI.setUserSecurityPolicy({uid,allowLogin:true,allowReadData:false,allowLocalCache:false,allowAi:false,allowOfflineMode:false,reason:"admin_locked_data_ai_cache"})); }
+
+    if (action === "trusted-policy") {
+      if (!confirm("Разрешить локальный кэш и офлайн? Делай это только для доверенного устройства.")) return;
+
+      return callAi("trusted-policy", () =>
+        window.AiSecurityAPI.setUserSecurityPolicy({
+          uid,
+          allowLogin: true,
+          allowReadData: true,
+          allowLocalCache: true,
+          allowAi: true,
+          allowOfflineMode: true,
+          reason: "admin_trusted_device"
+        })
+      );
+    }
+
+    if (action === "save-custom-policy") {
+      const get = (key) => document.querySelector(`[data-policy-toggle="${key}"]`)?.classList.contains("is-on") === true;
+
+      const payload = {
+        uid,
+        allowLogin: get("allowLogin"),
+        allowReadData: get("allowReadData"),
+        allowLocalCache: get("allowLocalCache"),
+        allowAi: get("allowAi"),
+        allowOfflineMode: get("allowOfflineMode"),
+        reason: "admin_custom_policy"
+      };
+
+      if (payload.allowOfflineMode && !payload.allowLocalCache) {
+        alert("Офлайн без локального кэша не имеет смысла. Включи кэш или выключи офлайн.");
+        return;
+      }
+
+      if (!confirm("Сохранить выбранную политику безопасности?")) return;
+
+      return callAi("save-custom-policy", () =>
+        window.AiSecurityAPI.setUserSecurityPolicy(payload)
+      );
+    }
+
     if (action === "clear-policy") { if (!confirm("Разрешить после проверки? Локальный кэш всё равно останется запрещён по умолчанию.")) return; return callAi("clear-policy",()=>window.AiSecurityAPI.setUserSecurityPolicy({uid,allowLogin:true,allowReadData:true,allowLocalCache:false,allowAi:true,allowOfflineMode:false,reason:"admin_review_passed"})); }
   }
 
