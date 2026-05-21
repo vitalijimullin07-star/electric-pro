@@ -1,5 +1,5 @@
 {
-  "version": "v8-ai-security-foundation-20260521-01",
-  "updatedAt": "2026-05-21T20:04:44+03:00",
-  "note": "AI balance security foundation, Cloud Functions, protected Firestore rules, device integrity policies"
+  "version": "v9-admin-user-card-ai-balance-20260521-02",
+  "updatedAt": "manual-termux-upload",
+  "note": "Admin user card with AI balance and protected security actions"
 }
