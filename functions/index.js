@@ -1280,3 +1280,124 @@ exports.setAiBalanceExact = onCall(async (request) => {
   return { ok: true, ...result };
 });
 // V15_1_ACCESS_POLICY_FINAL_END
+
+
+// V16_4_ADMIN_LOGS_READ_START
+function normalizeForClientV164(value) {
+  if (value === null || value === undefined) return value;
+
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return {
+      millis: date.getTime(),
+      iso: date.toISOString(),
+      text: date.toLocaleString("ru-RU")
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeForClientV164(item));
+  }
+
+  if (typeof value === "object") {
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      out[key] = normalizeForClientV164(value[key]);
+    });
+    return out;
+  }
+
+  return value;
+}
+
+async function readCollectionSafeV164(path, limit) {
+  try {
+    let snap;
+    try {
+      snap = await db.collection(path).orderBy("createdAt", "desc").limit(limit).get();
+    } catch (e1) {
+      try {
+        snap = await db.collection(path).orderBy("time", "desc").limit(limit).get();
+      } catch (e2) {
+        snap = await db.collection(path).limit(limit).get();
+      }
+    }
+
+    const items = [];
+    snap.forEach((doc) => {
+      items.push({
+        id: doc.id,
+        path,
+        data: normalizeForClientV164(doc.data() || {})
+      });
+    });
+
+    return items;
+  } catch (error) {
+    return [];
+  }
+}
+
+exports.adminReadLogsV16 = onCall(async (request) => {
+  const adminUser = await requireAdmin(request);
+
+  const uid = cleanText(request.data.uid);
+  const limitRaw = Number(request.data.limit || 60);
+  const limit = Math.max(1, Math.min(100, Number.isFinite(limitRaw) ? limitRaw : 60));
+
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "Не выбран мастер.");
+  }
+
+  const paths = [
+    "admin_logs",
+    "logs",
+    `diagnostics/${uid}/items`,
+    `login_logs/${uid}/items`,
+    `users/${uid}/logs`,
+    `users/${uid}/events`
+  ];
+
+  const groups = await Promise.all(paths.map((path) => readCollectionSafeV164(path, limit)));
+  const items = groups.flat();
+
+  items.sort((a, b) => {
+    const ad = a.data || {};
+    const bd = b.data || {};
+
+    const am =
+      ad.createdAt?.millis ||
+      ad.updatedAt?.millis ||
+      ad.time?.millis ||
+      ad.timestamp?.millis ||
+      Number(ad.createdAt || ad.updatedAt || ad.time || ad.timestamp || 0);
+
+    const bm =
+      bd.createdAt?.millis ||
+      bd.updatedAt?.millis ||
+      bd.time?.millis ||
+      bd.timestamp?.millis ||
+      Number(bd.createdAt || bd.updatedAt || bd.time || bd.timestamp || 0);
+
+    return Number(bm || 0) - Number(am || 0);
+  });
+
+  const sliced = items.slice(0, limit);
+
+  await db.collection("admin_logs").doc().set({
+    type: "admin_read_logs_v16",
+    targetUid: uid,
+    adminUid: adminUser.uid,
+    count: sliced.length,
+    createdAt: FieldValue.serverTimestamp(),
+    serverSigned: true
+  });
+
+  return {
+    ok: true,
+    uid,
+    count: sliced.length,
+    items: sliced
+  };
+});
+// V16_4_ADMIN_LOGS_READ_END

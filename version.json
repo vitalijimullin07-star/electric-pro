@@ -1,5 +1,5 @@
 {
-  "version": "v16-3-stop-freeze-rollback-20260522-01",
-  "updatedAt": "2026-05-22T01:11:35+03:00",
-  "note": "Removed heavy V16 observers and global subscription status; stable subscription status only on subscription page"
+  "version": "v16-4-logs-status-fix-20260522-01",
+  "updatedAt": "2026-05-22T01:15:46+03:00",
+  "note": "Admin event journal reads through Cloud Function and dark duplicate subscription status is hidden"
 }
