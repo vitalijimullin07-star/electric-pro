@@ -1,5 +1,5 @@
 {
-  "version": "v11-admin-card-readable-security-toggles-20260521-06",
-  "updatedAt": "2026-05-21T22:04:05+03:00",
-  "note": "Force admin security toggles and improve admin card readability"
+  "version": "v12-admin-clean-no-patches-20260521-01",
+  "updatedAt": "2026-05-21T22:11:39+03:00",
+  "note": "Clean admin rebuild: admin-api replaced, admin styles moved to admin-clean.css, old overlay patches removed"
 }
