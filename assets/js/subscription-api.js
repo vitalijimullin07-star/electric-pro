@@ -77,6 +77,14 @@
       });
     },
 
+    requestPayment(planId = "basic", days = 30, comment = "") {
+      return callFunction("requestSubscriptionPayment", {
+        planId: normalizePlanId(planId),
+        days: Number(days || 30),
+        comment
+      });
+    },
+
     createYooKassaPaymentDraft(payload = {}) {
       return callFunction("createYooKassaPaymentDraft", payload);
     },
