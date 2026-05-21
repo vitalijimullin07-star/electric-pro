@@ -32,61 +32,40 @@
   function planName(planId) {
     if (planId === "pro_ai") return "С ИИ";
     if (planId === "basic") return "Базовая";
-    return "Нет";
+    return "Нет подписки";
   }
 
-  function userName() {
-    const user = window.Auth?.getUser?.();
-    return user?.displayName || user?.email || "Мастер";
-  }
+  function ensureTopStatus() {
+    let line = document.getElementById("epTopStatusLine");
+    if (line) return line;
 
-  function findHeader() {
-    return (
-      document.querySelector(".topbar") ||
-      document.querySelector(".app-topbar") ||
-      document.querySelector(".app-header") ||
-      document.querySelector("header") ||
-      document.querySelector(".shell-top") ||
-      null
-    );
-  }
-
-  function ensureMini() {
-    let wrap = document.getElementById("epHeaderStatusMini");
-    if (wrap) return wrap;
-
-    const header = findHeader();
-    if (!header) return null;
-
-    header.classList.add("ep-header-10mm-status");
-
-    wrap = document.createElement("div");
-    wrap.id = "epHeaderStatusMini";
-    wrap.className = "ep-header-status-mini-v2";
-    wrap.innerHTML = `
-      <div class="ep-header-user-info">
-        <span class="ep-header-role">Электрик</span>
-        <span class="ep-header-name">Мастер</span>
-      </div>
-      <div class="ep-header-status-gap"></div>
-      <div class="ep-header-sub-info" data-status="none">
-        <span class="ep-header-sub-text">Подписка</span>
-        <span class="ep-header-ai-text">ИИ</span>
-      </div>
+    line = document.createElement("div");
+    line.id = "epTopStatusLine";
+    line.className = "ep-top-status-line";
+    line.innerHTML = `
+      <div class="ep-top-status-left">Подписка: проверка...</div>
+      <div class="ep-top-status-right">ИИ: —</div>
     `;
 
-    header.appendChild(wrap);
-    return wrap;
+    const app =
+      document.getElementById("appShell") ||
+      document.querySelector(".app-shell") ||
+      document.querySelector("main") ||
+      document.body;
+
+    app.prepend(line);
+
+    document.body.classList.add("has-ep-top-status-line");
+
+    return line;
   }
 
   function render() {
-    const wrap = ensureMini();
-    if (!wrap) return;
+    const line = ensureTopStatus();
+    if (!line) return;
 
-    const nameEl = wrap.querySelector(".ep-header-name");
-    const subBox = wrap.querySelector(".ep-header-sub-info");
-    const subTextEl = wrap.querySelector(".ep-header-sub-text");
-    const aiTextEl = wrap.querySelector(".ep-header-ai-text");
+    const left = line.querySelector(".ep-top-status-left");
+    const right = line.querySelector(".ep-top-status-right");
 
     const sub = currentSub || {};
     const ai = currentAi || {};
@@ -94,31 +73,37 @@
     const planId = sub.planId || "none";
     const status = sub.status || "none";
     const expiresAt = toDate(sub.expiresAt);
-    const left = daysLeft(expiresAt);
+    const leftDays = daysLeft(expiresAt);
 
+    let statusClass = "none";
     let subText = "Нет подписки";
-    let cls = "none";
 
-    if ((status === "active" || status === "trial") && left !== null && left >= 0) {
+    if ((status === "active" || status === "trial") && leftDays !== null && leftDays >= 0) {
       subText = status === "trial"
-        ? `${planName(planId)} · пробн. ${left}д`
-        : `${planName(planId)} · ${left}д`;
+        ? `${planName(planId)} · пробный · ${leftDays}д`
+        : `${planName(planId)} · ${leftDays}д`;
 
-      cls = planId === "pro_ai" ? "pro" : "basic";
-      if (status === "trial") cls = "trial";
+      statusClass = planId === "pro_ai" ? "pro" : "basic";
+      if (status === "trial") statusClass = "trial";
     }
 
     const mode = ai.accessMode || "disabled";
     const balance = Number(ai.balanceRub || 0);
 
     let aiText = `ИИ ${money(balance)}`;
-    if (mode === "own_api") aiText = "API мастера";
-    if (mode === "disabled") aiText = "ИИ выкл.";
 
-    nameEl.textContent = userName();
-    subTextEl.textContent = subText;
-    aiTextEl.textContent = aiText;
-    subBox.dataset.status = cls;
+    if (mode === "own_api") {
+      aiText = "API мастера";
+    }
+
+    if (mode === "disabled") {
+      aiText = "ИИ выкл.";
+    }
+
+    left.textContent = subText;
+    right.textContent = aiText;
+    line.dataset.status = statusClass;
+    line.dataset.ai = mode;
   }
 
   async function bind(uid) {
@@ -151,7 +136,7 @@
             module: "HeaderStatusMini",
             functionName: "bindSubscription()",
             place: "user_subscriptions/" + uid,
-            code: error.code || "header-subscription-error",
+            code: error.code || "top-status-subscription-error",
             message: error.message
           });
           render();
@@ -169,7 +154,7 @@
             module: "HeaderStatusMini",
             functionName: "bindAi()",
             place: "ai_accounts/" + uid,
-            code: error.code || "header-ai-error",
+            code: error.code || "top-status-ai-error",
             message: error.message
           });
           render();
@@ -180,21 +165,21 @@
         file: FILE,
         module: "HeaderStatusMini",
         functionName: "bind()",
-        place: "header mini status",
-        code: error.code || "header-mini-error",
+        place: "top status line",
+        code: error.code || "top-status-error",
         message: error.message
       });
     }
   }
 
   function init() {
-    ensureMini();
+    ensureTopStatus();
     render();
 
     const timer = setInterval(() => {
       const user = window.Auth?.getUser?.();
       if (user?.uid) bind(user.uid);
-    }, 1200);
+    }, 1000);
 
     setTimeout(() => clearInterval(timer), 30000);
   }
@@ -202,6 +187,6 @@
   window.HeaderStatusMini = { init, bind, render };
 
   window.addEventListener("DOMContentLoaded", () => {
-    setTimeout(init, 800);
+    setTimeout(init, 500);
   });
 })();

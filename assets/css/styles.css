@@ -750,3 +750,132 @@ button,
     font-size: 8px;
   }
 }
+
+/* === Top App Status Line V12.12 === */
+
+.ep-header-status-mini,
+.ep-header-status-mini-v2,
+#epHeaderStatusMini {
+  display: none !important;
+}
+
+.ep-top-status-line {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  height: 8mm;
+  min-height: 8mm;
+  max-height: 8mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  margin: 0 10px 6px;
+  border-radius: 0 0 16px 16px;
+  background: rgba(241, 245, 249, .94);
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-top: 0;
+  color: #0f172a;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+}
+
+.ep-top-status-left,
+.ep-top-status-right {
+  min-width: 0;
+  height: 5mm;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-top-status-left {
+  justify-content: flex-start;
+  background: rgba(226, 232, 240, .92);
+}
+
+.ep-top-status-right {
+  flex: 0 0 auto;
+  background: rgba(226, 232, 240, .92);
+}
+
+.ep-top-status-line[data-status="pro"] .ep-top-status-left {
+  background: rgba(34, 197, 94, .20);
+  color: #064e3b;
+}
+
+.ep-top-status-line[data-status="basic"] .ep-top-status-left {
+  background: rgba(59, 130, 246, .17);
+  color: #1e3a8a;
+}
+
+.ep-top-status-line[data-status="trial"] .ep-top-status-left {
+  background: rgba(245, 158, 11, .22);
+  color: #78350f;
+}
+
+.ep-top-status-line[data-status="none"] .ep-top-status-left {
+  background: rgba(239, 68, 68, .13);
+  color: #7f1d1d;
+}
+
+.ep-top-status-line[data-ai="own_api"] .ep-top-status-right {
+  background: rgba(168, 85, 247, .16);
+  color: #581c87;
+}
+
+.ep-top-status-line[data-ai="admin_api"] .ep-top-status-right {
+  background: rgba(34, 197, 94, .18);
+  color: #064e3b;
+}
+
+.ep-top-status-line[data-ai="disabled"] .ep-top-status-right {
+  background: rgba(239, 68, 68, .13);
+  color: #7f1d1d;
+}
+
+.ep-header-10mm-status {
+  min-height: unset !important;
+  height: auto !important;
+  padding-top: initial !important;
+  padding-bottom: initial !important;
+}
+
+.ep-header-10mm-status #masterName,
+.ep-header-10mm-status .master-name,
+.ep-header-10mm-status .title,
+.ep-header-10mm-status .brand-title {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 430px) {
+  .ep-top-status-line {
+    height: 7mm;
+    min-height: 7mm;
+    max-height: 7mm;
+    margin: 0 8px 5px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .ep-top-status-left,
+  .ep-top-status-right {
+    height: 4.6mm;
+    font-size: 9px;
+    padding: 0 7px;
+  }
+
+  .ep-top-status-right {
+    max-width: 33vw;
+  }
+}
