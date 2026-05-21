@@ -1,6 +1,7 @@
 (function () {
   const FILE = "assets/js/admin-logs-v16-fix.js";
   let lastItems = [];
+  let lastLoadedUid = "";
 
   function esc(text) {
     return String(text ?? "")
@@ -36,6 +37,12 @@
     const btn = document.querySelector('[data-admin-v15-section="logs"].is-selected');
     const title = document.getElementById("adminV15SectionTitle")?.textContent || "";
     return !!btn || title.includes("Журнал");
+  }
+
+  function setLogsActiveButton() {
+    document.querySelectorAll("[data-admin-v15-section]").forEach(btn => {
+      btn.classList.toggle("is-selected", btn.dataset.adminV15Section === "logs");
+    });
   }
 
   function timeText(data) {
@@ -87,7 +94,7 @@
 
   function shortBody(item) {
     const text = bodyText(item);
-    return text.length > 160 ? text.slice(0, 160) + "..." : text;
+    return text.length > 135 ? text.slice(0, 135) + "..." : text;
   }
 
   function prettyJson(obj) {
@@ -188,8 +195,6 @@
 
     try {
       await navigator.clipboard.writeText(text);
-      window.SoundAPI?.success?.();
-      alert("Событие скопировано.");
     } catch {
       const area = document.createElement("textarea");
       area.value = text;
@@ -197,25 +202,30 @@
       area.select();
       document.execCommand("copy");
       area.remove();
-      window.SoundAPI?.success?.();
-      alert("Событие скопировано.");
     }
+
+    window.SoundAPI?.success?.();
+    alert("Событие скопировано.");
   }
 
   function closeModal() {
     document.getElementById("adminV16LogModal")?.classList.add("is-hidden");
   }
 
-  async function renderLogs() {
+  async function renderLogs(force = false) {
     const content = document.getElementById("adminV15Content");
     const title = document.getElementById("adminV15SectionTitle");
     const hint = document.getElementById("adminV15SectionHint");
     const uid = selectedUid();
 
-    if (!content || !isLogsActive()) return;
+    if (!content) return;
     if (!isAdmin()) return;
 
+    setLogsActiveButton();
+
     if (!uid) {
+      if (title) title.textContent = "Журнал событий после входа";
+      if (hint) hint.textContent = "Выбери мастера.";
       content.innerHTML = `<div class="admin-empty">Выбери мастера для просмотра журнала событий.</div>`;
       return;
     }
@@ -223,9 +233,16 @@
     try {
       if (title) title.textContent = "Журнал событий после входа";
       if (hint) hint.textContent = "Нажми на событие, чтобы открыть детали. Копирование — только кнопкой внутри карточки.";
+
+      if (!force && lastItems.length && lastLoadedUid === uid) {
+        content.innerHTML = renderItems(lastItems);
+        return;
+      }
+
       content.innerHTML = `<div class="admin-empty">Читаю журнал событий...</div>`;
 
       const result = await callFunction("adminReadLogsV16", { uid, limit: 80 });
+      lastLoadedUid = uid;
       content.innerHTML = renderItems(result.items || []);
 
       window.Diagnostics?.ok?.({
@@ -278,22 +295,36 @@
         return;
       }
 
-      const btn = event.target.closest('[data-admin-v15-section="logs"]');
-      if (!btn) return;
+      const logsBtn = event.target.closest('[data-admin-v15-section="logs"]');
+      if (logsBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        setTimeout(() => renderLogs(true), 80);
+        return;
+      }
 
-      setTimeout(renderLogs, 150);
-      setTimeout(renderLogs, 800);
-    });
+      const refreshBtn = event.target.closest("#adminV15RefreshBtn");
+      if (refreshBtn && isLogsActive()) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        setTimeout(() => renderLogs(true), 80);
+        return;
+      }
+    }, true);
 
     document.addEventListener("change", event => {
       if (event.target?.id === "adminV15MasterSelect" && isLogsActive()) {
-        setTimeout(renderLogs, 300);
+        lastItems = [];
+        lastLoadedUid = "";
+        setTimeout(() => renderLogs(true), 250);
       }
     });
 
     window.addEventListener("hashchange", () => {
       setTimeout(() => {
-        if (isLogsActive()) renderLogs();
+        if (isLogsActive()) renderLogs(false);
       }, 600);
     });
   }

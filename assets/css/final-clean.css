@@ -648,3 +648,65 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* === V16.6 logs layout and refresh fix === */
+.admin-page,
+#adminV15Page {
+  max-width: 760px !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+#adminV15Content,
+.admin-v15-content {
+  max-width: 720px !important;
+  width: 100% !important;
+}
+
+.admin-v16-logs-list {
+  max-width: 720px !important;
+  width: 100% !important;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.admin-v16-log-item {
+  width: 100% !important;
+  max-width: 720px !important;
+  min-height: 74px;
+  text-align: left !important;
+  appearance: none !important;
+  border: 1px solid rgba(15,23,42,.10) !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+}
+
+.admin-v16-log-top {
+  grid-template-columns: minmax(0,1fr) auto !important;
+}
+
+.admin-v16-log-top b,
+.admin-v16-log-item p,
+.admin-v16-log-item small {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.admin-v16-log-item p {
+  max-width: 100% !important;
+}
+
+@media (max-width: 820px) {
+  .admin-page,
+  #adminV15Page {
+    max-width: 100% !important;
+  }
+
+  #adminV15Content,
+  .admin-v15-content,
+  .admin-v16-logs-list,
+  .admin-v16-log-item {
+    max-width: 100% !important;
+  }
+}
