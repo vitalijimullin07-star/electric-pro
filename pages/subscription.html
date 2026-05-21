@@ -1,0 +1,59 @@
+<section class="page subscription-page">
+  <div class="page-head">
+    <h1>Моя подписка</h1>
+    <p>Выберите тариф, запросите оплату и проверьте доступ к функциям.</p>
+  </div>
+
+  <div id="subscriptionStatusBox" class="card subscription-status-card">
+    <h3>Текущий доступ</h3>
+    <div class="admin-empty">Загрузка подписки...</div>
+  </div>
+
+  <div class="subscription-warning card">
+    <h3>Важно про ИИ</h3>
+    <p>
+      Подписка «С ИИ» открывает доступ к ИИ-функциям, но сами ИИ-запросы оплачиваются отдельно
+      по фактическому расходу токенов через ИИ-баланс. Это сделано, чтобы подписка не была слишком дорогой:
+      кто редко пользуется ИИ — платит меньше, кто активно пользуется — пополняет баланс под свои задачи.
+    </p>
+  </div>
+
+  <div class="subscription-plans-grid">
+    <div class="card subscription-plan-card">
+      <div class="subscription-plan-badge">Базовая</div>
+      <h2>Базовая</h2>
+      <p>Для простого использования без расширенных функций.</p>
+      <ul>
+        <li>Основные функции приложения</li>
+        <li>Данные до перезапуска</li>
+        <li>Сохраняется последняя смета / состояние</li>
+        <li>ИИ недоступен</li>
+        <li>Однолинейная схема недоступна</li>
+        <li>Визуализация недоступна</li>
+        <li>Полноценная смета заказчику недоступна</li>
+      </ul>
+      <button class="btn btn-primary ep-clickable" data-sub-action="request-basic">Запросить Базовую</button>
+    </div>
+
+    <div class="card subscription-plan-card subscription-plan-pro">
+      <div class="subscription-plan-badge">С ИИ</div>
+      <h2>С ИИ</h2>
+      <p>Полный доступ ко всем функциям приложения.</p>
+      <ul>
+        <li>Полноценное хранение данных</li>
+        <li>Смета заказчику</li>
+        <li>Однолинейная схема</li>
+        <li>Визуализация</li>
+        <li>Доступ к ИИ-функциям</li>
+        <li>ИИ-запросы оплачиваются отдельно по токенам</li>
+      </ul>
+      <button class="btn btn-primary ep-clickable" data-sub-action="request-pro-ai">Запросить «С ИИ»</button>
+    </div>
+  </div>
+
+  <div class="card subscription-payment-card">
+    <h3>Ручная оплата</h3>
+    <p>После запроса оплаты напишите администратору в Telegram, получите QR-код и после оплаты подписка будет активирована вручную.</p>
+    <a class="btn btn-primary ep-clickable" href="https://t.me/Pokemoni_na_svjazy" target="_blank" rel="noopener">Написать в Telegram</a>
+  </div>
+</section>

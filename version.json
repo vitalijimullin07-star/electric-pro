@@ -1,5 +1,5 @@
 {
-  "version": "v10-subscription-yookassa-foundation-20260521-01",
-  "updatedAt": "2026-05-21T20:39:50+03:00",
-  "note": "Subscription foundation: Basic and AI plan, manual Telegram payment request and YooKassa draft architecture"
+  "version": "v11-subscription-ui-admin-master-20260521-01",
+  "updatedAt": "2026-05-21T20:47:54+03:00",
+  "note": "Subscription UI for admin user card and master subscription screen with Telegram manual payment"
 }
