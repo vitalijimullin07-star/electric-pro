@@ -1,5 +1,5 @@
 {
-  "version": "v15-admin-subscription-clean-20260522-01",
-  "updatedAt": "2026-05-22T00:30:40+03:00",
-  "note": "Admin panel redesigned: subscription controls, database views, exact AI balance, basic/pro-ai rules and new limits"
+  "version": "v15-1-admin-access-final-fix-20260522-02",
+  "updatedAt": "2026-05-22T00:48:45+03:00",
+  "note": "Strict no-subscription access policy and final admin subscription panel fixed installer"
 }

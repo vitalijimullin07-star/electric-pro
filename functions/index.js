@@ -962,26 +962,37 @@ exports.handleYooKassaWebhookPlaceholder = onCall(async (request) => {
 });
 
 
-// V14_SERVER_LIMITS_START
-const ACCESS_LIMITS_V14 = {
+
+
+
+
+
+
+// V15_1_ACCESS_POLICY_FINAL_START
+const ACCESS_LIMITS_V151 = {
   none: { shieldItemsMax: 0, poolItemsMax: 0 },
   basic: { shieldItemsMax: 60, poolItemsMax: 50 },
   pro_ai: { shieldItemsMax: null, poolItemsMax: null },
   admin: { shieldItemsMax: null, poolItemsMax: null }
 };
 
-const ACCESS_FEATURES_V14 = {
+const ACCESS_FEATURES_V151 = {
+  database: "База",
+  estimate: "Смета",
+  supplier: "Поставщику",
+  drafts: "Черновик",
+  shield: "Конфигуратор щита",
+  pool: "Пул розеток/штроб",
   ai: "ИИ-функции",
   singleLineScheme: "Однолинейная схема",
   visualization: "Визуализация",
   customerEstimate: "Полноценная смета заказчику",
   warehouse: "Склад",
-  drafts: "Черновики",
   accounting: "Бухгалтерия",
   fullStorage: "Полное хранение данных"
 };
 
-function isDateActiveV14(value) {
+function isDateActiveV151(value) {
   if (!value) return false;
   try {
     const date = value.toDate ? value.toDate() : new Date(value);
@@ -991,50 +1002,32 @@ function isDateActiveV14(value) {
   }
 }
 
-function tsToMillisV14(value) {
-  if (!value) return 0;
-  try {
-    if (value.toMillis) return value.toMillis();
-    if (value.toDate) return value.toDate().getTime();
-    return new Date(value).getTime();
-  } catch (error) {
-    return 0;
-  }
-}
-
-async function getSubscriptionV14(uid) {
+async function getSubscriptionV151(uid) {
   const snap = await db.collection("user_subscriptions").doc(uid).get();
   return snap.exists ? (snap.data() || {}) : null;
 }
 
-async function getAiAccountV14(uid) {
+async function getAiAccountV151(uid) {
   const snap = await db.collection("ai_accounts").doc(uid).get();
   return snap.exists ? (snap.data() || {}) : null;
 }
 
-function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
+function buildAccessPolicyV151(uid, profile, subscription, aiAccount) {
   const isAdminUser =
     profile.role === "admin" ||
     profile.isAdmin === true ||
     profile.email === "vits0007@gmail.com";
 
   if (isAdminUser) {
+    const all = {};
+    Object.keys(ACCESS_FEATURES_V151).forEach((key) => all[key] = true);
     return {
       uid,
       planId: "admin",
       status: "active",
       active: true,
-      features: {
-        ai: true,
-        fullStorage: true,
-        customerEstimate: true,
-        singleLineScheme: true,
-        visualization: true,
-        warehouse: true,
-        drafts: true,
-        accounting: true
-      },
-      limits: ACCESS_LIMITS_V14.admin,
+      features: all,
+      limits: ACCESS_LIMITS_V151.admin,
       ai: {
         balanceRub: Number(aiAccount?.balanceRub || 0),
         accessMode: aiAccount?.accessMode || "admin_api",
@@ -1047,7 +1040,7 @@ function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
   const sub = subscription || {};
   const active =
     (sub.status === "active" || sub.status === "trial") &&
-    isDateActiveV14(sub.expiresAt || sub.trialEndsAt);
+    isDateActiveV151(sub.expiresAt || sub.trialEndsAt);
 
   const planId = active ? (sub.planId || "none") : "none";
   const isBasic = planId === "basic";
@@ -1056,22 +1049,28 @@ function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
   const aiBalance = Number(aiAccount?.balanceRub || 0);
   const aiAccessMode = aiAccount?.accessMode || "disabled";
 
-  const features = {
-    ai: isProAi,
-    fullStorage: isProAi,
-    customerEstimate: isProAi,
-    singleLineScheme: isProAi,
-    visualization: isProAi,
-    warehouse: isProAi,
-    drafts: isProAi,
-    accounting: isProAi
+  const noneFeatures = {};
+  Object.keys(ACCESS_FEATURES_V151).forEach((key) => noneFeatures[key] = false);
+
+  const basicFeatures = {
+    ...noneFeatures,
+    database: true,
+    estimate: true,
+    supplier: true,
+    drafts: true,
+    shield: true,
+    pool: true
   };
 
+  const proFeatures = {};
+  Object.keys(ACCESS_FEATURES_V151).forEach((key) => proFeatures[key] = true);
+
+  const features = isProAi ? proFeatures : isBasic ? basicFeatures : noneFeatures;
   const limits = isProAi
-    ? ACCESS_LIMITS_V14.pro_ai
+    ? ACCESS_LIMITS_V151.pro_ai
     : isBasic
-      ? ACCESS_LIMITS_V14.basic
-      : ACCESS_LIMITS_V14.none;
+      ? ACCESS_LIMITS_V151.basic
+      : ACCESS_LIMITS_V151.none;
 
   const canUseAi =
     features.ai === true &&
@@ -1085,7 +1084,6 @@ function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
     planId,
     status: active ? (sub.status || "active") : "none",
     active,
-    expiresAtMillis: tsToMillisV14(sub.expiresAt || sub.trialEndsAt),
     features,
     limits,
     ai: {
@@ -1097,21 +1095,19 @@ function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
   };
 }
 
-function denyReasonV14(feature, policy) {
-  if (feature === "ai") {
-    if (policy.features.ai !== true) {
-      return "ИИ-функции доступны только в подписке «С ИИ». ИИ-запросы оплачиваются отдельно по ИИ-балансу.";
-    }
-    if (policy.ai.accessMode === "disabled") {
-      return "ИИ-доступ выключен администратором.";
-    }
-    if (policy.ai.accessMode === "admin_api" && policy.ai.balanceRub <= 0) {
-      return "ИИ-баланс закончился. Пополните баланс у администратора.";
-    }
+function denyReasonV151(feature, policy) {
+  if (policy.planId === "none") {
+    return "Без активной подписки доступны только вход, экран подписки и запрос оплаты.";
   }
 
-  const title = ACCESS_FEATURES_V14[feature] || "Функция";
-  return `${title} доступна только при активной подписке «С ИИ».`;
+  if (feature === "ai") {
+    if (policy.features.ai !== true) return "ИИ-функции доступны только в подписке «С ИИ». ИИ-запросы оплачиваются отдельно.";
+    if (policy.ai.accessMode === "disabled") return "ИИ-доступ выключен администратором.";
+    if (policy.ai.accessMode === "admin_api" && policy.ai.balanceRub <= 0) return "ИИ-баланс закончился.";
+  }
+
+  const title = ACCESS_FEATURES_V151[feature] || "Функция";
+  return `${title} недоступна в текущей подписке.`;
 }
 
 exports.getAccessPolicy = onCall(async (request) => {
@@ -1120,11 +1116,11 @@ exports.getAccessPolicy = onCall(async (request) => {
   const profile = actor.profile || {};
 
   const [subscription, aiAccount] = await Promise.all([
-    getSubscriptionV14(uid),
-    getAiAccountV14(uid)
+    getSubscriptionV151(uid),
+    getAiAccountV151(uid)
   ]);
 
-  return buildAccessPolicyV14(uid, profile, subscription, aiAccount);
+  return buildAccessPolicyV151(uid, profile, subscription, aiAccount);
 });
 
 exports.checkFeatureAccess = onCall(async (request) => {
@@ -1133,19 +1129,17 @@ exports.checkFeatureAccess = onCall(async (request) => {
   const profile = actor.profile || {};
   const feature = cleanText(request.data.feature, "");
 
-  if (!feature || !Object.prototype.hasOwnProperty.call(ACCESS_FEATURES_V14, feature)) {
+  if (!feature || !Object.prototype.hasOwnProperty.call(ACCESS_FEATURES_V151, feature)) {
     throw new HttpsError("invalid-argument", "Неизвестная функция доступа.");
   }
 
   const [subscription, aiAccount] = await Promise.all([
-    getSubscriptionV14(uid),
-    getAiAccountV14(uid)
+    getSubscriptionV151(uid),
+    getAiAccountV151(uid)
   ]);
 
-  const policy = buildAccessPolicyV14(uid, profile, subscription, aiAccount);
-  const allowed = feature === "ai"
-    ? policy.ai.canUseAi === true
-    : policy.features[feature] === true;
+  const policy = buildAccessPolicyV151(uid, profile, subscription, aiAccount);
+  const allowed = feature === "ai" ? policy.ai.canUseAi === true : policy.features[feature] === true;
 
   if (!allowed) {
     await db.collection("admin_logs").doc().set({
@@ -1153,27 +1147,19 @@ exports.checkFeatureAccess = onCall(async (request) => {
       uid,
       feature,
       planId: policy.planId,
-      reason: denyReasonV14(feature, policy),
+      reason: denyReasonV151(feature, policy),
       createdAt: FieldValue.serverTimestamp(),
       serverSigned: true
     });
   }
 
-  return {
-    ok: true,
-    allowed,
-    feature,
-    title: ACCESS_FEATURES_V14[feature],
-    reason: allowed ? "" : denyReasonV14(feature, policy),
-    policy
-  };
+  return { ok: true, allowed, feature, title: ACCESS_FEATURES_V151[feature], reason: allowed ? "" : denyReasonV151(feature, policy), policy };
 });
 
 exports.checkUsageLimit = onCall(async (request) => {
   const actor = await requireApprovedUser(request);
   const uid = actor.uid;
   const profile = actor.profile || {};
-
   const limitType = cleanText(request.data.limitType, "");
   const currentCount = Number(request.data.currentCount || 0);
   const addCount = Number(request.data.addCount || 1);
@@ -1184,27 +1170,23 @@ exports.checkUsageLimit = onCall(async (request) => {
   }
 
   const [subscription, aiAccount] = await Promise.all([
-    getSubscriptionV14(uid),
-    getAiAccountV14(uid)
+    getSubscriptionV151(uid),
+    getAiAccountV151(uid)
   ]);
 
-  const policy = buildAccessPolicyV14(uid, profile, subscription, aiAccount);
-
-  const max = limitType === "shieldItems"
-    ? policy.limits.shieldItemsMax
-    : policy.limits.poolItemsMax;
-
+  const policy = buildAccessPolicyV151(uid, profile, subscription, aiAccount);
+  const max = limitType === "shieldItems" ? policy.limits.shieldItemsMax : policy.limits.poolItemsMax;
   const allowed = max === null || nextCount <= max;
-
-  const title = limitType === "shieldItems"
-    ? "Лимит конфигуратора щита"
-    : "Лимит пула розеток/штроб";
+  const title = limitType === "shieldItems" ? "Лимит конфигуратора щита" : "Лимит пула розеток/штроб";
 
   let reason = "";
   if (!allowed) {
-    reason = limitType === "shieldItems"
-      ? `В тарифе «Базовая» в конфигураторе щита доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`
-      : `В тарифе «Базовая» в пуле розеток/штроб доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`;
+    if (policy.planId === "none") reason = "Без активной подписки эта функция недоступна.";
+    else {
+      reason = limitType === "shieldItems"
+        ? `В тарифе «Базовая» в конфигураторе щита доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`
+        : `В тарифе «Базовая» в пуле розеток/штроб доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`;
+    }
 
     await db.collection("admin_logs").doc().set({
       type: "usage_limit_denied",
@@ -1220,22 +1202,9 @@ exports.checkUsageLimit = onCall(async (request) => {
     });
   }
 
-  return {
-    ok: true,
-    allowed,
-    limitType,
-    title,
-    reason,
-    currentCount,
-    nextCount,
-    max,
-    policy
-  };
+  return { ok: true, allowed, limitType, title, reason, currentCount, nextCount, max, policy };
 });
-// V14_SERVER_LIMITS_END
 
-
-// V15_SET_AI_BALANCE_EXACT_START
 exports.setAiBalanceExact = onCall(async (request) => {
   const adminUser = await requireAdmin(request);
   const uid = cleanText(request.data.uid);
@@ -1296,4 +1265,4 @@ exports.setAiBalanceExact = onCall(async (request) => {
 
   return { ok: true, ...result };
 });
-// V15_SET_AI_BALANCE_EXACT_END
+// V15_1_ACCESS_POLICY_FINAL_END
