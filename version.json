@@ -1,5 +1,5 @@
 {
-  "version": "v7-admin-panel-users-20260521-01",
-  "updatedAt": "2026-05-21T19:33:02+03:00",
-  "note": "Admin panel button visible only for admin and users management page"
+  "version": "v8-ai-security-foundation-20260521-01",
+  "updatedAt": "2026-05-21T20:04:44+03:00",
+  "note": "AI balance security foundation, Cloud Functions, protected Firestore rules, device integrity policies"
 }

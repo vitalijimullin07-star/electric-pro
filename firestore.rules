@@ -11,43 +11,60 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
     }
 
     function hasProfile() {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function myProfile() {
+      return get(userPath(request.auth.uid)).data;
     }
 
     function isAdmin() {
       return signedIn()
         && hasProfile()
         && (
-          userDoc().data.role == "admin"
-          || userDoc().data.isAdmin == true
+          myProfile().role == "admin"
+          || myProfile().isAdmin == true
         )
         && (
-          userDoc().data.status == "approved"
-          || userDoc().data.isApproved == true
-        );
+          myProfile().status == "approved"
+          || myProfile().isApproved == true
+        )
+        && !(myProfile().blocked == true)
+        && !(myProfile().status in ["blocked", "blocked_review", "deleted"]);
     }
 
     function isApprovedMaster() {
       return signedIn()
         && hasProfile()
         && (
-          userDoc().data.status == "approved"
-          || userDoc().data.isApproved == true
-          || userDoc().data.role == "admin"
+          myProfile().status == "approved"
+          || myProfile().isApproved == true
+          || myProfile().role == "admin"
         )
-        && !(userDoc().data.status == "blocked")
-        && !(userDoc().data.blocked == true);
+        && !(myProfile().blocked == true)
+        && !(myProfile().status in ["blocked", "blocked_review", "deleted"]);
+    }
+
+    function allowCacheForSelf(uid) {
+      return isSelf(uid)
+        && isApprovedMaster()
+        && !(
+          myProfile().securityPolicy.allowLocalCache == false
+          || myProfile().securityPolicy.allowReadData == false
+          || myProfile().securityPolicy.allowLogin == false
+        );
     }
 
     match /users/{uid} {
       allow read: if isSelf(uid) || isAdmin();
 
       allow create: if isSelf(uid)
+        && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.role in ["master", "admin"]
         && request.resource.data.status in ["pending", "approved"];
@@ -60,13 +77,15 @@ service cloud.firestore {
     }
 
     match /server_db/{itemId} {
-      allow read: if isApprovedMaster();
+      allow read: if isApprovedMaster()
+        && !(myProfile().securityPolicy.allowReadData == false);
+
       allow create, update, delete: if isAdmin();
     }
 
     match /user_db/{uid}/items/{itemId} {
-      allow read: if isSelf(uid) || isAdmin();
-      allow create, update, delete: if isSelf(uid) || isAdmin();
+      allow read: if (allowCacheForSelf(uid) || isAdmin());
+      allow create, update, delete: if (isSelf(uid) && isApprovedMaster()) || isAdmin();
     }
 
     match /app_meta/{docId} {
@@ -77,6 +96,58 @@ service cloud.firestore {
     match /sync_versions/{docId} {
       allow read: if isApprovedMaster();
       allow create, update, delete: if isAdmin();
+    }
+
+    match /ai_accounts/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /ai_transactions/{transactionId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /ai_usage/{usageId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /ai_payment_requests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == "pending";
+
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /security_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /device_integrity/{docId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /admin_logs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /requests/{requestId} {
