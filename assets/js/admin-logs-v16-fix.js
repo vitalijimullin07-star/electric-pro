@@ -36,13 +36,21 @@
   function isLogsActive() {
     const btn = document.querySelector('[data-admin-v15-section="logs"].is-selected');
     const title = document.getElementById("adminV15SectionTitle")?.textContent || "";
-    return !!btn || title.includes("Журнал");
+    return !!btn || title.includes("Журнал") || title.includes("Диагност");
   }
 
   function setLogsActiveButton() {
     document.querySelectorAll("[data-admin-v15-section]").forEach(btn => {
       btn.classList.toggle("is-selected", btn.dataset.adminV15Section === "logs");
     });
+  }
+
+  function getValue(data, keys, fallback = "—") {
+    for (const key of keys) {
+      const value = key.split(".").reduce((obj, part) => obj && obj[part], data);
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return fallback;
   }
 
   function timeText(data) {
@@ -59,78 +67,136 @@
       data.updatedAt ||
       data.time ||
       data.timestamp ||
+      data.date ||
       "—";
 
     return String(value);
   }
 
-  function titleText(item) {
+  function normalizeEvent(item) {
     const d = item.data || {};
-    return (
-      d.title ||
-      d.code ||
-      d.type ||
-      d.event ||
-      d.action ||
-      d.module ||
-      item.path ||
-      item.id ||
-      "Событие"
-    );
+    const level = getValue(d, ["level", "status", "severity"], d.type || "event");
+    const code = getValue(d, ["code", "event", "action", "type"], item.id || "event");
+
+    return {
+      id: item.id || "—",
+      path: item.path || "—",
+      time: timeText(d),
+      level,
+      file: getValue(d, ["file", "sourceFile", "src"], item.path || "—"),
+      module: getValue(d, ["module", "moduleName", "component"], "—"),
+      functionName: getValue(d, ["functionName", "function", "fn"], "—"),
+      place: getValue(d, ["place", "location", "screen", "section"], item.path || "—"),
+      code,
+      text: getValue(d, ["message", "text", "reason", "error", "details"], JSON.stringify(d).slice(0, 360)),
+      user: getValue(d, ["user", "email", "userEmail", "uid", "targetUid"], selectedUid() || "—"),
+      session: getValue(d, ["session", "sessionId"], "—"),
+      raw: d
+    };
   }
 
-  function bodyText(item) {
-    const d = item.data || {};
-    return (
-      d.message ||
-      d.text ||
-      d.reason ||
-      d.error ||
-      d.place ||
-      d.functionName ||
-      JSON.stringify(d).slice(0, 260)
-    );
+  function isNoise(item) {
+    const e = normalizeEvent(item);
+    const code = String(e.code || "");
+    const text = String(e.text || "");
+    const path = String(e.path || "");
+
+    // Эти записи появляются каждый раз при чтении журнала и засоряют список.
+    if (code === "admin_read_logs_v16") return true;
+    if (text.includes("admin_read_logs_v16")) return true;
+    if (path === "admin_logs" && code === "admin_read_section") return true;
+
+    return false;
   }
 
-  function shortBody(item) {
-    const text = bodyText(item);
-    return text.length > 135 ? text.slice(0, 135) + "..." : text;
+  function sortDiagnosticsFirst(items) {
+    return (items || [])
+      .filter(item => !isNoise(item))
+      .sort((a, b) => {
+        const ea = normalizeEvent(a);
+        const eb = normalizeEvent(b);
+
+        const ad = Date.parse(ea.time) || Number(ea.raw?.createdAt?.millis || ea.raw?.time?.millis || 0);
+        const bd = Date.parse(eb.time) || Number(eb.raw?.createdAt?.millis || eb.raw?.time?.millis || 0);
+
+        return bd - ad;
+      });
   }
 
-  function prettyJson(obj) {
-    try {
-      return JSON.stringify(obj, null, 2);
-    } catch {
-      return String(obj);
-    }
+  function compact(text, max = 180) {
+    const s = String(text || "—").replace(/\s+/g, " ").trim();
+    return s.length > max ? s.slice(0, max) + "..." : s;
+  }
+
+  function levelClass(level) {
+    const l = String(level || "").toLowerCase();
+    if (l.includes("error") || l.includes("ошиб") || l.includes("denied")) return "error";
+    if (l.includes("ok") || l.includes("success")) return "ok";
+    if (l.includes("warn") || l.includes("wait")) return "warn";
+    if (l.includes("sync")) return "sync";
+    return "event";
+  }
+
+  function renderDiagnosticsCard(item, index) {
+    const e = normalizeEvent(item);
+    const cls = levelClass(e.level);
+
+    return `
+      <button class="admin-v16-diagnostic-item ${cls}" type="button" data-v16-log-index="${index}">
+        <div class="admin-v16-diagnostic-head">
+          <b>${esc(e.code)}</b>
+          <span>${esc(e.level)}</span>
+        </div>
+
+        <div class="admin-v16-diagnostic-lines">
+          <div><span>Время</span><b>${esc(e.time)}</b></div>
+          <div><span>Файл</span><b>${esc(compact(e.file, 70))}</b></div>
+          <div><span>Модуль</span><b>${esc(compact(e.module, 70))}</b></div>
+          <div><span>Функция</span><b>${esc(compact(e.functionName, 70))}</b></div>
+          <div><span>Место</span><b>${esc(compact(e.place, 90))}</b></div>
+          <div><span>Текст</span><b>${esc(compact(e.text, 130))}</b></div>
+        </div>
+
+        <small>Пользователь: ${esc(compact(e.user, 70))} · Сессия: ${esc(compact(e.session, 40))}</small>
+      </button>
+    `;
   }
 
   function renderItems(items) {
-    lastItems = items || [];
+    lastItems = sortDiagnosticsFirst(items || []);
 
     if (!lastItems.length) {
-      return `<div class="admin-empty">Журнал событий пуст или ещё не создан.</div>`;
+      return `<div class="admin-empty">Диагностика пуста или ещё не создана.</div>`;
     }
 
     return `
-      <div class="admin-v16-logs-list">
-        ${lastItems.map((item, index) => {
-          const d = item.data || {};
-          const level = d.level || d.status || d.type || "event";
-
-          return `
-            <button class="admin-v16-log-item" type="button" data-v16-log-index="${index}">
-              <div class="admin-v16-log-top">
-                <b>${esc(titleText(item))}</b>
-                <span>${esc(level)}</span>
-              </div>
-              <p>${esc(shortBody(item))}</p>
-              <small>${esc(timeText(d))} · ${esc(item.path || "")}</small>
-            </button>
-          `;
-        }).join("")}
+      <div class="admin-v16-diagnostics-list">
+        ${lastItems.map((item, index) => renderDiagnosticsCard(item, index)).join("")}
       </div>
     `;
+  }
+
+  function prettyDiagnostics(item) {
+    const e = normalizeEvent(item);
+    return [
+      "Electric Pro diagnostics event",
+      "",
+      `Время: ${e.time}`,
+      `Уровень: ${e.level}`,
+      `Файл: ${e.file}`,
+      `Модуль: ${e.module}`,
+      `Функция: ${e.functionName}`,
+      `Место: ${e.place}`,
+      `Код: ${e.code}`,
+      `Текст: ${e.text}`,
+      `Пользователь: ${e.user}`,
+      `Сессия: ${e.session}`,
+      `Источник: ${e.path}`,
+      `ID: ${e.id}`,
+      "",
+      "RAW:",
+      JSON.stringify(e.raw, null, 2)
+    ].join("\n");
   }
 
   function ensureModal() {
@@ -144,7 +210,7 @@
       <div class="admin-v16-log-modal-card">
         <div class="admin-v16-log-modal-head">
           <div>
-            <h3 id="adminV16LogModalTitle">Событие</h3>
+            <h3 id="adminV16LogModalTitle">Диагностика</h3>
             <p id="adminV16LogModalSub">Детали события</p>
           </div>
           <button class="admin-v16-log-modal-close" type="button" data-v16-log-close>×</button>
@@ -173,17 +239,11 @@
     const title = document.getElementById("adminV16LogModalTitle");
     const sub = document.getElementById("adminV16LogModalSub");
     const text = document.getElementById("adminV16LogModalText");
+    const e = normalizeEvent(item);
 
-    const d = item.data || {};
-    if (title) title.textContent = titleText(item);
-    if (sub) sub.textContent = `${timeText(d)} · ${item.path || ""}`;
-    if (text) {
-      text.textContent = prettyJson({
-        id: item.id,
-        path: item.path,
-        data: d
-      });
-    }
+    if (title) title.textContent = "Диагностика: " + e.code;
+    if (sub) sub.textContent = `${e.time} · ${e.level}`;
+    if (text) text.textContent = prettyDiagnostics(item);
 
     modal.classList.remove("is-hidden");
     window.SoundAPI?.click?.();
@@ -205,7 +265,7 @@
     }
 
     window.SoundAPI?.success?.();
-    alert("Событие скопировано.");
+    alert("Событие диагностики скопировано.");
   }
 
   function closeModal() {
@@ -224,24 +284,24 @@
     setLogsActiveButton();
 
     if (!uid) {
-      if (title) title.textContent = "Журнал событий после входа";
+      if (title) title.textContent = "Диагностика / журнал событий";
       if (hint) hint.textContent = "Выбери мастера.";
-      content.innerHTML = `<div class="admin-empty">Выбери мастера для просмотра журнала событий.</div>`;
+      content.innerHTML = `<div class="admin-empty">Выбери мастера для просмотра диагностики.</div>`;
       return;
     }
 
     try {
-      if (title) title.textContent = "Журнал событий после входа";
-      if (hint) hint.textContent = "Нажми на событие, чтобы открыть детали. Копирование — только кнопкой внутри карточки.";
+      if (title) title.textContent = "Диагностика / журнал событий";
+      if (hint) hint.textContent = "Здесь показываются события как в окне «Диагностика». Нажми на событие, чтобы открыть детали.";
 
       if (!force && lastItems.length && lastLoadedUid === uid) {
         content.innerHTML = renderItems(lastItems);
         return;
       }
 
-      content.innerHTML = `<div class="admin-empty">Читаю журнал событий...</div>`;
+      content.innerHTML = `<div class="admin-empty">Читаю диагностику...</div>`;
 
-      const result = await callFunction("adminReadLogsV16", { uid, limit: 80 });
+      const result = await callFunction("adminReadLogsV16", { uid, limit: 100 });
       lastLoadedUid = uid;
       content.innerHTML = renderItems(result.items || []);
 
@@ -250,15 +310,15 @@
         module: "AdminLogsV16Fix",
         functionName: "renderLogs()",
         place: "admin logs",
-        code: "admin-logs-loaded",
-        message: "Журнал событий загружен: " + (result.items || []).length
+        code: "admin-diagnostics-loaded",
+        message: "Диагностика загружена: " + lastItems.length
       });
     } catch (error) {
       content.innerHTML = `
         <div class="admin-empty">
-          Ошибка чтения журнала: ${esc(error.message)}
+          Ошибка чтения диагностики: ${esc(error.message)}
           <br><br>
-          Если функция не найдена — задеплой V16.4/V16.5 functions через Ubuntu.
+          Если функция не найдена — задеплой V16.4 functions через Ubuntu.
         </div>
       `;
 
@@ -267,7 +327,7 @@
         module: "AdminLogsV16Fix",
         functionName: "renderLogs()",
         place: "admin logs",
-        code: error.code || "admin-logs-v16-error",
+        code: error.code || "admin-diagnostics-error",
         message: error.message
       });
     }

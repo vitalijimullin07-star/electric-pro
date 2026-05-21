@@ -723,3 +723,124 @@
   padding: 0 !important;
   overflow: hidden !important;
 }
+
+/* === V16.8 admin logs as diagnostics === */
+.admin-v16-diagnostics-list {
+  max-width: 720px !important;
+  width: 100% !important;
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.admin-v16-diagnostic-item {
+  width: 100% !important;
+  max-width: 720px !important;
+  text-align: left !important;
+  appearance: none !important;
+  border: 1px solid rgba(15,23,42,.10) !important;
+  border-radius: 20px !important;
+  padding: 12px !important;
+  background: rgba(248,250,252,.96) !important;
+  color: #0f172a !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  box-shadow: 0 10px 24px rgba(15,23,42,.08) !important;
+}
+
+.admin-v16-diagnostic-item:active {
+  transform: scale(.99);
+}
+
+.admin-v16-diagnostic-head {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) auto !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-bottom: 8px !important;
+}
+
+.admin-v16-diagnostic-head b {
+  color: #0f172a !important;
+  font-weight: 950 !important;
+  font-size: 16px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.admin-v16-diagnostic-head span {
+  padding: 4px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(15,23,42,.08) !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  font-weight: 950 !important;
+}
+
+.admin-v16-diagnostic-item.error .admin-v16-diagnostic-head span {
+  background: rgba(239,68,68,.14) !important;
+  color: #7f1d1d !important;
+}
+
+.admin-v16-diagnostic-item.ok .admin-v16-diagnostic-head span {
+  background: rgba(34,197,94,.16) !important;
+  color: #14532d !important;
+}
+
+.admin-v16-diagnostic-item.warn .admin-v16-diagnostic-head span {
+  background: rgba(245,158,11,.18) !important;
+  color: #78350f !important;
+}
+
+.admin-v16-diagnostic-item.sync .admin-v16-diagnostic-head span {
+  background: rgba(59,130,246,.16) !important;
+  color: #1e3a8a !important;
+}
+
+.admin-v16-diagnostic-lines {
+  display: grid !important;
+  gap: 5px !important;
+}
+
+.admin-v16-diagnostic-lines div {
+  display: grid !important;
+  grid-template-columns: 74px minmax(0,1fr) !important;
+  gap: 8px !important;
+  align-items: baseline !important;
+}
+
+.admin-v16-diagnostic-lines span {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.admin-v16-diagnostic-lines b {
+  color: #0f172a !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.admin-v16-diagnostic-item small {
+  display: block !important;
+  margin-top: 8px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 520px) {
+  .admin-v16-diagnostic-lines div {
+    grid-template-columns: 68px minmax(0,1fr) !important;
+  }
+
+  .admin-v16-diagnostic-head b {
+    font-size: 15px !important;
+  }
+}
