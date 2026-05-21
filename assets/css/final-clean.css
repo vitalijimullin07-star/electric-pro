@@ -975,3 +975,55 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* === V20.2 admin subscription buttons fix === */
+[data-admin-v15-section] {
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease !important;
+}
+
+[data-admin-v15-section].admin-v20-2-inactive-section {
+  background: rgba(15, 23, 42, .18) !important;
+  color: rgba(255,255,255,.86) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+}
+
+[data-admin-v15-section].admin-v20-2-active-section,
+[data-admin-v15-section].is-selected {
+  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+  color: #052e16 !important;
+  border: 1px solid rgba(34,197,94,.38) !important;
+  box-shadow: 0 12px 26px rgba(34,197,94,.20) !important;
+}
+
+.admin-v20-2-cancel-btn {
+  width: 100% !important;
+  margin-top: 10px !important;
+  border-radius: 999px !important;
+  background: rgba(239, 68, 68, .14) !important;
+  color: #7f1d1d !important;
+  border: 1px solid rgba(239,68,68,.28) !important;
+  font-weight: 950 !important;
+}
+
+.admin-v20-2-cancel-btn:active,
+.admin-v20-2-disable-ai-btn:active {
+  transform: scale(.99);
+}
+
+.admin-v20-2-disable-ai-btn {
+  width: 100% !important;
+  margin-top: 10px !important;
+  border-radius: 999px !important;
+  background: rgba(15,23,42,.07) !important;
+  color: #334155 !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  font-weight: 950 !important;
+}
+
+.admin-v20-2-choice-btn {
+  transition: background .15s ease, box-shadow .15s ease, transform .12s ease !important;
+}
+
+.admin-v20-2-choice-active {
+  box-shadow: 0 10px 26px rgba(34,197,94,.22) !important;
+}
