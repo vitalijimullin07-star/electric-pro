@@ -34,3 +34,42 @@
 
   window.EP_BIND_SWITCH_ROWS = bindSwitchRows;
 })();
+
+/* === Final Fix V5.2: reliable switches and sound test === */
+(function () {
+  function forceSwitchState(input) {
+    if (!input) return;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  document.addEventListener("click", function (event) {
+    const testSound = event.target.closest("#testSoundBtn");
+    if (testSound) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.SoundAPI?.test?.();
+      return;
+    }
+
+    const row = event.target.closest(".switch-row");
+    if (!row) return;
+
+    const input = row.querySelector('input[type="checkbox"]');
+    if (!input) return;
+
+    if (event.target !== input) {
+      event.preventDefault();
+      event.stopPropagation();
+      input.checked = !input.checked;
+      forceSwitchState(input);
+      window.SoundAPI?.click?.();
+    }
+  }, true);
+
+  document.addEventListener("change", function (event) {
+    const input = event.target;
+    if (!input || !input.matches || !input.matches(".switch-row input[type='checkbox']")) return;
+    forceSwitchState(input);
+  }, true);
+})();

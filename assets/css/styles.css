@@ -266,3 +266,81 @@ body[data-animation="off"] .app-bg {
   transform: scale(.96);
 }
 
+
+/* === Final Fix V5.2: стабильные тумблеры и клики === */
+
+.switch-row {
+  position: relative !important;
+  grid-template-columns: 1fr 68px !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+}
+
+.switch-row * {
+  pointer-events: none !important;
+}
+
+.switch-row input {
+  pointer-events: auto !important;
+  position: relative !important;
+  opacity: 1 !important;
+  z-index: 5 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 66px !important;
+  height: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  background: rgba(255,255,255,.18) !important;
+  cursor: pointer !important;
+}
+
+.switch-row input::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  left: 3px;
+  top: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  transition: transform .16s ease;
+}
+
+.switch-row input:checked {
+  background: color-mix(in srgb, var(--accent) 78%, transparent) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.switch-row input:checked::after {
+  transform: translateX(30px);
+}
+
+.switch-row i {
+  display: none !important;
+}
+
+button,
+.btn,
+.icon-btn,
+.theme-btn,
+.side-nav button,
+.segmented-control button,
+.quick-profile-grid button,
+select,
+input {
+  touch-action: manipulation !important;
+}
+
+button,
+.btn,
+.theme-btn,
+.segmented-control button,
+.quick-profile-grid button {
+  position: relative;
+  z-index: 2;
+}
+
