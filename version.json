@@ -1,5 +1,5 @@
 {
-  "version": "v11-security-policy-toggles-20260521-04",
-  "updatedAt": "2026-05-21T21:58:54+03:00",
-  "note": "Improve security policy controls with clear toggle switches and trusted device mode"
+  "version": "v11-subscription-period-buttons-20260521-05",
+  "updatedAt": "2026-05-21T21:59:12+03:00",
+  "note": "Admin subscription buttons for 3-day trial and 30/90/180 day plans"
 }

@@ -165,3 +165,170 @@
   window.AdminSubscriptionUI = { injectAdminSubscriptionBlock, runAdminAction, wrapAdminApi };
   bind();
 })();
+
+
+
+
+/* === Subscription Period Buttons Override V11 === */
+(function () {
+  function money(v) {
+    return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Number(v || 0)) + " ₽";
+  }
+
+  function formatDate(value) {
+    try {
+      if (!value) return "—";
+      if (value.toDate) return value.toDate().toLocaleString("ru-RU");
+      if (typeof value === "string") return new Date(value).toLocaleString("ru-RU");
+      return "—";
+    } catch {
+      return "—";
+    }
+  }
+
+  function esc(text) {
+    return String(text ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function planName(planId) {
+    if (planId === "pro_ai") return "С ИИ";
+    if (planId === "basic") return "Базовая";
+    return planId || "нет";
+  }
+
+  async function loadSubscription(uid) {
+    const db = window.ServerAPI.db();
+    const snap = await db.collection("user_subscriptions").doc(uid).get();
+    return snap.exists ? snap.data() : null;
+  }
+
+  function renderSubscriptionBlock(uid, sub) {
+    const status = sub?.status || "нет подписки";
+    const planId = sub?.planId || "none";
+
+    return `
+      <div class="admin-detail-card" id="adminSubscriptionBlock" data-subscription-uid="${esc(uid)}">
+        <h3>Подписка</h3>
+
+        <div class="admin-kv">
+          <div class="admin-kv-row"><b>Тариф</b><span>${esc(planName(planId))}</span></div>
+          <div class="admin-kv-row"><b>Статус</b><span>${esc(status)}</span></div>
+          <div class="admin-kv-row"><b>Активна до</b><span>${esc(formatDate(sub?.expiresAt))}</span></div>
+          <div class="admin-kv-row"><b>Пробный период до</b><span>${esc(formatDate(sub?.trialEndsAt))}</span></div>
+        </div>
+
+        <button class="btn btn-primary ep-clickable subscription-trial-btn" data-sub-action="grant-trial" data-uid="${esc(uid)}">
+          Пробный период 3 дня
+        </button>
+
+        <div class="subscription-period-grid">
+          <div class="subscription-period-title">Базовая</div>
+          <div class="subscription-period-buttons">
+            <button class="btn btn-ghost ep-clickable" data-sub-action="grant" data-plan="basic" data-days="30" data-uid="${esc(uid)}">30 дней</button>
+            <button class="btn btn-ghost ep-clickable" data-sub-action="grant" data-plan="basic" data-days="90" data-uid="${esc(uid)}">90 дней</button>
+            <button class="btn btn-ghost ep-clickable" data-sub-action="grant" data-plan="basic" data-days="180" data-uid="${esc(uid)}">180 дней</button>
+          </div>
+
+          <div class="subscription-period-title">С ИИ</div>
+          <div class="subscription-period-buttons">
+            <button class="btn btn-primary ep-clickable" data-sub-action="grant" data-plan="pro_ai" data-days="30" data-uid="${esc(uid)}">30 дней</button>
+            <button class="btn btn-primary ep-clickable" data-sub-action="grant" data-plan="pro_ai" data-days="90" data-uid="${esc(uid)}">90 дней</button>
+            <button class="btn btn-primary ep-clickable" data-sub-action="grant" data-plan="pro_ai" data-days="180" data-uid="${esc(uid)}">180 дней</button>
+          </div>
+        </div>
+
+        <div class="subscription-note-admin">
+          Подписка «С ИИ» открывает доступ к ИИ-разделу, но ИИ-запросы всё равно оплачиваются отдельно по ИИ-балансу.
+        </div>
+
+        <div class="admin-actions-2">
+          <button class="btn btn-ghost ep-clickable" data-sub-action="seed-plans" data-uid="${esc(uid)}">Создать тарифы</button>
+          <button class="btn btn-ghost admin-danger ep-clickable" data-sub-action="cancel" data-uid="${esc(uid)}">Отменить подписку</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function grant(uid, planId, days, trial) {
+    if (!uid) return;
+
+    const label = trial
+      ? "Выдать пробный период 3 дня?"
+      : "Выдать тариф " + planName(planId) + " на " + days + " дней?";
+
+    if (!confirm(label)) return;
+
+    await window.SubscriptionAPI.grantSubscription(uid, planId, days, trial === true);
+    window.SoundAPI?.success?.();
+
+    if (window.AdminAPI?.openUserCard) {
+      await window.AdminAPI.openUserCard(uid);
+    }
+  }
+
+  async function cancel(uid) {
+    if (!uid) return;
+    if (!confirm("Отменить подписку пользователя?")) return;
+
+    await window.SubscriptionAPI.cancelSubscription(uid);
+    window.SoundAPI?.success?.();
+
+    if (window.AdminAPI?.openUserCard) {
+      await window.AdminAPI.openUserCard(uid);
+    }
+  }
+
+  async function seedPlans() {
+    await window.SubscriptionAPI.seedSubscriptionPlans();
+    window.SoundAPI?.success?.();
+    alert("Тарифы по умолчанию созданы/обновлены.");
+  }
+
+  window.AdminSubscriptionUI = {
+    loadSubscription,
+    renderSubscriptionBlock,
+    bind() {
+      document.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-sub-action]");
+        if (!btn) return;
+
+        const action = btn.dataset.subAction;
+        const uid = btn.dataset.uid;
+
+        try {
+          if (action === "grant-trial") {
+            await grant(uid, "pro_ai", 3, true);
+          }
+
+          if (action === "grant") {
+            await grant(uid, btn.dataset.plan, Number(btn.dataset.days), false);
+          }
+
+          if (action === "cancel") {
+            await cancel(uid);
+          }
+
+          if (action === "seed-plans") {
+            await seedPlans();
+          }
+        } catch (error) {
+          alert("Ошибка подписки: " + error.message);
+          window.Diagnostics?.error?.({
+            file: "assets/js/admin-subscription-ui.js",
+            module: "AdminSubscriptionUI",
+            functionName: "bind()",
+            place: "subscription buttons",
+            code: error.code || "subscription-button-error",
+            message: error.message
+          });
+        }
+      }, true);
+    }
+  };
+
+  window.AdminSubscriptionUI.bind();
+})();
