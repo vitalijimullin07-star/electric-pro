@@ -399,3 +399,75 @@
   min-height: unset !important;
   overflow: visible !important;
 }
+
+/* === V16.3 stable subscription status / stop freeze === */
+
+/* Нейтрализуем слишком агрессивные скрытия V16.1/V16.2 */
+.v16-hide-old-subscription-status:not([data-force-hide="1"]),
+.v16-2-hide-old-status-only:not([data-force-hide="1"]),
+[data-v16-hidden-old-status="1"]:not([data-force-hide="1"]) {
+  display: revert !important;
+  visibility: visible !important;
+  height: auto !important;
+  min-height: unset !important;
+  margin: revert !important;
+  padding: revert !important;
+  overflow: visible !important;
+}
+
+#subscriptionStatusStable {
+  display: block !important;
+  margin: 10px 0 14px !important;
+}
+
+.subscription-status-stable-card {
+  padding: 14px;
+  border-radius: 24px;
+  background: rgba(241, 245, 249, .96);
+  color: #0f172a !important;
+  border: 1px solid rgba(15,23,42,.10);
+  box-shadow: 0 14px 34px rgba(15,23,42,.14);
+}
+
+.subscription-status-stable-title {
+  margin-bottom: 10px;
+  color: #0f172a !important;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 950;
+}
+
+.subscription-status-stable-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+}
+
+.subscription-status-stable-grid > div {
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.subscription-status-stable-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: #64748b !important;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.subscription-status-stable-grid b {
+  display: block;
+  color: #0f172a !important;
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+@media (max-width: 520px) {
+  .subscription-status-stable-grid {
+    grid-template-columns: 1fr;
+  }
+}
