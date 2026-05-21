@@ -1,5 +1,5 @@
 {
-  "version": "v12-header-subscription-mini-status-20260521-10",
-  "updatedAt": "2026-05-21T22:46:57+03:00",
-  "note": "Add compact subscription and AI balance indicator inside top header row"
+  "version": "v12-header-10mm-subscription-fix-20260521-11",
+  "updatedAt": "2026-05-21T22:52:31+03:00",
+  "note": "Fix SubscriptionAPI checkAccess alias and split header into user/subscription areas"
 }

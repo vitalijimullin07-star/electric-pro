@@ -32,7 +32,12 @@
   function planName(planId) {
     if (planId === "pro_ai") return "С ИИ";
     if (planId === "basic") return "Базовая";
-    return "Нет подписки";
+    return "Нет";
+  }
+
+  function userName() {
+    const user = window.Auth?.getUser?.();
+    return user?.displayName || user?.email || "Мастер";
   }
 
   function findHeader() {
@@ -47,26 +52,41 @@
   }
 
   function ensureMini() {
-    let mini = document.getElementById("epHeaderStatusMini");
-    if (mini) return mini;
+    let wrap = document.getElementById("epHeaderStatusMini");
+    if (wrap) return wrap;
 
     const header = findHeader();
     if (!header) return null;
 
-    header.classList.add("ep-header-with-mini-status");
+    header.classList.add("ep-header-10mm-status");
 
-    mini = document.createElement("div");
-    mini.id = "epHeaderStatusMini";
-    mini.className = "ep-header-status-mini";
-    mini.textContent = "Подписка · проверка...";
+    wrap = document.createElement("div");
+    wrap.id = "epHeaderStatusMini";
+    wrap.className = "ep-header-status-mini-v2";
+    wrap.innerHTML = `
+      <div class="ep-header-user-info">
+        <span class="ep-header-role">Электрик</span>
+        <span class="ep-header-name">Мастер</span>
+      </div>
+      <div class="ep-header-status-gap"></div>
+      <div class="ep-header-sub-info" data-status="none">
+        <span class="ep-header-sub-text">Подписка</span>
+        <span class="ep-header-ai-text">ИИ</span>
+      </div>
+    `;
 
-    header.appendChild(mini);
-    return mini;
+    header.appendChild(wrap);
+    return wrap;
   }
 
   function render() {
-    const mini = ensureMini();
-    if (!mini) return;
+    const wrap = ensureMini();
+    if (!wrap) return;
+
+    const nameEl = wrap.querySelector(".ep-header-name");
+    const subBox = wrap.querySelector(".ep-header-sub-info");
+    const subTextEl = wrap.querySelector(".ep-header-sub-text");
+    const aiTextEl = wrap.querySelector(".ep-header-ai-text");
 
     const sub = currentSub || {};
     const ai = currentAi || {};
@@ -92,15 +112,13 @@
     const balance = Number(ai.balanceRub || 0);
 
     let aiText = `ИИ ${money(balance)}`;
+    if (mode === "own_api") aiText = "API мастера";
+    if (mode === "disabled") aiText = "ИИ выкл.";
 
-    if (mode === "own_api") {
-      aiText = "API мастера";
-    } else if (mode === "disabled") {
-      aiText = "ИИ выкл.";
-    }
-
-    mini.textContent = `${subText} · ${aiText}`;
-    mini.dataset.status = cls;
+    nameEl.textContent = userName();
+    subTextEl.textContent = subText;
+    aiTextEl.textContent = aiText;
+    subBox.dataset.status = cls;
   }
 
   async function bind(uid) {

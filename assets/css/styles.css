@@ -621,3 +621,132 @@ button,
     padding: 1px 7px;
   }
 }
+
+/* === Header 10mm split status V12.11 === */
+
+.ep-header-10mm-status {
+  min-height: 10mm !important;
+  height: 10mm !important;
+  padding-top: 1mm !important;
+  padding-bottom: 1mm !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.ep-header-10mm-status #masterName,
+.ep-header-10mm-status .master-name,
+.ep-header-10mm-status .title,
+.ep-header-10mm-status .brand-title {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.ep-header-status-mini-v2 {
+  position: absolute;
+  left: 15%;
+  right: 10%;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 8mm;
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) 2fr minmax(0, 4fr);
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+}
+
+.ep-header-user-info,
+.ep-header-sub-info {
+  height: 4mm;
+  min-height: 4mm;
+  max-height: 4mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.ep-header-user-info {
+  background: rgba(241,245,249,.82);
+  color: #0f172a;
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.ep-header-sub-info {
+  background: rgba(239,68,68,.13);
+  color: #7f1d1d;
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.ep-header-sub-info[data-status="pro"] {
+  background: rgba(34,197,94,.20);
+  color: #064e3b;
+}
+
+.ep-header-sub-info[data-status="basic"] {
+  background: rgba(59,130,246,.17);
+  color: #1e3a8a;
+}
+
+.ep-header-sub-info[data-status="trial"] {
+  background: rgba(245,158,11,.22);
+  color: #78350f;
+}
+
+.ep-header-role,
+.ep-header-name,
+.ep-header-sub-text,
+.ep-header-ai-text {
+  font-size: 9px;
+  font-weight: 950;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ep-header-role {
+  flex: 0 0 auto;
+}
+
+.ep-header-name {
+  min-width: 0;
+}
+
+.ep-header-sub-text {
+  min-width: 0;
+}
+
+.ep-header-ai-text {
+  flex: 0 0 auto;
+  opacity: .86;
+}
+
+.ep-header-status-gap {
+  height: 1px;
+}
+
+@media (max-width: 430px) {
+  .ep-header-status-mini-v2 {
+    left: 18%;
+    right: 9%;
+    grid-template-columns: minmax(0, 4fr) 1.2fr minmax(0, 4fr);
+  }
+
+  .ep-header-user-info,
+  .ep-header-sub-info {
+    padding: 0 5px;
+    gap: 3px;
+  }
+
+  .ep-header-role,
+  .ep-header-name,
+  .ep-header-sub-text,
+  .ep-header-ai-text {
+    font-size: 8px;
+  }
+}

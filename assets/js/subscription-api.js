@@ -65,6 +65,10 @@
       return callFunction("checkUserAccess", uid ? { uid } : {});
     },
 
+    checkAccess(uid) {
+      return callFunction("checkUserAccess", uid ? { uid } : {});
+    },
+
     requestSubscriptionPayment(planId = "basic", days = 30, comment = "") {
       return callFunction("requestSubscriptionPayment", {
         planId: normalizePlanId(planId),
