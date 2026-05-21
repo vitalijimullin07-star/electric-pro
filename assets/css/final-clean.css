@@ -710,3 +710,16 @@
     max-width: 100% !important;
   }
 }
+
+/* === V16.7 remove current access duplicate === */
+.v16-7-hide-current-access-duplicate,
+[data-v16-7-hidden-current-access="1"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}

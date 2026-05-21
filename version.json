@@ -1,5 +1,5 @@
 {
-  "version": "v16-6-logs-layout-refresh-fix-20260522-01",
-  "updatedAt": "2026-05-22T01:26:30+03:00",
-  "note": "Admin event journal width is constrained and refresh button keeps using Cloud Function logs reader"
+  "version": "v16-7-remove-current-access-duplicate-20260522-01",
+  "updatedAt": "2026-05-22T01:28:40+03:00",
+  "note": "Hide dark Current Access duplicate on subscription page while keeping white Current Subscription card"
 }
