@@ -1,1 +1,5 @@
-{"version":"v13-final-clean-admin-subscription-ai-20260521-02","updatedAt":"2026-05-21T23:24:20+03:00","note":"Final clean build for admin, subscription, AI balance and security UI without temporary patch layers"}
+{
+  "version": "v14-access-gate-subscription-control-20260521-01",
+  "updatedAt": "2026-05-21T23:50:05+03:00",
+  "note": "Access Gate: subscription controls real access to AI, scheme, visualization, customer estimate and storage"
+}

@@ -129,3 +129,54 @@
   .subscription-period-buttons,.subscription-plan-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
   .subscription-period-buttons .btn,.subscription-plan-row .btn{min-height:40px;padding-left:6px;padding-right:6px;font-size:12px}
 }
+
+/* === V14 Access Gate === */
+
+.access-locked {
+  position: relative !important;
+  opacity: .62 !important;
+  filter: grayscale(.12);
+}
+
+.access-locked::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(15,23,42,.04);
+  pointer-events: none;
+}
+
+.access-lock-badge {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(239,68,68,.16);
+  color: #7f1d1d !important;
+  border: 1px solid rgba(239,68,68,.22);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.subscription-feature-blocked {
+  opacity: .58;
+  pointer-events: none;
+}
+
+@media (max-width: 430px) {
+  .access-lock-badge {
+    right: 8px;
+    top: 8px;
+    font-size: 10px;
+    padding: 3px 7px;
+  }
+}
