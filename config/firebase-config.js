@@ -1,9 +1,3 @@
-/*
-  Firebase config для Electric Pro.
-  Важно: это web config. Он может быть виден в браузере.
-  Защита делается через Firestore Rules, Google Auth, роли и approved-профили.
-*/
-
 window.EP_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBr_LVhNKtiNb--Vh5WHhvFuR-r47N3iCw",
   authDomain: "electric-489f7.firebaseapp.com",
