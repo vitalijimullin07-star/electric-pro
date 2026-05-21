@@ -3,6 +3,7 @@
 
   let ctx = null;
   let unlocked = false;
+  let pendingUnlock = false;
 
   let settings = {
     soundEnabled: false,
@@ -12,16 +13,34 @@
   };
 
   function ensure() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
     return ctx;
   }
 
   async function unlock() {
     try {
       const audio = ensure();
-      if (audio.state === "suspended") await audio.resume();
-      unlocked = true;
-      return true;
+
+      if (audio.state === "suspended") {
+        await audio.resume();
+      }
+
+      unlocked = audio.state === "running";
+
+      if (unlocked) {
+        window.Diagnostics?.ok?.({
+          file: FILE,
+          module: "SoundAPI",
+          functionName: "unlock()",
+          place: "Web Audio API",
+          code: "sound-unlocked",
+          message: "Звук активирован."
+        });
+      }
+
+      return unlocked;
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -49,6 +68,7 @@
 
     try {
       const audio = ensure();
+
       if (audio.state === "suspended" && !force) return;
 
       const start = audio.currentTime + delay;
@@ -143,16 +163,36 @@
     play("soft", force);
   }
 
-  function click() {
-    if (!unlocked) {
+  async function click() {
+    if (!settings.soundEnabled) {
       vibrate(6);
       return;
     }
+
+    if (!unlocked) {
+      if (pendingUnlock) return;
+      pendingUnlock = true;
+      const ok = await unlock();
+      pendingUnlock = false;
+
+      if (ok) {
+        play(settings.style, false);
+      } else {
+        vibrate(6);
+      }
+      return;
+    }
+
     play(settings.style, false);
   }
 
-  function success(force = false) {
+  async function success(force = false) {
     vibrate([8, 24, 8]);
+
+    if (!unlocked && !force) {
+      await unlock();
+    }
+
     if (!unlocked && !force) return;
 
     const v = Number(settings.volume || 0.28);
@@ -179,6 +219,10 @@
     setTimeout(() => { settings.soundEnabled = old; }, 500);
   }
 
+  function isEnabled() {
+    return !!settings.soundEnabled;
+  }
+
   window.SoundAPI = {
     setSettings,
     click,
@@ -187,6 +231,7 @@
     vibrate,
     unlock,
     test,
-    isUnlocked: () => unlocked
+    isUnlocked: () => unlocked,
+    isEnabled
   };
 })();

@@ -84,3 +84,19 @@
     window.SoundAPI?.test?.();
   }, true);
 })();
+
+/* === Sound after reload fix === */
+(function () {
+  async function wakeSoundAfterReload() {
+    if (!window.SoundAPI?.isEnabled?.()) return;
+    if (window.SoundAPI?.isUnlocked?.()) return;
+    await window.SoundAPI.unlock();
+  }
+
+  ["pointerdown", "touchstart", "click"].forEach(eventName => {
+    document.addEventListener(eventName, wakeSoundAfterReload, {
+      capture: true,
+      passive: true
+    });
+  });
+})();
