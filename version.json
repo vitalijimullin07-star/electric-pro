@@ -1,5 +1,5 @@
 {
-  "version": "v12-fix-subscription-api-methods-20260521-08",
-  "updatedAt": "2026-05-21T22:41:10+03:00",
-  "note": "Fix missing SubscriptionAPI methods for admin subscription buttons"
+  "version": "v12-header-subscription-mini-status-20260521-10",
+  "updatedAt": "2026-05-21T22:46:57+03:00",
+  "note": "Add compact subscription and AI balance indicator inside top header row"
 }
