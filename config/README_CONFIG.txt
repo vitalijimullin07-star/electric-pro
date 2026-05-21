@@ -1,5 +1,1 @@
-Папка config
-
-firebase-config.example.js — пример Firebase-настроек без реальных ключей.
-Позже создаётся firebase-config.js с рабочими данными.
-Если вход не работает, первым делом проверять этот файл и диагностику.
+Firebase config лежит в firebase-config.js. Это web config.

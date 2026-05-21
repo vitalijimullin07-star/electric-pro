@@ -1,5 +1,5 @@
 {
-  "version": "v1.0.3-visual-editor",
-  "updatedAt": "2026-05-21T14:59:13.957570",
-  "note": "Visual editor V2"
+  "version": "v4-clean-full-20260521-01",
+  "updatedAt": "2026-05-21T15:19:50.361494",
+  "note": "Clean full rebuild from zero. Cache-busted full visual architecture."
 }
