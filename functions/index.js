@@ -1282,8 +1282,78 @@ exports.setAiBalanceExact = onCall(async (request) => {
 // V15_1_ACCESS_POLICY_FINAL_END
 
 
-// V16_4_ADMIN_LOGS_READ_START
-function normalizeForClientV164(value) {
+
+
+
+
+
+
+// V20_1_ADMIN_LOGS_SAFE_START
+function timestampFromDateV201(date) {
+  try {
+    if (typeof Timestamp !== "undefined" && Timestamp.fromDate) {
+      return Timestamp.fromDate(date);
+    }
+  } catch (error) {}
+
+  try {
+    if (admin && admin.firestore && admin.firestore.Timestamp) {
+      return admin.firestore.Timestamp.fromDate(date);
+    }
+  } catch (error) {}
+
+  return date;
+}
+
+function daysFromNowV201(days) {
+  return timestampFromDateV201(new Date(Date.now() + Number(days || 30) * 24 * 60 * 60 * 1000));
+}
+
+function logRetentionDaysV201(type) {
+  const t = String(type || "").toLowerCase();
+
+  if (
+    t.includes("subscription") ||
+    t.includes("payment") ||
+    t.includes("balance") ||
+    t.includes("transaction") ||
+    t.includes("refund") ||
+    t.includes("ai_spend") ||
+    t.includes("ai_topup")
+  ) return 365;
+
+  if (
+    t.includes("error") ||
+    t.includes("denied") ||
+    t.includes("blocked") ||
+    t.includes("security") ||
+    t.includes("suspicious") ||
+    t.includes("internal")
+  ) return 90;
+
+  if (
+    t.includes("sync") ||
+    t.includes("sound") ||
+    t.includes("start") ||
+    t.includes("clear") ||
+    t.includes("diagnostics")
+  ) return 30;
+
+  return 180;
+}
+
+function withExpiresAtV201(data, fallbackType) {
+  const payload = data || {};
+  if (payload.expiresAt) return payload;
+
+  const type = payload.type || payload.code || fallbackType || "event";
+  return {
+    ...payload,
+    expiresAt: daysFromNowV201(logRetentionDaysV201(type))
+  };
+}
+
+function normalizeForClientV201(value) {
   if (value === null || value === undefined) return value;
 
   if (typeof value.toDate === "function") {
@@ -1296,13 +1366,13 @@ function normalizeForClientV164(value) {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => normalizeForClientV164(item));
+    return value.map((item) => normalizeForClientV201(item));
   }
 
   if (typeof value === "object") {
     const out = {};
     Object.keys(value).forEach((key) => {
-      out[key] = normalizeForClientV164(value[key]);
+      out[key] = normalizeForClientV201(value[key]);
     });
     return out;
   }
@@ -1310,16 +1380,36 @@ function normalizeForClientV164(value) {
   return value;
 }
 
-async function readCollectionSafeV164(path, limit) {
+async function safeAdminLogV201(data, fallbackType) {
+  try {
+    await db.collection("admin_logs").doc().set(withExpiresAtV201({
+      ...(data || {}),
+      createdAt: (typeof FieldValue !== "undefined" && FieldValue.serverTimestamp)
+        ? FieldValue.serverTimestamp()
+        : new Date(),
+      serverSigned: true
+    }, fallbackType));
+  } catch (error) {
+    // Не даём служебной записи сломать основную функцию чтения.
+    console.error("safeAdminLogV201 failed", error);
+  }
+}
+
+async function readCollectionSafeV201(path, limit) {
   try {
     let snap;
+
     try {
       snap = await db.collection(path).orderBy("createdAt", "desc").limit(limit).get();
     } catch (e1) {
       try {
         snap = await db.collection(path).orderBy("time", "desc").limit(limit).get();
       } catch (e2) {
-        snap = await db.collection(path).limit(limit).get();
+        try {
+          snap = await db.collection(path).orderBy("timestamp", "desc").limit(limit).get();
+        } catch (e3) {
+          snap = await db.collection(path).limit(limit).get();
+        }
       }
     }
 
@@ -1328,22 +1418,35 @@ async function readCollectionSafeV164(path, limit) {
       items.push({
         id: doc.id,
         path,
-        data: normalizeForClientV164(doc.data() || {})
+        data: normalizeForClientV201(doc.data() || {})
       });
     });
 
     return items;
   } catch (error) {
+    console.error("readCollectionSafeV201 failed", path, error);
     return [];
   }
+}
+
+function eventMillisV201(item) {
+  const d = item.data || {};
+  return (
+    d.createdAt?.millis ||
+    d.updatedAt?.millis ||
+    d.time?.millis ||
+    d.timestamp?.millis ||
+    Number(d.createdAt || d.updatedAt || d.time || d.timestamp || 0) ||
+    0
+  );
 }
 
 exports.adminReadLogsV16 = onCall(async (request) => {
   const adminUser = await requireAdmin(request);
 
   const uid = cleanText(request.data.uid);
-  const limitRaw = Number(request.data.limit || 60);
-  const limit = Math.max(1, Math.min(100, Number.isFinite(limitRaw) ? limitRaw : 60));
+  const limitRaw = Number(request.data.limit || 80);
+  const limit = Math.max(1, Math.min(120, Number.isFinite(limitRaw) ? limitRaw : 80));
 
   if (!uid) {
     throw new HttpsError("invalid-argument", "Не выбран мастер.");
@@ -1358,135 +1461,63 @@ exports.adminReadLogsV16 = onCall(async (request) => {
     `users/${uid}/events`
   ];
 
-  const groups = await Promise.all(paths.map((path) => readCollectionSafeV164(path, limit)));
-  const items = groups.flat();
+  let items = [];
+  try {
+    const groups = await Promise.all(paths.map((path) => readCollectionSafeV201(path, limit)));
+    items = groups.flat();
 
-  items.sort((a, b) => {
-    const ad = a.data || {};
-    const bd = b.data || {};
+    items.sort((a, b) => eventMillisV201(b) - eventMillisV201(a));
+    items = items.slice(0, limit);
+  } catch (error) {
+    console.error("adminReadLogsV16 read failed", error);
+    // Возвращаем пустой список вместо INTERNAL, чтобы админка не падала.
+    items = [];
+  }
 
-    const am =
-      ad.createdAt?.millis ||
-      ad.updatedAt?.millis ||
-      ad.time?.millis ||
-      ad.timestamp?.millis ||
-      Number(ad.createdAt || ad.updatedAt || ad.time || ad.timestamp || 0);
-
-    const bm =
-      bd.createdAt?.millis ||
-      bd.updatedAt?.millis ||
-      bd.time?.millis ||
-      bd.timestamp?.millis ||
-      Number(bd.createdAt || bd.updatedAt || bd.time || bd.timestamp || 0);
-
-    return Number(bm || 0) - Number(am || 0);
-  });
-
-  const sliced = items.slice(0, limit);
-
-  await db.collection("admin_logs").doc().set(withExpiresAtV169({
+  await safeAdminLogV201({
     type: "admin_read_logs_v16",
     targetUid: uid,
     adminUid: adminUser.uid,
-    count: sliced.length,
-    createdAt: FieldValue.serverTimestamp(),
-    serverSigned: true
-  }, "admin_read_logs_v16"));
+    count: items.length
+  }, "admin_read_logs_v16");
 
   return {
     ok: true,
     uid,
-    count: sliced.length,
-    items: sliced
+    count: items.length,
+    items
   };
 });
-// V16_4_ADMIN_LOGS_READ_END
 
+async function cleanupCollectionV201(collectionPath, now, limit) {
+  try {
+    const snap = await db.collection(collectionPath)
+      .where("expiresAt", "<=", now)
+      .limit(limit)
+      .get();
 
-// V16_9_LOG_TTL_START
-function daysFromNowV169(days) {
-  const d = new Date(Date.now() + Number(days || 30) * 24 * 60 * 60 * 1000);
-  return Timestamp.fromDate(d);
-}
+    if (snap.empty) return 0;
 
-function logRetentionDaysV169(type) {
-  const t = String(type || "").toLowerCase();
+    const batch = db.batch();
+    snap.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
 
-  // Финансовые/подписочные события держим дольше.
-  if (
-    t.includes("subscription") ||
-    t.includes("payment") ||
-    t.includes("balance") ||
-    t.includes("transaction") ||
-    t.includes("refund") ||
-    t.includes("ai_spend") ||
-    t.includes("ai_topup")
-  ) return 365;
-
-  // Ошибки держим дольше, чтобы можно было разбирать проблемы.
-  if (
-    t.includes("error") ||
-    t.includes("denied") ||
-    t.includes("blocked") ||
-    t.includes("security") ||
-    t.includes("suspicious")
-  ) return 90;
-
-  // Обычная техническая диагностика.
-  if (
-    t.includes("sync") ||
-    t.includes("sound") ||
-    t.includes("start") ||
-    t.includes("clear") ||
-    t.includes("diagnostics")
-  ) return 30;
-
-  // Обычный админский журнал.
-  return 180;
-}
-
-function withExpiresAtV169(data, fallbackType) {
-  const payload = data || {};
-  if (payload.expiresAt) return payload;
-
-  const type = payload.type || payload.code || fallbackType || "event";
-  return {
-    ...payload,
-    expiresAt: daysFromNowV169(logRetentionDaysV169(type))
-  };
-}
-
-async function setLogV169(collectionName, data, fallbackType) {
-  return db.collection(collectionName).doc().set(withExpiresAtV169(data, fallbackType));
-}
-
-async function cleanupCollectionV169(collectionPath, now, limit) {
-  const snap = await db.collection(collectionPath)
-    .where("expiresAt", "<=", now)
-    .limit(limit)
-    .get();
-
-  if (snap.empty) return 0;
-
-  const batch = db.batch();
-  snap.forEach((doc) => batch.delete(doc.ref));
-  await batch.commit();
-
-  return snap.size;
+    return snap.size;
+  } catch (error) {
+    console.error("cleanupCollectionV201 failed", collectionPath, error);
+    return 0;
+  }
 }
 
 exports.cleanupOldLogsV16 = onCall(async (request) => {
   const adminUser = await requireAdmin(request);
 
-  const uid = cleanText(request.data.uid, "");
+  const uid = cleanText(request.data.uid || "");
   const limitRaw = Number(request.data.limit || 300);
   const limit = Math.max(1, Math.min(500, Number.isFinite(limitRaw) ? limitRaw : 300));
-  const now = Timestamp.now();
+  const now = timestampFromDateV201(new Date());
 
-  const targets = [
-    "admin_logs",
-    "logs"
-  ];
+  const targets = ["admin_logs", "logs"];
 
   if (uid) {
     targets.push(`diagnostics/${uid}/items`);
@@ -1499,20 +1530,18 @@ exports.cleanupOldLogsV16 = onCall(async (request) => {
   let totalDeleted = 0;
 
   for (const path of targets) {
-    const deleted = await cleanupCollectionV169(path, now, limit);
+    const deleted = await cleanupCollectionV201(path, now, limit);
     result[path] = deleted;
     totalDeleted += deleted;
   }
 
-  await db.collection("admin_logs").doc().set(withExpiresAtV169({
+  await safeAdminLogV201({
     type: "cleanup_old_logs_v16",
     adminUid: adminUser.uid,
     targetUid: uid || "all",
     totalDeleted,
-    result,
-    createdAt: FieldValue.serverTimestamp(),
-    serverSigned: true
-  }, "cleanup_old_logs_v16"));
+    result
+  }, "cleanup_old_logs_v16");
 
   return {
     ok: true,
@@ -1521,4 +1550,4 @@ exports.cleanupOldLogsV16 = onCall(async (request) => {
     result
   };
 });
-// V16_9_LOG_TTL_END
+// V20_1_ADMIN_LOGS_SAFE_END

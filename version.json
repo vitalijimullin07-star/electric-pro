@@ -1,5 +1,5 @@
 {
-  "version": "v20-clean-stable-base-20260522-01",
-  "updatedAt": "2026-05-22T01:43:59+03:00",
-  "note": "Clean stable base: remove heavy V16 scripts and consolidate stable subscription status and back button fixes"
+  "version": "v20-1-functions-internal-fix-20260522-01",
+  "updatedAt": "2026-05-22T01:44:37+03:00",
+  "note": "Fix functions/internal in admin diagnostics log reader and keep V20 stable base"
 }
