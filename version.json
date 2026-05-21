@@ -1,5 +1,5 @@
 {
-  "version": "v4-clean-full-20260521-01",
-  "updatedAt": "2026-05-21T15:19:50.361494",
-  "note": "Clean full rebuild from zero. Cache-busted full visual architecture."
+  "version": "v5-final-visual-20260521-01",
+  "updatedAt": "2026-05-21T15:32:30.119191",
+  "note": "Final visual: calm static backgrounds, switch toggles, test sound, no moving background by default."
 }
