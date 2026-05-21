@@ -1,5 +1,6 @@
 (function () {
   const FILE = "assets/js/admin-logs-v16-fix.js";
+  let lastItems = [];
 
   function esc(text) {
     return String(text ?? "")
@@ -84,30 +85,125 @@
     );
   }
 
+  function shortBody(item) {
+    const text = bodyText(item);
+    return text.length > 160 ? text.slice(0, 160) + "..." : text;
+  }
+
+  function prettyJson(obj) {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch {
+      return String(obj);
+    }
+  }
+
   function renderItems(items) {
-    if (!items.length) {
+    lastItems = items || [];
+
+    if (!lastItems.length) {
       return `<div class="admin-empty">Журнал событий пуст или ещё не создан.</div>`;
     }
 
     return `
       <div class="admin-v16-logs-list">
-        ${items.map(item => {
+        ${lastItems.map((item, index) => {
           const d = item.data || {};
           const level = d.level || d.status || d.type || "event";
 
           return `
-            <div class="admin-v16-log-item">
+            <button class="admin-v16-log-item" type="button" data-v16-log-index="${index}">
               <div class="admin-v16-log-top">
                 <b>${esc(titleText(item))}</b>
                 <span>${esc(level)}</span>
               </div>
-              <p>${esc(bodyText(item))}</p>
+              <p>${esc(shortBody(item))}</p>
               <small>${esc(timeText(d))} · ${esc(item.path || "")}</small>
-            </div>
+            </button>
           `;
         }).join("")}
       </div>
     `;
+  }
+
+  function ensureModal() {
+    let modal = document.getElementById("adminV16LogModal");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.id = "adminV16LogModal";
+    modal.className = "admin-v16-log-modal is-hidden";
+    modal.innerHTML = `
+      <div class="admin-v16-log-modal-card">
+        <div class="admin-v16-log-modal-head">
+          <div>
+            <h3 id="adminV16LogModalTitle">Событие</h3>
+            <p id="adminV16LogModalSub">Детали события</p>
+          </div>
+          <button class="admin-v16-log-modal-close" type="button" data-v16-log-close>×</button>
+        </div>
+
+        <div class="admin-v16-log-modal-body">
+          <pre id="adminV16LogModalText"></pre>
+        </div>
+
+        <div class="admin-v16-log-modal-actions">
+          <button class="btn btn-primary ep-clickable" type="button" data-v16-log-copy>Копировать</button>
+          <button class="btn btn-ghost ep-clickable" type="button" data-v16-log-close>Закрыть</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openLog(index) {
+    const item = lastItems[Number(index)];
+    if (!item) return;
+
+    const modal = ensureModal();
+    const title = document.getElementById("adminV16LogModalTitle");
+    const sub = document.getElementById("adminV16LogModalSub");
+    const text = document.getElementById("adminV16LogModalText");
+
+    const d = item.data || {};
+    if (title) title.textContent = titleText(item);
+    if (sub) sub.textContent = `${timeText(d)} · ${item.path || ""}`;
+    if (text) {
+      text.textContent = prettyJson({
+        id: item.id,
+        path: item.path,
+        data: d
+      });
+    }
+
+    modal.classList.remove("is-hidden");
+    window.SoundAPI?.click?.();
+  }
+
+  async function copyModalText() {
+    const text = document.getElementById("adminV16LogModalText")?.textContent || "";
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      window.SoundAPI?.success?.();
+      alert("Событие скопировано.");
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      window.SoundAPI?.success?.();
+      alert("Событие скопировано.");
+    }
+  }
+
+  function closeModal() {
+    document.getElementById("adminV16LogModal")?.classList.add("is-hidden");
   }
 
   async function renderLogs() {
@@ -126,7 +222,7 @@
 
     try {
       if (title) title.textContent = "Журнал событий после входа";
-      if (hint) hint.textContent = "Чтение через серверную функцию, без permission-denied от клиента.";
+      if (hint) hint.textContent = "Нажми на событие, чтобы открыть детали. Копирование — только кнопкой внутри карточки.";
       content.innerHTML = `<div class="admin-empty">Читаю журнал событий...</div>`;
 
       const result = await callFunction("adminReadLogsV16", { uid, limit: 80 });
@@ -145,7 +241,7 @@
         <div class="admin-empty">
           Ошибка чтения журнала: ${esc(error.message)}
           <br><br>
-          Если функция не найдена — задеплой V16.4 functions через Ubuntu.
+          Если функция не найдена — задеплой V16.4/V16.5 functions через Ubuntu.
         </div>
       `;
 
@@ -162,6 +258,26 @@
 
   function bind() {
     document.addEventListener("click", event => {
+      const item = event.target.closest("[data-v16-log-index]");
+      if (item) {
+        event.preventDefault();
+        event.stopPropagation();
+        openLog(item.dataset.v16LogIndex);
+        return;
+      }
+
+      if (event.target.closest("[data-v16-log-close]")) {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+
+      if (event.target.closest("[data-v16-log-copy]")) {
+        event.preventDefault();
+        copyModalText();
+        return;
+      }
+
       const btn = event.target.closest('[data-admin-v15-section="logs"]');
       if (!btn) return;
 
@@ -182,6 +298,6 @@
     });
   }
 
-  window.AdminLogsV16Fix = { renderLogs };
+  window.AdminLogsV16Fix = { renderLogs, openLog };
   window.addEventListener("DOMContentLoaded", bind);
 })();

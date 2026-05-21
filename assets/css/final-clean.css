@@ -528,3 +528,123 @@
   color: #64748b !important;
   font-size: 11px;
 }
+
+/* === V16.5 clickable admin logs === */
+.admin-v16-log-item {
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 1px solid rgba(15,23,42,.10);
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.admin-v16-log-item:active {
+  transform: scale(.99);
+}
+
+.admin-v16-log-item:hover {
+  box-shadow: 0 10px 24px rgba(15,23,42,.12);
+  background: rgba(255,255,255,.98);
+}
+
+.admin-v16-log-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(2, 6, 23, .62);
+  backdrop-filter: blur(10px);
+}
+
+.admin-v16-log-modal.is-hidden {
+  display: none !important;
+}
+
+.admin-v16-log-modal-card {
+  width: min(680px, 100%);
+  max-height: 86vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border-radius: 28px;
+  background: rgba(248,250,252,.98);
+  color: #0f172a;
+  box-shadow: 0 26px 70px rgba(0,0,0,.35);
+  overflow: hidden;
+}
+
+.admin-v16-log-modal-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 16px;
+  border-bottom: 1px solid rgba(15,23,42,.10);
+}
+
+.admin-v16-log-modal-head h3 {
+  margin: 0;
+  color: #0f172a !important;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 950;
+}
+
+.admin-v16-log-modal-head p {
+  margin: 6px 0 0;
+  color: #64748b !important;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-v16-log-modal-close {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15,23,42,.08);
+  color: #0f172a;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.admin-v16-log-modal-body {
+  overflow: auto;
+  padding: 14px 16px;
+}
+
+.admin-v16-log-modal-body pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #0f172a !important;
+  font-size: 12px;
+  line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.admin-v16-log-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(15,23,42,.10);
+}
+
+@media (max-width: 520px) {
+  .admin-v16-log-modal {
+    padding: 10px;
+  }
+
+  .admin-v16-log-modal-card {
+    max-height: 88vh;
+    border-radius: 22px;
+  }
+
+  .admin-v16-log-modal-actions {
+    grid-template-columns: 1fr;
+  }
+}
