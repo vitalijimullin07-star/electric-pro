@@ -1,5 +1,5 @@
 {
-  "version": "v5-diagnostics-logging-fix-20260521-05",
-  "updatedAt": "2026-05-21T19:10:24+03:00",
-  "note": "Diagnostics writes real lines, refreshes on every app start and stores local log"
+  "version": "v6-firebase-foundation-20260521-01",
+  "updatedAt": "2026-05-21T16:15:23+00:00",
+  "note": "Firebase foundation: users, admin bootstrap, server_db, user_db, app_meta, sync_versions, firestore rules"
 }

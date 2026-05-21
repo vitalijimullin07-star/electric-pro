@@ -1,0 +1,96 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && hasProfile()
+        && (
+          userDoc().data.role == "admin"
+          || userDoc().data.isAdmin == true
+        )
+        && (
+          userDoc().data.status == "approved"
+          || userDoc().data.isApproved == true
+        );
+    }
+
+    function isApprovedMaster() {
+      return signedIn()
+        && hasProfile()
+        && (
+          userDoc().data.status == "approved"
+          || userDoc().data.isApproved == true
+          || userDoc().data.role == "admin"
+        )
+        && !(userDoc().data.status == "blocked")
+        && !(userDoc().data.blocked == true);
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      allow create: if isSelf(uid)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ["master", "admin"]
+        && request.resource.data.status in ["pending", "approved"];
+
+      allow update: if isSelf(uid)
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["lastLoginAt", "updatedAt"]);
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /server_db/{itemId} {
+      allow read: if isApprovedMaster();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /user_db/{uid}/items/{itemId} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update, delete: if isSelf(uid) || isAdmin();
+    }
+
+    match /app_meta/{docId} {
+      allow read: if isApprovedMaster();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /sync_versions/{docId} {
+      allow read: if isApprovedMaster();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /requests/{requestId} {
+      allow create: if signedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /logs/{logId} {
+      allow create: if signedIn();
+      allow read, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
