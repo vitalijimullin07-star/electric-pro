@@ -491,3 +491,75 @@ button,
 @media (max-width: 620px) {
   .subscription-plans-grid { grid-template-columns: 1fr; }
 }
+
+/* === Clean Security Toggles Visual Fix V12 === */
+
+.security-toggle-row {
+  grid-template-columns: minmax(0, 1fr) 64px !important;
+  overflow: hidden !important;
+}
+
+.security-toggle-row > div {
+  min-width: 0 !important;
+}
+
+.security-toggle-row strong,
+.security-toggle-row small {
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+}
+
+.security-toggle {
+  width: 58px !important;
+  height: 32px !important;
+  min-width: 58px !important;
+  max-width: 58px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  text-indent: -9999px !important;
+  flex-shrink: 0 !important;
+}
+
+.security-toggle::before {
+  display: none !important;
+  content: "" !important;
+}
+
+.security-toggle::after {
+  width: 26px !important;
+  height: 26px !important;
+  left: 3px !important;
+  top: 2px !important;
+}
+
+.security-toggle.is-on::after {
+  transform: translateX(26px) !important;
+}
+
+.security-toggle.is-on {
+  background: rgba(34,197,94,.78) !important;
+}
+
+.security-toggle:not(.is-on) {
+  background: rgba(239,68,68,.25) !important;
+}
+
+@media (max-width: 430px) {
+  .security-toggle-row {
+    grid-template-columns: minmax(0, 1fr) 62px !important;
+    gap: 8px !important;
+  }
+
+  .security-toggle {
+    width: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+  }
+
+  .security-toggle.is-on::after {
+    transform: translateX(24px) !important;
+  }
+}

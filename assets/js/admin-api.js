@@ -219,7 +219,7 @@
     return `
       <div class="security-toggle-row">
         <div><strong>${title}</strong><small>${subtitle}</small></div>
-        <button class="security-toggle ${value ? "is-on" : ""}" data-policy-toggle="${key}" type="button">${title}</button>
+        <button class="security-toggle ${value ? "is-on" : ""}" data-policy-toggle="${key}" type="button"></button>
       </div>`;
   }
 
