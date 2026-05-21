@@ -145,6 +145,53 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+
+    /* === Subscription Rules V10 === */
+
+    match /subscription_plans/{planId} {
+      allow read: if isApprovedMaster();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /user_subscriptions/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /subscription_transactions/{transactionId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /subscription_payment_requests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == "pending";
+
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /payment_requests/{requestId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /yookassa_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /admin_logs/{logId} {
       allow read: if isAdmin();
       allow create, update, delete: if false;
