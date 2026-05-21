@@ -12,30 +12,15 @@
   };
 
   function ensure() {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     return ctx;
   }
 
   async function unlock() {
     try {
       const audio = ensure();
-      if (audio.state === "suspended") {
-        await audio.resume();
-      }
-
+      if (audio.state === "suspended") await audio.resume();
       unlocked = true;
-
-      window.Diagnostics?.ok?.({
-        file: FILE,
-        module: "SoundAPI",
-        functionName: "unlock()",
-        place: "Web Audio API",
-        code: "sound-unlocked",
-        message: "Звук активирован после нажатия пользователя."
-      });
-
       return true;
     } catch (error) {
       window.Diagnostics?.error?.({
@@ -46,7 +31,6 @@
         code: "sound-unlock-error",
         message: error.message
       });
-
       return false;
     }
   }
@@ -55,118 +39,144 @@
     settings = { ...settings, ...next };
   }
 
-  function vibrate(pattern = 12) {
+  function vibrate(pattern = 10) {
     if (!settings.hapticEnabled) return;
-    try {
-      navigator.vibrate?.(pattern);
-    } catch {}
+    try { navigator.vibrate?.(pattern); } catch {}
   }
 
-  function tone(freq, duration, type = "sine", gain = settings.volume, force = false, delay = 0) {
+  function tone(freq, dur, type = "sine", gain = settings.volume, force = false, delay = 0) {
     if ((!settings.soundEnabled && !force) || settings.style === "none") return;
 
     try {
       const audio = ensure();
       if (audio.state === "suspended" && !force) return;
 
-      const startAt = audio.currentTime + delay;
+      const start = audio.currentTime + delay;
       const osc = audio.createOscillator();
       const g = audio.createGain();
 
       osc.type = type;
-      osc.frequency.setValueAtTime(freq, startAt);
+      osc.frequency.setValueAtTime(freq, start);
 
-      g.gain.setValueAtTime(0.0001, startAt);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain), startAt + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain), start + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
 
       osc.connect(g);
       g.connect(audio.destination);
 
-      osc.start(startAt);
-      osc.stop(startAt + duration + 0.025);
-    } catch (error) {
-      window.Diagnostics?.error?.({
-        file: FILE,
-        module: "SoundAPI",
-        functionName: "tone()",
-        place: "Web Audio API",
-        code: "sound-error",
-        message: error.message
-      });
-    }
+      osc.start(start);
+      osc.stop(start + dur + 0.025);
+    } catch {}
   }
 
-  function playByStyle(force = false) {
+  function play(style = settings.style, force = false) {
     const v = Number(settings.volume || 0.28);
 
-    if (settings.style === "none") {
+    if (style === "none") {
       vibrate(8);
       return;
     }
 
-    if (settings.style === "electric") {
-      vibrate([8, 18, 8]);
-      tone(880, 0.045, "sawtooth", v * 0.22, force, 0);
-      tone(1320, 0.04, "triangle", v * 0.18, force, 0.035);
-      tone(1760, 0.035, "sine", v * 0.12, force, 0.07);
+    if (style === "soft") {
+      vibrate(8);
+      tone(420, 0.055, "sine", v * 0.18, force, 0);
+      tone(640, 0.065, "sine", v * 0.14, force, 0.055);
       return;
     }
 
-    if (settings.style === "click") {
+    if (style === "soft2") {
       vibrate(7);
-      tone(980, 0.025, "square", v * 0.16, force, 0);
-      tone(520, 0.018, "square", v * 0.08, force, 0.026);
+      tone(360, 0.070, "sine", v * 0.15, force, 0);
+      tone(540, 0.075, "sine", v * 0.13, force, 0.070);
       return;
     }
 
-    // soft
-    vibrate(10);
-    tone(420, 0.055, "sine", v * 0.20, force, 0);
-    tone(640, 0.065, "sine", v * 0.16, force, 0.055);
+    if (style === "soft3") {
+      vibrate(6);
+      tone(500, 0.045, "triangle", v * 0.13, force, 0);
+      tone(760, 0.050, "sine", v * 0.10, force, 0.045);
+      return;
+    }
+
+    if (style === "air") {
+      vibrate(5);
+      tone(700, 0.040, "sine", v * 0.09, force, 0);
+      tone(980, 0.055, "sine", v * 0.07, force, 0.050);
+      return;
+    }
+
+    if (style === "glass") {
+      vibrate(6);
+      tone(880, 0.030, "triangle", v * 0.11, force, 0);
+      tone(1320, 0.045, "sine", v * 0.07, force, 0.035);
+      return;
+    }
+
+    if (style === "warm") {
+      vibrate(10);
+      tone(300, 0.080, "sine", v * 0.16, force, 0);
+      tone(450, 0.090, "sine", v * 0.12, force, 0.075);
+      return;
+    }
+
+    if (style === "short") {
+      vibrate(5);
+      tone(620, 0.030, "sine", v * 0.12, force, 0);
+      return;
+    }
+
+    if (style === "deep") {
+      vibrate(12);
+      tone(220, 0.075, "sine", v * 0.16, force, 0);
+      tone(330, 0.060, "sine", v * 0.10, force, 0.065);
+      return;
+    }
+
+    if (style === "electric-soft") {
+      vibrate([6, 18, 6]);
+      tone(620, 0.035, "triangle", v * 0.11, force, 0);
+      tone(930, 0.035, "sine", v * 0.08, force, 0.035);
+      return;
+    }
+
+    play("soft", force);
   }
 
   function click() {
     if (!unlocked) {
-      vibrate(8);
+      vibrate(6);
       return;
     }
-    playByStyle(false);
+    play(settings.style, false);
   }
 
   function success(force = false) {
-    const v = Number(settings.volume || 0.28);
-    vibrate([10, 30, 10]);
-
+    vibrate([8, 24, 8]);
     if (!unlocked && !force) return;
 
-    tone(520, 0.06, "sine", v * 0.24, force, 0);
-    tone(780, 0.07, "sine", v * 0.22, force, 0.075);
-    tone(1040, 0.055, "triangle", v * 0.16, force, 0.15);
+    const v = Number(settings.volume || 0.28);
+    tone(520, 0.055, "sine", v * 0.18, force, 0);
+    tone(740, 0.065, "sine", v * 0.15, force, 0.065);
   }
 
   function error() {
-    const v = Number(settings.volume || 0.28);
-    vibrate([25, 40, 25]);
-
+    vibrate([20, 35, 20]);
     if (!unlocked) return;
 
-    tone(180, 0.12, "sawtooth", v * 0.20, false, 0);
-    tone(120, 0.10, "sawtooth", v * 0.16, false, 0.12);
+    const v = Number(settings.volume || 0.28);
+    tone(180, 0.10, "sine", v * 0.14, false, 0);
+    tone(120, 0.09, "sine", v * 0.10, false, 0.10);
   }
 
   async function test() {
     const ok = await unlock();
     if (!ok) return;
 
-    const wasEnabled = settings.soundEnabled;
+    const old = settings.soundEnabled;
     settings.soundEnabled = true;
-
-    playByStyle(true);
-
-    setTimeout(() => {
-      settings.soundEnabled = wasEnabled;
-    }, 450);
+    play(settings.style, true);
+    setTimeout(() => { settings.soundEnabled = old; }, 500);
   }
 
   window.SoundAPI = {

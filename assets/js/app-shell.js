@@ -73,3 +73,14 @@
     forceSwitchState(input);
   }, true);
 })();
+
+/* === Final Fix V5.3: sound button only, switches handled by VisualSettings === */
+(function () {
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest("#testSoundBtn");
+    if (!btn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.SoundAPI?.test?.();
+  }, true);
+})();

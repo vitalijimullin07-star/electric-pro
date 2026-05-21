@@ -344,3 +344,71 @@ button,
   z-index: 2;
 }
 
+
+/* === Final V5.3: настоящие кнопки-тумблеры без checkbox === */
+
+.switch-btn {
+  width: 100%;
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 1fr 68px;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: var(--text);
+  padding: 12px;
+  border-radius: var(--button-radius);
+  background: rgba(255,255,255,.065);
+  border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  font: inherit;
+  font-weight: 850;
+}
+
+.switch-btn span {
+  pointer-events: none;
+}
+
+.switch-btn b {
+  width: 66px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.18);
+  position: relative;
+  pointer-events: none;
+  transition: background .18s ease, box-shadow .18s ease;
+}
+
+.switch-btn b::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  left: 3px;
+  top: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  transition: transform .18s ease;
+}
+
+.switch-btn.is-on b {
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.switch-btn.is-on b::after {
+  transform: translateX(30px);
+}
+
+.switch-btn:active {
+  transform: scale(.985);
+}
+
+.switch-row {
+  display: none !important;
+}
+
