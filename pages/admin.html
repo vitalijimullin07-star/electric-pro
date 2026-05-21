@@ -1,36 +1,38 @@
-<section class="page admin-page">
+<section class="page admin-page" id="adminV15Page">
   <div class="page-head">
     <h1>Админ-панель</h1>
-    <p>Пользователи, права доступа, личные базы, ИИ-баланс, подписки и безопасность.</p>
+    <p>Подписки, базы мастеров, бухгалтерия, журналы, черновики и PDF.</p>
   </div>
 
-  <div class="card admin-users-card">
-    <div class="admin-head-row">
+  <div class="admin-v15-home card">
+    <div class="admin-v15-grid">
+      <button class="btn btn-primary ep-clickable is-selected" data-admin-v15-section="subscription">Управление подпиской</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="serverdb">Просмотр баз данных</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="personaldb">Просмотр личных баз</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="accounting">Просмотр бухгалтерии</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="logs">Журнал событий после входа</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="drafts">Черновики</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="pdf">Сохранённые печати / PDF</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="admin-v15-head-row">
       <div>
-        <h3>Пользователи</h3>
-        <p>Нажми на пользователя, чтобы открыть полную карточку.</p>
+        <h3 id="adminV15SectionTitle">Управление подпиской</h3>
+        <p id="adminV15SectionHint">Выбери мастера и настрой подписку, срок, API и баланс.</p>
       </div>
-      <button id="refreshUsersBtn" class="btn btn-primary ep-clickable">Обновить</button>
+      <button id="adminV15RefreshBtn" class="btn btn-primary ep-clickable">Обновить</button>
     </div>
 
-    <div id="adminUsersList" class="admin-users-list">
-      <div class="admin-empty">Загрузка пользователей...</div>
+    <div class="admin-v15-master-row">
+      <select id="adminV15MasterSelect">
+        <option value="">Загрузка мастеров...</option>
+      </select>
     </div>
-  </div>
 
-  <div id="adminUserModal" class="admin-modal hidden">
-    <div class="admin-modal-backdrop" data-admin-close="1"></div>
-    <div class="admin-modal-card">
-      <div class="admin-modal-head">
-        <div>
-          <h2 id="adminUserTitle">Карточка пользователя</h2>
-          <p id="adminUserSubtitle">Профиль, база, подписка, баланс и безопасность</p>
-        </div>
-        <button class="admin-modal-close ep-clickable" data-admin-close="1">×</button>
-      </div>
-      <div id="adminUserDetails" class="admin-user-details">
-        <div class="admin-empty">Загрузка карточки...</div>
-      </div>
+    <div id="adminV15Content" class="admin-v15-content">
+      <div class="admin-empty">Выбери мастера.</div>
     </div>
   </div>
 </section>

@@ -965,7 +965,7 @@ exports.handleYooKassaWebhookPlaceholder = onCall(async (request) => {
 // V14_SERVER_LIMITS_START
 const ACCESS_LIMITS_V14 = {
   none: { shieldItemsMax: 0, poolItemsMax: 0 },
-  basic: { shieldItemsMax: 30, poolItemsMax: 10 },
+  basic: { shieldItemsMax: 60, poolItemsMax: 50 },
   pro_ai: { shieldItemsMax: null, poolItemsMax: null },
   admin: { shieldItemsMax: null, poolItemsMax: null }
 };
@@ -1233,3 +1233,67 @@ exports.checkUsageLimit = onCall(async (request) => {
   };
 });
 // V14_SERVER_LIMITS_END
+
+
+// V15_SET_AI_BALANCE_EXACT_START
+exports.setAiBalanceExact = onCall(async (request) => {
+  const adminUser = await requireAdmin(request);
+  const uid = cleanText(request.data.uid);
+  const balanceRub = Math.round(Number(request.data.balanceRub || 0) * 100) / 100;
+  const reason = cleanText(request.data.reason, "admin_set_exact_balance");
+
+  if (!uid) throw new HttpsError("invalid-argument", "Не указан uid пользователя.");
+  if (!Number.isFinite(balanceRub) || balanceRub < 0) {
+    throw new HttpsError("invalid-argument", "Баланс должен быть числом от 0.");
+  }
+
+  const accountRef = db.collection("ai_accounts").doc(uid);
+  const txRef = db.collection("ai_transactions").doc();
+  let result = null;
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(accountRef);
+    const account = snap.exists ? (snap.data() || {}) : {};
+    const before = Number(account.balanceRub || 0);
+    const delta = Math.round((balanceRub - before) * 100) / 100;
+
+    tx.set(accountRef, {
+      uid,
+      balanceRub,
+      accessMode: account.accessMode || "admin_api",
+      allowAi: (account.accessMode || "admin_api") !== "disabled",
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: adminUser.uid
+    }, { merge: true });
+
+    tx.set(txRef, {
+      uid,
+      type: "correction",
+      amountRub: delta,
+      tokens: 0,
+      beforeBalanceRub: before,
+      afterBalanceRub: balanceRub,
+      reason,
+      paymentMethod: "admin_exact_balance",
+      paymentStatus: "corrected",
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: adminUser.uid,
+      serverSigned: true,
+      source: "cloud_function"
+    });
+
+    result = { uid, beforeBalanceRub: before, afterBalanceRub: balanceRub, deltaRub: delta, transactionId: txRef.id };
+  });
+
+  await db.collection("admin_logs").doc().set({
+    type: "ai_balance_exact_set",
+    uid,
+    balanceRub,
+    createdBy: adminUser.uid,
+    createdAt: FieldValue.serverTimestamp(),
+    transactionId: txRef.id
+  });
+
+  return { ok: true, ...result };
+});
+// V15_SET_AI_BALANCE_EXACT_END

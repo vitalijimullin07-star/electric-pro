@@ -33,11 +33,7 @@
 
   window.SubscriptionAPI = {
     callFunction,
-
-    seedSubscriptionPlans() {
-      return callFunction("seedSubscriptionPlans", {});
-    },
-
+    seedSubscriptionPlans() { return callFunction("seedSubscriptionPlans", {}); },
     grantSubscription(uid, planId = "basic", days = 30, trial = false) {
       return callFunction("grantSubscription", {
         uid,
@@ -46,27 +42,11 @@
         trial: trial === true
       });
     },
-
-    cancelSubscription(uid, reason = "admin_cancel") {
-      return callFunction("cancelSubscription", { uid, reason });
-    },
-
-    checkUserAccess(uid) {
-      return callFunction("checkUserAccess", uid ? { uid } : {});
-    },
-
-    checkAccess(uid) {
-      return callFunction("checkUserAccess", uid ? { uid } : {});
-    },
-
-    getAccessPolicy() {
-      return callFunction("getAccessPolicy", {});
-    },
-
-    checkFeatureAccess(feature) {
-      return callFunction("checkFeatureAccess", { feature });
-    },
-
+    cancelSubscription(uid, reason = "admin_cancel") { return callFunction("cancelSubscription", { uid, reason }); },
+    checkUserAccess(uid) { return callFunction("checkUserAccess", uid ? { uid } : {}); },
+    checkAccess(uid) { return callFunction("checkUserAccess", uid ? { uid } : {}); },
+    getAccessPolicy() { return callFunction("getAccessPolicy", {}); },
+    checkFeatureAccess(feature) { return callFunction("checkFeatureAccess", { feature }); },
     checkUsageLimit(limitType, currentCount = 0, addCount = 1, nextCount = null) {
       return callFunction("checkUsageLimit", {
         limitType,
@@ -75,7 +55,6 @@
         nextCount: nextCount === null ? null : Number(nextCount)
       });
     },
-
     requestSubscriptionPayment(planId = "basic", days = 30, comment = "") {
       return callFunction("requestSubscriptionPayment", {
         planId: normalizePlanId(planId),
@@ -83,7 +62,6 @@
         comment
       });
     },
-
     requestPayment(planId = "basic", days = 30, comment = "") {
       return callFunction("requestSubscriptionPayment", {
         planId: normalizePlanId(planId),
@@ -91,13 +69,7 @@
         comment
       });
     },
-
-    createYooKassaPaymentDraft(payload = {}) {
-      return callFunction("createYooKassaPaymentDraft", payload);
-    },
-
-    handleYooKassaWebhookPlaceholder(payload = {}) {
-      return callFunction("handleYooKassaWebhookPlaceholder", payload);
-    }
+    createYooKassaPaymentDraft(payload = {}) { return callFunction("createYooKassaPaymentDraft", payload); },
+    handleYooKassaWebhookPlaceholder(payload = {}) { return callFunction("handleYooKassaWebhookPlaceholder", payload); }
   };
 })();

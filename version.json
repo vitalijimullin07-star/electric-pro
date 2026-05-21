@@ -1,5 +1,5 @@
 {
-  "version": "v14-server-limits-access-gate-20260522-01",
-  "updatedAt": "2026-05-22T00:06:26+03:00",
-  "note": "Server protected Access Gate with warehouse drafts accounting and future shield/pool limits"
+  "version": "v15-admin-subscription-clean-20260522-01",
+  "updatedAt": "2026-05-22T00:30:40+03:00",
+  "note": "Admin panel redesigned: subscription controls, database views, exact AI balance, basic/pro-ai rules and new limits"
 }
