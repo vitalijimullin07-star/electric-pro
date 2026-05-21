@@ -1384,14 +1384,14 @@ exports.adminReadLogsV16 = onCall(async (request) => {
 
   const sliced = items.slice(0, limit);
 
-  await db.collection("admin_logs").doc().set({
+  await db.collection("admin_logs").doc().set(withExpiresAtV169({
     type: "admin_read_logs_v16",
     targetUid: uid,
     adminUid: adminUser.uid,
     count: sliced.length,
     createdAt: FieldValue.serverTimestamp(),
     serverSigned: true
-  });
+  }, "admin_read_logs_v16"));
 
   return {
     ok: true,
@@ -1401,3 +1401,124 @@ exports.adminReadLogsV16 = onCall(async (request) => {
   };
 });
 // V16_4_ADMIN_LOGS_READ_END
+
+
+// V16_9_LOG_TTL_START
+function daysFromNowV169(days) {
+  const d = new Date(Date.now() + Number(days || 30) * 24 * 60 * 60 * 1000);
+  return Timestamp.fromDate(d);
+}
+
+function logRetentionDaysV169(type) {
+  const t = String(type || "").toLowerCase();
+
+  // Финансовые/подписочные события держим дольше.
+  if (
+    t.includes("subscription") ||
+    t.includes("payment") ||
+    t.includes("balance") ||
+    t.includes("transaction") ||
+    t.includes("refund") ||
+    t.includes("ai_spend") ||
+    t.includes("ai_topup")
+  ) return 365;
+
+  // Ошибки держим дольше, чтобы можно было разбирать проблемы.
+  if (
+    t.includes("error") ||
+    t.includes("denied") ||
+    t.includes("blocked") ||
+    t.includes("security") ||
+    t.includes("suspicious")
+  ) return 90;
+
+  // Обычная техническая диагностика.
+  if (
+    t.includes("sync") ||
+    t.includes("sound") ||
+    t.includes("start") ||
+    t.includes("clear") ||
+    t.includes("diagnostics")
+  ) return 30;
+
+  // Обычный админский журнал.
+  return 180;
+}
+
+function withExpiresAtV169(data, fallbackType) {
+  const payload = data || {};
+  if (payload.expiresAt) return payload;
+
+  const type = payload.type || payload.code || fallbackType || "event";
+  return {
+    ...payload,
+    expiresAt: daysFromNowV169(logRetentionDaysV169(type))
+  };
+}
+
+async function setLogV169(collectionName, data, fallbackType) {
+  return db.collection(collectionName).doc().set(withExpiresAtV169(data, fallbackType));
+}
+
+async function cleanupCollectionV169(collectionPath, now, limit) {
+  const snap = await db.collection(collectionPath)
+    .where("expiresAt", "<=", now)
+    .limit(limit)
+    .get();
+
+  if (snap.empty) return 0;
+
+  const batch = db.batch();
+  snap.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+
+  return snap.size;
+}
+
+exports.cleanupOldLogsV16 = onCall(async (request) => {
+  const adminUser = await requireAdmin(request);
+
+  const uid = cleanText(request.data.uid, "");
+  const limitRaw = Number(request.data.limit || 300);
+  const limit = Math.max(1, Math.min(500, Number.isFinite(limitRaw) ? limitRaw : 300));
+  const now = Timestamp.now();
+
+  const targets = [
+    "admin_logs",
+    "logs"
+  ];
+
+  if (uid) {
+    targets.push(`diagnostics/${uid}/items`);
+    targets.push(`login_logs/${uid}/items`);
+    targets.push(`users/${uid}/logs`);
+    targets.push(`users/${uid}/events`);
+  }
+
+  const result = {};
+  let totalDeleted = 0;
+
+  for (const path of targets) {
+    const deleted = await cleanupCollectionV169(path, now, limit);
+    result[path] = deleted;
+    totalDeleted += deleted;
+  }
+
+  await db.collection("admin_logs").doc().set(withExpiresAtV169({
+    type: "cleanup_old_logs_v16",
+    adminUid: adminUser.uid,
+    targetUid: uid || "all",
+    totalDeleted,
+    result,
+    createdAt: FieldValue.serverTimestamp(),
+    serverSigned: true
+  }, "cleanup_old_logs_v16"));
+
+  return {
+    ok: true,
+    uid: uid || "",
+    totalDeleted,
+    result
+  };
+});
+// V16_9_LOG_TTL_END

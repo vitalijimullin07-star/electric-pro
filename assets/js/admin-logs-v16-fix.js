@@ -91,6 +91,7 @@
       text: getValue(d, ["message", "text", "reason", "error", "details"], JSON.stringify(d).slice(0, 360)),
       user: getValue(d, ["user", "email", "userEmail", "uid", "targetUid"], selectedUid() || "—"),
       session: getValue(d, ["session", "sessionId"], "—"),
+      expiresAt: d.expiresAt?.text || d.expiresAt?.iso || d.expiresAt || "—",
       raw: d
     };
   }
@@ -101,7 +102,6 @@
     const text = String(e.text || "");
     const path = String(e.path || "");
 
-    // Эти записи появляются каждый раз при чтении журнала и засоряют список.
     if (code === "admin_read_logs_v16") return true;
     if (text.includes("admin_read_logs_v16")) return true;
     if (path === "admin_logs" && code === "admin_read_section") return true;
@@ -115,10 +115,8 @@
       .sort((a, b) => {
         const ea = normalizeEvent(a);
         const eb = normalizeEvent(b);
-
         const ad = Date.parse(ea.time) || Number(ea.raw?.createdAt?.millis || ea.raw?.time?.millis || 0);
         const bd = Date.parse(eb.time) || Number(eb.raw?.createdAt?.millis || eb.raw?.time?.millis || 0);
-
         return bd - ad;
       });
   }
@@ -128,23 +126,78 @@
     return s.length > max ? s.slice(0, max) + "..." : s;
   }
 
-  function levelClass(level) {
-    const l = String(level || "").toLowerCase();
-    if (l.includes("error") || l.includes("ошиб") || l.includes("denied")) return "error";
-    if (l.includes("ok") || l.includes("success")) return "ok";
-    if (l.includes("warn") || l.includes("wait")) return "warn";
-    if (l.includes("sync")) return "sync";
+  function levelClass(level, code, text) {
+    const l = `${level || ""} ${code || ""} ${text || ""}`.toLowerCase();
+
+    if (
+      l.includes("error") ||
+      l.includes("ошиб") ||
+      l.includes("denied") ||
+      l.includes("permission") ||
+      l.includes("blocked") ||
+      l.includes("failed") ||
+      l.includes("исключ") ||
+      l.includes("недостаточно")
+    ) return "error";
+
+    if (
+      l.includes("warn") ||
+      l.includes("warning") ||
+      l.includes("wait") ||
+      l.includes("pending") ||
+      l.includes("deprecated")
+    ) return "warn";
+
+    if (
+      l.includes("ok") ||
+      l.includes("success") ||
+      l.includes("granted") ||
+      l.includes("loaded") ||
+      l.includes("active") ||
+      l.includes("онлайн")
+    ) return "ok";
+
+    if (l.includes("sync") || l.includes("актуально")) return "sync";
     return "event";
+  }
+
+  function humanTitle(e) {
+    const code = String(e.code || "");
+
+    const map = {
+      subscription_granted: "Подписка выдана",
+      subscription_cancelled: "Подписка отменена",
+      admin_diagnostics_loaded: "Диагностика загружена",
+      admin_logs_loaded: "Журнал загружен",
+      permission_denied: "Ошибка доступа",
+      "permission-denied": "Ошибка доступа",
+      sync_update: "Синхронизация",
+      "sync-update": "Синхронизация",
+      sound_unlocked: "Звук активирован",
+      "sound-unlocked": "Звук активирован",
+      cleanup_old_logs_v16: "Старые журналы очищены"
+    };
+
+    return map[code] || code || "Событие";
+  }
+
+  function renderToolbar() {
+    return `
+      <div class="admin-v16-diagnostics-toolbar">
+        <button class="btn btn-primary ep-clickable" type="button" data-v16-logs-refresh>Обновить диагностику</button>
+        <button class="btn btn-ghost ep-clickable" type="button" data-v16-logs-cleanup>Очистить старые</button>
+      </div>
+    `;
   }
 
   function renderDiagnosticsCard(item, index) {
     const e = normalizeEvent(item);
-    const cls = levelClass(e.level);
+    const cls = levelClass(e.level, e.code, e.text);
 
     return `
       <button class="admin-v16-diagnostic-item ${cls}" type="button" data-v16-log-index="${index}">
         <div class="admin-v16-diagnostic-head">
-          <b>${esc(e.code)}</b>
+          <b>${esc(humanTitle(e))}</b>
           <span>${esc(e.level)}</span>
         </div>
 
@@ -154,10 +207,11 @@
           <div><span>Модуль</span><b>${esc(compact(e.module, 70))}</b></div>
           <div><span>Функция</span><b>${esc(compact(e.functionName, 70))}</b></div>
           <div><span>Место</span><b>${esc(compact(e.place, 90))}</b></div>
+          <div><span>Код</span><b>${esc(compact(e.code, 90))}</b></div>
           <div><span>Текст</span><b>${esc(compact(e.text, 130))}</b></div>
         </div>
 
-        <small>Пользователь: ${esc(compact(e.user, 70))} · Сессия: ${esc(compact(e.session, 40))}</small>
+        <small>Пользователь: ${esc(compact(e.user, 70))} · Хранить до: ${esc(compact(e.expiresAt, 40))}</small>
       </button>
     `;
   }
@@ -166,10 +220,11 @@
     lastItems = sortDiagnosticsFirst(items || []);
 
     if (!lastItems.length) {
-      return `<div class="admin-empty">Диагностика пуста или ещё не создана.</div>`;
+      return renderToolbar() + `<div class="admin-empty">Диагностика пуста или ещё не создана.</div>`;
     }
 
     return `
+      ${renderToolbar()}
       <div class="admin-v16-diagnostics-list">
         ${lastItems.map((item, index) => renderDiagnosticsCard(item, index)).join("")}
       </div>
@@ -191,6 +246,7 @@
       `Текст: ${e.text}`,
       `Пользователь: ${e.user}`,
       `Сессия: ${e.session}`,
+      `Хранить до: ${e.expiresAt}`,
       `Источник: ${e.path}`,
       `ID: ${e.id}`,
       "",
@@ -241,7 +297,7 @@
     const text = document.getElementById("adminV16LogModalText");
     const e = normalizeEvent(item);
 
-    if (title) title.textContent = "Диагностика: " + e.code;
+    if (title) title.textContent = "Диагностика: " + humanTitle(e);
     if (sub) sub.textContent = `${e.time} · ${e.level}`;
     if (text) text.textContent = prettyDiagnostics(item);
 
@@ -272,6 +328,26 @@
     document.getElementById("adminV16LogModal")?.classList.add("is-hidden");
   }
 
+  async function cleanupOldLogs() {
+    const uid = selectedUid();
+    if (!uid) {
+      alert("Выбери мастера.");
+      return;
+    }
+
+    if (!confirm("Очистить старые журналы с истёкшим сроком хранения?")) return;
+
+    try {
+      const result = await callFunction("cleanupOldLogsV16", { uid, limit: 500 });
+      alert("Очистка завершена. Удалено: " + Number(result.totalDeleted || 0));
+      lastItems = [];
+      lastLoadedUid = "";
+      await renderLogs(true);
+    } catch (error) {
+      alert("Ошибка очистки: " + error.message);
+    }
+  }
+
   async function renderLogs(force = false) {
     const content = document.getElementById("adminV15Content");
     const title = document.getElementById("adminV15SectionTitle");
@@ -292,7 +368,7 @@
 
     try {
       if (title) title.textContent = "Диагностика / журнал событий";
-      if (hint) hint.textContent = "Здесь показываются события как в окне «Диагностика». Нажми на событие, чтобы открыть детали.";
+      if (hint) hint.textContent = "Ошибки подсвечиваются красным, предупреждения жёлтым, успешные события зелёным. Старые журналы удаляются по expiresAt.";
 
       if (!force && lastItems.length && lastLoadedUid === uid) {
         content.innerHTML = renderItems(lastItems);
@@ -318,7 +394,7 @@
         <div class="admin-empty">
           Ошибка чтения диагностики: ${esc(error.message)}
           <br><br>
-          Если функция не найдена — задеплой V16.4 functions через Ubuntu.
+          Если функция не найдена — задеплой V16.9 functions через Ubuntu.
         </div>
       `;
 
@@ -352,6 +428,20 @@
       if (event.target.closest("[data-v16-log-copy]")) {
         event.preventDefault();
         copyModalText();
+        return;
+      }
+
+      if (event.target.closest("[data-v16-logs-cleanup]")) {
+        event.preventDefault();
+        event.stopPropagation();
+        cleanupOldLogs();
+        return;
+      }
+
+      if (event.target.closest("[data-v16-logs-refresh]")) {
+        event.preventDefault();
+        event.stopPropagation();
+        renderLogs(true);
         return;
       }
 
@@ -389,6 +479,6 @@
     });
   }
 
-  window.AdminLogsV16Fix = { renderLogs, openLog };
+  window.AdminLogsV16Fix = { renderLogs, openLog, cleanupOldLogs };
   window.addEventListener("DOMContentLoaded", bind);
 })();
