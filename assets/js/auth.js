@@ -28,6 +28,7 @@
 
     window.Router?.load("main", { replace: true });
     window.SyncAPI?.start?.();
+    setTimeout(() => window.EP_UPDATE_ADMIN_BUTTON?.(), 150);
   }
 
   function isAdminEmail(user) {

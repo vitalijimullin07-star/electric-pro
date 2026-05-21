@@ -100,3 +100,25 @@
     });
   });
 })();
+
+/* === Admin button visibility V7 === */
+(function () {
+  function updateAdminButton() {
+    const btn = document.getElementById("adminPanelBtn");
+    if (!btn) return;
+
+    const isAdmin = window.AdminAPI?.isAdmin?.() === true;
+    btn.classList.toggle("hidden", !isAdmin);
+  }
+
+  window.EP_UPDATE_ADMIN_BUTTON = updateAdminButton;
+
+  window.addEventListener("DOMContentLoaded", () => {
+    setTimeout(updateAdminButton, 1200);
+    setTimeout(updateAdminButton, 2500);
+  });
+
+  document.addEventListener("click", () => {
+    setTimeout(updateAdminButton, 100);
+  });
+})();

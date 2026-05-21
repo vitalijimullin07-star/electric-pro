@@ -1,5 +1,5 @@
 {
-  "version": "v6-firebase-foundation-20260521-01",
-  "updatedAt": "2026-05-21T16:15:23+00:00",
-  "note": "Firebase foundation: users, admin bootstrap, server_db, user_db, app_meta, sync_versions, firestore rules"
+  "version": "v7-admin-panel-users-20260521-01",
+  "updatedAt": "2026-05-21T19:33:02+03:00",
+  "note": "Admin panel button visible only for admin and users management page"
 }
