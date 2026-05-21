@@ -961,3 +961,275 @@ exports.handleYooKassaWebhookPlaceholder = onCall(async (request) => {
   };
 });
 
+
+// V14_SERVER_LIMITS_START
+const ACCESS_LIMITS_V14 = {
+  none: { shieldItemsMax: 0, poolItemsMax: 0 },
+  basic: { shieldItemsMax: 30, poolItemsMax: 10 },
+  pro_ai: { shieldItemsMax: null, poolItemsMax: null },
+  admin: { shieldItemsMax: null, poolItemsMax: null }
+};
+
+const ACCESS_FEATURES_V14 = {
+  ai: "ИИ-функции",
+  singleLineScheme: "Однолинейная схема",
+  visualization: "Визуализация",
+  customerEstimate: "Полноценная смета заказчику",
+  warehouse: "Склад",
+  drafts: "Черновики",
+  accounting: "Бухгалтерия",
+  fullStorage: "Полное хранение данных"
+};
+
+function isDateActiveV14(value) {
+  if (!value) return false;
+  try {
+    const date = value.toDate ? value.toDate() : new Date(value);
+    return date.getTime() > Date.now();
+  } catch (error) {
+    return false;
+  }
+}
+
+function tsToMillisV14(value) {
+  if (!value) return 0;
+  try {
+    if (value.toMillis) return value.toMillis();
+    if (value.toDate) return value.toDate().getTime();
+    return new Date(value).getTime();
+  } catch (error) {
+    return 0;
+  }
+}
+
+async function getSubscriptionV14(uid) {
+  const snap = await db.collection("user_subscriptions").doc(uid).get();
+  return snap.exists ? (snap.data() || {}) : null;
+}
+
+async function getAiAccountV14(uid) {
+  const snap = await db.collection("ai_accounts").doc(uid).get();
+  return snap.exists ? (snap.data() || {}) : null;
+}
+
+function buildAccessPolicyV14(uid, profile, subscription, aiAccount) {
+  const isAdminUser =
+    profile.role === "admin" ||
+    profile.isAdmin === true ||
+    profile.email === "vits0007@gmail.com";
+
+  if (isAdminUser) {
+    return {
+      uid,
+      planId: "admin",
+      status: "active",
+      active: true,
+      features: {
+        ai: true,
+        fullStorage: true,
+        customerEstimate: true,
+        singleLineScheme: true,
+        visualization: true,
+        warehouse: true,
+        drafts: true,
+        accounting: true
+      },
+      limits: ACCESS_LIMITS_V14.admin,
+      ai: {
+        balanceRub: Number(aiAccount?.balanceRub || 0),
+        accessMode: aiAccount?.accessMode || "admin_api",
+        canUseAi: true
+      },
+      serverChecked: true
+    };
+  }
+
+  const sub = subscription || {};
+  const active =
+    (sub.status === "active" || sub.status === "trial") &&
+    isDateActiveV14(sub.expiresAt || sub.trialEndsAt);
+
+  const planId = active ? (sub.planId || "none") : "none";
+  const isBasic = planId === "basic";
+  const isProAi = planId === "pro_ai";
+
+  const aiBalance = Number(aiAccount?.balanceRub || 0);
+  const aiAccessMode = aiAccount?.accessMode || "disabled";
+
+  const features = {
+    ai: isProAi,
+    fullStorage: isProAi,
+    customerEstimate: isProAi,
+    singleLineScheme: isProAi,
+    visualization: isProAi,
+    warehouse: isProAi,
+    drafts: isProAi,
+    accounting: isProAi
+  };
+
+  const limits = isProAi
+    ? ACCESS_LIMITS_V14.pro_ai
+    : isBasic
+      ? ACCESS_LIMITS_V14.basic
+      : ACCESS_LIMITS_V14.none;
+
+  const canUseAi =
+    features.ai === true &&
+    (
+      aiAccessMode === "own_api" ||
+      (aiAccessMode === "admin_api" && aiBalance > 0)
+    );
+
+  return {
+    uid,
+    planId,
+    status: active ? (sub.status || "active") : "none",
+    active,
+    expiresAtMillis: tsToMillisV14(sub.expiresAt || sub.trialEndsAt),
+    features,
+    limits,
+    ai: {
+      balanceRub: aiBalance,
+      accessMode: aiAccessMode,
+      canUseAi
+    },
+    serverChecked: true
+  };
+}
+
+function denyReasonV14(feature, policy) {
+  if (feature === "ai") {
+    if (policy.features.ai !== true) {
+      return "ИИ-функции доступны только в подписке «С ИИ». ИИ-запросы оплачиваются отдельно по ИИ-балансу.";
+    }
+    if (policy.ai.accessMode === "disabled") {
+      return "ИИ-доступ выключен администратором.";
+    }
+    if (policy.ai.accessMode === "admin_api" && policy.ai.balanceRub <= 0) {
+      return "ИИ-баланс закончился. Пополните баланс у администратора.";
+    }
+  }
+
+  const title = ACCESS_FEATURES_V14[feature] || "Функция";
+  return `${title} доступна только при активной подписке «С ИИ».`;
+}
+
+exports.getAccessPolicy = onCall(async (request) => {
+  const actor = await requireApprovedUser(request);
+  const uid = actor.uid;
+  const profile = actor.profile || {};
+
+  const [subscription, aiAccount] = await Promise.all([
+    getSubscriptionV14(uid),
+    getAiAccountV14(uid)
+  ]);
+
+  return buildAccessPolicyV14(uid, profile, subscription, aiAccount);
+});
+
+exports.checkFeatureAccess = onCall(async (request) => {
+  const actor = await requireApprovedUser(request);
+  const uid = actor.uid;
+  const profile = actor.profile || {};
+  const feature = cleanText(request.data.feature, "");
+
+  if (!feature || !Object.prototype.hasOwnProperty.call(ACCESS_FEATURES_V14, feature)) {
+    throw new HttpsError("invalid-argument", "Неизвестная функция доступа.");
+  }
+
+  const [subscription, aiAccount] = await Promise.all([
+    getSubscriptionV14(uid),
+    getAiAccountV14(uid)
+  ]);
+
+  const policy = buildAccessPolicyV14(uid, profile, subscription, aiAccount);
+  const allowed = feature === "ai"
+    ? policy.ai.canUseAi === true
+    : policy.features[feature] === true;
+
+  if (!allowed) {
+    await db.collection("admin_logs").doc().set({
+      type: "access_denied",
+      uid,
+      feature,
+      planId: policy.planId,
+      reason: denyReasonV14(feature, policy),
+      createdAt: FieldValue.serverTimestamp(),
+      serverSigned: true
+    });
+  }
+
+  return {
+    ok: true,
+    allowed,
+    feature,
+    title: ACCESS_FEATURES_V14[feature],
+    reason: allowed ? "" : denyReasonV14(feature, policy),
+    policy
+  };
+});
+
+exports.checkUsageLimit = onCall(async (request) => {
+  const actor = await requireApprovedUser(request);
+  const uid = actor.uid;
+  const profile = actor.profile || {};
+
+  const limitType = cleanText(request.data.limitType, "");
+  const currentCount = Number(request.data.currentCount || 0);
+  const addCount = Number(request.data.addCount || 1);
+  const nextCount = Number(request.data.nextCount || (currentCount + addCount));
+
+  if (!["shieldItems", "poolItems"].includes(limitType)) {
+    throw new HttpsError("invalid-argument", "Неизвестный тип лимита.");
+  }
+
+  const [subscription, aiAccount] = await Promise.all([
+    getSubscriptionV14(uid),
+    getAiAccountV14(uid)
+  ]);
+
+  const policy = buildAccessPolicyV14(uid, profile, subscription, aiAccount);
+
+  const max = limitType === "shieldItems"
+    ? policy.limits.shieldItemsMax
+    : policy.limits.poolItemsMax;
+
+  const allowed = max === null || nextCount <= max;
+
+  const title = limitType === "shieldItems"
+    ? "Лимит конфигуратора щита"
+    : "Лимит пула розеток/штроб";
+
+  let reason = "";
+  if (!allowed) {
+    reason = limitType === "shieldItems"
+      ? `В тарифе «Базовая» в конфигураторе щита доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`
+      : `В тарифе «Базовая» в пуле розеток/штроб доступно до ${max} позиций. Для снятия лимита нужна подписка «С ИИ».`;
+
+    await db.collection("admin_logs").doc().set({
+      type: "usage_limit_denied",
+      uid,
+      limitType,
+      currentCount,
+      nextCount,
+      max,
+      planId: policy.planId,
+      reason,
+      createdAt: FieldValue.serverTimestamp(),
+      serverSigned: true
+    });
+  }
+
+  return {
+    ok: true,
+    allowed,
+    limitType,
+    title,
+    reason,
+    currentCount,
+    nextCount,
+    max,
+    policy
+  };
+});
+// V14_SERVER_LIMITS_END

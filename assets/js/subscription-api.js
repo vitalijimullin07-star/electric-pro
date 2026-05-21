@@ -13,7 +13,14 @@
       const result = await fn(payload);
       return result.data || {};
     } catch (error) {
-      window.Diagnostics?.error?.({file:FILE,module:"SubscriptionAPI",functionName:"callFunction("+name+")",place:"Firebase Functions",code:error.code||"subscription-function-error",message:error.message});
+      window.Diagnostics?.error?.({
+        file: FILE,
+        module: "SubscriptionAPI",
+        functionName: "callFunction(" + name + ")",
+        place: "Firebase Functions",
+        code: error.code || "subscription-function-error",
+        message: error.message
+      });
       throw error;
     }
   }
@@ -26,14 +33,71 @@
 
   window.SubscriptionAPI = {
     callFunction,
-    seedSubscriptionPlans(){return callFunction("seedSubscriptionPlans",{});},
-    grantSubscription(uid,planId="basic",days=30,trial=false){return callFunction("grantSubscription",{uid,planId:normalizePlanId(planId),days:Number(days||30),trial:trial===true});},
-    cancelSubscription(uid,reason="admin_cancel"){return callFunction("cancelSubscription",{uid,reason});},
-    checkUserAccess(uid){return callFunction("checkUserAccess",uid?{uid}:{});},
-    checkAccess(uid){return callFunction("checkUserAccess",uid?{uid}:{});},
-    requestSubscriptionPayment(planId="basic",days=30,comment=""){return callFunction("requestSubscriptionPayment",{planId:normalizePlanId(planId),days:Number(days||30),comment});},
-    requestPayment(planId="basic",days=30,comment=""){return callFunction("requestSubscriptionPayment",{planId:normalizePlanId(planId),days:Number(days||30),comment});},
-    createYooKassaPaymentDraft(payload={}){return callFunction("createYooKassaPaymentDraft",payload);},
-    handleYooKassaWebhookPlaceholder(payload={}){return callFunction("handleYooKassaWebhookPlaceholder",payload);}
+
+    seedSubscriptionPlans() {
+      return callFunction("seedSubscriptionPlans", {});
+    },
+
+    grantSubscription(uid, planId = "basic", days = 30, trial = false) {
+      return callFunction("grantSubscription", {
+        uid,
+        planId: normalizePlanId(planId),
+        days: Number(days || 30),
+        trial: trial === true
+      });
+    },
+
+    cancelSubscription(uid, reason = "admin_cancel") {
+      return callFunction("cancelSubscription", { uid, reason });
+    },
+
+    checkUserAccess(uid) {
+      return callFunction("checkUserAccess", uid ? { uid } : {});
+    },
+
+    checkAccess(uid) {
+      return callFunction("checkUserAccess", uid ? { uid } : {});
+    },
+
+    getAccessPolicy() {
+      return callFunction("getAccessPolicy", {});
+    },
+
+    checkFeatureAccess(feature) {
+      return callFunction("checkFeatureAccess", { feature });
+    },
+
+    checkUsageLimit(limitType, currentCount = 0, addCount = 1, nextCount = null) {
+      return callFunction("checkUsageLimit", {
+        limitType,
+        currentCount: Number(currentCount || 0),
+        addCount: Number(addCount || 1),
+        nextCount: nextCount === null ? null : Number(nextCount)
+      });
+    },
+
+    requestSubscriptionPayment(planId = "basic", days = 30, comment = "") {
+      return callFunction("requestSubscriptionPayment", {
+        planId: normalizePlanId(planId),
+        days: Number(days || 30),
+        comment
+      });
+    },
+
+    requestPayment(planId = "basic", days = 30, comment = "") {
+      return callFunction("requestSubscriptionPayment", {
+        planId: normalizePlanId(planId),
+        days: Number(days || 30),
+        comment
+      });
+    },
+
+    createYooKassaPaymentDraft(payload = {}) {
+      return callFunction("createYooKassaPaymentDraft", payload);
+    },
+
+    handleYooKassaWebhookPlaceholder(payload = {}) {
+      return callFunction("handleYooKassaWebhookPlaceholder", payload);
+    }
   };
 })();

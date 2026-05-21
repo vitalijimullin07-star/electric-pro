@@ -1,5 +1,5 @@
 {
-  "version": "v14-access-gate-subscription-control-20260521-01",
-  "updatedAt": "2026-05-21T23:50:05+03:00",
-  "note": "Access Gate: subscription controls real access to AI, scheme, visualization, customer estimate and storage"
+  "version": "v14-server-limits-access-gate-20260522-01",
+  "updatedAt": "2026-05-22T00:06:26+03:00",
+  "note": "Server protected Access Gate with warehouse drafts accounting and future shield/pool limits"
 }
