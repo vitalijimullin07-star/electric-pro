@@ -178,3 +178,171 @@
 
   window.AdminAPI = { isAdmin, loadUsers, bindPage, openUserCard, closeUserCard };
 })();
+
+/* === Force Security Toggles Render V11.6 === */
+(function () {
+  function boolFromText(text, defaultValue) {
+    const t = String(text || "").toLowerCase();
+    if (t.includes("запрещ")) return false;
+    if (t.includes("разреш")) return true;
+    return defaultValue;
+  }
+
+  function makeToggle(key, title, subtitle, value) {
+    return `
+      <div class="security-toggle-row">
+        <div>
+          <strong>${title}</strong>
+          <small>${subtitle}</small>
+        </div>
+        <button class="security-toggle ${value ? "is-on" : ""}" data-policy-toggle="${key}" type="button">${title}</button>
+      </div>
+    `;
+  }
+
+  function forceSecurityToggles() {
+    const details = document.getElementById("adminUserDetails");
+    if (!details) return;
+
+    const cards = Array.from(details.querySelectorAll(".admin-detail-card"));
+    const securityCard = cards.find(card => {
+      const h = card.querySelector("h3");
+      return h && h.textContent.trim().includes("Безопасность");
+    });
+
+    if (!securityCard || securityCard.dataset.forceToggles === "true") return;
+
+    const text = securityCard.textContent || "";
+
+    const allowLogin = boolFromText(text.match(/Вход\s*(разрешено|запрещено|разрешён|запрещён)/i)?.[1], true);
+    const allowReadData = boolFromText(text.match(/Получение данных\s*(разрешено|запрещено|разрешён|запрещён)/i)?.[1], true);
+    const allowLocalCache = boolFromText(text.match(/Локальный кэш\s*(разрешено|запрещено|разрешён|запрещён)/i)?.[1], false);
+    const allowAi = boolFromText(text.match(/ИИ\s*(разрешено|запрещено|разрешён|запрещён)/i)?.[1], false);
+    const allowOfflineMode = boolFromText(text.match(/Офлайн\s*(разрешено|запрещено|разрешён|запрещён)/i)?.[1], false);
+
+    const reasonMatch = text.match(/Причина\s*([^\n]+)/i);
+    const reason = reasonMatch ? reasonMatch[1].trim() : "—";
+
+    securityCard.dataset.forceToggles = "true";
+    securityCard.innerHTML = `
+      <h3>Безопасность</h3>
+
+      <div class="admin-kv">
+        <div class="admin-kv-row">
+          <b>Причина</b>
+          <span>${reason}</span>
+        </div>
+      </div>
+
+      <div class="security-toggle-grid">
+        ${makeToggle("allowLogin", "Вход", "Разрешить пользователю входить", allowLogin)}
+        ${makeToggle("allowReadData", "Получение данных", "Доступ к серверной базе и данным", allowReadData)}
+        ${makeToggle("allowLocalCache", "Локальный кэш", "Сохранять данные на устройстве", allowLocalCache)}
+        ${makeToggle("allowAi", "ИИ", "Разрешить ИИ-функции при балансе", allowAi)}
+        ${makeToggle("allowOfflineMode", "Офлайн", "Работа без постоянной проверки сервера", allowOfflineMode)}
+      </div>
+
+      <div class="security-policy-hint">
+        Офлайн и локальный кэш включай только для доверенного устройства. 
+        Для обычного безопасного режима кэш и офлайн лучше держать выключенными.
+      </div>
+
+      <div class="security-policy-actions">
+        <button class="btn btn-ghost ep-clickable" data-card-action="safe-policy">Онлайн безопасный</button>
+        <button class="btn btn-primary ep-clickable" data-card-action="trusted-policy">Доверенное устройство</button>
+        <button class="btn btn-ghost admin-danger ep-clickable" data-card-action="lock-data-policy">Запретить данные/ИИ</button>
+      </div>
+
+      <button class="btn btn-primary ep-clickable security-policy-save" data-card-action="save-custom-policy">
+        Сохранить выбранные тумблеры
+      </button>
+    `;
+  }
+
+  document.addEventListener("click", function (event) {
+    const toggle = event.target.closest("[data-policy-toggle]");
+    if (!toggle) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    toggle.classList.toggle("is-on");
+    window.SoundAPI?.click?.();
+  }, true);
+
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest("[data-card-action]");
+    if (!btn) return;
+
+    const action = btn.dataset.cardAction;
+    if (action !== "save-custom-policy" && action !== "trusted-policy") return;
+
+    const modal = document.getElementById("adminUserModal");
+    const uid = modal?.querySelector("[data-subscription-uid]")?.dataset?.subscriptionUid
+      || window.AdminAPI?.currentUid
+      || null;
+
+    if (!uid || !window.AiSecurityAPI?.setUserSecurityPolicy) return;
+
+    if (action === "trusted-policy") {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!confirm("Разрешить локальный кэш и офлайн? Только для доверенного устройства.")) return;
+
+      window.AiSecurityAPI.setUserSecurityPolicy({
+        uid,
+        allowLogin: true,
+        allowReadData: true,
+        allowLocalCache: true,
+        allowAi: true,
+        allowOfflineMode: true,
+        reason: "admin_trusted_device"
+      }).then(() => {
+        window.SoundAPI?.success?.();
+        window.AdminAPI?.openUserCard?.(uid);
+      }).catch(error => alert("Ошибка: " + error.message));
+    }
+
+    if (action === "save-custom-policy") {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const get = (key) => document.querySelector(`[data-policy-toggle="${key}"]`)?.classList.contains("is-on") === true;
+
+      const payload = {
+        uid,
+        allowLogin: get("allowLogin"),
+        allowReadData: get("allowReadData"),
+        allowLocalCache: get("allowLocalCache"),
+        allowAi: get("allowAi"),
+        allowOfflineMode: get("allowOfflineMode"),
+        reason: "admin_custom_policy"
+      };
+
+      if (payload.allowOfflineMode && !payload.allowLocalCache) {
+        alert("Офлайн без локального кэша не имеет смысла. Включи кэш или выключи офлайн.");
+        return;
+      }
+
+      if (!confirm("Сохранить выбранную политику безопасности?")) return;
+
+      window.AiSecurityAPI.setUserSecurityPolicy(payload).then(() => {
+        window.SoundAPI?.success?.();
+        window.AdminAPI?.openUserCard?.(uid);
+      }).catch(error => alert("Ошибка: " + error.message));
+    }
+  }, true);
+
+  const observer = new MutationObserver(() => {
+    setTimeout(forceSecurityToggles, 80);
+  });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const root = document.getElementById("adminUserDetails") || document.body;
+    observer.observe(root, { childList: true, subtree: true });
+    setTimeout(forceSecurityToggles, 500);
+  });
+
+  window.EP_FORCE_SECURITY_TOGGLES = forceSecurityToggles;
+})();

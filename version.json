@@ -1,5 +1,5 @@
 {
-  "version": "v11-subscription-period-buttons-20260521-05",
-  "updatedAt": "2026-05-21T21:59:12+03:00",
-  "note": "Admin subscription buttons for 3-day trial and 30/90/180 day plans"
+  "version": "v11-admin-card-readable-security-toggles-20260521-06",
+  "updatedAt": "2026-05-21T22:04:05+03:00",
+  "note": "Force admin security toggles and improve admin card readability"
 }
