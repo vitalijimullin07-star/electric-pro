@@ -1,5 +1,5 @@
 {
-  "version": "v15-1-admin-access-final-fix-20260522-02",
-  "updatedAt": "2026-05-22T00:48:45+03:00",
-  "note": "Strict no-subscription access policy and final admin subscription panel fixed installer"
+  "version": "v15-2-admin-rules-fix-20260522-01",
+  "updatedAt": "2026-05-22T00:53:26+03:00",
+  "note": "Admin panel Firestore rules fix for drafts accounting logs pdf and personal DB"
 }
