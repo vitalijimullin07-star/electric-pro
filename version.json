@@ -1,5 +1,5 @@
 {
-  "version": "v16-10-back-button-fix-20260522-01",
-  "updatedAt": "2026-05-22T01:37:48+03:00",
-  "note": "Fix Android/browser back button so it navigates inside app instead of exiting immediately"
+  "version": "v20-clean-stable-base-20260522-01",
+  "updatedAt": "2026-05-22T01:43:59+03:00",
+  "note": "Clean stable base: remove heavy V16 scripts and consolidate stable subscription status and back button fixes"
 }

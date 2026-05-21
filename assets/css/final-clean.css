@@ -886,3 +886,92 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* === V20 Clean Stable Base === */
+
+/* Старые дубляжи текущего доступа скрываем только если V20 явно нашёл их как дубль */
+.v20-hide-old-current-access {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Нейтрализуем слишком агрессивные скрытия старых V16-патчей */
+.v16-hide-old-subscription-status:not(.v20-hide-old-current-access),
+.v16-2-hide-old-status-only:not(.v20-hide-old-current-access),
+.v16-4-hide-dark-status:not(.v20-hide-old-current-access),
+.v16-7-hide-current-access-duplicate:not(.v20-hide-old-current-access),
+[data-v16-hidden-old-status]:not(.v20-hide-old-current-access),
+[data-v16-4-hidden-dark-status]:not(.v20-hide-old-current-access),
+[data-v16-7-hidden-current-access]:not(.v20-hide-old-current-access) {
+  display: revert !important;
+  visibility: visible !important;
+  height: auto !important;
+  min-height: unset !important;
+  max-height: unset !important;
+  margin: revert !important;
+  padding: revert !important;
+  overflow: visible !important;
+}
+
+#subscriptionStatusV20 {
+  display: block !important;
+  margin: 10px 0 14px !important;
+}
+
+.subscription-status-v20-card {
+  padding: 14px;
+  border-radius: 24px;
+  background: rgba(241, 245, 249, .96);
+  color: #0f172a !important;
+  border: 1px solid rgba(15,23,42,.10);
+  box-shadow: 0 14px 34px rgba(15,23,42,.14);
+}
+
+.subscription-status-v20-title {
+  margin-bottom: 10px;
+  color: #0f172a !important;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 950;
+}
+
+.subscription-status-v20-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+}
+
+.subscription-status-v20-grid > div {
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.subscription-status-v20-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: #64748b !important;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.subscription-status-v20-grid b {
+  display: block;
+  color: #0f172a !important;
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+@media (max-width: 520px) {
+  .subscription-status-v20-grid {
+    grid-template-columns: 1fr;
+  }
+}
