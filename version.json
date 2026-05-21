@@ -1,5 +1,1 @@
-{
-  "version": "v12-fix-subscription-request-payment-20260521-13",
-  "updatedAt": "2026-05-21T23:10:09+03:00",
-  "note": "Fix missing SubscriptionAPI requestPayment alias for master subscription requests"
-}
+{"version":"v13-final-clean-admin-subscription-ai-20260521-02","updatedAt":"2026-05-21T23:24:20+03:00","note":"Final clean build for admin, subscription, AI balance and security UI without temporary patch layers"}
