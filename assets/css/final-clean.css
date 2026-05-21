@@ -269,3 +269,104 @@
   .admin-v15-segment.four { grid-template-columns: repeat(4, minmax(0,1fr)); }
   .admin-v15-segment-btn { font-size: 11px; padding-left: 4px; padding-right: 4px; }
 }
+
+/* === V15.4 Subscription Status Fix === */
+#subscriptionStatusV15Fix {
+  margin: 14px 0;
+}
+
+.subscription-status-v15-card {
+  padding: 18px;
+  border-radius: 28px;
+  background: rgba(241, 245, 249, .96);
+  border: 1px solid rgba(15, 23, 42, .10);
+  color: #0f172a !important;
+  box-shadow: 0 18px 44px rgba(15,23,42,.16);
+}
+
+.subscription-status-v15-card h2 {
+  margin: 0 0 14px;
+  color: #0f172a !important;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 950;
+}
+
+.subscription-status-v15-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.subscription-status-v15-field {
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.subscription-status-v15-field span {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b !important;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.subscription-status-v15-field b {
+  display: block;
+  color: #0f172a !important;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.subscription-status-v15-access {
+  display: grid;
+  gap: 8px;
+}
+
+.sub-v15-access-row {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: rgba(15,23,42,.06);
+}
+
+.sub-v15-access-row span {
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.sub-v15-access-row.ok span {
+  color: #16a34a !important;
+}
+
+.sub-v15-access-row.no span {
+  color: #dc2626 !important;
+}
+
+.sub-v15-access-row b {
+  color: #0f172a !important;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+@media (max-width: 520px) {
+  .subscription-status-v15-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-status-v15-card {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .subscription-status-v15-card h2 {
+    font-size: 25px;
+  }
+}

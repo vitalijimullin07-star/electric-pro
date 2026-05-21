@@ -1012,6 +1012,18 @@ async function getAiAccountV151(uid) {
   return snap.exists ? (snap.data() || {}) : null;
 }
 
+
+function tsToMillisV154(value) {
+  if (!value) return 0;
+  try {
+    if (typeof value.toMillis === "function") return value.toMillis();
+    if (typeof value.toDate === "function") return value.toDate().getTime();
+    return new Date(value).getTime();
+  } catch (error) {
+    return 0;
+  }
+}
+
 function buildAccessPolicyV151(uid, profile, subscription, aiAccount) {
   const isAdminUser =
     profile.role === "admin" ||
@@ -1084,6 +1096,8 @@ function buildAccessPolicyV151(uid, profile, subscription, aiAccount) {
     planId,
     status: active ? (sub.status || "active") : "none",
     active,
+    expiresAtMillis: tsToMillisV154(sub.expiresAt || sub.trialEndsAt),
+    trialEndsAtMillis: tsToMillisV154(sub.trialEndsAt),
     features,
     limits,
     ai: {
