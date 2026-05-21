@@ -1,5 +1,5 @@
 {
-  "version": "v16-9-log-ttl-error-highlight-20260522-01",
-  "updatedAt": "2026-05-22T01:36:08+03:00",
-  "note": "Add log TTL cleanup function and error highlighting in admin diagnostics journal"
+  "version": "v16-10-back-button-fix-20260522-01",
+  "updatedAt": "2026-05-22T01:37:48+03:00",
+  "note": "Fix Android/browser back button so it navigates inside app instead of exiting immediately"
 }
