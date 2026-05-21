@@ -1,5 +1,5 @@
 {
-  "version": "v5-final-visual-20260521-01",
-  "updatedAt": "2026-05-21T15:32:30.119191",
-  "note": "Final visual: calm static backgrounds, switch toggles, test sound, no moving background by default."
+  "version": "v5-final-visual-toggle-fix-20260521-01",
+  "updatedAt": "2026-05-21T18:36:59+03:00",
+  "note": "Fixed visual settings toggles on mobile"
 }

@@ -210,3 +210,59 @@ body[data-animation="off"] .app-bg {
   color: #f8fafc !important;
   text-shadow: 0 1px 8px rgba(0,0,0,.75);
 }
+
+/* === Toggle Fix V5.1: настоящие кликабельные тумблеры === */
+
+.switch-row {
+  grid-template-columns: 1fr 64px !important;
+  cursor: pointer;
+}
+
+.switch-row input {
+  position: relative !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 64px !important;
+  height: 34px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  background: rgba(255,255,255,.16) !important;
+  outline: none !important;
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease;
+}
+
+.switch-row input::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  left: 3px;
+  top: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  transition: transform .18s ease;
+}
+
+.switch-row input:checked {
+  background: color-mix(in srgb, var(--accent) 76%, transparent) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.switch-row input:checked::after {
+  transform: translateX(29px);
+}
+
+.switch-row i {
+  display: none !important;
+}
+
+.switch-row:active input {
+  transform: scale(.96);
+}
+
