@@ -1,5 +1,5 @@
 {
-  "version": "v11-functions-sdk-admin-rules-fix-20260521-02",
-  "updatedAt": "2026-05-21T20:51:09+03:00",
-  "note": "Fix Firebase Functions SDK loading before subscription and admin APIs"
+  "version": "v11-ai-notice-readable-20260521-03",
+  "updatedAt": "2026-05-21T20:54:23+03:00",
+  "note": "Improve readability of important AI notice on subscription page"
 }
