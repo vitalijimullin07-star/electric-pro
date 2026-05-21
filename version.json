@@ -1,5 +1,5 @@
 {
-  "version": "v15-4-subscription-status-fix-20260522-01",
-  "updatedAt": "2026-05-22T00:59:38+03:00",
-  "note": "Subscription page status card shows tariff status active until storage and AI mode"
+  "version": "v16-1-remove-duplicate-status-20260522-01",
+  "updatedAt": "2026-05-22T01:04:58+03:00",
+  "note": "Hide duplicate unreadable subscription status block on subscription page and home"
 }

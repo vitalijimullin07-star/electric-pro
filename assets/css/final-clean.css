@@ -370,3 +370,32 @@
     font-size: 25px;
   }
 }
+
+/* === V16.1 remove duplicate subscription status === */
+.v16-hide-old-subscription-status,
+[data-v16-hidden-old-status="1"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.v16-subscription-clean-page #subscriptionStatusV15Fix {
+  margin-top: 8px !important;
+}
+
+/* Новый статус остаётся читаемым и поверх старых стилей */
+#subscriptionStatusV15Fix,
+#subscriptionStatusV15Fix * {
+  visibility: visible !important;
+}
+
+#subscriptionStatusV15Fix {
+  display: block !important;
+  height: auto !important;
+  min-height: unset !important;
+  overflow: visible !important;
+}
