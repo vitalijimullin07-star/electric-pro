@@ -2755,3 +2755,8 @@ body.ep-auth-restored #auth-screen,
 body.ep-auth-restored #login-screen {
   display: none !important;
 }
+/* === V21.21 Hard build connector fix === */
+.p2121-panel{padding:10px;border-radius:20px;background:rgba(248,250,252,.96);color:#0f172a;border:1px solid rgba(255,255,255,.30);box-shadow:0 14px 38px rgba(0,0,0,.16)}
+.p2121-head{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}.p2121-head h3{margin:0;color:#0f172a;font-size:18px;font-weight:950}.p2121-head button{border:0;border-radius:999px;padding:8px 12px;background:rgba(15,23,42,.08);color:#0f172a;font-size:12px;font-weight:950}
+.p2121-badge{display:inline-flex;width:fit-content;max-width:100%;margin-bottom:8px;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.16);color:#14532d;font-size:11px;font-weight:950}.p2121-pins{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.p2121-pins span{display:inline-flex!important;margin:0!important;padding:5px 8px;border-radius:999px;background:rgba(15,23,42,.07);color:#475569!important;font-size:10px!important;font-weight:950!important}
+.p2121-list{display:grid;gap:6px}.p2121-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 10px;border-radius:14px;background:#fff;border:1px solid rgba(15,23,42,.08)}.p2121-row b{color:#0f172a;font-size:13px;font-weight:950}.p2121-row strong{color:#0f172a;font-size:14px;font-weight:950}.p2121-row.muted{background:rgba(15,23,42,.045)}.p2121-small{color:#64748b;font-size:11px;line-height:1.25;font-weight:850}.p2121-empty{padding:10px;border-radius:14px;background:rgba(239,68,68,.10);color:#7f1d1d;font-size:12px;font-weight:900}
