@@ -2,6 +2,8 @@
   const FILE="assets/js/auth-v21-19-auto-restore.js";
   const VERSION="V21.19";
   let listenerSet=false;
+  let __authV2119LastRestoreLog=0;
+  let __authV2119LastPersistenceLog=0;
 
   function diag(level,code,message,extra={}){
     try{
@@ -30,7 +32,7 @@
     try{
       if(window.firebase?.auth?.Auth?.Persistence?.LOCAL){
         await auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL);
-        diag("ok","auth-persistence-local","Firebase Auth persistence LOCAL включён.");
+        {const now=Date.now();if(now-__authV2119LastPersistenceLog>4000){__authV2119LastPersistenceLog=now;diag("ok","auth-persistence-local","Firebase Auth persistence LOCAL включён.");}}
         return true;
       }
     }catch(e){
@@ -132,7 +134,7 @@
     setTimeout(()=>{hideLogin();showApp();updateUserText(user);},150);
     setTimeout(()=>{hideLogin();showApp();updateUserText(user);},700);
     setTimeout(()=>{hideLogin();showApp();updateUserText(user);},1600);
-    diag("ok","auth-restored","Вход восстановлен после обновления страницы.",{uid:user.uid||"",email:user.email||"",source,opened});
+    {const now=Date.now();if(now-__authV2119LastRestoreLog>4000){__authV2119LastRestoreLog=now;diag("ok","auth-restored","Вход восстановлен после обновления страницы.",{uid:user.uid||"",email:user.email||"",source,opened});}}
     return true;
   }
 
