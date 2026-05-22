@@ -2214,3 +2214,55 @@
     justify-self: end !important;
   }
 }
+
+/* === V21.6 Pool reset/delete/sound fix === */
+.ep-pool-v21 {
+  padding-bottom: 96px !important;
+}
+
+.p21-3-shell {
+  padding-bottom: 110px !important;
+}
+
+.p21-3-counter-row {
+  min-height: 42px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+.p21-3-counter-title b {
+  font-size: 12px !important;
+}
+
+.p21-3-inline-counter button {
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  font-size: 20px !important;
+}
+
+.p21-3-inline-counter {
+  grid-template-columns: 34px 1fr 34px !important;
+}
+
+.p21-3-pool-item button.p21-6-remove-row,
+.p21-3-pool-item [data-pool-v21-remove] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 2 !important;
+}
+
+.p21-3-list-title button[data-pool-v21-clear] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+@media (max-width: 640px) {
+  .ep-pool-v21 {
+    padding-bottom: 112px !important;
+  }
+
+  .p21-3-shell {
+    padding-bottom: 124px !important;
+  }
+}
