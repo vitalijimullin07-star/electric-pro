@@ -1,5 +1,5 @@
 {
-  "version": "v20-2-admin-subscription-buttons-fix-20260522-01",
-  "updatedAt": "2026-05-22T02:03:29+03:00",
-  "note": "Admin subscription UI: active section highlight and cancel subscription / disable AI buttons"
+  "version": "v21-1-pool-base-20260522-01",
+  "updatedAt": "2026-05-22T09:10:27+03:00",
+  "note": "Add Pool V21.1 base module with active DB resolver"
 }
