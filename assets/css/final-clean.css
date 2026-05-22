@@ -2441,3 +2441,21 @@
 #ep-pool-v21-screen .p21-9-logic-body:not(.hidden) + * {
   margin-top: 4px !important;
 }
+
+/* === V21.12 Logic editor input focus fix === */
+#ep-pool-v21-screen .p21-9-logic-body input,
+#ep-pool-v21-screen .p21-9-logic-body textarea,
+#ep-pool-v21-screen .p21-9-logic-body select {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+#ep-pool-v21-screen .p21-9-logic-body {
+  pointer-events: auto !important;
+}
+
+#ep-pool-v21-screen .p21-9-logic-body:not(.hidden) {
+  display: grid !important;
+}
