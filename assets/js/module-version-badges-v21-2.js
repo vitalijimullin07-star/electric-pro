@@ -4,8 +4,8 @@
   const ModuleVersions = {
     // Главные функции
     shield: "V13",
-    pool: "V21.14",
-    rough: "V21.14",
+    pool: "V21.15",
+    rough: "V21.15",
     materials: "V20",
     works: "V20",
     estimate: "V12",

@@ -2491,3 +2491,135 @@
 .p2114-frames-row{display:grid;grid-template-columns:1fr 132px;gap:8px;align-items:center}.p2114-frames-row b{display:block;color:#0f172a;font-size:15px;font-weight:950}.p2114-frames-row span{display:block;margin-top:3px;color:#64748b;font-size:11px;font-weight:850}.p2114-add,.p2114-calc{width:100%;min-height:42px;border:0;border-radius:15px;padding:11px;font-size:14px;font-weight:950}.p2114-add{margin-top:9px;background:linear-gradient(135deg,#059669,#22c55e);color:#052e16}.p2114-calc{background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff}
 .p2114-list-head{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;margin-bottom:8px}.p2114-list-head h3{margin:0;color:#0f172a;font-size:18px;font-weight:950}.p2114-list-head button{border:0;border-radius:999px;padding:8px 12px;background:rgba(15,23,42,.08);color:#0f172a;font-weight:950}.p2114-list{display:grid;gap:7px}.p2114-empty{padding:12px;border-radius:16px;background:rgba(15,23,42,.06);color:#64748b;font-weight:900}.p2114-item,.p2114-draft{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px;border-radius:16px;background:#fff;border:1px solid rgba(15,23,42,.08)}.p2114-item b,.p2114-draft b{color:#0f172a;font-weight:950}.p2114-item p,.p2114-draft p,.p2114-item small,.p2114-draft small{margin:3px 0 0;color:#64748b;font-size:11px;font-weight:850}.p2114-item button{width:36px;height:36px;border:0;border-radius:999px;background:rgba(239,68,68,.13);color:#7f1d1d;font-size:20px;font-weight:950}.p2114-draft strong{display:block;text-align:right;color:#0f172a;font-weight:950}.p2114-draft.missing{border-color:rgba(239,68,68,.30);background:linear-gradient(135deg,rgba(254,242,242,.98),#fff)}.p2114-total{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px;border-radius:16px;background:rgba(34,197,94,.16);color:#14532d;font-weight:950}
 @media(min-width:760px){.p2114-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(max-width:640px){.p2114-route-row{grid-template-columns:1fr 108px}.p2114-buttons button{font-size:11px;padding:3px}.p2114-counter-row{grid-template-columns:minmax(0,1fr) 124px}.p2114-mini-counter{grid-template-columns:32px 1fr 32px}.p2114-mini-counter button{width:32px;height:32px;min-height:32px}.p2114-frames-row{grid-template-columns:1fr}.p2114-frames-row .p2114-mini-counter{max-width:128px;justify-self:end}}
+
+/* === V21.15 Connector templates === */
+.p2115-card {
+  padding: 8px;
+  border-radius: 20px;
+  background: rgba(248,250,252,.96);
+  color: #0f172a;
+  border: 1px solid rgba(255,255,255,.30);
+  box-shadow: 0 14px 38px rgba(0,0,0,.16);
+}
+
+.p2115-toggle {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 13px;
+  background: rgba(15,23,42,.08);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.p2115-body.hidden {
+  display: none !important;
+}
+
+.p2115-body {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.p2115-top-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.p2115-top-actions button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(239,68,68,.10);
+  color: #7f1d1d;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.p2115-template-row {
+  display: grid;
+  gap: 5px;
+  padding: 7px;
+  border-radius: 14px;
+  background: rgba(15,23,42,.045);
+  border: 1px solid rgba(15,23,42,.055);
+}
+
+.p2115-template-title {
+  display: grid;
+  gap: 2px;
+}
+
+.p2115-template-title b {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.p2115-template-title small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.15;
+  font-weight: 850;
+}
+
+.p2115-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.p2115-conn-chip {
+  min-height: 36px;
+  border: 1px solid rgba(15,23,42,.08);
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  padding: 4px 5px;
+  text-align: left;
+}
+
+.p2115-conn-chip span {
+  display: block !important;
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: 9px !important;
+  line-height: 1.05 !important;
+  font-weight: 950 !important;
+}
+
+.p2115-conn-chip b {
+  display: block;
+  margin-top: 2px;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.p2115-conn-chip.has-value {
+  background: rgba(34,197,94,.14);
+  border-color: rgba(34,197,94,.28);
+}
+
+.p2115-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 850;
+}
+
+@media (max-width: 640px) {
+  .p2115-chip-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) {
+  .p2115-chip-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
