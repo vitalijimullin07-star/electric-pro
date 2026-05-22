@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "V22";
+  const VERSION = "V22.2";
   const FILE = "assets/js/pool-v22-clean-monolith.js";
   const STORAGE_GROUPS = "ep_pool_v22_groups";
   const STORAGE_DRAFT = "ep_pool_v22_draft";
