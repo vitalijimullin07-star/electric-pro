@@ -2739,3 +2739,19 @@
   font-size: 12px;
   font-weight: 900;
 }
+
+/* === V21.19 Auth auto restore === */
+html.ep-auth-restored [data-auth-screen],
+html.ep-auth-restored [data-login-screen],
+html.ep-auth-restored .auth-screen,
+html.ep-auth-restored .login-screen,
+html.ep-auth-restored #auth-screen,
+html.ep-auth-restored #login-screen,
+body.ep-auth-restored [data-auth-screen],
+body.ep-auth-restored [data-login-screen],
+body.ep-auth-restored .auth-screen,
+body.ep-auth-restored .login-screen,
+body.ep-auth-restored #auth-screen,
+body.ep-auth-restored #login-screen {
+  display: none !important;
+}
