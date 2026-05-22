@@ -2033,3 +2033,184 @@
     justify-self: end !important;
   }
 }
+
+/* === V21.5 Pool controls + ceiling height fix === */
+.p21-5-hidden-old-select {
+  display: none !important;
+}
+
+.p21-5-route-wall-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(15,23,42,.06);
+}
+
+.p21-5-route-head {
+  display: grid;
+  grid-template-columns: 1fr 126px;
+  gap: 8px;
+  align-items: end;
+}
+
+.p21-5-route-head span,
+.p21-5-wall-block > span,
+.p21-5-ceiling-label span {
+  display: block;
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.p21-5-route-buttons,
+.p21-5-wall-buttons {
+  display: grid;
+  gap: 6px;
+}
+
+.p21-5-route-buttons {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.p21-5-wall-buttons {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.p21-5-route-buttons button,
+.p21-5-wall-buttons button {
+  min-height: 38px;
+  border: 1px solid rgba(15,23,42,.07);
+  border-radius: 13px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.p21-5-route-buttons button.is-selected,
+.p21-5-wall-buttons button.is-selected {
+  background: rgba(34,197,94,.18);
+  color: #14532d;
+  border-color: rgba(34,197,94,.36);
+  box-shadow: 0 8px 20px rgba(34,197,94,.10);
+}
+
+.p21-5-ceiling-label input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 13px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 950;
+  text-align: center;
+}
+
+/* Ещё компактнее строки счётчиков — около 10мм визуально */
+.p21-3-counter-row {
+  min-height: 44px !important;
+  grid-template-columns: minmax(0, 1fr) 132px !important;
+  gap: 6px !important;
+  padding: 5px 8px !important;
+}
+
+.p21-3-counter-title {
+  gap: 7px !important;
+}
+
+.p21-3-counter-title span {
+  width: 20px !important;
+  font-size: 16px !important;
+}
+
+.p21-3-counter-title b {
+  font-size: 12px !important;
+  line-height: 1.08 !important;
+}
+
+.p21-3-inline-counter {
+  grid-template-columns: 36px 1fr 36px !important;
+  gap: 5px !important;
+}
+
+.p21-3-inline-counter button {
+  width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 21px !important;
+  line-height: 1 !important;
+}
+
+.p21-3-inline-counter strong {
+  font-size: 17px !important;
+}
+
+.p21-3-pills button {
+  min-height: 38px !important;
+  font-size: 14px !important;
+}
+
+.p21-3-panel {
+  margin-top: 8px !important;
+  padding: 9px !important;
+}
+
+.p21-3-pills-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+}
+
+.p21-3-frames-row {
+  grid-template-columns: 1fr 132px !important;
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+}
+
+.p21-3-frames-row .p21-3-inline-counter {
+  grid-template-columns: 36px 1fr 36px !important;
+}
+
+@media (max-width: 640px) {
+  .p21-5-route-head {
+    grid-template-columns: 1fr 108px;
+  }
+
+  .p21-5-wall-buttons {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .p21-5-route-buttons button,
+  .p21-5-wall-buttons button {
+    min-height: 36px;
+    font-size: 11px;
+    padding: 4px 3px;
+  }
+
+  .p21-3-counter-row {
+    grid-template-columns: minmax(0, 1fr) 124px !important;
+  }
+
+  .p21-3-inline-counter {
+    grid-template-columns: 34px 1fr 34px !important;
+  }
+
+  .p21-3-inline-counter button {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  .p21-3-frames-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .p21-3-frames-row .p21-3-inline-counter {
+    max-width: 136px !important;
+    justify-self: end !important;
+  }
+}

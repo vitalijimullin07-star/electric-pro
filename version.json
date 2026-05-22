@@ -1,5 +1,5 @@
 {
-  "version": "v21-4-pool-compact-fix-20260522-01",
-  "updatedAt": "2026-05-22T09:37:44+03:00",
-  "note": "Fix pool controls, compact header, max 6 mechanisms per frame and reset after add"
+  "version": "v21-5-pool-controls-ceiling-fix-20260522-01",
+  "updatedAt": "2026-05-22T09:52:52+03:00",
+  "note": "Fix pool posts decreasing, compact rows, route/wall buttons and ceiling height"
 }
