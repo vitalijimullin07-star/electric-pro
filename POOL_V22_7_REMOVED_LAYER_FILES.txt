@@ -1,0 +1,9 @@
+Удалены отдельные слои пула после сборки монолита:
+pool-v22-2-force-route.js
+v22-3-back-home-menu-fix.js
+pool-v22-4-db-picker.js
+pool-v22-5-safe-db-picker.js
+pool-v22-5-1-force-safe-picker.js
+pool-v22-6-manual-db-candidate-picker.js
+pool-v22-6-1-version-lock-fix.js
+pool-v22-6-2-pool-version-guard.js

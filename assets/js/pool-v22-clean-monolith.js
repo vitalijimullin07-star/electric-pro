@@ -1,5 +1,11 @@
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-clean-monolith.js
+   ========================================================= */
+
 (function () {
-  const VERSION = "V22.2";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-clean-monolith.js";
   const STORAGE_GROUPS = "ep_pool_v22_groups";
   const STORAGE_DRAFT = "ep_pool_v22_draft";
@@ -883,4 +889,1747 @@
   }
 
   window.addEventListener("DOMContentLoaded", init);
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-2-force-route.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+
+  function openPoolV22() {
+    if (window.PoolV22CleanMonolith && typeof window.PoolV22CleanMonolith.open === "function") {
+      window.PoolV22CleanMonolith.open();
+      return true;
+    }
+
+    console.warn("[Pool V22.2] PoolV22CleanMonolith.open не найден");
+    return false;
+  }
+
+  function isPoolTarget(el) {
+    if (!el) return false;
+
+    const text = (el.textContent || "").toLowerCase();
+    const route = (
+      (el.getAttribute && (
+        el.getAttribute("data-route") ||
+        el.getAttribute("data-module") ||
+        el.getAttribute("href") ||
+        el.getAttribute("onclick")
+      )) || ""
+    ).toLowerCase();
+
+    return (
+      text.includes("пул розеток") ||
+      text.includes("пул розеток/штроб") ||
+      text.includes("пул розеток / bim") ||
+      text.includes("розетки, выключатели") ||
+      route.includes("pool") ||
+      route.includes("bim")
+    );
+  }
+
+  function patchRouter() {
+    if (window.Router && typeof window.Router.load === "function" && !window.Router.__poolV22ForcePatched) {
+      const oldLoad = window.Router.load.bind(window.Router);
+
+      window.Router.load = function (route, ...args) {
+        if (String(route).toLowerCase() === "pool" || String(route).toLowerCase() === "bim") {
+          return openPoolV22();
+        }
+
+        return oldLoad(route, ...args);
+      };
+
+      window.Router.__poolV22ForcePatched = true;
+    }
+
+    [
+      "openPool",
+      "openPoolScreen",
+      "openSocketPool",
+      "openStrobePool",
+      "openBim",
+      "openBIM",
+      "showPool",
+      "showPoolScreen"
+    ].forEach(name => {
+      try {
+        window[name] = openPoolV22;
+      } catch (e) {}
+    });
+  }
+
+  function patchClicks() {
+    if (window.__poolV22ForceClickPatched) return;
+    window.__poolV22ForceClickPatched = true;
+
+    document.addEventListener("click", function (event) {
+      if (event.target.closest("#ep-pool-v22-screen")) return;
+
+      const el = event.target.closest("button,a,[role='button'],[data-route],[data-module],.card,.module-card,section,div");
+      if (!isPoolTarget(el)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      openPoolV22();
+    }, true);
+  }
+
+  function syncVersion() {
+    try {
+      if (window.ModuleVersionBadgesV212) {
+        window.ModuleVersionBadgesV212.setVersion?.("pool", VERSION);
+        window.ModuleVersionBadgesV212.setVersion?.("rough", VERSION);
+        window.ModuleVersionBadgesV212.apply?.();
+      }
+    } catch (e) {}
+  }
+
+  function boot() {
+    patchRouter();
+    patchClicks();
+    syncVersion();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    boot();
+    setTimeout(boot, 300);
+    setTimeout(boot, 1000);
+    setTimeout(boot, 2500);
+  });
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: v22-3-back-home-menu-fix.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+
+  function isPoolOpen() {
+    const pool = document.getElementById("ep-pool-v22-screen");
+    return pool && !pool.classList.contains("hidden") && pool.style.display !== "none";
+  }
+
+  function closePoolToHome() {
+    const pool = document.getElementById("ep-pool-v22-screen");
+    if (pool) {
+      pool.classList.add("hidden");
+      pool.style.display = "none";
+    }
+
+    document.body.classList.remove("ep-pool-open");
+
+    if (window.Router && typeof window.Router.load === "function") {
+      try {
+        window.Router.load("home");
+        return true;
+      } catch (e) {}
+    }
+
+    const homeSelectors = [
+      "#home-screen",
+      "#main-screen",
+      "#dashboard-screen",
+      ".home-screen",
+      ".main-screen",
+      "[data-screen='home']",
+      "[data-route='home']"
+    ];
+
+    homeSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.classList.remove("hidden");
+        if (el.style.display === "none") el.style.display = "";
+      });
+    });
+
+    return true;
+  }
+
+  function pushPoolHistory() {
+    if (!isPoolOpen()) return;
+
+    if (history.state && history.state.epPoolV22) return;
+
+    try {
+      history.pushState(
+        { epPoolV22: true, screen: "pool" },
+        "",
+        location.href
+      );
+    } catch (e) {}
+  }
+
+  function patchPoolOpen() {
+    if (!window.PoolV22CleanMonolith || window.PoolV22CleanMonolith.__backHomePatched) return;
+
+    const oldOpen = window.PoolV22CleanMonolith.open.bind(window.PoolV22CleanMonolith);
+
+    window.PoolV22CleanMonolith.open = function () {
+      const result = oldOpen();
+      document.body.classList.add("ep-pool-open");
+      setTimeout(pushPoolHistory, 50);
+      setTimeout(pushPoolHistory, 300);
+      return result;
+    };
+
+    window.PoolV22CleanMonolith.__backHomePatched = true;
+  }
+
+  function handleBackButton() {
+    window.addEventListener("popstate", function () {
+      if (isPoolOpen()) {
+        closePoolToHome();
+      }
+    });
+  }
+
+  function openHome() {
+    const oldPool = document.getElementById("ep-pool-v22-screen");
+    if (oldPool) {
+      oldPool.classList.add("hidden");
+      oldPool.style.display = "none";
+    }
+
+    if (window.Router && typeof window.Router.load === "function") {
+      try {
+        window.Router.load("home");
+      } catch (e) {}
+    }
+
+    const menu = document.querySelector(".sidebar, .side-menu, .drawer, .burger-menu, #side-menu, #drawer, [data-menu]");
+    if (menu) {
+      menu.classList.remove("open", "active", "show");
+    }
+
+    document.body.classList.remove("menu-open", "drawer-open", "ep-pool-open");
+  }
+
+  function addHomeButtonToBurger() {
+    const candidates = [
+      document.querySelector("#side-menu"),
+      document.querySelector("#drawer"),
+      document.querySelector(".side-menu"),
+      document.querySelector(".sidebar"),
+      document.querySelector(".drawer"),
+      document.querySelector(".burger-menu"),
+      document.querySelector("[data-menu]")
+    ].filter(Boolean);
+
+    candidates.forEach(menu => {
+      if (menu.querySelector("[data-v223-home]")) return;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-v223-home", "1");
+      btn.className = "v223-home-btn";
+      btn.innerHTML = "🏠 Главный экран";
+
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openHome();
+      }, true);
+
+      const firstButton = menu.querySelector("button, a, [role='button']");
+      if (firstButton && firstButton.parentElement) {
+        firstButton.parentElement.insertBefore(btn, firstButton);
+      } else {
+        menu.insertBefore(btn, menu.firstChild);
+      }
+    });
+  }
+
+  function patchMainCardsVersion() {
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+  }
+
+  function boot() {
+    patchPoolOpen();
+    addHomeButtonToBurger();
+    patchMainCardsVersion();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    handleBackButton();
+    boot();
+
+    setTimeout(boot, 300);
+    setTimeout(boot, 1000);
+    setTimeout(boot, 2500);
+    setTimeout(boot, 5000);
+  });
+
+  window.V223BackHomeMenuFix = {
+    version: VERSION,
+    closePoolToHome,
+    openHome,
+    addHomeButtonToBurger
+  };
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-5-safe-db-picker.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+  const FILE = "assets/js/pool-v22-5-safe-db-picker.js";
+  const DRAFT_KEY = "ep_pool_v22_draft";
+  const RESULT_KEY = "ep_pool_v22_db_pick_result";
+
+  const n = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
+
+  function diag(code, message, extra = {}) {
+    try {
+      window.Diagnostics?.ok?.({
+        file: FILE,
+        module: "PoolV225SafeDbPicker",
+        functionName: "runtime",
+        place: "pool-db-picker",
+        code,
+        message,
+        ...extra
+      });
+    } catch (e) {}
+  }
+
+  function toast(text) {
+    try { if (window.PoolV21?.toast) return window.PoolV21.toast(text); } catch (e) {}
+    let box = document.getElementById("ep-pool-v22-toast");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ep-pool-v22-toast";
+      document.body.appendChild(box);
+    }
+    box.textContent = text;
+    box.classList.add("show");
+    clearTimeout(window.__p225Toast);
+    window.__p225Toast = setTimeout(() => box.classList.remove("show"), 1800);
+  }
+
+  function money(v) {
+    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
+  }
+
+  function readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || ""); } catch (e) { return fallback; }
+  }
+
+  function writeJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function getDraft() { return readJson(DRAFT_KEY, []); }
+  function saveDraft(draft) { writeJson(DRAFT_KEY, draft); }
+
+  function normalizeName(v) {
+    return String(v ?? "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[×хx]/g, "x")
+      .replace(/[^a-zа-я0-9x.,\s/-]/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function getTokens(v) {
+    return normalizeName(v).split(/\s+/).filter(t => t.length >= 2);
+  }
+
+  function itemHay(item) {
+    return normalizeName([
+      item.name,
+      item.type,
+      item.category,
+      item.subcategory,
+      item.sourceKey
+    ].join(" "));
+  }
+
+  function deepWalk(value, out, sourceKey, depth = 0) {
+    if (depth > 7 || value == null) return;
+
+    if (Array.isArray(value)) {
+      value.forEach(x => deepWalk(x, out, sourceKey, depth + 1));
+      return;
+    }
+
+    if (typeof value === "object") {
+      const name =
+        value.name || value.title || value.label || value.workName ||
+        value.materialName || value.itemName || value.fullName;
+
+      const price =
+        value.price ?? value.cost ?? value.amount ?? value.sum ??
+        value.value ?? value.clientPrice ?? value.sellPrice;
+
+      if (name && Number.isFinite(Number(price))) {
+        const typeText = normalizeName(value.type || value.kind || value.categoryType || value.category || value.group || value.section || sourceKey);
+        out.push({
+          id: value.id || value.uid || value.key || `${sourceKey}_${out.length}`,
+          name: String(name),
+          price: Number(price),
+          unit: value.unit || value.measure || value.uom || "шт",
+          type: value.type || value.kind || value.categoryType || "",
+          category: value.category || value.group || value.section || "",
+          subcategory: value.subcategory || value.subgroup || "",
+          sourceKey,
+          inferredKind: inferItemKind(typeText + " " + normalizeName(name))
+        });
+      }
+
+      Object.values(value).forEach(x => deepWalk(x, out, sourceKey, depth + 1));
+    }
+  }
+
+  function inferItemKind(text) {
+    text = normalizeName(text);
+    if (/работ|монтаж|штроб|сверл|высверл|бурен|установк|демонтаж|ниша|резк/.test(text)) return "work";
+    if (/материал|подроз|подраз|гмл|wago|ваго|сиз|термоусад|короб|кабель|гофр|провод|автомат|узо|диф|щит|распаечн|распаячн/.test(text)) return "material";
+    return "";
+  }
+
+  function collectDbItems() {
+    const out = [];
+    const keyRx = /(db|database|base|база|materials|works|prices|server|global|my|active)/i;
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !keyRx.test(key)) continue;
+
+      const raw = localStorage.getItem(key);
+      if (!raw || raw.length < 5) continue;
+
+      try { deepWalk(JSON.parse(raw), out, key); } catch (e) {}
+    }
+
+    const seen = new Set();
+    return out.filter(item => {
+      const sig = `${item.name}|${item.price}|${item.unit}`;
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      return true;
+    });
+  }
+
+  function rowKind(row) {
+    if (row.type === "work") return "work";
+    if (row.type === "material") return "material";
+
+    const name = normalizeName(row.name);
+    if (/штроб|сверл|высверл|монтаж|работ/.test(name)) return "work";
+    return "material";
+  }
+
+  function isWorkItem(item) {
+    const hay = itemHay(item);
+    if (item.inferredKind === "work") return true;
+    return /работ|монтаж|штроб|сверл|высверл|бурен|установк|демонтаж|ниша|резк/.test(hay);
+  }
+
+  function isMaterialItem(item) {
+    const hay = itemHay(item);
+    if (item.inferredKind === "material") return true;
+    return /материал|подроз|подраз|гмл|wago|ваго|сиз|термоусад|короб|кабель|гофр|провод|автомат|узо|диф|щит|распаечн|распаячн/.test(hay);
+  }
+
+  function isCompatibleKind(row, item) {
+    const kind = rowKind(row);
+    const rowName = normalizeName(row.name);
+    const hay = itemHay(item);
+
+    if (kind === "work") {
+      if (!isWorkItem(item)) return false;
+
+      // Работа "высверливание" не должна брать материал "подрозетник".
+      if (/высверл|сверл/.test(rowName) && /подроз|подраз/.test(hay) && !/высверл|сверл|бурен/.test(hay)) return false;
+
+      // Штробление ищет только штробление.
+      if (/штроб/.test(rowName) && !/штроб/.test(hay)) return false;
+
+      // Монтаж распайки ищет монтаж/установку, а не саму коробку.
+      if (/монтаж.*расп|монтаж.*короб/.test(rowName) && !/монтаж|установ/.test(hay)) return false;
+
+      return true;
+    }
+
+    if (kind === "material") {
+      if (!isMaterialItem(item)) return false;
+
+      // Материал не должен брать работы.
+      if (isWorkItem(item) && !/материал|подроз|гмл|wago|ваго|сиз|термоусад|короб/.test(hay)) return false;
+
+      // Подрозетник не должен брать высверливание.
+      if (/подроз|подраз/.test(rowName) && /высверл|сверл|бурен/.test(hay)) return false;
+
+      // Распаечная коробка как материал не должна брать работу монтажа.
+      if (/распайк|распаяч|короб/.test(rowName) && /монтаж|установ/.test(hay) && !/короб|распайк|распаяч/.test(hay)) return false;
+
+      return true;
+    }
+
+    return true;
+  }
+
+  function extractSize(text) {
+    text = normalizeName(text);
+    const m = text.match(/(\d{2,3})\s*x\s*(\d{2,3})/);
+    if (!m) return null;
+    return `${Number(m[1])}x${Number(m[2])}`;
+  }
+
+  function sizeDistance(a, b) {
+    if (!a || !b) return 0;
+    const pa = a.split("x").map(Number);
+    const pb = b.split("x").map(Number);
+    return Math.abs(pa[0] - pb[0]) + Math.abs(pa[1] - pb[1]);
+  }
+
+  function hasNumberInRange(text, min, max) {
+    const nums = String(text).match(/\d+/g) || [];
+    return nums.some(x => {
+      const v = Number(x);
+      return v >= min && v <= max;
+    });
+  }
+
+  function getWarning(row, item) {
+    const rowName = normalizeName(row.name);
+    const hay = itemHay(item);
+    const warnings = [];
+
+    if (/штроб/.test(rowName)) {
+      const need = extractSize(rowName);
+      const got = extractSize(hay);
+      if (need && got && need !== got) {
+        warnings.push(`размер отличается: нужно ${need}, найдено ${got}`);
+      }
+    }
+
+    if (/подрозетник.*глубок|глубок.*подрозетник/.test(rowName)) {
+      if (!/глубок/.test(hay) && !hasNumberInRange(hay, 60, 75)) {
+        warnings.push("проверь глубину подрозетника 60–75 мм");
+      }
+    }
+
+    if (/подрозетник/.test(rowName) && /40-50|40.*50/.test(rowName)) {
+      if (!hasNumberInRange(hay, 40, 50)) {
+        warnings.push("проверь глубину подрозетника 40–50 мм");
+      }
+    }
+
+    return warnings;
+  }
+
+  function scoreItem(row, item) {
+    if (!isCompatibleKind(row, item)) return -9999;
+
+    const rowName = normalizeName(row.name);
+    const hay = itemHay(item);
+    const query = Array.isArray(row.query) ? row.query.join(" ") : row.name;
+    let score = 0;
+
+    getTokens(query).forEach(t => { if (hay.includes(t)) score += 6; });
+    getTokens(row.name).forEach(t => { if (hay.includes(t)) score += 4; });
+
+    const kind = rowKind(row);
+    if (kind === "work" && isWorkItem(item)) score += 30;
+    if (kind === "material" && isMaterialItem(item)) score += 30;
+
+    if (/гмл\s*4/i.test(row.name) && /гмл.*4|4.*гмл/i.test(hay)) score += 50;
+    if (/гмл\s*6/i.test(row.name) && /гмл.*6|6.*гмл/i.test(hay)) score += 50;
+    if (/гмл\s*8/i.test(row.name) && /гмл.*8|8.*гмл/i.test(hay)) score += 50;
+
+    if (/wago|ваго/i.test(row.name) && /wago|ваго/i.test(hay)) score += 35;
+    if (/сиз/i.test(row.name) && /сиз/i.test(hay)) score += 35;
+
+    if (/подрозетник/i.test(rowName) && /подрозетник|подразетник/i.test(hay)) score += 35;
+
+    if (/глубок/i.test(rowName)) {
+      if (/глубок/i.test(hay)) score += 25;
+      if (hasNumberInRange(hay, 60, 75)) score += 35;
+    }
+
+    if (/40-50|40.*50/i.test(rowName) && hasNumberInRange(hay, 40, 50)) score += 35;
+
+    if (/штроб/i.test(rowName) && /штроб/i.test(hay)) score += 45;
+
+    const rowSize = extractSize(rowName);
+    const itemSize = extractSize(hay);
+    if (rowSize && itemSize) {
+      if (rowSize === itemSize) score += 45;
+      else score -= Math.min(30, sizeDistance(rowSize, itemSize));
+    }
+
+    if (/бетон/i.test(rowName) && /бетон/i.test(hay)) score += 15;
+    if (/кирпич/i.test(rowName) && /кирпич/i.test(hay)) score += 15;
+    if (/панел/i.test(rowName) && /панел/i.test(hay)) score += 15;
+
+    if (/распайк|распаяч/i.test(rowName) && /распайк|распаяч|короб/i.test(hay)) score += 40;
+    if (/термоусад/i.test(rowName) && /термоусад/i.test(hay)) score += 40;
+
+    if (/высверл|сверл/.test(rowName) && /высверл|сверл|бурен/.test(hay)) score += 50;
+    if (/монтаж/.test(rowName) && /монтаж|установ/.test(hay)) score += 35;
+
+    return score;
+  }
+
+  function findBest(row, dbItems) {
+    return dbItems
+      .map(item => ({ item, score: scoreItem(row, item), warnings: getWarning(row, item) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  }
+
+  function pickDb() {
+    const draft = getDraft();
+
+    if (!draft.length) {
+      toast("Сначала рассчитай черновую.");
+      return;
+    }
+
+    const dbItems = collectDbItems();
+
+    if (!dbItems.length) {
+      toast("База не найдена. Нужен адаптер активной базы.");
+      renderResult({
+        dbCount: 0,
+        picked: 0,
+        missed: draft.length,
+        warningsCount: 0,
+        rows: draft.map(row => ({ row, candidates: [] }))
+      });
+      return;
+    }
+
+    let picked = 0;
+    let warningsCount = 0;
+    const rows = [];
+
+    const updated = draft.map(row => {
+      const candidates = findBest(row, dbItems);
+      const best = candidates[0];
+
+      if (best && best.score >= 45) {
+        const rn = normalizeName(row.name);
+        const bh = itemHay(best.item);
+        if (/высверл|сверл/.test(rn) && /подроз|подраз/.test(bh) && !/высверл|сверл|бурен|работ/.test(bh)) {
+          rows.push({ row, picked: null, score: best.score, warnings: ["кандидат отклонён: это материал, а нужна работа"], candidates });
+          return { ...row, missingDb: true, dbPickScore: best.score, dbPickWarnings: ["кандидат отклонён: это материал, а нужна работа"] };
+        }
+        picked += 1;
+        warningsCount += best.warnings.length;
+
+        rows.push({
+          row,
+          picked: best.item,
+          score: best.score,
+          warnings: best.warnings,
+          candidates
+        });
+
+        return {
+          ...row,
+          price: best.item.price,
+          unit: row.unit || best.item.unit || "шт",
+          dbName: best.item.name,
+          dbItemId: best.item.id,
+          missingDb: false,
+          dbSourceKey: "safe_db_picker_v22_5_1",
+          dbPickScore: best.score,
+          dbPickWarnings: best.warnings
+        };
+      }
+
+      rows.push({
+        row,
+        picked: null,
+        score: best?.score || 0,
+        warnings: best?.warnings || [],
+        candidates
+      });
+
+      return {
+        ...row,
+        missingDb: true,
+        dbPickScore: best?.score || 0,
+        dbPickWarnings: best?.warnings || []
+      };
+    });
+
+    saveDraft(updated);
+
+    const result = {
+      dbCount: dbItems.length,
+      picked,
+      missed: updated.length - picked,
+      warningsCount,
+      rows
+    };
+
+    writeJson(RESULT_KEY, result);
+    renderResult(result);
+
+    if (window.PoolV22CleanMonolith?.open) {
+      setTimeout(() => window.PoolV22CleanMonolith.open(), 100);
+      setTimeout(() => renderResult(result), 250);
+      setTimeout(() => renderResult(result), 700);
+    }
+
+    toast(`Безопасный подбор: найдено ${picked} из ${updated.length}.`);
+    diag("pool-v22-5-safe-db-picked", "Безопасный подбор результата пула выполнен.", {
+      dbCount: dbItems.length,
+      picked,
+      total: updated.length,
+      warningsCount
+    });
+  }
+
+  function ensurePanel() {
+    const screen = document.getElementById("ep-pool-v22-screen");
+    if (!screen) return null;
+
+    let panel = document.getElementById("p224-db-result");
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.id = "p224-db-result";
+      panel.className = "p22-card p224-db-result";
+
+      const draftCard = Array.from(screen.querySelectorAll(".p22-card")).find(card => {
+        return /Черновик расчета|Черновик расчёта/i.test(card.textContent || "");
+      });
+
+      if (draftCard) draftCard.insertAdjacentElement("beforebegin", panel);
+      else screen.querySelector(".p22-shell")?.appendChild(panel);
+    }
+
+    return panel;
+  }
+
+  function renderResult(result) {
+    const panel = ensurePanel();
+    if (!panel) return;
+
+    if (!result) result = readJson(RESULT_KEY, null);
+
+    if (!result) {
+      panel.innerHTML = `
+        <div class="p22-list-head">
+          <h3>Безопасный подбор из БД</h3>
+          <button type="button" data-p225-pick>Подобрать</button>
+        </div>
+        <div class="p22-empty">После расчёта нажми «Подобрать из БД».</div>
+      `;
+      return;
+    }
+
+    const rowsHtml = (result.rows || []).map(x => {
+      const row = x.row || {};
+      const picked = x.picked;
+      const warnings = x.warnings || [];
+
+      if (picked) {
+        return `
+          <div class="p224-row ${warnings.length ? "warn" : "ok"}">
+            <div>
+              <b>${esc(row.name)}</b>
+              <p>Подобрано: ${esc(picked.name)}</p>
+              <small>safe_db_picker_v22_5_1 · score ${esc(x.score)}</small>
+              ${warnings.length ? `<em>${warnings.map(esc).join("<br>")}</em>` : ""}
+            </div>
+            <strong>${money(picked.price)}</strong>
+          </div>
+        `;
+      }
+
+      const c = (x.candidates || [])[0];
+
+      return `
+        <div class="p224-row miss">
+          <div>
+            <b>${esc(row.name)}</b>
+            <p>Не подобрано безопасно</p>
+            <small>${c ? "Лучший кандидат: " + esc(c.item.name) + " · score " + esc(c.score) : "Кандидатов нет"}</small>
+          </div>
+          <strong>—</strong>
+        </div>
+      `;
+    }).join("");
+
+    panel.innerHTML = `
+      <div class="p22-list-head">
+        <h3>Безопасный подбор из БД</h3>
+        <button type="button" data-p225-pick>Повторить</button>
+      </div>
+      <div class="p224-summary">
+        <span>База: ${esc(result.dbCount || 0)} поз.</span>
+        <span>Найдено: ${esc(result.picked || 0)}</span>
+        <span>Не найдено: ${esc(result.missed || 0)}</span>
+        <span>Предупр.: ${esc(result.warningsCount || 0)}</span>
+        <span>${VERSION}</span>
+      </div>
+      <div class="p224-list">${rowsHtml || `<div class="p22-empty">Нет строк для подбора.</div>`}</div>
+    `;
+  }
+
+  function patchPickButton() {
+    document.addEventListener("click", event => {
+      const root = event.target.closest("#ep-pool-v22-screen");
+      if (!root) return;
+
+      const btn = event.target.closest("[data-p22-pick-db], [data-p224-pick], [data-p225-pick]");
+      if (!btn) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      pickDb();
+    }, true);
+  }
+
+  function syncVersion() {
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+  }
+
+  function boot() {
+    syncVersion();
+    const screen = document.getElementById("ep-pool-v22-screen");
+    if (screen && !screen.classList.contains("hidden") && screen.style.display !== "none") renderResult();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    patchPickButton();
+    boot();
+    setTimeout(boot, 500);
+    setTimeout(boot, 1500);
+    setTimeout(boot, 3000);
+  });
+
+  window.PoolV225SafeDbPicker = {
+    version: VERSION,
+    pickDb,
+    collectDbItems,
+    renderResult,
+    scoreItem,
+    isCompatibleKind
+  };
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-5-1-force-safe-picker.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+  const FILE = "assets/js/pool-v22-5-1-force-safe-picker.js";
+  const RESULT_KEY = "ep_pool_v22_db_pick_result";
+
+  function diag(code, message, extra = {}) {
+    try {
+      window.Diagnostics?.ok?.({
+        file: FILE,
+        module: "PoolV2251ForceSafePicker",
+        functionName: "runtime",
+        place: "pool-db-picker",
+        code,
+        message,
+        ...extra
+      });
+    } catch (e) {}
+  }
+
+  function clearOldPickResult() {
+    try {
+      localStorage.removeItem(RESULT_KEY);
+    } catch (e) {}
+  }
+
+  function removeOldV224Panel() {
+    const panel = document.getElementById("p224-db-result");
+    if (!panel) return;
+    const txt = panel.textContent || "";
+    if (txt.includes("V22.4") || txt.includes("ep_pool_v22_db_pick_result")) {
+      panel.remove();
+    }
+  }
+
+  function markVersion() {
+    if (window.PoolV226ManualDbCandidatePicker || window.PoolV2261VersionLockFix) return;
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+
+    const panel = document.getElementById("p224-db-result");
+    if (panel) {
+      panel.querySelectorAll(".p224-summary span").forEach(el => {
+        if ((el.textContent || "").startsWith("V22.")) el.textContent = VERSION;
+      });
+
+      const h3 = panel.querySelector("h3");
+      if (h3) h3.textContent = "Безопасный подбор из БД";
+
+      panel.querySelectorAll("small").forEach(sm => {
+        sm.textContent = (sm.textContent || "").replace(/ep_pool_v22_db_pick_result/g, "safe_db_picker_v22_5_1");
+      });
+    }
+  }
+
+  function runSafePicker() {
+    clearOldPickResult();
+    removeOldV224Panel();
+
+    if (window.PoolV225SafeDbPicker && typeof window.PoolV225SafeDbPicker.pickDb === "function") {
+      window.PoolV225SafeDbPicker.pickDb();
+      setTimeout(markVersion, 100);
+      setTimeout(markVersion, 400);
+      setTimeout(markVersion, 900);
+      diag("pool-v22-5-1-safe-picker-run", "Запущен безопасный подбор V22.5.1.");
+      return true;
+    }
+
+    console.warn("[V22.5.1] PoolV225SafeDbPicker.pickDb не найден");
+    diag("pool-v22-5-1-safe-picker-missing", "PoolV225SafeDbPicker.pickDb не найден.");
+    return false;
+  }
+
+  function interceptPickButtons() {
+    if (window.__poolV2251InterceptInstalled) return;
+    window.__poolV2251InterceptInstalled = true;
+
+    document.addEventListener("click", function (event) {
+      const root = event.target.closest("#ep-pool-v22-screen");
+      if (!root) return;
+
+      const btn = event.target.closest("[data-p22-pick-db], [data-p224-pick], [data-p225-pick]");
+      if (!btn) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      runSafePicker();
+    }, true);
+  }
+
+  function patchOldPicker() {
+    if (window.PoolV224DbPicker) {
+      try {
+        window.PoolV224DbPicker.pickDb = runSafePicker;
+        window.PoolV224DbPicker.renderResult = function () {};
+      } catch (e) {}
+    }
+  }
+
+  function patchOpen() {
+    if (!window.PoolV22CleanMonolith || window.PoolV22CleanMonolith.__v2251Patched) return;
+
+    const oldOpen = window.PoolV22CleanMonolith.open.bind(window.PoolV22CleanMonolith);
+
+    window.PoolV22CleanMonolith.open = function () {
+      const result = oldOpen();
+      setTimeout(function () {
+        removeOldV224Panel();
+        markVersion();
+      }, 150);
+      setTimeout(markVersion, 700);
+      return result;
+    };
+
+    window.PoolV22CleanMonolith.__v2251Patched = true;
+  }
+
+  function boot() {
+    clearOldPickResult();
+    removeOldV224Panel();
+    interceptPickButtons();
+    patchOldPicker();
+    patchOpen();
+    markVersion();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    boot();
+    setTimeout(boot, 300);
+    setTimeout(boot, 1000);
+    setTimeout(boot, 2500);
+  });
+
+  window.PoolV2251ForceSafePicker = {
+    version: VERSION,
+    runSafePicker,
+    clearOldPickResult,
+    removeOldV224Panel
+  };
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-6-manual-db-candidate-picker.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+  const FILE = "assets/js/pool-v22-6-manual-db-candidate-picker.js";
+  const DRAFT_KEY = "ep_pool_v22_draft";
+  const RESULT_KEY = "ep_pool_v22_db_pick_result";
+  const MANUAL_KEY = "ep_pool_v22_manual_db_choices";
+
+  const n = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
+
+  function diag(code, message, extra = {}) {
+    try {
+      window.Diagnostics?.ok?.({
+        file: FILE,
+        module: "PoolV226ManualDbCandidatePicker",
+        functionName: "runtime",
+        place: "pool-db-picker",
+        code,
+        message,
+        ...extra
+      });
+    } catch (e) {}
+  }
+
+  function toast(text) {
+    let box = document.getElementById("ep-pool-v22-toast");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "ep-pool-v22-toast";
+      document.body.appendChild(box);
+    }
+    box.textContent = text;
+    box.classList.add("show");
+    clearTimeout(window.__p226Toast);
+    window.__p226Toast = setTimeout(() => box.classList.remove("show"), 1700);
+  }
+
+  function readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || ""); } catch (e) { return fallback; }
+  }
+
+  function writeJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function money(v) {
+    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
+  }
+
+  function normalize(v) {
+    return String(v ?? "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[×хx]/g, "x")
+      .replace(/[^a-zа-я0-9x.,\s/-]/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function getDraft() {
+    return readJson(DRAFT_KEY, []);
+  }
+
+  function saveDraft(draft) {
+    writeJson(DRAFT_KEY, draft);
+  }
+
+  function getResult() {
+    return readJson(RESULT_KEY, null);
+  }
+
+  function saveResult(result) {
+    writeJson(RESULT_KEY, result);
+  }
+
+  function getManualChoices() {
+    return readJson(MANUAL_KEY, {});
+  }
+
+  function saveManualChoices(value) {
+    writeJson(MANUAL_KEY, value);
+  }
+
+  function rowKey(row) {
+    return normalize([row?.type, row?.name, row?.unit, row?.query].join("|"));
+  }
+
+  function applyManualChoice(row, item) {
+    const draft = getDraft();
+    const key = rowKey(row);
+
+    const updated = draft.map(d => {
+      if (rowKey(d) !== key) return d;
+
+      return {
+        ...d,
+        price: n(item.price, 0),
+        unit: d.unit || item.unit || "шт",
+        dbName: item.name,
+        dbItemId: item.id,
+        dbSourceKey: "manual_db_choice_v22_6",
+        missingDb: false,
+        dbPickScore: item.score || 999,
+        dbPickWarnings: ["выбрано вручную"]
+      };
+    });
+
+    saveDraft(updated);
+
+    const choices = getManualChoices();
+    choices[key] = {
+      item,
+      rowName: row.name,
+      updatedAt: new Date().toISOString()
+    };
+    saveManualChoices(choices);
+
+    const result = getResult();
+    if (result && Array.isArray(result.rows)) {
+      result.rows = result.rows.map(r => {
+        if (rowKey(r.row) !== key) return r;
+        return {
+          ...r,
+          picked: item,
+          score: item.score || 999,
+          warnings: ["выбрано вручную"],
+          manual: true
+        };
+      });
+      result.picked = result.rows.filter(r => r.picked).length;
+      result.missed = result.rows.length - result.picked;
+      result.warningsCount = result.rows.reduce((s, r) => s + ((r.warnings || []).length ? 1 : 0), 0);
+      saveResult(result);
+    }
+
+    closeModal();
+
+    if (window.PoolV22CleanMonolith?.open) {
+      window.PoolV22CleanMonolith.open();
+      setTimeout(() => window.PoolV225SafeDbPicker?.renderResult?.(getResult()), 160);
+      setTimeout(markVersion, 260);
+      setTimeout(markVersion, 800);
+    }
+
+    toast("Позиция выбрана вручную.");
+    diag("pool-v22-6-manual-choice-applied", "Позиция БД выбрана вручную.", {
+      row: row.name,
+      item: item.name,
+      price: item.price
+    });
+  }
+
+  function removeManualChoice(row) {
+    const key = rowKey(row);
+    const choices = getManualChoices();
+    delete choices[key];
+    saveManualChoices(choices);
+    toast("Ручной выбор сброшен. Нажми «Повторить» для автоподбора.");
+    closeModal();
+  }
+
+  function ensureModal() {
+    let modal = document.getElementById("p226-candidate-modal");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.id = "p226-candidate-modal";
+    modal.className = "p226-modal hidden";
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function closeModal() {
+    const modal = document.getElementById("p226-candidate-modal");
+    if (modal) modal.classList.add("hidden");
+  }
+
+  function openCandidates(rowIndex) {
+    const result = getResult();
+    if (!result || !Array.isArray(result.rows)) {
+      toast("Сначала сделай подбор из БД.");
+      return;
+    }
+
+    const entry = result.rows[rowIndex];
+    if (!entry) {
+      toast("Строка подбора не найдена.");
+      return;
+    }
+
+    const row = entry.row || {};
+    const candidates = entry.candidates || [];
+    const picked = entry.picked;
+
+    const modal = ensureModal();
+
+    const candidateRows = candidates.length ? candidates.map((c, idx) => {
+      const item = {
+        ...(c.item || c.picked || {}),
+        score: c.score || 0,
+        warnings: c.warnings || []
+      };
+
+      return `
+        <button type="button" class="p226-candidate ${picked && picked.name === item.name ? "active" : ""}" data-p226-select="${idx}">
+          <div>
+            <b>${esc(item.name)}</b>
+            <p>${esc(item.category || "")}${item.subcategory ? " · " + esc(item.subcategory) : ""}</p>
+            <small>${esc(item.sourceKey || "БД")} · score ${esc(item.score || c.score || 0)}${(item.warnings || c.warnings || []).length ? " · есть предупреждение" : ""}</small>
+          </div>
+          <strong>${money(item.price)}</strong>
+        </button>
+      `;
+    }).join("") : `<div class="p226-empty">Кандидатов нет. Можно добавить позицию в базу или улучшить название.</div>`;
+
+    modal.innerHTML = `
+      <div class="p226-backdrop" data-p226-close></div>
+      <div class="p226-sheet">
+        <div class="p226-head">
+          <div>
+            <h3>Выбор позиции из БД</h3>
+            <p>${esc(row.name || "")}</p>
+          </div>
+          <button type="button" data-p226-close>×</button>
+        </div>
+
+        <div class="p226-current">
+          <span>Сейчас:</span>
+          <b>${picked ? esc(picked.name) : "не выбрано"}</b>
+        </div>
+
+        <div class="p226-list">
+          ${candidateRows}
+        </div>
+
+        <div class="p226-actions">
+          <button type="button" data-p226-reset>Сбросить ручной выбор</button>
+          <button type="button" data-p226-close>Закрыть</button>
+        </div>
+      </div>
+    `;
+
+    modal.classList.remove("hidden");
+
+    modal.querySelectorAll("[data-p226-select]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = n(btn.getAttribute("data-p226-select"), -1);
+        const candidate = candidates[idx];
+        if (!candidate) return;
+        const item = {
+          ...(candidate.item || {}),
+          score: candidate.score || 0,
+          warnings: candidate.warnings || []
+        };
+        applyManualChoice(row, item);
+      }, true);
+    });
+
+    modal.querySelectorAll("[data-p226-close]").forEach(btn => {
+      btn.addEventListener("click", closeModal, true);
+    });
+
+    const reset = modal.querySelector("[data-p226-reset]");
+    if (reset) reset.addEventListener("click", () => removeManualChoice(row), true);
+  }
+
+  function decorateRows() {
+    const panel = document.getElementById("p224-db-result");
+    const result = getResult();
+    if (!panel || !result || !Array.isArray(result.rows)) return;
+
+    const rows = Array.from(panel.querySelectorAll(".p224-row"));
+    rows.forEach((el, index) => {
+      if (el.dataset.p226Ready === "1") return;
+      el.dataset.p226Ready = "1";
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+
+      const hint = document.createElement("div");
+      hint.className = "p226-row-hint";
+      hint.textContent = "Нажми, чтобы выбрать другую позицию";
+      el.appendChild(hint);
+
+      el.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openCandidates(index);
+      }, true);
+    });
+  }
+
+  function applyManualBadges() {
+    const result = getResult();
+    const panel = document.getElementById("p224-db-result");
+    if (!result || !panel) return;
+
+    const choices = getManualChoices();
+    const rows = Array.from(panel.querySelectorAll(".p224-row"));
+
+    rows.forEach((el, index) => {
+      const row = result.rows?.[index]?.row;
+      if (!row) return;
+      if (choices[rowKey(row)]) {
+        el.classList.add("manual");
+        if (!el.querySelector(".p226-manual-badge")) {
+          const badge = document.createElement("div");
+          badge.className = "p226-manual-badge";
+          badge.textContent = "Выбрано вручную";
+          el.appendChild(badge);
+        }
+      }
+    });
+  }
+
+  function markVersion() {
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+
+    const panel = document.getElementById("p224-db-result");
+    if (panel) {
+      panel.querySelectorAll(".p224-summary span").forEach(el => {
+        if ((el.textContent || "").startsWith("V22.")) el.textContent = VERSION;
+      });
+    }
+  }
+
+  function boot() {
+    markVersion();
+    decorateRows();
+    applyManualBadges();
+  }
+
+  function bindAfterPick() {
+    document.addEventListener("click", event => {
+      if (!event.target.closest("#ep-pool-v22-screen")) return;
+      if (!event.target.closest("[data-p22-pick-db], [data-p224-pick], [data-p225-pick]")) return;
+      setTimeout(boot, 300);
+      setTimeout(boot, 900);
+    }, true);
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    bindAfterPick();
+    boot();
+    setTimeout(boot, 600);
+    setTimeout(boot, 1600);
+    setTimeout(boot, 3200);
+  });
+
+  window.PoolV226ManualDbCandidatePicker = {
+    version: VERSION,
+    openCandidates,
+    applyManualChoice,
+    removeManualChoice,
+    decorateRows
+  };
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-6-1-version-lock-fix.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+  const FILE = "assets/js/pool-v22-6-1-version-lock-fix.js";
+
+  function diag(code, message, extra = {}) {
+    try {
+      window.Diagnostics?.ok?.({
+        file: FILE,
+        module: "PoolV2261VersionLockFix",
+        functionName: "runtime",
+        place: "pool-db-picker",
+        code,
+        message,
+        ...extra
+      });
+    } catch (e) {}
+  }
+
+  function markVersion() {
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+
+    const panel = document.getElementById("p224-db-result");
+    if (panel) {
+      panel.querySelectorAll(".p224-summary span").forEach(el => {
+        if ((el.textContent || "").startsWith("V22.")) el.textContent = VERSION;
+      });
+    }
+  }
+
+  function decorateRowsAgain() {
+    try {
+      window.PoolV226ManualDbCandidatePicker?.decorateRows?.();
+    } catch (e) {}
+  }
+
+  function patchOpen() {
+    if (!window.PoolV22CleanMonolith || window.PoolV22CleanMonolith.__v2261VersionLockPatched) return;
+
+    const oldOpen = window.PoolV22CleanMonolith.open.bind(window.PoolV22CleanMonolith);
+
+    window.PoolV22CleanMonolith.open = function () {
+      const result = oldOpen();
+      [80, 250, 700, 1200, 2200].forEach(ms => {
+        setTimeout(function () {
+          markVersion();
+          decorateRowsAgain();
+        }, ms);
+      });
+      return result;
+    };
+
+    window.PoolV22CleanMonolith.__v2261VersionLockPatched = true;
+  }
+
+  function patchPickerClicks() {
+    if (window.__v2261PickerClickLock) return;
+    window.__v2261PickerClickLock = true;
+
+    document.addEventListener("click", function (event) {
+      if (!event.target.closest("#ep-pool-v22-screen")) return;
+      if (!event.target.closest("[data-p22-pick-db], [data-p224-pick], [data-p225-pick]")) return;
+
+      [100, 350, 850, 1400, 2400].forEach(ms => {
+        setTimeout(function () {
+          markVersion();
+          decorateRowsAgain();
+        }, ms);
+      });
+    }, true);
+  }
+
+  function boot() {
+    patchOpen();
+    patchPickerClicks();
+    markVersion();
+    decorateRowsAgain();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    boot();
+    [300, 800, 1500, 2500, 4000].forEach(ms => setTimeout(boot, ms));
+  });
+
+  window.PoolV2261VersionLockFix = {
+    version: VERSION,
+    markVersion,
+    boot
+  };
+
+  diag("pool-v22-6-1-ready", "V22.6.1 version lock ready.");
+})();
+
+
+
+
+/* =========================================================
+   MERGED INTO POOL V22.7 MONOLITH FROM: pool-v22-6-2-pool-version-guard.js
+   ========================================================= */
+
+(function () {
+  const VERSION = "V22.7";
+  const FILE = "assets/js/pool-v22-6-2-pool-version-guard.js";
+
+  const POOL_SELECTORS = [
+    "#ep-pool-v22-screen",
+    "#p224-db-result"
+  ];
+
+  function diag(code, message, extra = {}) {
+    try {
+      window.Diagnostics?.ok?.({
+        file: FILE,
+        module: "PoolV2262VersionGuard",
+        functionName: "runtime",
+        place: "pool",
+        code,
+        message,
+        ...extra
+      });
+    } catch (e) {}
+  }
+
+  function isPoolOpen() {
+    const screen = document.getElementById("ep-pool-v22-screen");
+    if (!screen) return false;
+    return !screen.classList.contains("hidden") && screen.style.display !== "none";
+  }
+
+  function forceVersion() {
+    try {
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    } catch (e) {}
+
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el => {
+      el.textContent = VERSION;
+    });
+
+    const panel = document.getElementById("p224-db-result");
+    if (panel) {
+      panel.querySelectorAll(".p224-summary span").forEach(el => {
+        const t = el.textContent || "";
+        if (t.startsWith("V22.") || t.includes("V22.")) el.textContent = VERSION;
+      });
+    }
+
+    // Иногда в карточках/бейджах версия текстом лежит отдельно.
+    document.querySelectorAll("[data-module='pool'] .version, [data-route='pool'] .version, .pool-version, .module-version").forEach(el => {
+      if ((el.textContent || "").includes("V22.")) el.textContent = VERSION;
+    });
+  }
+
+  function decorateManualRows() {
+    try { window.PoolV226ManualDbCandidatePicker?.decorateRows?.(); } catch (e) {}
+    try { window.PoolV2261VersionLockFix?.markVersion?.(); } catch (e) {}
+  }
+
+  function afterPoolMutation(reason) {
+    // Старые слои часто рисуют экран повторно с таймерами.
+    [0, 60, 180, 420, 900, 1600, 2600].forEach(ms => {
+      setTimeout(function () {
+        forceVersion();
+        decorateManualRows();
+      }, ms);
+    });
+
+    diag("pool-v22-6-2-version-guard", "Версия пула зафиксирована после действия: " + reason);
+  }
+
+  function patchPoolOpen() {
+    if (!window.PoolV22CleanMonolith || window.PoolV22CleanMonolith.__v2262VersionGuardPatched) return;
+
+    const oldOpen = window.PoolV22CleanMonolith.open.bind(window.PoolV22CleanMonolith);
+
+    window.PoolV22CleanMonolith.open = function () {
+      const result = oldOpen();
+      afterPoolMutation("open");
+      return result;
+    };
+
+    window.PoolV22CleanMonolith.__v2262VersionGuardPatched = true;
+  }
+
+  function patchKnownPoolMethods() {
+    const pool = window.PoolV22CleanMonolith;
+    if (!pool || pool.__v2262MethodsPatched) return;
+
+    [
+      "render",
+      "renderPool",
+      "renderDraft",
+      "removeGroup",
+      "deleteGroup",
+      "clearPool",
+      "resetPool",
+      "calculate",
+      "calculateDraft",
+      "addGroup"
+    ].forEach(name => {
+      if (typeof pool[name] !== "function") return;
+      const old = pool[name].bind(pool);
+      pool[name] = function (...args) {
+        const result = old(...args);
+        afterPoolMutation(name);
+        return result;
+      };
+    });
+
+    pool.__v2262MethodsPatched = true;
+  }
+
+  function patchClicks() {
+    if (window.__v2262PoolClickGuard) return;
+    window.__v2262PoolClickGuard = true;
+
+    document.addEventListener("click", function (event) {
+      if (!event.target.closest("#ep-pool-v22-screen")) return;
+
+      const text = (event.target.textContent || "") + " " + (event.target.closest("button")?.textContent || "");
+      const attr = [
+        event.target.getAttribute?.("data-action"),
+        event.target.getAttribute?.("data-p22-action"),
+        event.target.closest("button")?.getAttribute?.("data-action"),
+        event.target.closest("button")?.getAttribute?.("data-p22-action")
+      ].filter(Boolean).join(" ");
+
+      if (
+        /удал|очист|рассчит|подобр|добав/i.test(text) ||
+        /delete|remove|clear|calc|pick|add|reset/i.test(attr)
+      ) {
+        afterPoolMutation("click");
+      }
+    }, true);
+  }
+
+  function observePool() {
+    if (window.__v2262PoolObserver) return;
+
+    const target = document.body;
+    if (!target) return;
+
+    let timer = null;
+    const observer = new MutationObserver(function (mutations) {
+      if (!isPoolOpen()) return;
+
+      const important = mutations.some(m => {
+        if (!m.target) return false;
+        const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+        if (!el) return false;
+        return POOL_SELECTORS.some(sel => el.closest?.(sel) || el.matches?.(sel));
+      });
+
+      if (!important) return;
+
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        forceVersion();
+        decorateManualRows();
+      }, 40);
+    });
+
+    observer.observe(target, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    window.__v2262PoolObserver = observer;
+  }
+
+  function boot() {
+    patchPoolOpen();
+    patchKnownPoolMethods();
+    patchClicks();
+    observePool();
+    forceVersion();
+    decorateManualRows();
+  }
+
+  window.addEventListener("DOMContentLoaded", function () {
+    boot();
+
+    // Финальный страховочный проход после всех старых setTimeout.
+    [250, 700, 1300, 2400, 4200, 7000].forEach(ms => setTimeout(boot, ms));
+  });
+
+  window.PoolV2262VersionGuard = {
+    version: VERSION,
+    forceVersion,
+    afterPoolMutation,
+    boot
+  };
+
+  diag("pool-v22-6-2-ready", "Pool V22.6.2 version guard ready.");
+})();
+
+
+
+/* =========================================================
+   FINAL V22.7 MONOLITH GUARD
+   ========================================================= */
+(function(){
+  const VERSION = "V22.7";
+  function forceVersion(){
+    try{
+      window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
+      window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
+      window.ModuleVersionBadgesV212?.apply?.();
+    }catch(e){}
+    document.querySelectorAll("#ep-pool-v22-screen .p22-head b").forEach(el=>{ el.textContent = VERSION; });
+    const panel = document.getElementById("p224-db-result");
+    if(panel){
+      panel.querySelectorAll(".p224-summary span").forEach(el=>{
+        const t = el.textContent || "";
+        if(t.startsWith("V22.") || t.includes("V22.")) el.textContent = VERSION;
+      });
+    }
+  }
+  function decorate(){
+    try{ window.PoolV226ManualDbCandidatePicker?.decorateRows?.(); }catch(e){}
+  }
+  function boot(){
+    forceVersion();
+    decorate();
+  }
+  window.addEventListener("DOMContentLoaded", function(){
+    boot();
+    [250,700,1300,2400,4200,7000].forEach(ms=>setTimeout(boot,ms));
+    document.addEventListener("click", function(e){
+      if(!e.target.closest("#ep-pool-v22-screen")) return;
+      [80,250,700,1300,2400].forEach(ms=>setTimeout(boot,ms));
+    }, true);
+  });
+  window.PoolV227StableMonolith = { version: VERSION, forceVersion, boot };
 })();

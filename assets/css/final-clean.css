@@ -3284,3 +3284,9 @@ body.ep-auth-restored #login-screen {
 .p226-manual-badge {
   pointer-events: none;
 }
+
+/* === V22.7 Pool Stable Monolith === */
+.p226-row-hint,
+.p226-manual-badge {
+  pointer-events: none;
+}
