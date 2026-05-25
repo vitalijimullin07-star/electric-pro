@@ -2855,3 +2855,22 @@ body.ep-auth-restored #login-screen {
   font-size: 13px;
   font-weight: 950;
 }
+
+/* === V22.5 Safe DB Picker === */
+.p224-row.warn {
+  border-color: rgba(245,158,11,.34);
+  background: rgba(255,251,235,.96);
+}
+
+.p224-row em {
+  display: block;
+  margin-top: 5px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(245,158,11,.14);
+  color: #92400e;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.25;
+}
