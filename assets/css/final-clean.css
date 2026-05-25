@@ -4161,3 +4161,31 @@ body.ep-auth-restored #login-screen {
     grid-template-columns: 1fr;
   }
 }
+
+/* === V24.2.1 Database UI Version Fix === */
+.db-v24-type-buttons {
+  display: grid;
+  grid-template-columns: .7fr 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.db-v24-type-buttons button {
+  min-height: 40px;
+  border: 1px solid rgba(15,23,42,.08);
+  border-radius: 14px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.db-v24-type-buttons button.active {
+  background: rgba(34,197,94,.18);
+  color: #14532d;
+  border-color: rgba(34,197,94,.36);
+}
+
+.db-v24-tree-cat.folder-closed .db-v242-folder-body {
+  display: none;
+}
