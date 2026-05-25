@@ -1,5 +1,5 @@
 {
-  "version": "v22-2-clean-pool-core",
-  "updatedAt": "2026-05-25T17:31:17.765711",
-  "note": "Clean pool V22.2 with forced route"
+  "version": "v22-4-pool-db-picker",
+  "updatedAt": "2026-05-25T18:03:30.188087",
+  "note": "Pool V22.4 DB picker layer"
 }

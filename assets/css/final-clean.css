@@ -2780,3 +2780,78 @@ body.ep-auth-restored #login-screen {
 .p22-item,.p22-draft-row,.p22-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px;border-radius:16px;background:#fff;border:1px solid rgba(15,23,42,.08);margin-bottom:7px}.p22-item b,.p22-draft-row b,.p22-row b{color:#0f172a;font-weight:950}.p22-item p,.p22-item small,.p22-draft-row p,.p22-draft-row small{margin:3px 0 0;color:#64748b;font-size:11px;font-weight:850}.p22-item button{width:36px;height:36px;border:0;border-radius:999px;background:rgba(239,68,68,.13);color:#7f1d1d;font-size:20px;font-weight:950}
 .p22-badge{display:inline-flex;width:fit-content;margin-bottom:8px;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.16);color:#14532d;font-size:11px;font-weight:950}.p22-pins{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.p22-pins span{padding:5px 8px;border-radius:999px;background:rgba(15,23,42,.07);color:#475569;font-size:10px;font-weight:950}.p22-row strong{font-weight:950}.p22-row.muted{background:rgba(15,23,42,.045)}.p22-small{color:#64748b;font-size:11px;font-weight:850}.p22-total{display:grid;grid-template-columns:1fr auto;padding:12px;border-radius:16px;background:rgba(34,197,94,.16);color:#14532d;font-weight:950}
 @media(max-width:640px){.p22-route{grid-template-columns:1fr 108px}.p22-buttons button{font-size:11px}.p22-counter{grid-template-columns:minmax(0,1fr) 124px}.p22-mini{grid-template-columns:32px 1fr 32px}.p22-mini button{width:32px;height:32px}.p22-frame-row{grid-template-columns:1fr}.p22-pin-grid{grid-template-columns:repeat(3,1fr)}}
+
+/* === V22.4 Pool DB Picker === */
+.p224-db-result {
+  border: 1px solid rgba(34,197,94,.22);
+}
+
+.p224-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.p224-summary span {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(34,197,94,.14);
+  color: #14532d;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.p224-list {
+  display: grid;
+  gap: 7px;
+}
+
+.p224-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.p224-row.ok {
+  border-color: rgba(34,197,94,.28);
+  background: rgba(240,253,244,.96);
+}
+
+.p224-row.miss {
+  border-color: rgba(239,68,68,.22);
+  background: rgba(254,242,242,.96);
+}
+
+.p224-row b {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.p224-row p {
+  margin: 3px 0 0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.p224-row small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.p224-row strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
