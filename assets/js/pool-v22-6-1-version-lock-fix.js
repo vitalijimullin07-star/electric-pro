@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "V22.6.1";
+  const VERSION = "V22.6.2";
   const FILE = "assets/js/pool-v22-6-1-version-lock-fix.js";
 
   function diag(code, message, extra = {}) {

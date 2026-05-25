@@ -3278,3 +3278,9 @@ body.ep-auth-restored #login-screen {
   background: rgba(239,68,68,.12);
   color: #7f1d1d;
 }
+
+/* === V22.6.2 Pool Version Guard === */
+.p226-row-hint,
+.p226-manual-badge {
+  pointer-events: none;
+}
