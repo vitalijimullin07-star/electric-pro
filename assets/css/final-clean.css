@@ -3537,3 +3537,359 @@ body.ep-auth-restored #login-screen {
   text-align: left;
   padding: 0 12px;
 }
+
+/* === V24.1 Database Core Foundation === */
+#ep-db-v24-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%) translateY(18px);
+  z-index: 999999;
+  max-width: min(92vw, 540px);
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15,23,42,.94);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  opacity: 0;
+  pointer-events: none;
+  transition: .18s ease;
+}
+
+#ep-db-v24-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.db-v24-screen.hidden {
+  display: none !important;
+}
+
+.db-v24-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9992;
+  overflow: auto;
+  padding: 14px;
+  background: linear-gradient(135deg,#06141f,#052e2b 55%,#111827);
+  color: #0f172a;
+}
+
+.db-v24-head {
+  position: sticky;
+  top: 6px;
+  z-index: 10;
+  max-width: 900px;
+  margin: 0 auto 10px;
+  min-height: 48px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border-radius: 20px;
+  background: rgba(248,250,252,.97);
+  box-shadow: 0 14px 38px rgba(0,0,0,.24);
+}
+
+.db-v24-head button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15,23,42,.08);
+  font-size: 19px;
+  font-weight: 950;
+}
+
+.db-v24-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 950;
+  color: #0f172a;
+}
+
+.db-v24-head p {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.db-v24-head b {
+  min-width: 66px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(34,197,94,.16);
+  color: #14532d;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.db-v24-shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding-bottom: 120px;
+  display: grid;
+  gap: 10px;
+}
+
+.db-v24-card {
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(248,250,252,.96);
+  border: 1px solid rgba(255,255,255,.32);
+  box-shadow: 0 14px 38px rgba(0,0,0,.16);
+}
+
+.db-v24-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.db-v24-switch button,
+.db-v24-file-actions button,
+.db-v24-import button,
+.db-v24-import label,
+.db-v24-menu-btn {
+  min-height: 40px;
+  border: 1px solid rgba(15,23,42,.08);
+  border-radius: 14px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.db-v24-switch button.active {
+  background: rgba(34,197,94,.18);
+  color: #14532d;
+  border-color: rgba(34,197,94,.36);
+}
+
+.db-v24-note,
+.db-v24-small {
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.db-v24-card-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.db-v24-card-head h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.db-v24-card-head span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,.06);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.db-v24-file-actions,
+.db-v24-import {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.db-v24-import {
+  grid-template-columns: 1fr 1fr;
+}
+
+.db-v24-import label {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.db-v24-import input {
+  display: none;
+}
+
+.db-v24-tree {
+  display: grid;
+  gap: 7px;
+}
+
+.db-v24-tree-cat {
+  padding: 9px;
+  border-radius: 14px;
+  background: rgba(15,23,42,.045);
+}
+
+.db-v24-tree-cat b {
+  display: block;
+  margin-bottom: 5px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.db-v24-tree-cat div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.db-v24-tree-cat span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.db-v24-filters {
+  display: grid;
+  grid-template-columns: 1.3fr .7fr 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.db-v24-filters input,
+.db-v24-filters select {
+  min-height: 38px;
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.db-v24-list {
+  display: grid;
+  gap: 7px;
+}
+
+.db-v24-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+.db-v24-item.selected {
+  border-color: rgba(34,197,94,.36);
+  background: rgba(240,253,244,.96);
+}
+
+.db-v24-item label {
+  display: grid;
+  gap: 3px;
+  place-items: center;
+}
+
+.db-v24-item label span {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 950;
+}
+
+.db-v24-item-main b {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.db-v24-item-main p {
+  margin: 3px 0 0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.db-v24-item-main small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.db-v24-item-actions {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+
+.db-v24-item-actions strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.db-v24-item-actions button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15,23,42,.08);
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 0 10px;
+}
+
+.db-v24-empty {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(15,23,42,.06);
+  color: #64748b;
+  font-weight: 900;
+}
+
+.db-v24-warehouse p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.db-v24-menu-btn {
+  width: 100%;
+  margin: 4px 0;
+  text-align: left;
+  padding: 0 12px;
+}
+
+@media(max-width:720px) {
+  .db-v24-file-actions,
+  .db-v24-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .db-v24-item {
+    grid-template-columns: auto 1fr;
+  }
+  .db-v24-item-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
