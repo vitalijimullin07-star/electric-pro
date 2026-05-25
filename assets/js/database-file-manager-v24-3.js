@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "V24.3";
+  const VERSION = "V24.3.1";
   const FILE = "assets/js/database-file-manager-v24-3.js";
 
   const KEYS = {
@@ -925,6 +925,22 @@
         event.preventDefault();
         open();
         return;
+      }
+
+      const modalRoot = event.target.closest("#db-v243-card-modal");
+      if (modalRoot) {
+        if (event.target.closest("[data-db243-card-close]")) {
+          event.preventDefault();
+          closeCard();
+          return;
+        }
+
+        const modalEdit = event.target.closest("[data-db243-edit]");
+        if (modalEdit) {
+          event.preventDefault();
+          editItem(modalEdit.getAttribute("data-db243-edit"));
+          return;
+        }
       }
 
       const root = event.target.closest("#ep-db-v243-screen");
