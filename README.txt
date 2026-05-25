@@ -1,11 +1,11 @@
-Electric Pro V24.1 — Database Core Foundation
+Electric Pro V24.2 — Database UI Folders + Cards
 
 Установка:
 cd /sdcard/Download/ep
-unzip -o ../electric-pro-v24-1-database-core-foundation.zip
-cd electric-pro-v24-1-database-core-foundation
+unzip -o ../db-v24-2.zip
+cd db-v24-2-ui-folders-cards
 chmod +x install_termux.sh
 bash install_termux.sh
 
-Смысл версии:
-строим фундамент БД и будущего склада. Сначала БД, потом склад отдельным слоем.
+Смысл:
+улучшаем экран БД: кнопки «Работы/Материалы», папки, карточки позиций.
