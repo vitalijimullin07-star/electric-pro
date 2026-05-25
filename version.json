@@ -1,1 +1,5 @@
-{"version":"v22-1-pool-route-auth-log-fix-20260522-01","updatedAt":"2026-05-22T22:17:38+03:00","note":"Pool V22.1 route fix and auth log dedupe"}
+{
+  "version": "v22-2-clean-pool-core",
+  "updatedAt": "2026-05-25T17:31:17.765711",
+  "note": "Clean pool V22.2 with forced route"
+}
