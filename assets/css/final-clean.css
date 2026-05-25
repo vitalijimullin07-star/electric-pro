@@ -2874,3 +2874,9 @@ body.ep-auth-restored #login-screen {
   font-weight: 900;
   line-height: 1.25;
 }
+
+/* === V22.5.1 Force Safe Picker === */
+.p224-row.miss small,
+.p224-row.warn small {
+  color: #92400e;
+}

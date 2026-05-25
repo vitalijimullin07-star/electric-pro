@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "V22.5";
+  const VERSION = "V22.5.1";
   const FILE = "assets/js/pool-v22-5-safe-db-picker.js";
   const DRAFT_KEY = "ep_pool_v22_draft";
   const RESULT_KEY = "ep_pool_v22_db_pick_result";
@@ -343,6 +343,12 @@
       const best = candidates[0];
 
       if (best && best.score >= 45) {
+        const rn = normalizeName(row.name);
+        const bh = itemHay(best.item);
+        if (/высверл|сверл/.test(rn) && /подроз|подраз/.test(bh) && !/высверл|сверл|бурен|работ/.test(bh)) {
+          rows.push({ row, picked: null, score: best.score, warnings: ["кандидат отклонён: это материал, а нужна работа"], candidates });
+          return { ...row, missingDb: true, dbPickScore: best.score, dbPickWarnings: ["кандидат отклонён: это материал, а нужна работа"] };
+        }
         picked += 1;
         warningsCount += best.warnings.length;
 
@@ -361,7 +367,7 @@
           dbName: best.item.name,
           dbItemId: best.item.id,
           missingDb: false,
-          dbSourceKey: best.item.sourceKey,
+          dbSourceKey: "safe_db_picker_v22_5_1",
           dbPickScore: best.score,
           dbPickWarnings: best.warnings
         };
@@ -460,7 +466,7 @@
             <div>
               <b>${esc(row.name)}</b>
               <p>Подобрано: ${esc(picked.name)}</p>
-              <small>${esc(picked.sourceKey)} · score ${esc(x.score)}</small>
+              <small>safe_db_picker_v22_5_1 · score ${esc(x.score)}</small>
               ${warnings.length ? `<em>${warnings.map(esc).join("<br>")}</em>` : ""}
             </div>
             <strong>${money(picked.price)}</strong>
