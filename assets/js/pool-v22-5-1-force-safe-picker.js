@@ -33,6 +33,7 @@
   }
 
   function markVersion() {
+    if (window.PoolV226ManualDbCandidatePicker || window.PoolV2261VersionLockFix) return;
     try {
       window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
       window.ModuleVersionBadgesV212?.setVersion?.("rough", VERSION);
