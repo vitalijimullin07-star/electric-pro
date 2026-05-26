@@ -1,1 +1,1 @@
-{"version": "v24-4-4-visible-version-dot-20260527-01", "updatedAt": "2026-05-27T01:11:09.472688", "note": "Visible DB version and header diagnostics dot V24.4.4"}
+{"version": "v24-4-5-db-version-lock-20260527-01", "updatedAt": "2026-05-27T01:15:06.311314", "note": "Database V24.4.5 version lock against late rollback"}
