@@ -5325,3 +5325,103 @@ body.ep-auth-restored #login-screen {
   .db244-info-grid { grid-template-columns:1fr; }
   .db244-diagnostics-toolbar { grid-template-columns:1fr 1fr; }
 }
+
+/* === V24.4.1 DB UI + Server + Masters Fix === */
+.db244-list-head {
+  grid-template-columns: 1fr auto auto !important;
+}
+
+.db244-list-head button[data-db244-toggle-all] {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20,184,166,.14);
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.db244-folder-check {
+  width: 28px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+}
+
+.db244-folder-check input,
+.db244-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #22c55e;
+}
+
+.db244-check-head {
+  grid-template-columns: 30px 1fr !important;
+}
+
+.db244-tabs {
+  align-items: stretch !important;
+}
+
+.db244-tabs button {
+  position: relative !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+
+.db244-tabs button .db244-menu-badge,
+.db244-tabs button .module-version-badge,
+.db244-tabs button .version-badge,
+.db244-tabs button [class*="badge"],
+.db244-tabs button span:not(:first-child) {
+  display: none !important;
+}
+
+.db244-tabs button::after {
+  content: none !important;
+}
+
+.db244-view-switch button,
+.db244-tabs button {
+  min-width: 0 !important;
+}
+
+.db244-save-status {
+  align-items: center !important;
+  justify-content: flex-start !important;
+  overflow: hidden !important;
+}
+
+.db244-save-status b {
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.db244-editor-toggle em {
+  min-width: 78px;
+  text-align: right;
+}
+
+.db244-editor-block select {
+  background: #fff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15,23,42,.16) !important;
+  opacity: 1 !important;
+}
+
+@media(max-width:720px) {
+  .db244-list-head {
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+  }
+
+  .db244-list-head span,
+  .db244-list-head button[data-db244-toggle-all] {
+    width: fit-content;
+  }
+}
