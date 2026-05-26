@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "V24.5";
+  const VERSION = "V24.4.5";
   const FILE = "assets/js/database-v24-clean-monolith.js";
 
   const KEYS = {
