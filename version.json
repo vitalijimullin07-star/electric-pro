@@ -1,1 +1,1 @@
-{"version": "v25-5-home-burger-unlock-20260527-01", "updatedAt": "2026-05-27T08:34:57.232733", "note": "Prevent database auto-open and restore burger access"}
+{"version": "rollback-shell-burger-v24-3-2", "updatedAt": "2026-05-27T08:38:09.528594", "note": "Rollback main screen and burger menu to stable V24.3.2 point"}
