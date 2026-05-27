@@ -1,1 +1,1 @@
-{"version": "v26-0-surgical-monolith-db-20260527-01", "updatedAt": "2026-05-27T13:26:57.902157", "note": "Surgical monolith database V26.0 without changing home screen or burger visual"}
+{"version": "v26-1-route-v26-not-old-20260527-01", "updatedAt": "2026-05-27T13:41:40.716729", "note": "Route existing database button to V26 monolith instead of old V24 database"}
