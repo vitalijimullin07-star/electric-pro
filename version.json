@@ -1,5 +1,1 @@
-{
-  "version": "rollback-before-db-monolith-v24-3-3",
-  "updatedAt": "2026-05-27T09:07:18+03:00",
-  "note": "Full rollback to stable point before DB monolith: 54d55fe Improve database import and autosave V24.3.3"
-}
+{"version": "v26-0-surgical-monolith-db-20260527-01", "updatedAt": "2026-05-27T13:26:57.902157", "note": "Surgical monolith database V26.0 without changing home screen or burger visual"}

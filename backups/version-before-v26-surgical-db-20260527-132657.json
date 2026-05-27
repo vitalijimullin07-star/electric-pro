@@ -1,0 +1,5 @@
+{
+  "version": "rollback-before-db-monolith-v24-3-3",
+  "updatedAt": "2026-05-27T09:07:18+03:00",
+  "note": "Full rollback to stable point before DB monolith: 54d55fe Improve database import and autosave V24.3.3"
+}
