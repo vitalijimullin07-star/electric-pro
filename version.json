@@ -1,1 +1,5 @@
-{"version": "v25-7-db-modal-style-fix-20260527-01", "updatedAt": "2026-05-27T08:50:51.976894", "note": "Force database screen to fullscreen modal style"}
+{
+  "version": "rollback-before-db-monolith-v24-3-3",
+  "updatedAt": "2026-05-27T09:07:18+03:00",
+  "note": "Full rollback to stable point before DB monolith: 54d55fe Improve database import and autosave V24.3.3"
+}
