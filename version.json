@@ -1,1 +1,1 @@
-{"version": "v25-4-2-burger-old-visual-fix-20260527-01", "updatedAt": "2026-05-27T08:28:24.942083", "note": "Fixed copy path for old burger visual package"}
+{"version": "v25-5-home-burger-unlock-20260527-01", "updatedAt": "2026-05-27T08:34:57.232733", "note": "Prevent database auto-open and restore burger access"}
