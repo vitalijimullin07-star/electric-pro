@@ -1,11 +1,11 @@
-Electric Pro V26.1 — Route database button to V26
+Electric Pro V26.2 — DB Interaction Fix
 
 Установка:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-1-route-v26-not-old.zip
-cd db-v26-1-route-v26-not-old
+unzip -o ../db-v26-2-interaction-fix.zip
+cd db-v26-2-interaction-fix
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=261
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=262
