@@ -1,11 +1,11 @@
-Electric Pro V26.2.2 — Visible DB Version Fix
+Electric Pro V26.3 — Finish DB
 
 Установка:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-2-2-visible-version-fix.zip
-cd db-v26-2-2-visible-version-fix
+unzip -o ../db-v26-3-finish-db.zip
+cd db-v26-3-finish-db
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=2622
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=263
