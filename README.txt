@@ -1,11 +1,11 @@
-Electric Pro V26.2.1 — DB Version Lock
+Electric Pro V26.2.2 — Visible DB Version Fix
 
 Установка:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-2-1-version-lock.zip
-cd db-v26-2-1-version-lock
+unzip -o ../db-v26-2-2-visible-version-fix.zip
+cd db-v26-2-2-visible-version-fix
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=2621
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=2622

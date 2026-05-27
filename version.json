@@ -1,1 +1,1 @@
-{"version": "v26-2-1-version-lock-20260527-01", "updatedAt": "2026-05-27T22:49:23.610539", "note": "Display DB version as V26.2.1 without touching DB logic"}
+{"version": "v26-2-2-visible-version-fix-20260527-01", "updatedAt": "2026-05-27T22:53:48.912097", "note": "Hard visible DB version fix: header V26.2.2 and hide ghost version badges"}
