@@ -6637,34 +6637,3 @@ body.ep-auth-restored #login-screen {
     grid-template-columns: 1fr;
   }
 }
-
-/* === V25.3 Main Screen Clean DB Leaks === */
-.main-v253-hide-db-leak {
-  display: none !important;
-}
-
-/* Старые экраны БД не должны появляться на главном экране */
-body:not(.main-v253-db-open) #ep-db-v244-screen,
-body:not(.main-v253-db-open) #ep-db-v243-screen,
-body:not(.main-v253-db-open) #ep-db-v24-screen,
-body:not(.main-v253-db-open) #ep-database-screen,
-body:not(.main-v253-db-open) .db244-screen,
-body:not(.main-v253-db-open) .db243-screen,
-body:not(.main-v253-db-open) .db24-screen,
-body:not(.main-v253-db-open) .database-screen {
-  display: none !important;
-}
-
-/* Гасим остатки тяжёлого визуала меню V24.5, если он остался в DOM */
-.shell-v252-visual-restored .ep-shell-v245-panel,
-.shell-v252-visual-restored .ep-shell-v245-row,
-.shell-v252-visual-restored .ep-shell-v245-profile,
-.shell-v252-visual-restored .ep-shell-v245-list,
-.shell-v252-visual-restored .ep-shell-v245-logout {
-  all: unset;
-}
-
-/* Плавающая точка старой диагностики справа не нужна */
-#db2443-diag-dot {
-  display: none !important;
-}

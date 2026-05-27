@@ -1,1 +1,1 @@
-{"version": "v25-db-hard-monolith-20260527-01", "updatedAt": "2026-05-27T01:28:03.546902", "note": "Database V25 hard monolith replaces old placeholder"}
+{"version": "v25-3-main-clean-db-leaks-20260527-01", "updatedAt": "2026-05-27T07:46:20.475849", "note": "Clean orphan database rows from main screen"}
