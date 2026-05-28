@@ -4,7 +4,7 @@
   if (window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__) return;
   window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__ = true;
 
-  const VERSION = "V26.8";
+  const VERSION = "V26.6";
   const FILE = "assets/js/database-v26-6-subscription-balance-sync-ui.js";
   const ADMIN_EMAIL = "vits0007@gmail.com";
 
@@ -14,8 +14,7 @@
     masters: "epdb26_masters",
     log: "epdb26_log",
     sync: "epdb26_sync_state",
-    access: "ep_access_v26_state",
-    clear: "epdb26_clear_meta"
+    access: "ep_access_v26_state"
   };
 
   const state = {
@@ -66,74 +65,6 @@
 
   function writeJson(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
-  }
-
-  function clearMeta() {
-    const meta = readJson(KEYS.clear, {});
-    return meta && typeof meta === "object" ? meta : {};
-  }
-
-  function writeClearMeta(meta) {
-    writeJson(KEYS.clear, meta || {});
-  }
-
-  function scopeByKey(key) {
-    if (key === KEYS.my) return "my";
-    if (key === KEYS.server) return "server";
-    return "";
-  }
-
-  function isCleared(scope) {
-    const meta = clearMeta();
-    return !!(scope && meta[scope] && meta[scope].cleared);
-  }
-
-  function markCleared(scope, reason = "manual-clear") {
-    if (!scope) return;
-    const meta = clearMeta();
-    meta[scope] = {
-      cleared: true,
-      clearedAt: meta[scope]?.clearedAt || new Date().toISOString(),
-      lastSeenAt: new Date().toISOString(),
-      reason,
-      version: VERSION
-    };
-    writeClearMeta(meta);
-    log("clear-mark", `Флаг очистки БД сохранён: ${scope}`, meta[scope]);
-  }
-
-  function unmarkCleared(scope) {
-    if (!scope) return;
-    const meta = clearMeta();
-    if (meta[scope]) {
-      delete meta[scope];
-      writeClearMeta(meta);
-      log("clear-unmark", `Флаг очистки БД снят: ${scope}`);
-    }
-  }
-
-  function remoteCleared(data) {
-    if (!data || typeof data !== "object") return false;
-    if (data.dbCleared === true || data.cleared === true) return true;
-    const items = extractItems(data);
-    const reason = norm(data.reason || data.clearReason || "");
-    return Array.isArray(items) && !items.length && (reason.includes("clear") || reason.includes("очист"));
-  }
-
-  function clearPayload(scope, rows) {
-    const meta = clearMeta()[scope] || {};
-    const cleared = rows.length === 0 && isCleared(scope);
-    return cleared ? {
-      dbCleared: true,
-      clearedAtClient: meta.clearedAt || new Date().toISOString(),
-      clearedByUid: state.uid || "",
-      clearedByEmail: state.email || "",
-      clearReason: meta.reason || "manual-clear"
-    } : {
-      dbCleared: false,
-      clearedAtClient: null,
-      clearReason: ""
-    };
   }
 
   function hash(value) {
@@ -465,180 +396,21 @@
     return bar;
   }
 
-
-  function ensureTopAccessLine() {
-    injectTopStatusLockCss();
-
-    let line = $("#epTopStatusLine");
-    const topbar = $(".topbar") || $("header");
-
-    if (!line) {
-      line = document.createElement("div");
-      line.id = "epTopStatusLine";
-      line.className = "ep-top-status-line";
-      line.innerHTML = '<div class="ep-top-status-left">Нет подписки</div><div class="ep-top-status-right">ИИ выкл.</div>';
-    } else {
-      line.className = "ep-top-status-line";
-
-      // Если старый скрипт уже превратил строку в одно большое поле,
-      // восстанавливаем две маленькие плашки: подписка слева, ИИ справа.
-      if (!line.querySelector(".ep-top-status-left") || !line.querySelector(".ep-top-status-right")) {
-        line.innerHTML = '<div class="ep-top-status-left">Нет подписки</div><div class="ep-top-status-right">ИИ выкл.</div>';
-      }
-    }
-
-    // Строка статуса должна быть строго под верхней шапкой.
-    if (topbar && topbar.parentElement && topbar.nextElementSibling !== line) {
-      topbar.parentElement.insertBefore(line, topbar.nextSibling);
-    } else if (!line.parentElement) {
-      const app = $("#appShell") || $(".app-shell") || document.body;
-      app.prepend(line);
-    }
-
-    return line;
-  }
-
-  function injectTopStatusLockCss() {
-    if ($("#ep269-top-status-lock-style")) return;
-
-    const st = document.createElement("style");
-    st.id = "ep269-top-status-lock-style";
-    st.textContent = `
-#ep266-access-bar{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-
-#epTopStatusLine.ep-top-status-line{
-  position:relative!important;
-  top:auto!important;
-  left:auto!important;
-  right:auto!important;
-  z-index:70!important;
-  height:7mm!important;
-  min-height:7mm!important;
-  max-height:7mm!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) auto!important;
-  gap:6px!important;
-  align-items:center!important;
-  margin:0 8px 5px!important;
-  padding:0 8px!important;
-  border-radius:0 0 16px 16px!important;
-  background:rgba(241,245,249,.94)!important;
-  border:1px solid rgba(15,23,42,.08)!important;
-  border-top:0!important;
-  box-shadow:0 8px 24px rgba(15,23,42,.12)!important;
-  backdrop-filter:blur(16px)!important;
-  overflow:hidden!important;
-}
-
-#epTopStatusLine .ep-top-status-left,
-#epTopStatusLine .ep-top-status-right{
-  min-width:0!important;
-  height:4.6mm!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  padding:0 7px!important;
-  border-radius:999px!important;
-  font:950 9px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  background:rgba(226,232,240,.92)!important;
-}
-
-#epTopStatusLine .ep-top-status-left{
-  justify-content:flex-start!important;
-}
-
-#epTopStatusLine[data-status="pro"] .ep-top-status-left{
-  background:rgba(34,197,94,.20)!important;
-  color:#064e3b!important;
-}
-
-#epTopStatusLine[data-status="basic"] .ep-top-status-left{
-  background:rgba(59,130,246,.17)!important;
-  color:#1e3a8a!important;
-}
-
-#epTopStatusLine[data-status="trial"] .ep-top-status-left{
-  background:rgba(245,158,11,.22)!important;
-  color:#78350f!important;
-}
-
-#epTopStatusLine[data-status="none"] .ep-top-status-left{
-  background:rgba(239,68,68,.13)!important;
-  color:#7f1d1d!important;
-}
-
-#epTopStatusLine[data-ai="own_api"] .ep-top-status-right{
-  background:rgba(168,85,247,.16)!important;
-  color:#581c87!important;
-}
-
-#epTopStatusLine[data-ai="admin_api"] .ep-top-status-right{
-  background:rgba(34,197,94,.18)!important;
-  color:#064e3b!important;
-}
-
-#epTopStatusLine[data-ai="disabled"] .ep-top-status-right{
-  background:rgba(239,68,68,.13)!important;
-  color:#7f1d1d!important;
-}
-
-#epTopStatusLine .ep-top-status-right{
-  max-width:33vw!important;
-}
-`;
-    document.head.appendChild(st);
-  }
-
-  function accessStatusKind(a) {
-    const label = String(a.subscriptionLabel || "").toLowerCase();
-    if (label.includes("с ии")) return "pro";
-    if (label.includes("баз")) return "basic";
-    if (label.includes("тест") || label.includes("проб")) return "trial";
-    return "none";
-  }
-
-  function accessAiKind(a) {
-    const mode = norm(a.aiMode || "");
-    const label = norm(a.aiLabel || "");
-
-    if (mode.includes("own") || mode.includes("client") || mode.includes("клиент") || label.includes("api")) {
-      return "own_api";
-    }
-
-    if (a.aiEnabled || label.includes("ии ") || label.includes("руб") || label.includes("₽")) {
-      return "admin_api";
-    }
-
-    return "disabled";
-  }
-
   function updateAccessUI() {
-    const a = state.access || {};
+    const a = state.access;
 
-    // Старую плавающую плашку убираем: именно она иногда превращала статус
-    // в большое белое поле под шапкой.
-    const oldFloating = $("#ep266-access-bar");
-    if (oldFloating) oldFloating.remove();
+    const subOk = setChipText("sub", a.subscriptionLabel || "Нет подписки");
+    const aiOk = setChipText("ai", a.aiLabel || "ИИ выкл.");
 
-    const line = ensureTopAccessLine();
-    const sub = $(".ep-top-status-left", line);
-    const ai = $(".ep-top-status-right", line);
-
-    if (sub) sub.textContent = a.subscriptionLabel || "Нет подписки";
-    if (ai) ai.textContent = a.aiLabel || "ИИ выкл.";
-
-    line.dataset.status = accessStatusKind(a);
-    line.dataset.ai = accessAiKind(a);
+    const bar = (!subOk || !aiOk) ? ensureAccessBar() : $("#ep266-access-bar");
+    if (bar) {
+      const s = $("[data-ep266-sub-chip]", bar);
+      const i = $("[data-ep266-ai-chip]", bar);
+      if (s) s.textContent = a.subscriptionLabel || "Нет подписки";
+      if (i) i.textContent = a.aiLabel || "ИИ выкл.";
+      bar.classList.toggle("hidden", subOk && aiOk);
+    }
   }
-
 
   function syncState(status, text, extra = {}) {
     const payload = {
@@ -728,12 +500,8 @@
     state.saving = true;
     syncState("saving", "выгружаю мою БД...");
     const rows = localMy();
-    if (rows.length === 0 && (isCleared("my") || norm(reason).includes("clear") || norm(reason).includes("очист"))) markCleared("my", reason);
-    if (rows.length > 0) unmarkCleared("my");
-    const clearInfo = clearPayload("my", rows);
 
     await firestore.collection("user_db").doc(state.uid).set({
-      ...clearInfo,
       uid: state.uid,
       email: state.email,
       displayName: state.name,
@@ -761,12 +529,8 @@
     state.saving = true;
     syncState("saving", "выгружаю БД сервера...");
     const rows = localServer();
-    if (rows.length === 0 && (isCleared("server") || norm(reason).includes("clear") || norm(reason).includes("очист"))) markCleared("server", reason);
-    if (rows.length > 0) unmarkCleared("server");
-    const clearInfo = clearPayload("server", rows);
 
     await firestore.collection("server_db").doc("main").set({
-      ...clearInfo,
       items: rows,
       workCount: rows.filter(x => x.type === "work").length,
       materialCount: rows.filter(x => x.type === "material").length,
@@ -793,28 +557,9 @@
     syncState("loading", "загружаю мою БД...");
     const ref = firestore.collection("user_db").doc(state.uid);
     const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
 
     const local = localMy();
-    const remote = snap.exists ? sortRows(extractItems(data)) : [];
-
-    if (isCleared("my")) {
-      writeLocal(KEYS.my, [], "local-clear-wins-my");
-      state.lastMyHash = hash([]);
-      await saveMy("hard-clear-my");
-      state.loading = false;
-      syncState("ok", "моя БД очищена и закреплена на сервере");
-      return;
-    }
-
-    if (remoteCleared(data)) {
-      markCleared("my", "remote-clear-my");
-      writeLocal(KEYS.my, [], "remote-clear-my");
-      state.lastMyHash = hash([]);
-      state.loading = false;
-      syncState("ok", "моя БД пустая");
-      return;
-    }
+    const remote = snap.exists ? sortRows(extractItems(snap.data())) : [];
 
     if (!snap.exists || !remote.length) {
       if (local.length) await saveMy("first-upload-local-my");
@@ -824,7 +569,6 @@
         displayName: state.name,
         role: state.isAdmin ? "admin" : "master",
         items: [],
-        dbCleared: false,
         version: VERSION,
         updatedAt: ts(),
         updatedAtClient: new Date().toISOString()
@@ -852,28 +596,9 @@
     syncState("loading", "загружаю БД сервера...");
     const ref = firestore.collection("server_db").doc("main");
     const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
 
     const local = localServer();
-    const remote = snap.exists ? sortRows(extractItems(data)) : [];
-
-    if (isCleared("server")) {
-      writeLocal(KEYS.server, [], "local-clear-wins-server");
-      state.lastServerHash = hash([]);
-      if (state.isAdmin) await saveServer("hard-clear-server");
-      state.loading = false;
-      syncState("ok", state.isAdmin ? "БД сервера очищена и закреплена" : "БД сервера очищена локально");
-      return;
-    }
-
-    if (remoteCleared(data)) {
-      markCleared("server", "remote-clear-server");
-      writeLocal(KEYS.server, [], "remote-clear-server");
-      state.lastServerHash = hash([]);
-      state.loading = false;
-      syncState("ok", "БД сервера пустая");
-      return;
-    }
+    const remote = snap.exists ? sortRows(extractItems(snap.data())) : [];
 
     if (!snap.exists || !remote.length) {
       if (state.isAdmin && local.length) await saveServer("first-upload-local-server");
@@ -930,19 +655,7 @@
 
     state.unsubMy = firestore.collection("user_db").doc(state.uid).onSnapshot(snap => {
       if (!snap.exists || state.loading || state.saving) return;
-      const data = snap.data() || {};
-      const remote = sortRows(extractItems(data));
-      if (isCleared("my")) {
-        if (remote.length) saveMy("snapshot-hard-clear-my");
-        return;
-      }
-      if (remoteCleared(data)) {
-        markCleared("my", "snapshot-remote-clear-my");
-        writeLocal(KEYS.my, [], "snapshot-remote-clear-my");
-        state.lastMyHash = hash([]);
-        syncState("ok", "моя БД пустая");
-        return;
-      }
+      const remote = sortRows(extractItems(snap.data()));
       if (hash(remote) === state.lastMyHash) return;
       const merged = mergeRows(localMy(), remote);
       writeLocal(KEYS.my, merged, "snapshot-my");
@@ -956,19 +669,7 @@
 
     state.unsubServer = firestore.collection("server_db").doc("main").onSnapshot(snap => {
       if (!snap.exists || state.loading || state.saving) return;
-      const data = snap.data() || {};
-      const remote = sortRows(extractItems(data));
-      if (isCleared("server")) {
-        if (state.isAdmin && remote.length) saveServer("snapshot-hard-clear-server");
-        return;
-      }
-      if (remoteCleared(data)) {
-        markCleared("server", "snapshot-remote-clear-server");
-        writeLocal(KEYS.server, [], "snapshot-remote-clear-server");
-        state.lastServerHash = hash([]);
-        syncState("ok", "БД сервера пустая");
-        return;
-      }
+      const remote = sortRows(extractItems(snap.data()));
       if (hash(remote) === state.lastServerHash) return;
       const rows = state.isAdmin ? mergeRows(localServer(), remote) : remote;
       writeLocal(KEYS.server, rows, "snapshot-server");
@@ -1292,18 +993,8 @@
     loadAccessDocs,
     updateAccessUI,
     updateDbSyncUI,
-    markCleared,
-    unmarkCleared,
-    isCleared,
     keys: KEYS
   };
-
-  window.addEventListener("epdb26:changed", ev => {
-    const d = ev.detail || {};
-    if (d.cleared) markCleared(d.base, "ui-clear-event");
-    else if (d.count > 0) unmarkCleared(d.base);
-    if (state.ready && !state.loading && !state.saving) debouncePush(d.cleared ? "ui-clear" : "ui-change");
-  });
 
   window.addEventListener("DOMContentLoaded", () => {
     boot();

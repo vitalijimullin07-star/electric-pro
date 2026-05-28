@@ -1,5 +1,5 @@
 {
-  "version": "v26-8-db-hard-clear-20260528-01",
-  "updatedAt": "2026-05-28T19:05:00+02:00",
-  "note": "DB hard clear: empty local DB no longer restores from Firebase/default seed; added clear flags and sync indicators."
+  "version": "v26-9-top-status-lock-20260528-01",
+  "updatedAt": "2026-05-28T17:47:12.533200",
+  "note": "Top subscription/AI status locked under header; removed large floating access bar rewrite. Keeps V26.8 DB hard clear files."
 }
