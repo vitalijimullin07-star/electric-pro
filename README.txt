@@ -1,15 +1,14 @@
-Electric Pro V26.5 — Firebase DB Sync
+Electric Pro V26.6 — Subscription + Balance + DB Sync UI
 
 Установка через Termux:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-5-firebase-sync.zip
-cd db-v26-5-firebase-sync
+unzip -o ../db-v26-6-subscription-balance-sync-ui.zip
+cd db-v26-6-subscription-balance-sync-ui
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=265
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=266
 
-Если Firebase пишет permission-denied:
-обновить Firestore Rules через Ubuntu/Firebase CLI файлом:
-FIRESTORE_RULES_DB_V26_5.rules
+Если подписка/баланс не читаются:
+обновить Firestore Rules файлом FIRESTORE_RULES_DB_V26_6.rules через Ubuntu/Firebase CLI.
