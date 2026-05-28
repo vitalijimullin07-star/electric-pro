@@ -411,7 +411,7 @@ function copyDiag(){
 function importModal(){let old=S.base;S.base="server";let html=tree(base("server").filter(x=>x.type===S.type));S.base=old;openModal(`<div class="db264-panel"><div class="db264-head"><h3>Импорт из БД сервера</h3><button data-db26-closemodal>×</button></div><p>Открой БД сервера, выбери позиции галочками и добавь в Мою БД.</p><div class="db264-actions"><button data-db264-srvview>Открыть БД сервера</button><button data-db26-copysrv>Добавить выбранное в мою БД</button></div></div>`)}
 function copySrv(){let srv=base("server"),my=base("my"),sel=srv.filter(x=>S.sel.has(x.id));if(!sel.length)return alert("Сначала выбери позиции в БД сервера.");let a=0,d=0;sel.forEach(x=>{let sig=nrm(x.type+"|"+x.name+"|"+x.unit);if(my.some(y=>nrm(y.type+"|"+y.name+"|"+y.unit)===sig))d++;else{my.push(item({...x,id:undefined,source:"server_copy"},x.type,"my"));a++}});save("my",my);S.base="my";S.sel.clear();alert("Добавлено: "+a+". Дубли: "+d);render()}
 
-function open(){migrate();S.base=localStorage.getItem("epdb26_active_base")==="server"?"server":"my";S.type="work";S.q="";S.sel.clear();S.open.clear();render();el().classList.remove("hidden");log("open","БД V26.4 открыта")}
+function open(){migrate();S.base="my";S.type="work";S.q="";S.sel.clear();S.open.clear();render();el().classList.remove("hidden");log("open","БД V26.4 открыта")}
 function close(){el().classList.add("hidden")}
 
 function externalDbTrigger(x){if(!x||x.closest?.("#ep-db-v26,#db26modal,.ep2615-picker"))return false;if(x.closest?.("[data-ep2615-main-picker],[data-ep2616-main-picker],.ep2615-estimate-card"))return false;let t=nrm(x.textContent),a=[x.id,x.className,x.getAttribute?.("data-route"),x.getAttribute?.("data-screen"),x.getAttribute?.("data-ep-shell-route"),x.getAttribute?.("onclick"),x.getAttribute?.("href"),x.getAttribute?.("aria-label")].filter(Boolean).join(" ").toLowerCase();return a.includes("database")||(t.includes("база данных")&&t.length<180)}
@@ -436,7 +436,7 @@ function click(e){
 
   if(e.target.closest("[data-db26-close]"))return e.preventDefault(),close();
   if(e.target.closest("[data-db26-diag],.db26dot")){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();diag();return}
-  let b=e.target.closest("[data-db26-base]"); if(b)return e.preventDefault(),S.base=b.dataset.db26Base,localStorage.setItem("epdb26_active_base",S.base==="server"?"server":"my"),S.sel.clear(),S.open.clear(),render();
+  let b=e.target.closest("[data-db26-base]"); if(b)return e.preventDefault(),S.base=b.dataset.db26Base,S.sel.clear(),S.open.clear(),render();
   let t=e.target.closest("[data-db26-type]"); if(t)return e.preventDefault(),S.type=t.dataset.db26Type,S.sel.clear(),S.open.clear(),render();
   if(e.target.closest("[data-db26-editor]"))return e.preventDefault(),S.edit=!S.edit,render();
   let cat=e.target.closest("[data-db26-cat]"); if(cat){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();toggleFold(cat);return}

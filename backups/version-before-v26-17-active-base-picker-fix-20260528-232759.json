@@ -1,0 +1,5 @@
+{
+  "version": "V26.16",
+  "updatedAt": "2026-05-28T23:22:38.288419",
+  "note": "Hard stop blinking top status, keep compact two-chip bar only; Materials/Work open active DB picker; preliminary estimate no longer opens Materials; DB route catchers ignore main picker cards."
+}

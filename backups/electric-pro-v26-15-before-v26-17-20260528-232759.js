@@ -4,7 +4,7 @@
   if (window.__EP_V2615_MAIN_DB_PICK_ESTIMATE__) return;
   window.__EP_V2615_MAIN_DB_PICK_ESTIMATE__ = true;
 
-  const VERSION = "V26.17";
+  const VERSION = "V26.15";
   const FILE = "assets/js/electric-pro-v26-15-main-db-pick-estimate.js";
 
   const KEYS = {
@@ -269,33 +269,11 @@
     state.pickerBase = b;
   }
 
-
   function getActiveBase() {
-    // Источник правды — переключатель внутри экрана «База данных».
-    // Раньше сначала читался localStorage, поэтому после выбора «БД моя»
-    // подбор «Работа/Материалы» мог всё равно открыть «БД сервера».
-    const activeBtn = $("#ep-db-v26 [data-db26-base].on");
-    const domBase = activeBtn?.dataset?.db26Base;
-    if (domBase === "server" || domBase === "my") {
-      localStorage.setItem(KEYS.activeBase, domBase);
-      return domBase;
-    }
-
-    const dbRoot = $("#ep-db-v26");
-    if (dbRoot) {
-      const txt = norm(dbRoot.textContent || "");
-      if (txt.includes("бд моя") || txt.includes("личная база")) {
-        localStorage.setItem(KEYS.activeBase, "my");
-        return "my";
-      }
-      if (txt.includes("бд сервера") || txt.includes("серверная база")) {
-        localStorage.setItem(KEYS.activeBase, "server");
-        return "server";
-      }
-    }
-
     const saved = localStorage.getItem(KEYS.activeBase);
     if (saved === "server" || saved === "my") return saved;
+    const activeBtn = $("#ep-db-v26 [data-db26-base].on");
+    if (activeBtn?.dataset?.db26Base === "server") return "server";
     return "my";
   }
 
@@ -484,7 +462,6 @@
   }
 
   function openPicker(type) {
-    patchMainPageStaticCards();
     state.pickerType = type === "work" ? "work" : "material";
     state.pickerBase = getActiveBase();
     state.query = "";
@@ -666,26 +643,12 @@
     window.Router.load = wrapped;
   }
 
-
   function patchMainPageStaticCards() {
-    const cards = $$(".tile,[data-route],[onclick]");
+    const cards = $$(".tile");
     cards.forEach(card => {
-      const h = norm(card.querySelector?.("h3")?.textContent || card.textContent || "");
-      const isMaterials = h === "материалы" || /(^|\s)материалы(\s|$)/.test(h) && !h.includes("детализация");
-      const isWork = h === "работа" || /(^|\s)работа(\s|$)/.test(h);
-
-      if (isMaterials) {
-        card.setAttribute("data-ep2615-main-picker", "material");
-        card.setAttribute("data-ep2616-main-picker", "material");
-      } else if (isWork) {
-        card.setAttribute("data-ep2615-main-picker", "work");
-        card.setAttribute("data-ep2616-main-picker", "work");
-      } else {
-        // ВАЖНО: прошлый патч без скобок случайно ставил material почти всем плиткам,
-        // из-за этого «Предварительная смета» открывала материалы.
-        card.removeAttribute("data-ep2615-main-picker");
-        card.removeAttribute("data-ep2616-main-picker");
-      }
+      const h = norm(card.querySelector("h3")?.textContent || "");
+      if (h === "материалы") card.setAttribute("data-ep2615-main-picker", "material"); card.setAttribute("data-ep2616-main-picker", "material");
+      if (h === "работа") card.setAttribute("data-ep2615-main-picker", "work"); card.setAttribute("data-ep2616-main-picker", "work");
     });
   }
 
