@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 
-const V="V26.4.1";
+const V="V26.4";
 const JS="assets/js/database-v26-surgical-monolith.js";
 const K={my:"epdb26_my",srv:"epdb26_server",mas:"epdb26_masters",mig:"epdb26_migrated",log:"epdb26_log",save:"epdb26_save"};
 
@@ -317,32 +317,7 @@ function change(e){
 }
 function input(e){let q=e.target.closest?.("#ep-db-v26 [data-db26-search]");if(q){S.q=q.value||"";render()}}
 
-
-function hardDbAliases(){
-  [
-    "openDatabase","openDB","openDb","showDatabase","showDB","showDb",
-    "openDatabaseScreen","showDatabaseScreen","renderDatabase",
-    "openDatabasePage","openDbPage","openNewDatabase","openDatabaseManager",
-    "openDatabaseV24","openDbV24","openDBV24","openDatabaseV243",
-    "openMonolithDatabase","openMonolithicDatabase"
-  ].forEach(name=>{
-    try{
-      window[name]=function(...args){
-        open();
-        return true;
-      };
-      window[name].__db2641HardAlias=true;
-    }catch(e){}
-  });
-
-  try{
-    window.DB_OPEN=open;
-    window.EP_OPEN_DATABASE=open;
-    window.__electricProOpenDatabase=open;
-  }catch(e){}
-}
-
-function boot(){css();migrate();patchRouters();hardDbAliases();fixBurgerBadge();try{window.DatabaseV26SurgicalMonolith.version=V}catch(e){}}
+function boot(){css();migrate();patchRouters();fixBurgerBadge();try{window.DatabaseV26SurgicalMonolith.version=V}catch(e){}}
 function observe(){if(window.__db264Observer)return;let o=new MutationObserver(()=>{clearTimeout(window.__db264Timer);window.__db264Timer=setTimeout(()=>{patchRouters();fixBurgerBadge()},120)});o.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["class","style"]});window.__db264Observer=o}
 
 window.DatabaseV26SurgicalMonolith={version:V,open,close,base,save,autoSort:autoSortStorage,exportJson:exp};
