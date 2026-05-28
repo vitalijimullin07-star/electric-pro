@@ -4,7 +4,7 @@
   if (window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__) return;
   window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__ = true;
 
-  const VERSION = "V26.10";
+  const VERSION = "V26.8";
   const FILE = "assets/js/database-v26-6-subscription-balance-sync-ui.js";
   const ADMIN_EMAIL = "vits0007@gmail.com";
 
@@ -118,54 +118,6 @@
     const items = extractItems(data);
     const reason = norm(data.reason || data.clearReason || "");
     return Array.isArray(items) && !items.length && (reason.includes("clear") || reason.includes("очист"));
-  }
-
-
-
-  function dateMs(v) {
-    try {
-      if (!v) return 0;
-      if (typeof v.toDate === "function") return v.toDate().getTime() || 0;
-      if (typeof v.seconds === "number") return Number(v.seconds || 0) * 1000;
-      if (typeof v === "number") return v > 9999999999 ? v : v * 1000;
-      if (typeof v === "string") {
-        const d = new Date(v);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
-      }
-    } catch (e) {}
-    return 0;
-  }
-
-  function remoteUpdatedMs(data) {
-    if (!data || typeof data !== "object") return 0;
-    return Math.max(
-      dateMs(data.updatedAtClient),
-      dateMs(data.updatedAt),
-      dateMs(data.createdAtClient),
-      dateMs(data.createdAt)
-    );
-  }
-
-  function clearMetaMs(scope) {
-    try {
-      const meta = clearMeta()[scope] || {};
-      return dateMs(meta.clearedAt || meta.time || meta.updatedAtClient || meta.updatedAt);
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  function shouldAcceptRemoteAfterLocalClear(scope, data, remoteRows) {
-    if (!isCleared(scope)) return false;
-    if (!Array.isArray(remoteRows) || !remoteRows.length) return false;
-    if (remoteCleared(data)) return false;
-
-    const remoteMs = remoteUpdatedMs(data);
-    const clearMs = clearMetaMs(scope);
-
-    // Если удаление было позже серверной БД — не воскресить старую БД.
-    // Если серверная БД обновлена после удаления — это новая загрузка, её надо принять на другом устройстве.
-    return remoteMs > 0 && clearMs > 0 && remoteMs > clearMs;
   }
 
   function clearPayload(scope, rows) {
@@ -846,11 +798,6 @@
     const local = localMy();
     const remote = snap.exists ? sortRows(extractItems(data)) : [];
 
-    if (shouldAcceptRemoteAfterLocalClear("my", data, remote)) {
-      unmarkCleared("my");
-      log("remote-after-clear-my", "Принята новая Моя БД с сервера после локальной очистки.", { remoteCount: remote.length });
-    }
-
     if (isCleared("my")) {
       writeLocal(KEYS.my, [], "local-clear-wins-my");
       state.lastMyHash = hash([]);
@@ -909,11 +856,6 @@
 
     const local = localServer();
     const remote = snap.exists ? sortRows(extractItems(data)) : [];
-
-    if (shouldAcceptRemoteAfterLocalClear("server", data, remote)) {
-      unmarkCleared("server");
-      log("remote-after-clear-server", "Принята новая БД сервера после локальной очистки.", { remoteCount: remote.length });
-    }
 
     if (isCleared("server")) {
       writeLocal(KEYS.server, [], "local-clear-wins-server");
@@ -990,10 +932,7 @@
       if (!snap.exists || state.loading || state.saving) return;
       const data = snap.data() || {};
       const remote = sortRows(extractItems(data));
-      if (shouldAcceptRemoteAfterLocalClear("my", data, remote)) {
-        unmarkCleared("my");
-        log("snapshot-remote-after-clear-my", "Snapshot: принята новая Моя БД после локальной очистки.", { remoteCount: remote.length });
-      } else if (isCleared("my")) {
+      if (isCleared("my")) {
         if (remote.length) saveMy("snapshot-hard-clear-my");
         return;
       }
@@ -1019,10 +958,7 @@
       if (!snap.exists || state.loading || state.saving) return;
       const data = snap.data() || {};
       const remote = sortRows(extractItems(data));
-      if (shouldAcceptRemoteAfterLocalClear("server", data, remote)) {
-        unmarkCleared("server");
-        log("snapshot-remote-after-clear-server", "Snapshot: принята новая БД сервера после локальной очистки.", { remoteCount: remote.length });
-      } else if (isCleared("server")) {
+      if (isCleared("server")) {
         if (state.isAdmin && remote.length) saveServer("snapshot-hard-clear-server");
         return;
       }
@@ -1090,11 +1026,13 @@
       const srvHash = hash(localServer());
 
       if (myHash !== state.lastMyHash) {
+        state.lastMyHash = myHash;
         syncState("saving", "обнаружены изменения моей БД...");
         debouncePush("local-change");
       }
 
       if (state.isAdmin && srvHash !== state.lastServerHash) {
+        state.lastServerHash = srvHash;
         syncState("saving", "обнаружены изменения БД сервера...");
         debouncePush("local-change");
       }
@@ -1373,5 +1311,5 @@
     [300, 900, 1800, 3500].forEach(ms => setTimeout(boot, ms));
   });
 
-  log("script-loaded", "V26.10 синхронизация БД/подписки/баланса загружена.");
+  log("script-loaded", "V26.6 подписка/баланс/индикация БД загружены.");
 })();
