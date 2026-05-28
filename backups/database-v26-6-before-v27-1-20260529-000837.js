@@ -671,19 +671,11 @@
 
   function updateAccessUI() {
     const a = state.access || {};
-
-    if (window.EPTopStatusV27 && typeof window.EPTopStatusV27.render === "function") {
-      const oldFloating = document.getElementById("ep266-access-bar");
-      if (oldFloating) oldFloating.remove();
-      window.EPTopStatusV27.render(a);
-      return;
-    }
-
     try {
       window.EPTopStatusCompact?.apply?.(a);
     } catch (e) {}
     try {
-      const bar = document.getElementById("ep266-access-bar");
+      const bar = $("#ep266-access-bar");
       if (bar) bar.remove();
     } catch (e) {}
   }

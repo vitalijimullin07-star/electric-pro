@@ -1,5 +1,5 @@
 {
-  "version": "V26.17.1",
-  "updatedAt": "2026-05-28T23:30:40.096795",
-  "note": "Fix active DB source for Main Materials/Work picker and remove false Material click from preliminary estimate."
+  "version": "v27-1-db-clean-bridge-20260528-01",
+  "updatedAt": "2026-05-29T00:08:38.140524",
+  "note": "V27.1 clean DB bridge: single top status, single active base gateway, V27 material/work picker; old v26 main/status patch scripts disconnected."
 }
