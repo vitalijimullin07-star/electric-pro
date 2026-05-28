@@ -1,5 +1,5 @@
 {
-  "version": "v26-11-db-diag-safe-20260528-01",
-  "updatedAt": "2026-05-28T22:26:07.064147",
-  "note": "DB diagnostics made lightweight; red dot no longer JSON-stringifies huge full logs/DB arrays."
+  "version": "v26-12-pool-zero-switch-reset-20260528-01",
+  "updatedAt": "2026-05-28T22:54:47.270584",
+  "note": "Pool: after Add to pool, switches reset to 0 instead of 1. Pool badge V22.8."
 }

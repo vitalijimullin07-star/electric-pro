@@ -5,7 +5,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-clean-monolith.js";
   const STORAGE_GROUPS = "ep_pool_v22_groups";
   const STORAGE_DRAFT = "ep_pool_v22_draft";
@@ -31,7 +31,7 @@
     height: 30,
     framePosts: 1,
     sockets: 0,
-    switches: 0,
+    switches: 1,
     pass: 0,
     cross: 0,
     tv: 0,
