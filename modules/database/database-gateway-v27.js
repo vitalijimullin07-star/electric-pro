@@ -3,7 +3,7 @@
   if(window.__EP_DATABASE_GATEWAY_V27__) return;
   window.__EP_DATABASE_GATEWAY_V27__=true;
 
-  const VERSION="V27.1";
+  const VERSION="V27.2";
   const KEYS={
     my:"epdb26_my",
     server:"epdb26_server",

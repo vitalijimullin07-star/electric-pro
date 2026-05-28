@@ -3,7 +3,7 @@
   if(window.__EP_DATABASE_PICKER_V27__) return;
   window.__EP_DATABASE_PICKER_V27__=true;
 
-  const VERSION="V27.1";
+  const VERSION="V27.2";
   const ESTIMATE_KEY="ep_estimate_draft_v23";
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -95,8 +95,8 @@
   }
   function bind(){
     document.addEventListener("click",event=>{
-      const pick=event.target.closest?.("[data-ep27-db-picker]");
-      if(pick){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();open(pick.dataset.ep27DbPicker);return;}
+      const pick=event.target.closest?.("[data-ep27-db-picker],[data-ep27-pick]");
+      if(pick){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();open(pick.dataset.ep27DbPicker || pick.dataset.ep27Pick);return;}
       if(event.target.closest?.("[data-ep27-close]")){event.preventDefault();close();return;}
       const inc=event.target.closest?.("[data-ep27-inc]");if(inc){event.preventDefault();changeQty(inc.dataset.ep27Inc,1);return;}
       const dec=event.target.closest?.("[data-ep27-dec]");if(dec){event.preventDefault();changeQty(dec.dataset.ep27Dec,-1);return;}
@@ -107,7 +107,21 @@
     window.addEventListener("storage",e=>{if([ESTIMATE_KEY,"epdb26_my","epdb26_server","epdb26_active_base","epdb27_active_base"].includes(e.key)){setTimeout(renderMainEstimate,80);if(!$("#ep-db-picker-v27")?.classList.contains("hidden")) render();}});
     window.addEventListener("epdb27:active-base-changed",()=>{if(!$("#ep-db-picker-v27")?.classList.contains("hidden")){state.base=api()?.getActiveBase?.()||state.base;render();}});
   }
-  function boot(){css();patchRouter();renderMainEstimate();}
+  function prepareMainTiles(){
+    const cards=$$(".card.tile,.tile");
+    cards.forEach(card=>{
+      const h=norm(card.querySelector?.("h3")?.textContent||card.textContent||"");
+      let type="";
+      if(h==="материалы" || h.startsWith("материалы ")) type="material";
+      if(h==="работа" || h.startsWith("работа ")) type="work";
+      if(!type) return;
+      card.setAttribute("data-ep27-pick", type);
+      card.setAttribute("data-ep27-db-picker", type);
+      card.classList.add("ep27-main-picker-tile");
+      card.removeAttribute("onclick");
+    });
+  }
+  function boot(){css();patchRouter();prepareMainTiles();renderMainEstimate();}
 
   window.EPDatabasePickerV27={version:VERSION,open,close,renderMainEstimate};
   window.addEventListener("DOMContentLoaded",()=>{bind();boot();[150,500,1200,2500].forEach(ms=>setTimeout(boot,ms));});

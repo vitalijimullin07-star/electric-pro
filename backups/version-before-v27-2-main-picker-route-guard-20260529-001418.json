@@ -1,0 +1,5 @@
+{
+  "version": "v27-1-db-clean-bridge-20260528-01",
+  "updatedAt": "2026-05-29T00:08:38.140524",
+  "note": "V27.1 clean DB bridge: single top status, single active base gateway, V27 material/work picker; old v26 main/status patch scripts disconnected."
+}
