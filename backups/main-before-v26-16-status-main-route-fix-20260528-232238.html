@@ -7,8 +7,8 @@
   <div class="grid grid-3">
     <div class="card tile module-shield ep-clickable" onclick="Router.load('shield')"><div class="tile-icon">🛡️</div><h3>Конфигуратор щита</h3><p>Автоматика, корпус, расходка, работы.</p></div>
     <div class="card tile module-pool ep-clickable" onclick="Router.load('pool')"><div class="tile-icon">🔌</div><h3>Пул розеток/штроб</h3><p>Розетки, выключатели, трассы, коробки.</p></div>
-    <div class="card tile module-picker ep-clickable" data-ep2615-main-picker="material" data-ep2616-main-picker="material" onclick="window.EPMainDbPickEstimate?.open?.('material')"><div class="tile-icon">🗂️</div><h3>Материалы</h3><p>Материалы из активной базы.</p></div>
-    <div class="card tile module-picker ep-clickable" data-ep2615-main-picker="work" data-ep2616-main-picker="work" onclick="window.EPMainDbPickEstimate?.open?.('work')"><div class="tile-icon">🧰</div><h3>Работа</h3><p>Работы из активной базы.</p></div>
+    <div class="card tile module-database ep-clickable" data-ep2615-main-picker="material" onclick="window.EPMainDbPickEstimate?.open?.('material')"><div class="tile-icon">🗂️</div><h3>Материалы</h3><p>Материалы из активной базы.</p></div>
+    <div class="card tile module-database ep-clickable" data-ep2615-main-picker="work" onclick="window.EPMainDbPickEstimate?.open?.('work')"><div class="tile-icon">🧰</div><h3>Работа</h3><p>Работы из активной базы.</p></div>
     <div class="card tile module-estimate ep-clickable" onclick="Router.load('estimate')"><div class="tile-icon">📋</div><h3>Смета</h3><p>Суммирование, экспорт, черновики.</p></div>
     <div class="card tile module-documents ep-clickable" onclick="Router.load('estimate')"><div class="tile-icon">📦</div><h3>Детализация материалов</h3><p>Список для закупки и поставщика.</p></div>
   </div>

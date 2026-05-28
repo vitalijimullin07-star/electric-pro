@@ -668,17 +668,25 @@
     return "disabled";
   }
 
-
   function updateAccessUI() {
     const a = state.access || {};
-    try {
-      window.EPTopStatusCompact?.apply?.(a);
-    } catch (e) {}
-    try {
-      const bar = $("#ep266-access-bar");
-      if (bar) bar.remove();
-    } catch (e) {}
+
+    // Старую плавающую плашку убираем: именно она иногда превращала статус
+    // в большое белое поле под шапкой.
+    const oldFloating = $("#ep266-access-bar");
+    if (oldFloating) oldFloating.remove();
+
+    const line = ensureTopAccessLine();
+    const sub = $(".ep-top-status-left", line);
+    const ai = $(".ep-top-status-right", line);
+
+    if (sub) sub.textContent = a.subscriptionLabel || "Нет подписки";
+    if (ai) ai.textContent = a.aiLabel || "ИИ выкл.";
+
+    line.dataset.status = accessStatusKind(a);
+    line.dataset.ai = accessAiKind(a);
   }
+
 
   function syncState(status, text, extra = {}) {
     const payload = {

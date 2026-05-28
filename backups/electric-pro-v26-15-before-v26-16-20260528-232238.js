@@ -406,7 +406,10 @@
         </div>
         <span class="ep2615-pill">${esc(rows.length)} поз.</span>
       </div>
-      <div class="ep2615-active-base">Активная база: <b>${esc(baseTitle(base))}</b></div>
+      <div class="ep2615-switch">
+        <button type="button" data-ep2615-base="my" class="${base === "my" ? "on" : ""}">БД моя</button>
+        <button type="button" data-ep2615-base="server" class="${base === "server" ? "on" : ""}">БД сервера</button>
+      </div>
       <input class="ep2615-search" data-ep2615-search placeholder="Поиск..." value="${esc(state.query)}">
       <div class="ep2615-list">
         ${rows.length ? rows.map(row => pickerCard(row, base)).join("") : `<div class="ep2615-empty">Позиции не найдены. Проверь выбранную базу или импорт БД.</div>`}
@@ -533,22 +536,20 @@
     toast("Предварительная смета очищена");
   }
 
-
   function interceptMainCards(event) {
-    const tile = event.target.closest?.("[data-ep2615-main-picker],[data-ep2616-main-picker],.tile");
+    const tile = event.target.closest?.(".tile,.card,[onclick],[data-route]");
     if (!tile) return false;
-    if (document.body.dataset.route && document.body.dataset.route !== "main") return false;
-
-    const explicit = tile.getAttribute("data-ep2615-main-picker") || tile.getAttribute("data-ep2616-main-picker") || "";
+    if (!document.body.dataset.route || document.body.dataset.route !== "main") return false;
+    const text = norm(tile.textContent || "");
+    const isMat = text.includes("материалы") && !text.includes("детализация");
+    const isWork = text.includes("работа") && !text.includes("работы из активной") ? false : false;
     const h = norm(tile.querySelector?.("h3")?.textContent || "");
-    const type = explicit || (h === "материалы" ? "material" : h === "работа" ? "work" : "");
-
-    if (type !== "material" && type !== "work") return false;
-
+    const type = h === "материалы" ? "material" : h === "работа" ? "work" : "";
+    if (!type && !isMat && !isWork) return false;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
-    openPicker(type);
+    openPicker(type || (isMat ? "material" : "work"));
     return true;
   }
 
@@ -593,12 +594,7 @@
 
       if (event.target.closest?.("[data-ep2615-open-estimate]")) {
         event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-        try {
-          if (window.Router?.load) window.Router.load("estimate");
-          else window.EstimateCoreV231?.openPanel?.();
-        } catch (e) {}
+        try { window.EstimateCoreV231?.openPanel?.(); } catch (e) {}
         return;
       }
 
@@ -647,8 +643,8 @@
     const cards = $$(".tile");
     cards.forEach(card => {
       const h = norm(card.querySelector("h3")?.textContent || "");
-      if (h === "материалы") card.setAttribute("data-ep2615-main-picker", "material"); card.setAttribute("data-ep2616-main-picker", "material");
-      if (h === "работа") card.setAttribute("data-ep2615-main-picker", "work"); card.setAttribute("data-ep2616-main-picker", "work");
+      if (h === "материалы") card.setAttribute("data-ep2615-main-picker", "material");
+      if (h === "работа") card.setAttribute("data-ep2615-main-picker", "work");
     });
   }
 
