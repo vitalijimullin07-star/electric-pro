@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Electric Pro</title>
+
+  <link rel="stylesheet" href="assets/css/styles.css?v=v24-3-3-db-import-autosave-20260525-01" />
+  <link rel="stylesheet" href="assets/css/final-clean.css?v=v24-3-3-db-import-autosave-20260525-01">
+    <link rel="stylesheet" href="assets/css/admin-clean.css?v=v24-3-3-db-import-autosave-20260525-01">
+<link rel="stylesheet" href="assets/css/database.css?v=v24-3-3-db-import-autosave-20260525-01" />
+  <link rel="stylesheet" href="assets/css/shield.css?v=v24-3-3-db-import-autosave-20260525-01" />
+  <link rel="stylesheet" href="assets/css/pool.css?v=v24-3-3-db-import-autosave-20260525-01" />
+  <link rel="stylesheet" href="assets/css/scheme.css?v=v24-3-3-db-import-autosave-20260525-01" />
+
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="config/firebase-config.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/diagnostics.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/sound-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/visual-settings.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/crypto-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/cache-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/change-log-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/server-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/sync-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/database-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/estimate-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  
+  <script defer src="assets/js/access-gate.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/admin-v15.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/admin-subscription-v20-2-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="assets/js/admin-logs-v16-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="assets/js/subscription-details-v15.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/header-status-mini.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/subscription-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/ai-security-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/admin-api.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/admin-subscription-ui.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="assets/js/subscription-page.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+  <script defer src="assets/js/auth.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/auth-v21-19-auto-restore.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+
+  <script defer src="assets/js/router.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/app-shell.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <link rel="stylesheet" href="assets/css/ui-fixes-v12.css?v=v24-3-3-db-import-autosave-20260525-01">
+</head>
+
+<body data-visual-mode="night" data-animation="glass" data-button-shape="soft" data-bg-style="live">
+  <div id="appBg" class="app-bg"></div>
+  <div class="live-lines" aria-hidden="true"></div>
+
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card glass">
+      <div class="brand-mark">⚡</div>
+      <h1>Electric Pro</h1>
+      <p>Рабочее приложение электрика</p>
+
+      <button id="googleLoginBtn" class="btn btn-primary btn-wide ep-clickable">
+        ↪ Вход
+      </button>
+
+      <button id="registerGoogleBtn" class="btn btn-ghost btn-wide ep-clickable">
+        ✚ Регистрация мастера
+      </button>
+
+      <div class="login-status-row">
+        <span id="loginFirebaseDot" class="status-dot status-wait"></span>
+        <span id="loginStatusText">Проверка Firebase...</span>
+      </div>
+
+      <div class="mini-note">
+        Вход только через Google/Firebase. Новые мастера проходят регистрацию и ждут одобрения администратора.
+      </div>
+
+      <button id="loginDiagnosticsBtn" class="btn btn-ghost btn-wide ep-clickable small-login-btn">
+        Диагностика
+      </button>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <header class="topbar glass">
+      <button id="burgerBtn" class="icon-btn burger-btn ep-clickable" aria-label="Открыть меню">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="topbar-title">
+        <strong id="masterSpeciality">Электрик</strong>
+        <span id="masterName">Мастер</span>
+      </div>
+
+      <button id="firebaseStatusBtn" class="status-btn ep-clickable" aria-label="Статус Firebase">
+        <span id="firebaseDot" class="status-dot status-wait"></span>
+      </button>
+    </header>
+
+    <aside id="sideMenu" class="side-menu glass">
+      <div class="side-head">
+        <div class="avatar">⚡</div>
+        <div>
+          <strong id="sideMasterName">Мастер</strong>
+          <span id="sideMasterRole">master</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <button data-route="customer" class="ep-clickable">👤 О заказчике</button>
+        <button data-route="ai" class="ep-clickable">🤖 ИИ функции</button>
+        <button data-route="database" class="ep-clickable">🗂️ База данных</button>
+        <button data-route="scheme" class="ep-clickable">📈 Однолинейка и визуализация щита</button>
+        <button data-route="documents" class="ep-clickable">📄 Документы</button>
+        <button data-route="accounting" class="ep-clickable">💰 Бухгалтерия</button>
+        <button data-route="warehouse" class="ep-clickable">📦 Склад</button>
+        <button data-route="drafts" class="ep-clickable">📝 Черновики</button>
+        <button data-route="visual" class="ep-clickable">🎨 Настройка визуала</button>
+        <button data-route="subscription" class="ep-clickable">💳 Подписка</button>
+        <button data-route="settings" class="ep-clickable">⚙️ Настройки</button>
+        <button id="adminPanelBtn" data-route="admin" class="ep-clickable admin-only hidden">👑 Админ-панель</button>
+        <button data-route="guide" class="ep-clickable">📚 Гайд / новые функции</button>
+      </nav>
+
+      <button id="logoutBtn" class="btn btn-danger btn-wide ep-clickable">Выйти</button>
+    </aside>
+
+    <div id="menuOverlay" class="menu-overlay"></div>
+    <main id="pageContainer" class="page-container"></main>
+  </div>
+
+  <section id="diagnosticsModal" class="modal hidden">
+    <div class="modal-card glass">
+      <div class="modal-head">
+        <h2>Диагностика</h2>
+        <button id="closeDiagnosticsBtn" class="icon-btn ep-clickable">×</button>
+      </div>
+
+      <div class="smart-status-grid">
+        <div class="smart-status-card"><span>Firebase</span><strong id="smartFirebaseText">проверка</strong></div>
+        <div class="smart-status-card"><span>Кэш</span><strong id="smartCacheText">готов</strong></div>
+        <div class="smart-status-card"><span>Синхронизация</span><strong id="smartSyncText">ожидание</strong></div>
+      </div>
+
+      <pre id="diagnosticsText" class="diagnostics-box"></pre>
+
+      <div class="modal-actions">
+        <button id="copyDiagnosticsBtn" class="btn btn-primary ep-clickable">Скопировать ошибку / статус</button>
+        <button id="clearDiagnosticsBtn" class="btn btn-ghost ep-clickable">Очистить</button>
+        <button id="hardReloadBtn" class="btn btn-ghost ep-clickable">Обновить без кэша</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="visualPanel" class="modal hidden">
+    <div class="modal-card glass visual-card">
+      <div class="modal-head">
+        <h2>Настройка визуала</h2>
+        <button id="closeVisualBtn" class="icon-btn ep-clickable">×</button>
+      </div>
+
+      <div class="visual-section">
+        <div class="visual-section-title">Готовые стили</div>
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
+
+      <div class="visual-section">
+        <div class="visual-section-title">Быстрые профили</div>
+        <div class="quick-profile-grid">
+          <button data-profile="object" class="ep-clickable">На объекте</button>
+          <button data-profile="night" class="ep-clickable">Ночь</button>
+          <button data-profile="day" class="ep-clickable">День</button>
+          <button data-profile="battery" class="ep-clickable">Экономия</button>
+          <button data-profile="premium" class="ep-clickable">Премиум</button>
+          <button data-profile="readable" class="ep-clickable">Читаемость</button>
+        </div>
+      </div>
+
+      <div class="visual-section">
+        <div class="visual-section-title">Режим</div>
+        <div class="segmented-control visual-mode-control">
+          <button type="button" data-visual-mode="day" class="ep-clickable">День</button>
+          <button type="button" data-visual-mode="night" class="ep-clickable">Ночь</button>
+          <button type="button" data-visual-mode="auto" class="ep-clickable">Авто</button>
+        </div>
+      </div>
+
+      <div class="visual-section">
+        <button id="toggleAdvancedVisualBtn" class="btn btn-ghost btn-wide ep-clickable" type="button">Расширенная настройка</button>
+        <div id="advancedVisualPanel" class="advanced-visual-panel">
+          <div class="settings-grid">
+            <label>Акцентный цвет<input id="accentColorInput" type="color" /></label>
+            <label>Цвет кнопок<input id="buttonColorInput" type="color" /></label>
+            <label>Цвет текста<input id="textColorInput" type="color" /></label>
+            <label>Цвет вторичного текста<input id="mutedColorInput" type="color" /></label>
+            <label>Цвет фона<input id="backgroundColorInput" type="color" /></label>
+            <label>Цвет карточек<input id="cardColorInput" type="color" /></label>
+            <label>Прозрачность карточек<input id="glassOpacityInput" type="range" min="0.35" max="0.95" step="0.01" /></label>
+            <label>Прозрачность кнопок<input id="buttonOpacityInput" type="range" min="0.35" max="1" step="0.01" /></label>
+            <label>Скругление карточек<input id="radiusInput" type="range" min="8" max="36" step="1" /></label>
+            <label>Скругление кнопок<input id="buttonRadiusInput" type="range" min="6" max="36" step="1" /></label>
+            <label>Размытие стекла<input id="blurInput" type="range" min="4" max="28" step="1" /></label>
+            <label>Размер текста<input id="fontScaleInput" type="range" min="0.88" max="1.2" step="0.01" /></label>
+            <label>Плотность интерфейса<select id="densityInput"><option value="compact">Компактно</option><option value="normal">Обычно</option><option value="large">Крупнее</option></select></label>
+            <label>Форма кнопок<select id="buttonShapeInput"><option value="soft">Мягкие</option><option value="round">Круглые</option><option value="square">Почти квадратные</option><option value="pill">Пилюли</option><option value="minimal">Минималистичные</option></select></label>
+            <label>Выбор фона<select id="backgroundStyleInput"><option value="glass">Стекло базовый</option><option value="blueprint">Чертёж</option><option value="gradient">Градиент</option><option value="dark">Тёмный</option><option value="light">Светлый</option><option value="minimal">Минимальный</option><option value="solid">Свой цвет</option></select></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="visual-section">
+        <div class="visual-section-title">Анимации</div>
+        <div class="settings-grid">
+          <label>Стиль анимации<select id="animationStyleInput"><option value="glass">Стекло</option><option value="soft">Мягко</option><option value="fast">Быстро</option><option value="spring">Пружина</option><option value="premium">Премиум</option><option value="minimal">Минимум</option><option value="off">Отключено</option></select></label>
+          <label>Скорость анимации<input id="animationSpeedInput" type="range" min="0.55" max="1.75" step="0.05" /></label>
+          <button id="reduceMotionInput" class="switch-btn ep-clickable" type="button" data-toggle-key="reduceMotion">
+            <span>Экономить анимации</span><b></b>
+          </button>
+          <button id="electricPulseInput" class="switch-btn ep-clickable" type="button" data-toggle-key="electricPulse">
+            <span>Электрический импульс кнопок</span><b></b>
+          </button>
+        </div>
+      </div>
+
+      <div class="visual-section">
+        <div class="visual-section-title">Звук и вибро</div>
+        <div class="settings-grid">
+          <button id="soundEnabledInput" class="switch-btn ep-clickable" type="button" data-toggle-key="soundEnabled">
+            <span>Звуки интерфейса</span><b></b>
+          </button>
+          <button id="hapticEnabledInput" class="switch-btn ep-clickable" type="button" data-toggle-key="hapticEnabled">
+            <span>Виброотклик</span><b></b>
+          </button>
+          <label>Громкость звуков<input id="soundVolumeInput" type="range" min="0" max="1" step="0.05" /></label>
+          <label>Стиль звука<select id="soundStyleInput">
+            <option value="soft">Мягкий</option>
+            <option value="soft2">Мягкий 2</option>
+            <option value="soft3">Мягкий 3</option>
+            <option value="air">Воздушный</option>
+            <option value="glass">Стекло</option>
+            <option value="warm">Тёплый</option>
+            <option value="short">Короткий</option>
+            <option value="deep">Глухой</option>
+            <option value="electric-soft">Электро мягкий</option>
+            <option value="none">Без звука</option>
+          </select></label>
+          <button id="testSoundBtn" class="btn btn-ghost btn-wide ep-clickable" type="button">Проверить звук</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <button id="resetVisualBtn" class="btn btn-ghost btn-wide ep-clickable">Сбросить визуал</button>
+        <button id="baseVisualBtn" class="btn btn-primary btn-wide ep-clickable">Вернуть базовый стиль</button>
+      </div>
+    </div>
+  </section>
+  <script defer src="assets/js/ui-fixes-v12.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+  <script defer src="assets/js/v20-stable-base.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <script defer src="assets/js/module-version-badges-v21-2.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+
+
+
+
+
+
+
+
+  <script defer src="assets/js/pool-v22-clean-monolith.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+  <script defer src="assets/js/estimate-core-v23-1.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+
+
+
+
+
+  <script defer src="assets/js/v24-3-2-menu-diagnostics-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
+
+
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v26-11-db-diag-safe-20260528-01"></script>
+
+
+  <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
+
+
+  <script defer src="assets/js/database-v26-6-subscription-balance-sync-ui.js?v=v26-10-db-cloud-sync-20260528-01"></script>
+
+
+  <script defer src="assets/js/database-v26-6-1-access-ui-no-duplicate.js?v=v26-6-1-access-ui-no-duplicate-20260528-01"></script>
+
+
+  <script defer src="assets/js/admin-v26-7-subscription-panel-restore.js?v=v26-7-admin-subscription-restore-20260528-01"></script>
+
+</body>
+</html>

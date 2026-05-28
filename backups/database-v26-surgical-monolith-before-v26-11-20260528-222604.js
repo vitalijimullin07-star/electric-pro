@@ -339,57 +339,6 @@ function diagPayload(){
   };
 }
 
-function diagPayload(){
-  const myRows = base("my");
-  const serverRows = base("server");
-  const rawLog = rj(K.log, []);
-  const safeLog = (Array.isArray(rawLog) ? rawLog : []).slice(-35).map((x, idx) => {
-    const extra = x && typeof x.extra === "object" && x.extra ? x.extra : null;
-    return {
-      n: idx + 1,
-      time: String(x?.time || x?.iso || "").slice(0, 40),
-      code: String(x?.code || "").slice(0, 80),
-      text: String(x?.text || x?.message || "").slice(0, 220),
-      file: String(x?.file || "").slice(0, 80),
-      extraKeys: extra ? Object.keys(extra).slice(0, 10) : []
-    };
-  });
-
-  let localStorageBytes = 0;
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      localStorageBytes += String(k || "").length + String(localStorage.getItem(k) || "").length;
-    }
-  } catch(e) {}
-
-  return {
-    version: V,
-    time: new Date().toISOString(),
-    base: S.base,
-    type: S.type,
-    counts: {
-      my: myRows.length,
-      server: serverRows.length,
-      visible: rows().length,
-      selected: S.sel.size
-    },
-    storage: {
-      approxBytes: localStorageBytes,
-      myBytes: String(localStorage.getItem(K.my) || "").length,
-      serverBytes: String(localStorage.getItem(K.srv) || "").length,
-      logCount: Array.isArray(rawLog) ? rawLog.length : 0
-    },
-    scripts: Array.from(document.scripts)
-      .map(s => String(s.src || ""))
-      .filter(s => s.includes("database-v26") || s.includes("db-v26"))
-      .map(s => s.split("/").slice(-2).join("/"))
-      .slice(-30),
-    logLast: safeLog,
-    note: "Диагностика облегчена: большие массивы БД и полные extra-логи не выводятся, чтобы телефон не зависал."
-  };
-}
-
 function diag(){
   let txt;
   try {
