@@ -3,14 +3,12 @@
   if(window.__EP_DATABASE_GATEWAY_V27__) return;
   window.__EP_DATABASE_GATEWAY_V27__=true;
 
-  const VERSION="V27.3";
+  const VERSION="V27.2";
   const KEYS={
     my:"epdb26_my",
     server:"epdb26_server",
     active26:"epdb26_active_base",
     active27:"epdb27_active_base",
-    activeMeta:"epdb27_active_base_meta",
-    active24:"ep_db_v24_active_base",
     clear:"epdb26_clear_meta"
   };
 
@@ -27,43 +25,20 @@
   function baseTitle(base){return validBase(base)==="server"?"БД сервера":"БД моя";}
   function baseKey(base){return validBase(base)==="server"?KEYS.server:KEYS.my;}
 
-  function rememberBase(base, source="v27"){
-    const b=validBase(base);
-    try{localStorage.setItem(KEYS.active26,b);}catch(e){}
-    try{localStorage.setItem(KEYS.active27,b);}catch(e){}
-    try{localStorage.setItem(KEYS.active24,b);}catch(e){}
-    try{writeJson(KEYS.activeMeta,{base:b,source,version:VERSION,updatedAt:new Date().toISOString(),time:Date.now()});}catch(e){}
-    document.body.dataset.epActiveBase=b;
-    return b;
-  }
-
   function setActiveBase(base, source="v27"){
-    const b=rememberBase(base,source);
+    const b=validBase(base);
+    localStorage.setItem(KEYS.active27,b);
+    localStorage.setItem(KEYS.active26,b);
+    document.body.dataset.epActiveBase=b;
     emit("epdb27:active-base-changed",{base:b,title:baseTitle(b),source,version:VERSION});
     return b;
   }
 
-  function domActiveBase(){
-    const btn=$("#ep-db-v26 [data-db26-base].on");
-    const val=btn?.dataset?.db26Base;
-    return val==="server"||val==="my"?val:"";
-  }
-
   function getActiveBase(){
-    // V26 editor saves the real choice into epdb26_active_base.
-    // In V27.2 epdb27_active_base could stay stale as "my", so V26 key is now the priority.
-    const v26=localStorage.getItem(KEYS.active26);
-    if(v26==="my"||v26==="server") return setActiveBase(v26,"read-v26-priority");
-
-    const dom=domActiveBase();
-    if(dom) return setActiveBase(dom,"read-dom");
-
     const v27=localStorage.getItem(KEYS.active27);
     if(v27==="my"||v27==="server") return setActiveBase(v27,"read-v27");
-
-    const meta=readJson(KEYS.activeMeta,null);
-    if(meta?.base==="my"||meta?.base==="server") return setActiveBase(meta.base,"read-meta");
-
+    const v26=localStorage.getItem(KEYS.active26);
+    if(v26==="my"||v26==="server") return setActiveBase(v26,"read-v26");
     return setActiveBase("my","default");
   }
 
@@ -105,13 +80,14 @@
   }
 
   function syncFromDbButtons(){
-    const b=domActiveBase();
+    const activeBtn=$("#ep-db-v26 [data-db26-base].on");
+    const b=activeBtn?.dataset?.db26Base;
     if(b==="my"||b==="server") setActiveBase(b,"db-ui-dom");
   }
 
   function bind(){
     document.addEventListener("click",event=>{
-      const b=event.target.closest?.("[data-db26-base]");
+      const b=event.target.closest?.("#ep-db-v26 [data-db26-base]");
       if(b){
         const val=b.dataset.db26Base;
         if(val==="my"||val==="server") setActiveBase(val,"db-ui-click");

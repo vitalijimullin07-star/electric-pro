@@ -3,7 +3,7 @@
   if(window.__EP_TOP_STATUS_V27__) return;
   window.__EP_TOP_STATUS_V27__ = true;
 
-  const VERSION = "V27.3";
+  const VERSION = "V27.2";
   const ACCESS_KEY = "ep_access_v26_state";
   const $ = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));

@@ -1,0 +1,5 @@
+{
+  "version": "v27-2-main-picker-route-guard-20260528-01",
+  "updatedAt": "2026-05-29T00:14:19.297497",
+  "note": "V27.2: Material/Work main tiles use V27 picker without inline onclick; legacy V26 DB route guards ignore V27 picker tiles."
+}

@@ -3,7 +3,7 @@
   if(window.__EP_DATABASE_PICKER_V27__) return;
   window.__EP_DATABASE_PICKER_V27__=true;
 
-  const VERSION="V27.3";
+  const VERSION="V27.2";
   const ESTIMATE_KEY="ep_estimate_draft_v23";
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -75,13 +75,7 @@
     saveDraft({...draft,rows});toast("Добавлено в предварительную смету");
   }
   function changeQty(id,delta){const item=findRow(id);if(!item)return;const next=Math.max(0,qtyInDraft(state.base,item)+delta);upsert(state.base,item,next);}
-  function open(type){
-    state.type=type==="work"?"work":"material";
-    try{api()?.boot?.();}catch(e){}
-    state.base=api()?.getActiveBase?.()||"my";
-    state.query="";
-    render();ensureRoot().classList.remove("hidden");document.body.classList.add("ep27-picker-open");setTimeout(()=>$("[data-ep27-search]")?.focus?.(),80);
-  }
+  function open(type){state.type=type==="work"?"work":"material";state.base=api()?.getActiveBase?.()||"my";state.query="";render();ensureRoot().classList.remove("hidden");document.body.classList.add("ep27-picker-open");setTimeout(()=>$("[data-ep27-search]")?.focus?.(),80);}
   function close(){$("#ep-db-picker-v27")?.classList.add("hidden");document.body.classList.remove("ep27-picker-open");renderMainEstimate();}
 
   function totals(rows){return (rows||[]).reduce((acc,row)=>{const val=Number(row.total||(Number(row.qty||0)*Number(row.price||0))||0);acc.all+=val;if(row.type==="work")acc.work+=val;else acc.material+=val;return acc;},{all:0,work:0,material:0});}
