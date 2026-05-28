@@ -1,11 +1,15 @@
-Electric Pro V26.4.2.1 — Modal CSS Installer Fix
+Electric Pro V26.5 — Firebase DB Sync
 
-Установка:
+Установка через Termux:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-4-2-1-modal-css-installer-fix.zip
-cd db-v26-4-2-1-modal-css-installer-fix
+unzip -o ../db-v26-5-firebase-sync.zip
+cd db-v26-5-firebase-sync
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=26421
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=265
+
+Если Firebase пишет permission-denied:
+обновить Firestore Rules через Ubuntu/Firebase CLI файлом:
+FIRESTORE_RULES_DB_V26_5.rules

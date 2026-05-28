@@ -1,1 +1,1 @@
-{"version": "v26-4-2-1-modal-css-installer-fix-20260528-01", "updatedAt": "2026-05-28T09:35:40.343684", "note": "Installer fixed; DB V26 root forced fullscreen/fixed via CSS lock"}
+{"version": "v26-5-firebase-sync-20260528-01", "updatedAt": "2026-05-28T11:22:41.273182", "note": "Database Firebase sync: user_db/{uid}, server_db/main, admin masters view"}
