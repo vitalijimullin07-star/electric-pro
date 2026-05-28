@@ -899,7 +899,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
 
   function openPoolV22() {
     if (window.PoolV22CleanMonolith && typeof window.PoolV22CleanMonolith.open === "function") {
@@ -1015,7 +1015,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
 
   function isPoolOpen() {
     const pool = document.getElementById("ep-pool-v22-screen");
@@ -1196,7 +1196,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-5-safe-db-picker.js";
   const DRAFT_KEY = "ep_pool_v22_draft";
   const RESULT_KEY = "ep_pool_v22_db_pick_result";
@@ -1760,7 +1760,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-5-1-force-safe-picker.js";
   const RESULT_KEY = "ep_pool_v22_db_pick_result";
 
@@ -1916,7 +1916,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-6-manual-db-candidate-picker.js";
   const DRAFT_KEY = "ep_pool_v22_draft";
   const RESULT_KEY = "ep_pool_v22_db_pick_result";
@@ -2290,7 +2290,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-6-1-version-lock-fix.js";
 
   function diag(code, message, extra = {}) {
@@ -2397,7 +2397,7 @@
    ========================================================= */
 
 (function () {
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   const FILE = "assets/js/pool-v22-6-2-pool-version-guard.js";
 
   const POOL_SELECTORS = [
@@ -2600,7 +2600,7 @@
    FINAL V22.7 MONOLITH GUARD
    ========================================================= */
 (function(){
-  const VERSION = "V22.8";
+  const VERSION = "V22.7";
   function forceVersion(){
     try{
       window.ModuleVersionBadgesV212?.setVersion?.("pool", VERSION);
