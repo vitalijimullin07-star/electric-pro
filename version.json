@@ -1,1 +1,1 @@
-{"version": "v26-6-1-access-ui-no-duplicate-20260528-01", "updatedAt": "2026-05-28T16:27:24.019108", "note": "Hide duplicate access row and improve subscription/AI balance pull"}
+{"version": "v26-7-admin-subscription-restore-20260528-01", "updatedAt": "2026-05-28T16:45:21.026598", "note": "Restore admin subscription/AI balance panel and provide Firestore rules"}

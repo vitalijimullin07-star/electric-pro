@@ -1,14 +1,14 @@
-Electric Pro V26.6 — Subscription + Balance + DB Sync UI
+Electric Pro V26.7 — Admin Subscription Panel Restore
 
 Установка через Termux:
 cd /sdcard/Download/ep
-unzip -o ../db-v26-6-subscription-balance-sync-ui.zip
-cd db-v26-6-subscription-balance-sync-ui
+unzip -o ../admin-v26-7-subscription-panel-restore.zip
+cd admin-v26-7-subscription-panel-restore
 chmod +x install_termux_local.sh
 bash install_termux_local.sh
 
 После push:
-https://vitalijimullin07-star.github.io/electric-pro/?fresh=266
+https://vitalijimullin07-star.github.io/electric-pro/?fresh=267
 
-Если подписка/баланс не читаются:
-обновить Firestore Rules файлом FIRESTORE_RULES_DB_V26_6.rules через Ubuntu/Firebase CLI.
+Если Missing or insufficient permissions:
+обновить Firestore Rules файлом FIRESTORE_RULES_ADMIN_V26_7.rules через Ubuntu/Firebase CLI.
