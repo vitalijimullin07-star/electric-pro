@@ -1,5 +1,5 @@
 {
-  "version": "v26-10-db-cloud-sync-20260528-01",
-  "updatedAt": "2026-05-28T21:21:18.005401",
-  "note": "DB cloud sync fix: local changes upload correctly; newer remote DB after local clear is accepted on second devices."
+  "version": "v26-11-db-diag-safe-20260528-01",
+  "updatedAt": "2026-05-28T21:37:49.521709",
+  "note": "DB diagnostics made lightweight; red dot no longer JSON-stringifies huge full logs/DB arrays."
 }

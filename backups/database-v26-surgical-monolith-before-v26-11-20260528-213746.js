@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 
-const V="V26.11";
+const V="V26.8";
 const JS="assets/js/database-v26-surgical-monolith.js";
 const K={my:"epdb26_my",srv:"epdb26_server",mas:"epdb26_masters",mig:"epdb26_migrated",log:"epdb26_log",save:"epdb26_save",clear:"epdb26_clear_meta"};
 
@@ -288,74 +288,8 @@ function applyImport(mode){if(!can())return alert("Импорт в эту БД �
 function aiNotice(file,kind){openModal(`<div class="db264-panel"><div class="db264-head"><h3>Нужен ИИ / парсер</h3><button data-db26-closemodal>×</button></div><div class="db264-ai-note">Файл «${esc(file.name)}» похож на ${esc(kind)}. Для такого импорта нужно распознавание: фото/PDF через ИИ/OCR, Excel через XLSX-парсер. Сейчас файл никуда не отправлялся. На следующем шаге подключим обработчик и будем отдельно предупреждать, когда используется ИИ и расходуются токены.</div><div class="db264-actions"><button data-db26-closemodal>Понятно</button></div></div>`)}
 function imp(file){if(!file)return;if(!can())return alert("Импорт в эту БД запрещён.");let name=file.name.toLowerCase(),type=file.type||"";if(type.startsWith("image/"))return aiNotice(file,"изображение");if(name.endsWith(".pdf"))return aiNotice(file,"PDF");if(/\.xlsx?$/.test(name))return aiNotice(file,"Excel");let rd=new FileReader();rd.onload=()=>{try{let txt=String(rd.result||""),arr=name.endsWith(".json")?parseJsonData(JSON.parse(txt),S.type):parseText(txt);previewImport(arr,file.name)}catch(e){alert("Ошибка импорта: "+(e.message||e))}};rd.readAsText(file)}
 
-function diagPayload(){
-  const myRows = base("my");
-  const serverRows = base("server");
-  const rawLog = rj(K.log, []);
-  const safeLog = (Array.isArray(rawLog) ? rawLog : []).slice(-35).map((x, idx) => {
-    const extra = x && typeof x.extra === "object" && x.extra ? x.extra : null;
-    return {
-      n: idx + 1,
-      time: String(x?.time || x?.iso || "").slice(0, 40),
-      code: String(x?.code || "").slice(0, 80),
-      text: String(x?.text || x?.message || "").slice(0, 220),
-      file: String(x?.file || "").slice(0, 80),
-      extraKeys: extra ? Object.keys(extra).slice(0, 10) : []
-    };
-  });
-
-  let localStorageBytes = 0;
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      localStorageBytes += String(k || "").length + String(localStorage.getItem(k) || "").length;
-    }
-  } catch(e) {}
-
-  return {
-    version: V,
-    time: new Date().toISOString(),
-    base: S.base,
-    type: S.type,
-    counts: {
-      my: myRows.length,
-      server: serverRows.length,
-      visible: rows().length,
-      selected: S.sel.size
-    },
-    storage: {
-      approxBytes: localStorageBytes,
-      myBytes: String(localStorage.getItem(K.my) || "").length,
-      serverBytes: String(localStorage.getItem(K.srv) || "").length,
-      logCount: Array.isArray(rawLog) ? rawLog.length : 0
-    },
-    scripts: Array.from(document.scripts)
-      .map(s => String(s.src || ""))
-      .filter(s => s.includes("database-v26") || s.includes("db-v26"))
-      .map(s => s.split("/").slice(-2).join("/"))
-      .slice(-30),
-    logLast: safeLog,
-    note: "Диагностика облегчена: большие массивы БД и полные extra-логи не выводятся, чтобы телефон не зависал."
-  };
-}
-
-function diag(){
-  let txt;
-  try {
-    txt = JSON.stringify(diagPayload(), null, 2);
-  } catch(e) {
-    txt = JSON.stringify({version: V, time: new Date().toISOString(), error: String(e?.message || e)}, null, 2);
-  }
-
-  openModal(`<div class="db264-panel"><div class="db264-head"><h3>Диагностика БД</h3><button data-db26-closemodal>×</button></div><textarea class="db264-text" readonly>${esc(txt)}</textarea><div class="db264-actions"><button data-db264-copy-diag>Копировать</button><button data-db264-clear-diag>Очистить логи</button></div></div>`);
-}
-function copyDiag(){
-  let txt = $(".db264-text")?.value || "";
-  if (!txt) {
-    try { txt = JSON.stringify(diagPayload(), null, 2); } catch(e) { txt = String(e?.message || e); }
-  }
-  navigator.clipboard?.writeText ? navigator.clipboard.writeText(txt).then(()=>alert("Диагностика скопирована.")) : alert(txt);
-}
+function diag(){let txt=JSON.stringify({version:V,time:new Date().toISOString(),base:S.base,type:S.type,counts:{my:base("my").length,server:base("server").length},scripts:Array.from(document.scripts).map(s=>s.src).filter(Boolean).filter(s=>s.includes("database-v26")||s.includes("db-v26")),log:rj(K.log,[])},null,2);openModal(`<div class="db264-panel"><div class="db264-head"><h3>Диагностика БД</h3><button data-db26-closemodal>×</button></div><textarea class="db264-text" readonly>${esc(txt)}</textarea><div class="db264-actions"><button data-db264-copy-diag>Копировать</button><button data-db264-clear-diag>Очистить логи</button></div></div>`)}
+function copyDiag(){let txt=$(".db264-text")?.value||"";navigator.clipboard?.writeText?navigator.clipboard.writeText(txt).then(()=>alert("Диагностика скопирована.")):alert(txt)}
 
 function importModal(){let old=S.base;S.base="server";let html=tree(base("server").filter(x=>x.type===S.type));S.base=old;openModal(`<div class="db264-panel"><div class="db264-head"><h3>Импорт из БД сервера</h3><button data-db26-closemodal>×</button></div><p>Открой БД сервера, выбери позиции галочками и добавь в Мою БД.</p><div class="db264-actions"><button data-db264-srvview>Открыть БД сервера</button><button data-db26-copysrv>Добавить выбранное в мою БД</button></div></div>`)}
 function copySrv(){let srv=base("server"),my=base("my"),sel=srv.filter(x=>S.sel.has(x.id));if(!sel.length)return alert("Сначала выбери позиции в БД сервера.");let a=0,d=0;sel.forEach(x=>{let sig=nrm(x.type+"|"+x.name+"|"+x.unit);if(my.some(y=>nrm(y.type+"|"+y.name+"|"+y.unit)===sig))d++;else{my.push(item({...x,id:undefined,source:"server_copy"},x.type,"my"));a++}});save("my",my);S.base="my";S.sel.clear();alert("Добавлено: "+a+". Дубли: "+d);render()}
