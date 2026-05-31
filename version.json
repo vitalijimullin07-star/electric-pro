@@ -1,5 +1,5 @@
 {
-  "version": "V27.5",
-  "updatedAt": "2026-06-01T00:30:00.000Z",
-  "note": "V27.5 One DB status bar: merged sync status and access/subscription status into a single compact native bar via a shared status combiner. Edited existing files, no new patch files."
+  "version": "V27.6",
+  "updatedAt": "2026-06-01T01:00:00.000Z",
+  "note": "V27.6 Compact picker: smaller Materials/Work cards and editable quantity field (type a number or use +/-). Applies to both Work and Materials pickers."
 }

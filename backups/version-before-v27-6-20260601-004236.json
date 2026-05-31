@@ -1,0 +1,5 @@
+{
+  "version": "V27.5",
+  "updatedAt": "2026-06-01T00:30:00.000Z",
+  "note": "V27.5 One DB status bar: merged sync status and access/subscription status into a single compact native bar via a shared status combiner. Edited existing files, no new patch files."
+}
