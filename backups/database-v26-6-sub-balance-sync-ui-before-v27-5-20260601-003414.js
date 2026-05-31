@@ -4,39 +4,6 @@
   if (window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__) return;
   window.__EP_DB_V266_SUB_BAL_SYNC_LOADED__ = true;
 
-  // V27.5: общий комбайнер статуса БД.
-  // Раньше синхронизация и доступ/подписка рисовали ДВЕ отдельные плашки.
-  // Теперь обе пишут свою часть сюда, а рисуется ОДНА компактная строка
-  // в родной плашке .db26status. Определяется один раз (идемпотентно).
-  window.__epDbStatusCombiner = window.__epDbStatusCombiner || (function () {
-    const state = { sync: { text: "", st: "ok" }, access: { text: "", st: "ok" } };
-    function render() {
-      const root = document.getElementById("ep-db-v26");
-      if (!root || root.classList.contains("hidden")) return;
-      // Подчищаем старые отдельные плашки, если остались от прошлых версий.
-      ["#ep266-db-sync-line", "#ep2661-db-sync-line"].forEach(sel => {
-        const o = root.querySelector(sel);
-        if (o) o.remove();
-      });
-      const el = root.querySelector(".db26status");
-      if (!el) return;
-      const anyErr = state.sync.st === "error" || state.access.st === "error";
-      const anyBusy = ["loading", "saving", "syncing"].includes(state.sync.st) ||
-                      ["loading", "saving", "syncing"].includes(state.access.st);
-      const icon = anyErr ? "❌" : anyBusy ? "🔄" : "✅";
-      const parts = [];
-      if (state.sync.text) parts.push(state.sync.text);
-      if (state.access.text) parts.push(state.access.text);
-      el.setAttribute("data-ep-combined-status", anyErr ? "error" : anyBusy ? "busy" : "ok");
-      el.textContent = icon + " " + (parts.length ? parts.join(" · ") : "Готово");
-    }
-    return {
-      setSync(text, st) { state.sync = { text: text || "", st: st || "ok" }; render(); },
-      setAccess(text, st) { state.access = { text: text || "", st: st || "ok" }; render(); },
-      render
-    };
-  })();
-
   const VERSION = "V26.10";
   const FILE = "assets/js/database-v26-6-subscription-balance-sync-ui.js";
   const ADMIN_EMAIL = "vits0007@gmail.com";
@@ -744,13 +711,24 @@
     const root = $("#ep-db-v26");
     if (!root || root.classList.contains("hidden")) return;
 
-    // V27.5: статус синхронизации уходит в общий комбайнер (одна плашка на двоих).
-    // Компактный текст: "БД ✓: 145" вместо "моя БД обновлена: 145".
-    let text = payload.text || "ожидание";
-    text = text
-      .replace(/моя БД обновлена:\s*/i, "БД ✓: ")
-      .replace(/серверная БД обновлена:\s*/i, "сервер ✓: ");
-    window.__epDbStatusCombiner.setSync(text, payload.status || "ok");
+    // V27.4: больше не создаём отдельную плашку Firebase.
+    // Раньше здесь рисовалась вторая строка «Firebase: ...», из-за чего статус
+    // дублировался. Теперь источник один — родная плашка монолита .db26status.
+    // Если старая дублирующая строка осталась в DOM от прошлых версий — удаляем.
+    const oldLine = $("#ep266-db-sync-line", root);
+    if (oldLine) oldLine.remove();
+
+    const icon = payload.status === "ok" ? "✅" :
+      payload.status === "syncing" ? "🔄" :
+      payload.status === "saving" ? "⬆️" :
+      payload.status === "loading" ? "⬇️" :
+      payload.status === "offline" ? "⚠️" : "❌";
+
+    const st = $(".db26status", root);
+    if (st) {
+      st.setAttribute("data-ep266-last-status", payload.status || "");
+      st.textContent = `${icon} Локально: готово · Firebase: ${payload.text || "ожидание"}`;
+    }
   }
 
   function escapeHtml(v) {

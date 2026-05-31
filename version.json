@@ -1,5 +1,5 @@
 {
-  "version": "V27.4",
-  "updatedAt": "2026-06-01T00:00:00.000Z",
-  "note": "V27.4 Clean DB header: removed duplicate Firebase status bar (single native bar), fixed version label V26.11 -> V27.4. No new patch files added - edited existing files at source."
+  "version": "V27.5",
+  "updatedAt": "2026-06-01T00:30:00.000Z",
+  "note": "V27.5 One DB status bar: merged sync status and access/subscription status into a single compact native bar via a shared status combiner. Edited existing files, no new patch files."
 }
