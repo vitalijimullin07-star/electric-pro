@@ -711,12 +711,14 @@
     const root = $("#ep-db-v26");
     if (!root || root.classList.contains("hidden")) return;
 
-    // V27.4: больше не создаём отдельную плашку Firebase.
-    // Раньше здесь рисовалась вторая строка «Firebase: ...», из-за чего статус
-    // дублировался. Теперь источник один — родная плашка монолита .db26status.
-    // Если старая дублирующая строка осталась в DOM от прошлых версий — удаляем.
-    const oldLine = $("#ep266-db-sync-line", root);
-    if (oldLine) oldLine.remove();
+    let line = $("#ep266-db-sync-line", root);
+    if (!line) {
+      line = document.createElement("div");
+      line.id = "ep266-db-sync-line";
+      const head = $(".db26h", root);
+      if (head && head.parentElement) head.parentElement.insertBefore(line, head.nextSibling);
+      else root.prepend(line);
+    }
 
     const icon = payload.status === "ok" ? "✅" :
       payload.status === "syncing" ? "🔄" :
@@ -724,10 +726,16 @@
       payload.status === "loading" ? "⬇️" :
       payload.status === "offline" ? "⚠️" : "❌";
 
+    line.innerHTML = `
+      <b>${icon} Firebase:</b>
+      <span>${escapeHtml(payload.text || "ожидание")}</span>
+      <em>${escapeHtml(payload.time || "")}</em>
+    `;
+
     const st = $(".db26status", root);
     if (st) {
       st.setAttribute("data-ep266-last-status", payload.status || "");
-      st.textContent = `${icon} Локально: готово · Firebase: ${payload.text || "ожидание"}`;
+      st.textContent = `${payload.status === "ok" ? "✅" : "🔄"} Локально: готово · Firebase: ${payload.text || "ожидание"}`;
     }
   }
 

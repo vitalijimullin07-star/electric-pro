@@ -1,5 +1,5 @@
 {
-  "version": "v27-3-active-base-lock-20260528-01",
-  "updatedAt": "2026-05-29T00:24:18.801911",
-  "note": "V27.3: active DB base lock. V26 key epdb26_active_base is priority; DB server selection is mirrored to V27 picker."
+  "version": "V27.4",
+  "updatedAt": "2026-06-01T00:00:00.000Z",
+  "note": "V27.4 Clean DB header: removed duplicate Firebase status bar (single native bar), fixed version label V26.11 -> V27.4. No new patch files added - edited existing files at source."
 }
