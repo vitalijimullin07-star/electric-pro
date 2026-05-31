@@ -12,7 +12,7 @@
   const money=v=>Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽";
   const hash=s=>Math.abs(Array.from(String(s)).reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0,0)).toString(36);
 
-  const state={type:"material",base:"my",query:"",openCat:new Set(),openSub:new Set()};
+  const state={type:"material",base:"my",query:""};
 
   function api(){return window.EPDatabaseV27;}
   function readJson(key,fallback){try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}catch(e){return fallback;}}
@@ -45,7 +45,7 @@
     const st=document.createElement("style");st.id="ep-db-picker-v27-style";st.textContent=`
 .ep27-picker{position:fixed;inset:0;z-index:2500;background:linear-gradient(135deg,rgba(2,20,21,.97),rgba(13,28,52,.97));color:#f8fafc;display:flex;flex-direction:column;padding:12px 14px 18px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
 .ep27-picker.hidden{display:none!important;}.ep27-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}.ep27-back{width:50px;height:50px;border:0;border-radius:22px;background:rgba(241,245,249,.92);color:#0f172a;font:900 22px/1 system-ui;}.ep27-title{flex:1;min-width:0;}.ep27-title h2{margin:0;font:950 21px/1.05 system-ui;letter-spacing:-.02em;}.ep27-title p{margin:5px 0 0;color:#b8c4d3;font:800 13px/1.2 system-ui;}.ep27-pill{height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:0 16px;background:rgba(187,247,208,.20);color:#bbf7d0;font:950 14px/1 system-ui;white-space:nowrap;}.ep27-active-base{min-height:38px;display:flex;align-items:center;justify-content:center;border-radius:18px;margin:4px 0 10px;padding:0 12px;background:rgba(187,247,208,.16);border:1px solid rgba(34,197,94,.24);color:#bbf7d0;font:900 13px/1 system-ui;text-align:center;}.ep27-active-base b{color:#dcfce7;}.ep27-search{width:100%;height:46px;border:0;border-radius:16px;background:rgba(248,250,252,.94);color:#0f172a;padding:0 16px;font:800 15px/1 system-ui;outline:none;margin-bottom:9px;}.ep27-list{flex:1;overflow:auto;padding:2px 0 90px;display:flex;flex-direction:column;gap:7px;}.ep27-card{background:rgba(248,250,252,.96);color:#0f172a;border-radius:16px;padding:10px 11px;box-shadow:0 8px 20px rgba(0,0,0,.15);}.ep27-card-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;}.ep27-card b{display:block;font:900 15px/1.2 system-ui;letter-spacing:-.01em;}.ep27-card p{margin:4px 0 0;color:#64748b;font:700 11px/1.2 system-ui;}.ep27-price{font:900 15px/1 system-ui;white-space:nowrap;}.ep27-qty{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:8px;align-items:center;margin-top:8px;}.ep27-qty button{height:42px;border:0;border-radius:12px;background:#020617;color:white;font:900 22px/1 system-ui;}.ep27-qty input{height:42px;width:100%;text-align:center;border:1px solid rgba(15,23,42,.14);border-radius:12px;background:rgba(226,232,240,.75);color:#0f172a;font:900 18px/1 system-ui;outline:none;-moz-appearance:textfield;}.ep27-qty input:focus{background:#fff;border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18);}.ep27-qty input::-webkit-outer-spin-button,.ep27-qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.ep27-empty{padding:28px 18px;border-radius:24px;background:rgba(248,250,252,.92);color:#334155;font:900 18px/1.3 system-ui;}
-.ep27-estimate-card{margin-top:14px;}.ep27-estimate-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.ep27-estimate-head h3{margin:0;font:950 24px/1.1 system-ui;}.ep27-estimate-total{display:inline-flex;align-items:center;border-radius:999px;background:rgba(34,197,94,.18);color:#bbf7d0;padding:8px 12px;font:950 13px/1 system-ui;white-space:nowrap;}.ep27-estimate-list{display:flex;flex-direction:column;gap:8px;margin:10px 0 12px;}.ep27-estimate-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border-radius:17px;background:rgba(15,23,42,.42);border:1px solid rgba(148,163,184,.16);padding:10px 12px;}.ep27-estimate-row b{display:block;color:#f8fafc;font:900 15px/1.2 system-ui;}.ep27-estimate-row p{margin:4px 0 0;color:#94a3b8;font:800 12px/1.15 system-ui;}.ep27-estimate-row strong{color:#f8fafc;font:950 14px/1 system-ui;white-space:nowrap;}.ep27-estimate-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.ep27-estimate-actions button{height:48px;border:0;border-radius:18px;font:950 15px/1 system-ui;}.ep27-estimate-actions .primary{background:#22c55e;color:white;}.ep27-estimate-actions .ghost{background:rgba(15,23,42,.50);color:white;border:1px solid rgba(148,163,184,.22);}#ep-db-picker-v27-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);z-index:3100;opacity:0;pointer-events:none;background:rgba(15,23,42,.94);color:#f8fafc;border:1px solid rgba(148,163,184,.24);border-radius:999px;padding:12px 16px;font:900 14px/1 system-ui;box-shadow:0 12px 34px rgba(0,0,0,.35);transition:.18s ease;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis;}#ep-db-picker-v27-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}.ep27-folder{background:rgba(248,250,252,.96);border-radius:16px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.15);}.ep27-folderhead{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border:0;background:transparent;padding:12px 13px;color:#0f172a;font:900 15px/1.2 system-ui;text-align:left;}.ep27-foldericon{font-size:18px;line-height:1;}.ep27-foldername{min-width:0;}.ep27-foldercount{background:rgba(187,247,208,.75);color:#14532d;border-radius:999px;padding:3px 10px;font:900 13px/1 system-ui;white-space:nowrap;}.ep27-folderbody{padding:0 10px 10px;display:flex;flex-direction:column;gap:7px;}.ep27-sub{display:flex;flex-direction:column;gap:7px;}.ep27-subhead{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:rgba(226,232,240,.65);border-radius:12px;padding:9px 11px;color:#334155;font:900 13px/1.15 system-ui;text-align:left;}.ep27-subhead span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.ep27-subhead em{font-style:normal;background:rgba(255,255,255,.85);color:#0f172a;border-radius:999px;padding:2px 8px;font:900 12px/1;white-space:nowrap;}.ep27-subitems{display:flex;flex-direction:column;gap:7px;padding-left:2px;}.ep27-folderbody .ep27-card{box-shadow:none;background:rgba(255,255,255,.72);border:1px solid rgba(15,23,42,.08);}`;
+.ep27-estimate-card{margin-top:14px;}.ep27-estimate-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}.ep27-estimate-head h3{margin:0;font:950 24px/1.1 system-ui;}.ep27-estimate-total{display:inline-flex;align-items:center;border-radius:999px;background:rgba(34,197,94,.18);color:#bbf7d0;padding:8px 12px;font:950 13px/1 system-ui;white-space:nowrap;}.ep27-estimate-list{display:flex;flex-direction:column;gap:8px;margin:10px 0 12px;}.ep27-estimate-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border-radius:17px;background:rgba(15,23,42,.42);border:1px solid rgba(148,163,184,.16);padding:10px 12px;}.ep27-estimate-row b{display:block;color:#f8fafc;font:900 15px/1.2 system-ui;}.ep27-estimate-row p{margin:4px 0 0;color:#94a3b8;font:800 12px/1.15 system-ui;}.ep27-estimate-row strong{color:#f8fafc;font:950 14px/1 system-ui;white-space:nowrap;}.ep27-estimate-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.ep27-estimate-actions button{height:48px;border:0;border-radius:18px;font:950 15px/1 system-ui;}.ep27-estimate-actions .primary{background:#22c55e;color:white;}.ep27-estimate-actions .ghost{background:rgba(15,23,42,.50);color:white;border:1px solid rgba(148,163,184,.22);}#ep-db-picker-v27-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);z-index:3100;opacity:0;pointer-events:none;background:rgba(15,23,42,.94);color:#f8fafc;border:1px solid rgba(148,163,184,.24);border-radius:999px;padding:12px 16px;font:900 14px/1 system-ui;box-shadow:0 12px 34px rgba(0,0,0,.35);transition:.18s ease;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis;}#ep-db-picker-v27-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}`;
     document.head.appendChild(st);
   }
 
@@ -61,47 +61,9 @@
     const qty=qtyInDraft(state.base,row);
     return `<article class="ep27-card" data-ep27-id="${esc(row.id)}"><div class="ep27-card-top"><div><b>${esc(row.name)}</b><p>${esc(row.type==="work"?"Работа":"Материал")} · ${esc(row.category)} / ${esc(row.subcategory)} · ${esc(row.unit)}</p></div><div class="ep27-price">${esc(money(row.price))}</div></div><div class="ep27-qty"><button type="button" data-ep27-dec="${esc(row.id)}">-</button><input type="number" inputmode="numeric" min="0" step="1" data-ep27-qty="${esc(row.id)}" value="${esc(qty)}"><button type="button" data-ep27-inc="${esc(row.id)}">+</button></div></article>`;
   }
-
-  function groupRows(rs){
-    const map=new Map();
-    (rs||[]).forEach(r=>{
-      const cat=(r.category||"Без папки").trim()||"Без папки";
-      const sub=(r.subcategory||"Без подпапки").trim()||"Без подпапки";
-      if(!map.has(cat))map.set(cat,new Map());
-      const sm=map.get(cat);
-      if(!sm.has(sub))sm.set(sub,[]);
-      sm.get(sub).push(r);
-    });
-    const out=[];
-    for(const [cat,sm] of map){
-      const subs=[];let count=0;
-      for(const [sub,items] of sm){subs.push({sub,items});count+=items.length;}
-      out.push({cat,subs,count});
-    }
-    return out;
-  }
-  function folderHtml(g){
-    const openCat=state.openCat.has(g.cat);
-    const single=g.subs.length===1;
-    let inner="";
-    if(openCat){
-      if(single){
-        inner=g.subs[0].items.map(card).join("");
-      }else{
-        inner=g.subs.map(sx=>{
-          const subKey=g.cat+"\u0001"+sx.sub;
-          const openSub=state.openSub.has(subKey);
-          return `<div class="ep27-sub"><button type="button" class="ep27-subhead" data-ep27-sub="${esc(subKey)}"><span>${openSub?"▾":"▸"} ${esc(sx.sub)}</span><em>${esc(sx.items.length)}</em></button>${openSub?`<div class="ep27-subitems">${sx.items.map(card).join("")}</div>`:""}</div>`;
-        }).join("");
-      }
-    }
-    return `<div class="ep27-folder"><button type="button" class="ep27-folderhead" data-ep27-cat="${esc(g.cat)}"><span class="ep27-foldericon">${openCat?"📂":"📁"}</span><span class="ep27-foldername">${esc(g.cat)}</span><span class="ep27-foldercount">${esc(g.count)}</span></button>${inner?`<div class="ep27-folderbody">${inner}</div>`:""}</div>`;
-  }
-  function treeHtml(rs){const groups=groupRows(rs);return groups.length?groups.map(folderHtml).join(""):`<div class="ep27-empty">Позиции не найдены. Проверь выбранную базу или импорт БД.</div>`;}
-
   function render(){
     const root=ensureRoot();const rs=rows();
-    const listHtml=norm(state.query)?(rs.length?rs.map(card).join(""):`<div class="ep27-empty">Ничего не найдено по запросу.</div>`):treeHtml(rs);root.innerHTML=`<div class="ep27-head"><button type="button" class="ep27-back" data-ep27-close>←</button><div class="ep27-title"><h2>${esc(typeTitle(state.type))}</h2><p>${esc(baseTitle(state.base))} · папки как в БД · плюс/минус меняет смету</p></div><span class="ep27-pill">${esc(rs.length)} поз.</span></div><div class="ep27-active-base">Активная база: <b>${esc(baseTitle(state.base))}</b></div><input class="ep27-search" data-ep27-search placeholder="Поиск по всем папкам..." value="${esc(state.query)}"><div class="ep27-list">${listHtml}</div>`;
+    root.innerHTML=`<div class="ep27-head"><button type="button" class="ep27-back" data-ep27-close>←</button><div class="ep27-title"><h2>${esc(typeTitle(state.type))}</h2><p>${esc(baseTitle(state.base))} · плюс/минус сразу меняет предварительную смету</p></div><span class="ep27-pill">${esc(rs.length)} поз.</span></div><div class="ep27-active-base">Активная база: <b>${esc(baseTitle(state.base))}</b></div><input class="ep27-search" data-ep27-search placeholder="Поиск..." value="${esc(state.query)}"><div class="ep27-list">${rs.length?rs.map(card).join(""):`<div class="ep27-empty">Позиции не найдены. Проверь выбранную базу или импорт БД.</div>`}</div>`;
   }
   function renderQtyOnly(){const root=$("#ep-db-picker-v27:not(.hidden)");if(!root)return;rows().forEach(row=>{const el=root.querySelector(`[data-ep27-qty="${cssAttr(row.id)}"]`);if(!el)return;const val=String(qtyInDraft(state.base,row));if(el.tagName==="INPUT"){if(document.activeElement!==el)el.value=val;}else{el.textContent=val;}});}
   function findRow(id){return rows().find(x=>String(x.id)===String(id));}
@@ -141,7 +103,7 @@
     document.addEventListener("click",event=>{
       const pick=event.target.closest?.("[data-ep27-db-picker],[data-ep27-pick]");
       if(pick){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();open(pick.dataset.ep27DbPicker || pick.dataset.ep27Pick);return;}
-      if(event.target.closest?.("[data-ep27-close]")){event.preventDefault();close();return;}const cat=event.target.closest?.("[data-ep27-cat]");if(cat){event.preventDefault();const k=cat.dataset.ep27Cat;if(state.openCat.has(k))state.openCat.delete(k);else state.openCat.add(k);render();return;}const sub=event.target.closest?.("[data-ep27-sub]");if(sub){event.preventDefault();const k=sub.dataset.ep27Sub;if(state.openSub.has(k))state.openSub.delete(k);else state.openSub.add(k);render();return;}
+      if(event.target.closest?.("[data-ep27-close]")){event.preventDefault();close();return;}
       const inc=event.target.closest?.("[data-ep27-inc]");if(inc){event.preventDefault();changeQty(inc.dataset.ep27Inc,1);return;}
       const dec=event.target.closest?.("[data-ep27-dec]");if(dec){event.preventDefault();changeQty(dec.dataset.ep27Dec,-1);return;}
       if(event.target.closest?.("[data-ep27-open-estimate]")){event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();try{if(window.Router?.load)window.Router.load("estimate");else window.EstimateCoreV231?.openPanel?.();}catch(e){}return;}

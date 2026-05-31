@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 
-const V="V27.7";
+const V="V27.6";
 const JS="assets/js/database-v26-surgical-monolith.js";
 const K={my:"epdb26_my",srv:"epdb26_server",mas:"epdb26_masters",mig:"epdb26_migrated",log:"epdb26_log",save:"epdb26_save",clear:"epdb26_clear_meta"};
 
