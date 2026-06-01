@@ -132,7 +132,7 @@
     const size = cfg.sizeMode === "auto" ? pc.suggestedSize : cfg.size;
     root.innerHTML = `
       <div class="shv28">
-        <details class="shv28-foldcard">
+        <details class="shv28-foldcard" open>
           <summary><span class="shv28-fi">📋</span><span class="shv28-ftx"><b>Шаблоны</b><i>Тип объекта и профиль Бюджет / Стандарт / Топ</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
             <div class="shv28-sublabel">Тип объекта</div>
@@ -200,9 +200,9 @@
         </div>
 
         <div class="shv28-actions">
-          <button type="button" class="shv28-btn gen" data-gen>📋 Черновик</button>
-          <button type="button" class="shv28-btn add" data-add>➕ В смету</button>
-          <button type="button" class="shv28-btn clr" data-clear>🗑 Очистить</button>
+          <button type="button" class="shv28-btn gen" data-gen>Сгенерировать черновик</button>
+          <button type="button" class="shv28-btn add" data-add>Добавить в смету</button>
+          <button type="button" class="shv28-btn clr" data-clear>Очистить</button>
         </div>
       </div>`;
   }
