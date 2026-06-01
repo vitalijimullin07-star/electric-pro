@@ -114,47 +114,15 @@
     LINES.forEach(l => { if (cfg.lines[l.key]) out.push({ name: l.label, nom: l.nom, note: "отдельная линия" }); });
     return out;
   }
-
-  // Подбор автомата для каждой линии ПО БД (через резолвер).
-  function resolveDraft(plan) {
-    const R = window.ShieldDbResolverV28;
-    return plan.map(line => {
-      const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-      const out = { ...line, amp };
-      if (R && amp) {
-        const res = R.resolve(
-          { kind: "avt", curve: cfg.curve, amp },
-          { base: undefined, rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: cfg.autoBrand }
-        );
-        if (res.found) { out.dbName = res.item.name; out.dbPrice = res.price; out.dbFound = true; out.dbCount = res.candidates; }
-        else { out.dbFound = false; }
-      }
-      return out;
-    });
-  }
   function selectHtml(attr, list, current, getV, getT) {
     return `<select ${attr}>${list.map(o => { const v = getV(o), t = getT(o); return `<option value="${esc(v)}" ${String(current) === String(v) ? "selected" : ""}>${esc(t)}</option>`; }).join("")}</select>`;
   }
 
   function draftHtml(plan) {
     if (!plan || !plan.length) return `<div class="shv28-draft-empty">Линий не получилось — проверь помещения.</div>`;
-    const withDb = plan.some(p => "dbFound" in p);
-    const found = plan.filter(p => p.dbFound).length;
-    const total = plan.reduce((s, p) => s + (p.dbFound ? (Number(p.dbPrice) || 0) : 0), 0);
-    const rows = plan.map((p, i) => {
-      let db = "";
-      if ("dbFound" in p) {
-        db = p.dbFound
-          ? `<div class="shv28-draft-db ok">✅ БД: ${esc(p.dbName)} · <b>${Math.round(p.dbPrice)} ₽</b>${p.dbCount > 1 ? ` <i>(${p.dbCount} вар.)</i>` : ""}</div>`
-          : `<div class="shv28-draft-db no">⚠️ автомат ${esc(p.nom)} не найден в БД</div>`;
-      }
-      return `<div class="shv28-draft-row2"><div class="r1"><span class="n">${i + 1}</span><span class="nm">${esc(p.name)}</span><span class="nom">${esc(p.nom)}</span></div>${db}${p.note ? `<div class="shv28-draft-note2">${esc(p.note)}</div>` : ""}</div>`;
-    }).join("");
-    const head = withDb
-      ? `<div class="shv28-draft-note">Подбор автоматов по БД: найдено <b>${found}</b> из <b>${plan.length}</b> · автоматы ≈ <b>${Math.round(total)} ₽</b></div>`
-      : `<div class="shv28-draft-note">План линий: <b>${plan.length}</b></div>`;
-    return `${head}<div class="shv28-draft-list">${rows}</div>
-      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · ${esc(PHASES.find(x => x.v === cfg.phase)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>УЗО, дифы, корпус и работы добавим на следующем шаге (V28.3b).</div>`;
+    return `<div class="shv28-draft-note">План линий (без подбора по БД — это шаг V28.3): <b>${plan.length}</b></div>
+      <div class="shv28-draft-list">${plan.map((p, i) => `<div class="shv28-draft-row"><span class="n">${i + 1}</span><span class="nm">${esc(p.name)}</span><span class="nom">${esc(p.nom)}</span>${p.note ? `<span class="note">${esc(p.note)}</span>` : ""}</div>`).join("")}</div>
+      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · ${esc(PHASES.find(x => x.v === cfg.phase)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}</div>`;
   }
 
   function render() {
@@ -263,7 +231,7 @@
       const sm = t.closest?.("[data-sizemode]");
       if (sm) { cfg.sizeMode = cfg.sizeMode === "auto" ? "manual" : "auto"; save(cfg); render(); return; }
       const gen = t.closest?.("[data-gen]");
-      if (gen) { cfg.draft = resolveDraft(buildPlan()); save(cfg); render(); return; }
+      if (gen) { cfg.draft = buildPlan(); save(cfg); render(); return; }
       const add = t.closest?.("[data-add]");
       if (add) { alert("Подбор позиций по БД и добавление в смету появятся на шаге V28.3.\nСейчас черновик — это план линий."); return; }
       const clr = t.closest?.("[data-clear]");

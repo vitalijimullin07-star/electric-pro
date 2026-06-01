@@ -145,14 +145,3 @@
 .shv28-btn.gen { background:linear-gradient(135deg,#16a34a,#22c55e); }
 .shv28-btn.add { background:linear-gradient(135deg,#d97706,#f59e0b); }
 .shv28-btn.clr { background:linear-gradient(135deg,#dc2626,#ef4444); }
-
-/* строки черновика с подбором по БД (V28.3) */
-.shv28-draft-row2 { background:#fff; border:1px solid rgba(15,23,42,.08); border-radius:10px; padding:8px 10px; }
-.shv28-draft-row2 .r1 { display:flex; align-items:center; gap:8px; }
-.shv28-draft-row2 .r1 .n { flex:0 0 22px; width:22px; height:22px; border-radius:6px; background:#eef2ff; color:#4f46e5; display:flex; align-items:center; justify-content:center; font:900 11px/1 system-ui; }
-.shv28-draft-row2 .r1 .nm { flex:1; min-width:0; color:#0f172a; font:800 12px/1.2 system-ui; }
-.shv28-draft-row2 .r1 .nom { flex:0 0 auto; background:#dcfce7; color:#14532d; border-radius:999px; padding:2px 8px; font:900 11px/1.3 system-ui; }
-.shv28-draft-db { margin-top:5px; font:700 11px/1.3 system-ui; }
-.shv28-draft-db.ok { color:#15803d; } .shv28-draft-db.ok b { color:#0f172a; } .shv28-draft-db.ok i { color:#94a3b8; font-style:normal; }
-.shv28-draft-db.no { color:#b45309; }
-.shv28-draft-note2 { margin-top:3px; color:#94a3b8; font:600 10px/1.2 system-ui; }
