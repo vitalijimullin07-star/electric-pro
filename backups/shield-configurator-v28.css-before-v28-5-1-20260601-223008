@@ -156,15 +156,3 @@
 .shv28-draft-db.ok { color:#15803d; } .shv28-draft-db.ok b { color:#0f172a; } .shv28-draft-db.ok i { color:#94a3b8; font-style:normal; }
 .shv28-draft-db.no { color:#b45309; }
 .shv28-draft-note2 { margin-top:3px; color:#94a3b8; font:600 10px/1.2 system-ui; }
-
-/* результат распознавания параметров БД */
-.shv28-recognize-res { margin-top:10px; font:700 11px/1.4 system-ui; color:#15803d; }
-.shv28-recognize-res:empty { display:none; }
-
-/* замена позиции: список альтернатив */
-.shv28-draft-db.ok[data-alts] { cursor:pointer; }
-.shv28-alts { margin-top:6px; display:flex; flex-direction:column; gap:5px; }
-.shv28-alt { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; border:1px solid rgba(15,23,42,.12); background:#f8fafc; color:#0f172a; border-radius:9px; padding:8px 10px; font:700 11px/1.25 system-ui; }
-.shv28-alt span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.shv28-alt b { flex:0 0 auto; color:#16a34a; font:900 12px/1 system-ui; }
-.shv28-alt.cur { background:#dcfce7; border-color:#22c55e; }

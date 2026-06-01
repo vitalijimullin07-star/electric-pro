@@ -85,7 +85,6 @@
   function save(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
 
   let cfg = load();
-  const openState = { tpl: false, settings: false };
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function previewCounts() {
@@ -127,7 +126,7 @@
           { kind: "avt", curve: cfg.curve, amp },
           { base: undefined, rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: cfg.autoBrand }
         );
-        if (res.found) { out.dbName = res.item.name; out.dbPrice = res.price; out.dbFound = true; out.dbCount = res.candidates; out.alts = (res.alternatives || []).slice(0, 12); out.showAlts = false; }
+        if (res.found) { out.dbName = res.item.name; out.dbPrice = res.price; out.dbFound = true; out.dbCount = res.candidates; }
         else { out.dbFound = false; }
       }
       return out;
@@ -145,16 +144,9 @@
     const rows = plan.map((p, i) => {
       let db = "";
       if ("dbFound" in p) {
-        if (p.dbFound) {
-          db = `<div class="shv28-draft-db ok" data-alts="${i}">✅ БД: ${esc(p.dbName)} · <b>${Math.round(p.dbPrice)} ₽</b>${p.dbCount > 1 ? ` <i>(${p.dbCount} вар. — нажми, чтобы заменить)</i>` : ""}</div>`;
-          if (p.showAlts && p.alts && p.alts.length) {
-            db += `<div class="shv28-alts">` + p.alts.map((a, j) =>
-              `<button type="button" class="shv28-alt ${a.name === p.dbName ? "cur" : ""}" data-pick="${i}:${j}"><span>${esc(a.name)}</span><b>${Math.round(a.price)} ₽</b></button>`
-            ).join("") + `</div>`;
-          }
-        } else {
-          db = `<div class="shv28-draft-db no">⚠️ автомат ${esc(p.nom)} не найден в БД</div>`;
-        }
+        db = p.dbFound
+          ? `<div class="shv28-draft-db ok">✅ БД: ${esc(p.dbName)} · <b>${Math.round(p.dbPrice)} ₽</b>${p.dbCount > 1 ? ` <i>(${p.dbCount} вар.)</i>` : ""}</div>`
+          : `<div class="shv28-draft-db no">⚠️ автомат ${esc(p.nom)} не найден в БД</div>`;
       }
       return `<div class="shv28-draft-row2"><div class="r1"><span class="n">${i + 1}</span><span class="nm">${esc(p.name)}</span><span class="nom">${esc(p.nom)}</span></div>${db}${p.note ? `<div class="shv28-draft-note2">${esc(p.note)}</div>` : ""}</div>`;
     }).join("");
@@ -172,7 +164,7 @@
     const size = cfg.sizeMode === "auto" ? pc.suggestedSize : cfg.size;
     root.innerHTML = `
       <div class="shv28">
-        <details class="shv28-foldcard" data-fold="tpl" ${openState.tpl?"open":""}>
+        <details class="shv28-foldcard">
           <summary><span class="shv28-fi">📋</span><span class="shv28-ftx"><b>Шаблоны</b><i>Тип объекта и профиль Бюджет / Стандарт / Топ</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
             <div class="shv28-sublabel">Тип объекта</div>
@@ -182,7 +174,7 @@
           </div>
         </details>
 
-        <details class="shv28-foldcard" data-fold="settings" ${openState.settings?"open":""}>
+        <details class="shv28-foldcard">
           <summary><span class="shv28-fi">⚙️</span><span class="shv28-ftx"><b>Настройки автоматики и щита</b><i>Марка, фазы, тип защиты, монтаж и правило БД</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
             <div class="shv28-grid2">
@@ -235,13 +227,6 @@
         </div>
 
         <div class="shv28-card">
-          <h3>Параметры БД</h3>
-          <div class="shv28-note">Один раз пройти по активной базе и распознать параметры каждой позиции (тип, бренд, класс, амперы, утечка, модули). Делает подбор надёжным.</div>
-          <button type="button" class="shv28-btn gen" style="width:100%" data-recognize>🔍 Распознать параметры в БД</button>
-          <div id="shv28-recognize-res" class="shv28-recognize-res">${cfg._recogReport ? cfg._recogReport : ""}</div>
-        </div>
-
-        <div class="shv28-card">
           <h3>Черновик щита</h3>
           <div id="shv28-draft" class="shv28-draft">${cfg.draft ? draftHtml(cfg.draft) : `<div class="shv28-draft-empty">Нажми «Сгенерировать черновик».</div>`}</div>
         </div>
@@ -277,29 +262,8 @@
       if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; save(cfg); render(); return; }
       const sm = t.closest?.("[data-sizemode]");
       if (sm) { cfg.sizeMode = cfg.sizeMode === "auto" ? "manual" : "auto"; save(cfg); render(); return; }
-      const rec = t.closest?.("[data-recognize]");
-      if (rec) {
-        const P = window.EPDbParamsV28;
-        if (!P) { alert("Модуль распознавания не загружен."); return; }
-        const res = P.recognizeBase();
-        if (!res.ok) { alert("Не удалось сохранить параметры: " + (res.error || "ошибка") + "\nВозможно, активна серверная БД (запись только админу)."); return; }
-        const labels = P.KIND_LABELS || {};
-        const lines = Object.keys(res.counts).sort((a, b) => res.counts[b] - res.counts[a])
-          .map(k => `${labels[k] || k}: ${res.counts[k]}`).join(" · ");
-        cfg._recogReport = `✅ Распознано ${res.total} позиций. ${lines}`;
-        save(cfg); render(); return;
-      }
       const gen = t.closest?.("[data-gen]");
       if (gen) { cfg.draft = resolveDraft(buildPlan()); save(cfg); render(); return; }
-      const altsBtn = t.closest?.("[data-alts]");
-      if (altsBtn) { const i = Number(altsBtn.dataset.alts); if (cfg.draft && cfg.draft[i]) { cfg.draft[i].showAlts = !cfg.draft[i].showAlts; save(cfg); render(); } return; }
-      const pick = t.closest?.("[data-pick]");
-      if (pick) {
-        const [i, j] = pick.dataset.pick.split(":").map(Number);
-        const line = cfg.draft && cfg.draft[i];
-        if (line && line.alts && line.alts[j]) { line.dbName = line.alts[j].name; line.dbPrice = line.alts[j].price; line.showAlts = false; save(cfg); render(); }
-        return;
-      }
       const add = t.closest?.("[data-add]");
       if (add) { alert("Подбор позиций по БД и добавление в смету появятся на шаге V28.3.\nСейчас черновик — это план линий."); return; }
       const clr = t.closest?.("[data-clear]");
@@ -313,15 +277,8 @@
       const set = e.target.closest?.("[data-set]");
       if (set) { cfg[set.dataset.set] = set.value; save(cfg); render(); return; }
     });
-
-    // запоминаем какие сворачиваемые блоки открыты (чтобы render их не закрывал)
-    document.addEventListener("toggle", (e) => {
-      const d = e.target;
-      if (d && d.tagName === "DETAILS" && d.dataset && d.dataset.fold) {
-        openState[d.dataset.fold] = d.open;
-      }
-    }, true);
   }
 
-  function bindPage() { cfg = load(); bindOnce(); render(); }  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)), buildPlan };
+  function bindPage() { cfg = load(); bindOnce(); render(); }
+  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)), buildPlan };
 })();
