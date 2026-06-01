@@ -51,17 +51,13 @@
     if (low.includes("автомат") || low.includes("авт. выкл") || low.includes("авт.выкл") ||
         low.includes("выключатель автоматич") || /ва ?47/.test(low) ||
         /s ?20[01]|sh ?20[01]/.test(low) || /(^|[^a-z])mcb/.test(low)) return "avt";
-    if (/ввг|пугв|пв-?\d|нym|nym|пвс|шввп|кабель|провод|кспв/.test(low)) return ""; // кабель/провод — не автомат
     if (hasCurveAmp) return "avt"; // «IEK C16» без слова «автомат» — это автомат
     return "";
   }
 
   function findBrand(rawLow) {
     for (const b of BRANDS) {
-      const nb = norm(b).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      // граница: не буква (лат/кир) до и после, чтобы "ekf" не ловился внутри "tekfor"
-      const re = new RegExp("(^|[^a-zа-я])" + nb + "([^a-zа-я]|$)");
-      if (re.test(rawLow)) return b;
+      if (rawLow.includes(norm(b))) return b;
     }
     return "";
   }
@@ -185,15 +181,6 @@
     return [];
   }
 
-  function cleanSpecs(sp) {
-    const out = {};
-    Object.keys(sp || {}).forEach(k => {
-      const v = sp[k];
-      if (v !== null && v !== undefined && v !== "") out[k] = v;
-    });
-    return out;
-  }
-
   // основной подбор
   function resolve(spec, opts = {}) {
     const rule = opts.rule || "min";
@@ -201,15 +188,7 @@
     const preferSeries = opts.preferSeries || "";
     const rows = opts.rows || readMaterials(opts.base);
 
-    const parsed = rows.map(r => {
-      // если у позиции уже есть распознанные параметры (specs) — используем их (надёжнее),
-      // дополняя разбором названия для недостающих полей.
-      const base = parseDevice(r.name);
-      if (r.specs && r.specs.kind) {
-        return { item: r, dev: Object.assign({}, base, cleanSpecs(r.specs)) };
-      }
-      return { item: r, dev: base };
-    });
+    const parsed = rows.map(r => ({ item: r, dev: parseDevice(r.name) }));
     const matches = parsed.filter(p => matchRequired(spec, p.dev));
     if (!matches.length) return { found: false, spec, candidates: 0 };
 

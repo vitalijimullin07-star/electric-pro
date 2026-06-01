@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 
-const V="V28.4";
+const V="V28.3.1";
 const JS="assets/js/database-v26-surgical-monolith.js";
 const K={my:"epdb26_my",srv:"epdb26_server",mas:"epdb26_masters",mig:"epdb26_migrated",log:"epdb26_log",save:"epdb26_save",clear:"epdb26_clear_meta"};
 
@@ -213,7 +213,7 @@ function render(){
 <section class="db26card"><div class="db26switch"><button data-db26-base="server" class="${S.base==="server"?"on":""}">БД сервера</button><button data-db26-base="my" class="${S.base==="my"?"on":""}">БД моя</button>${admin()?`<button data-db26-base="masters" class="${S.base==="masters"?"on":""}">БД мастеров</button>`:""}</div><p>${esc(note())}</p></section>
 <section class="db26card"><button class="db26et" data-db26-editor><span>${S.edit?"▾":"▸"}</span><b>Редактор БД</b><em>${S.edit?"открыт":"свернут"}</em></button>${S.edit?editor():""}</section>
 <section class="db26card"><div class="db26tabs"><button data-db26-type="work" class="${S.type==="work"?"on":""}">Работа</button><button data-db26-type="material" class="${S.type==="material"?"on":""}">Материал</button></div><input class="db26search" data-db26-search placeholder="Поиск..." value="${esc(S.q)}"><div class="db26lh"><h3>${S.type==="work"?"Работы":"Материалы"}</h3><span>${rs.length} поз. · ${can()?"редактирование доступно":"только просмотр"}</span><button data-db26-toggle>${S.open.size?"Свернуть":"Развернуть"}</button></div><div class="db26tree">${tree(rs)}</div></section>
-<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button><button data-ep-recognize-specs>🔍 Параметры</button></div></section>
+<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button></div></section>
 <section class="db26card"><h3>Склад</h3><p>Склад подключим следующим отдельным модулем после финальной стабилизации БД.</p></section>
 </main><div id="db26modal" class="hidden"></div>`;
   applyOpenState();
@@ -452,7 +452,7 @@ function click(e){
   if(e.target.closest("[data-db26-copysrv]"))return e.preventDefault(),copySrv();
   if(e.target.closest("[data-db26-export]"))return e.preventDefault(),exp();
   if(e.target.closest("[data-db26-openimport]"))return e.preventDefault(),importModal();
-  if(e.target.closest("[data-db264-autosort]"))return e.preventDefault(),autoSortStorage(true),render();if(target.closest("[data-ep-recognize-specs]")){e.preventDefault();if(window.EPDbSpecs){var _r=window.EPDbSpecs.scanActiveBase();if(_r.error)alert("Ошибка распознавания: "+_r.error);else alert("Распознано параметров: "+_r.recognized+" из "+_r.total+"\nАппаратов щита: "+_r.devices+(_r.kept?("\nРучных сохранено: "+_r.kept):""));render();}else alert("Модуль распознавания не загружен (обнови без кэша).");return;}
+  if(e.target.closest("[data-db264-autosort]"))return e.preventDefault(),autoSortStorage(true),render();
 }
 function change(e){
   if(!e.target.closest?.("#ep-db-v26"))return;
