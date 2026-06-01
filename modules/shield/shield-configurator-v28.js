@@ -1,13 +1,10 @@
 /* ============================================================
-   Electric Pro — Shield Configurator (clean module) V28.2
-   Только экран КОНФИГУРАЦИИ: шаблоны, помещения, отдельные линии,
-   марка/размер щита. Расчёт по БД -> V28.3, визуализация -> V28.4.
-
-   Архитектура (как admin/subscription):
-   - роутер грузит pages/shield.html (контейнер #ep-shield-v28-root)
-   - роутер вызывает window.ShieldConfiguratorV28.bindPage()
-   - модуль рисует UI в контейнер, состояние хранит в localStorage.
-   Никакого прямого обращения к Firebase здесь нет.
+   Electric Pro — Shield Configurator (clean module) V28.2.1
+   Экран конфигурации в духе старого конфигуратора:
+   шаблоны+профиль, помещения с подсказками, отдельные линии,
+   опции, настройки автоматики/щита, правило БД, и нижняя панель
+   действий (Сгенерировать черновик / Добавить в смету / Очистить).
+   Подбор позиций ПО БД -> V28.3. Визуализация щита -> V28.4.
    ============================================================ */
 (() => {
   "use strict";
@@ -16,43 +13,51 @@
 
   const CFG_KEY = "ep_shield_v28_config";
 
-  // ---- помещения (счётчики) ----
   const ROOMS = [
-    { key: "kits",       label: "Кухни",            icon: "🍳" },
-    { key: "baths",      label: "Ванные",           icon: "🛁" },
-    { key: "toilets",    label: "Санузлы",          icon: "🚽" },
-    { key: "rooms",      label: "Комнаты",          icon: "🛋️" },
-    { key: "bals",       label: "Балконы / лоджии", icon: "🌿" },
-    { key: "warmFloors", label: "Тёплые полы",      icon: "♨️" },
-    { key: "climates",   label: "Кондиционеры",     icon: "❄️" }
+    { key: "kits",       label: "Кухни",            icon: "🍳", desc: "На каждую: розетки C16 + свет C10" },
+    { key: "baths",      label: "Ванные",           icon: "🛁", desc: "Влажная зона: розетки C16 + свет C10, защита 10 мА" },
+    { key: "toilets",    label: "Санузлы",          icon: "🚽", desc: "Свет C10, влажная группа при наличии розетки" },
+    { key: "rooms",      label: "Комнаты",          icon: "🛋️", desc: "На каждую: розетки C16 + свет C10" },
+    { key: "bals",       label: "Балконы / лоджии", icon: "🌿", desc: "Розетки C16 + свет C10 по необходимости" },
+    { key: "warmFloors", label: "Тёплые полы",      icon: "♨️", desc: "Отдельная линия + терморегулятор, защита 10–30 мА" },
+    { key: "climates",   label: "Кондиционеры",     icon: "❄️", desc: "Отдельная неотключаемая линия C16" }
   ];
-
-  // ---- отдельные линии (галочки) ----
   const LINES = [
-    { key: "apron",   label: "Фартук кухни",        nom: "C16" },
-    { key: "dish",    label: "Посудомойка",          nom: "C16" },
-    { key: "washer",  label: "Стиралка / сушилка",   nom: "C16" },
-    { key: "fridge",  label: "Холодильник (неоткл.)", nom: "C10" },
-    { key: "router",  label: "Роутер (неоткл.)",     nom: "C6" },
-    { key: "neptun",  label: "Нептун (неоткл.)",     nom: "C10" },
-    { key: "towel",   label: "Полотенцесушитель",    nom: "C10" },
-    { key: "boiler",  label: "Бойлер",               nom: "C16" },
-    { key: "cooktop", label: "Варочная панель",      nom: "C32" },
-    { key: "oven",    label: "Духовой шкаф",         nom: "C16" }
+    { key: "apron",   label: "Фартук кухни",          nom: "C16" },
+    { key: "dish",    label: "Посудомойка",            nom: "C16" },
+    { key: "washer",  label: "Стиралка / сушилка",     nom: "C16" },
+    { key: "fridge",  label: "Холодильник (неоткл.)",  nom: "C10" },
+    { key: "router",  label: "Роутер (неоткл.)",       nom: "C6" },
+    { key: "neptun",  label: "Нептун (неоткл.)",       nom: "C10" },
+    { key: "towel",   label: "Полотенцесушитель",      nom: "C10" },
+    { key: "boiler",  label: "Бойлер",                 nom: "C16" },
+    { key: "cooktop", label: "Варочная панель",        nom: "C32" },
+    { key: "oven",    label: "Духовой шкаф",           nom: "C16" }
   ];
-
-  // ---- опции щита (переключатели) ----
   const OPTS = [
     { key: "master", label: "Мастер-кнопка (только свет)" },
     { key: "uzm",    label: "Реле напряжения (УЗМ)" },
     { key: "scheme", label: "Однолинейная схема" },
     { key: "glands", label: "Кабельные вводы / сальники" }
   ];
-
   const BRANDS = ["IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
   const SIZES = [6, 12, 24, 36, 48, 60, 72];
-
-  // ---- шаблоны быстрого старта ----
+  const PROFILES = [{ key: "budget", label: "Бюджет" }, { key: "standard", label: "Стандарт" }, { key: "top", label: "Топ" }];
+  const PHASES = [{ v: "1", t: "220В / 1 фаза" }, { v: "3", t: "380В / 3 фазы" }];
+  const CURVES = ["C", "B", "A", "D"];
+  const RCD_TYPES = ["A", "AC", "B"];
+  const PROTECTIONS = [
+    { v: "uzo_auto", t: "УЗО + автоматы" },
+    { v: "dif_auto", t: "ДИФы + автоматы" },
+    { v: "main_dif_auto", t: "Главный ДИФ + автоматы" },
+    { v: "mixed", t: "Смешанный вариант" }
+  ];
+  const WALLS = ["Бетон", "Кирпич", "Панелька", "ГКЛ", "Накладной"];
+  const DB_RULES = [
+    { v: "min", t: "Брать минимальную цену из БД" },
+    { v: "max", t: "Брать максимальную цену из БД" },
+    { v: "manual", t: "Выбирать позицию вручную" }
+  ];
   const TEMPLATES = {
     studio: { kits: 1, baths: 1, toilets: 0, rooms: 1, bals: 0, warmFloors: 1, climates: 1 },
     one:    { kits: 1, baths: 1, toilets: 0, rooms: 1, bals: 1, warmFloors: 1, climates: 1 },
@@ -61,211 +66,187 @@
     euro:   { kits: 1, baths: 1, toilets: 0, rooms: 2, bals: 1, warmFloors: 1, climates: 1 },
     house:  { kits: 1, baths: 2, toilets: 1, rooms: 4, bals: 0, warmFloors: 3, climates: 3 }
   };
-  const TEMPLATE_LABELS = {
-    studio: "Студия", one: "1-комн.", two: "2-комн.",
-    three: "3-комн.", euro: "Евро-2", house: "Дом"
-  };
+  const TEMPLATE_LABELS = { studio: "Студия", one: "1-комн.", two: "2-комн.", three: "3-комн.", euro: "Евро-2", house: "Дом" };
 
   function defaultConfig() {
-    const rooms = {};
-    ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
-    const lines = {};
-    LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
+    const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
+    const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
     const opts = { master: true, uzm: true, scheme: true, glands: false };
-    return { template: "two", rooms, lines, opts, brand: "IEK", sizeMode: "auto", size: 24 };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", sizeMode: "auto", size: 24, draft: null };
   }
-
   function load() {
     try {
-      const raw = localStorage.getItem(CFG_KEY);
-      if (!raw) return defaultConfig();
-      const c = JSON.parse(raw);
+      const c = JSON.parse(localStorage.getItem(CFG_KEY) || "null");
+      if (!c) return defaultConfig();
       const d = defaultConfig();
-      return {
-        template: c.template || d.template,
-        rooms: Object.assign(d.rooms, c.rooms || {}),
-        lines: Object.assign(d.lines, c.lines || {}),
-        opts: Object.assign(d.opts, c.opts || {}),
-        brand: c.brand || d.brand,
-        sizeMode: c.sizeMode || d.sizeMode,
-        size: c.size || d.size
-      };
+      return Object.assign(d, c, { rooms: Object.assign(d.rooms, c.rooms || {}), lines: Object.assign(d.lines, c.lines || {}), opts: Object.assign(d.opts, c.opts || {}) });
     } catch (e) { return defaultConfig(); }
   }
-
-  function save(c) {
-    try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {}
-  }
+  function save(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
 
   let cfg = load();
+  const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g,
-    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-  // Грубый предпросмотр количества линий (НЕ финальный расчёт — он в V28.3).
   function previewCounts() {
     const r = cfg.rooms;
     const lightGroups = (r.kits + r.baths + r.toilets + r.rooms + r.bals) || 0;
     const socketGroups = (r.kits + r.rooms) || 0;
-    const wet = (r.baths + r.toilets) || 0;
-    const warm = r.warmFloors || 0;
-    const clim = r.climates || 0;
+    const wet = (r.baths + r.toilets) || 0, warm = r.warmFloors || 0, clim = r.climates || 0;
     const sepLines = LINES.reduce((n, l) => n + (cfg.lines[l.key] ? 1 : 0), 0);
     const lines = lightGroups + socketGroups + wet + warm + clim + sepLines;
-    // очень грубо: ~2 модуля на линию + ввод/УЗМ/реле
     const modules = lines * 2 + (cfg.opts.uzm ? 2 : 0) + 4;
     const suggestedSize = SIZES.find(s => s >= modules) || 72;
-    return { lines, modules, suggestedSize, sepLines, lightGroups, socketGroups };
+    return { lines, modules, suggestedSize, sepLines };
+  }
+  function buildPlan() {
+    const r = cfg.rooms, out = [];
+    const push = (n, count, nom, note) => { for (let i = 0; i < count; i++) out.push({ name: count > 1 ? `${n} ${i + 1}` : n, nom, note: note || "" }); };
+    push("Розетки кухня", r.kits, "C16");
+    push("Свет кухня", r.kits, "C10");
+    push("Розетки ванная", r.baths, "C16", "влажная 10 мА");
+    push("Свет ванная", r.baths, "C10");
+    push("Свет санузел", r.toilets, "C10");
+    push("Розетки комната", r.rooms, "C16");
+    push("Свет комната", r.rooms, "C10");
+    push("Балкон / лоджия", r.bals, "C16");
+    push("Тёплый пол", r.warmFloors, "C16", "терморегулятор, 10–30 мА");
+    push("Кондиционер", r.climates, "C16", "неотключаемая");
+    LINES.forEach(l => { if (cfg.lines[l.key]) out.push({ name: l.label, nom: l.nom, note: "отдельная линия" }); });
+    return out;
+  }
+  function selectHtml(attr, list, current, getV, getT) {
+    return `<select ${attr}>${list.map(o => { const v = getV(o), t = getT(o); return `<option value="${esc(v)}" ${String(current) === String(v) ? "selected" : ""}>${esc(t)}</option>`; }).join("")}</select>`;
   }
 
-  // ---------- РЕНДЕР ----------
+  function draftHtml(plan) {
+    if (!plan || !plan.length) return `<div class="shv28-draft-empty">Линий не получилось — проверь помещения.</div>`;
+    return `<div class="shv28-draft-note">План линий (без подбора по БД — это шаг V28.3): <b>${plan.length}</b></div>
+      <div class="shv28-draft-list">${plan.map((p, i) => `<div class="shv28-draft-row"><span class="n">${i + 1}</span><span class="nm">${esc(p.name)}</span><span class="nom">${esc(p.nom)}</span>${p.note ? `<span class="note">${esc(p.note)}</span>` : ""}</div>`).join("")}</div>
+      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · ${esc(PHASES.find(x => x.v === cfg.phase)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}</div>`;
+  }
+
   function render() {
     const root = document.getElementById("ep-shield-v28-root");
     if (!root) return;
-
     const pc = previewCounts();
     const size = cfg.sizeMode === "auto" ? pc.suggestedSize : cfg.size;
-
     root.innerHTML = `
       <div class="shv28">
-        <div class="shv28-card">
-          <h3>Шаблон объекта</h3>
-          <div class="shv28-note">Быстрый старт — потом поправь помещения вручную.</div>
-          <div class="shv28-tpl">
-            ${Object.keys(TEMPLATES).map(k =>
-              `<button type="button" class="shv28-tpl-btn ${cfg.template === k ? "active" : ""}" data-tpl="${k}">${esc(TEMPLATE_LABELS[k])}</button>`
-            ).join("")}
+        <details class="shv28-foldcard" open>
+          <summary><span class="shv28-fi">📋</span><span class="shv28-ftx"><b>Шаблоны</b><i>Тип объекта и профиль Бюджет / Стандарт / Топ</i></span><span class="shv28-arrow">⌄</span></summary>
+          <div class="shv28-foldbody">
+            <div class="shv28-sublabel">Тип объекта</div>
+            <div class="shv28-tpl">${Object.keys(TEMPLATES).map(k => `<button type="button" class="shv28-tpl-btn ${cfg.template === k ? "active" : ""}" data-tpl="${k}">${esc(TEMPLATE_LABELS[k])}</button>`).join("")}</div>
+            <div class="shv28-sublabel">Профиль качества</div>
+            <div class="shv28-prof">${PROFILES.map(p => `<button type="button" class="shv28-prof-btn ${cfg.profile === p.key ? "active" : ""}" data-prof="${p.key}">${esc(p.label)}</button>`).join("")}</div>
           </div>
-        </div>
+        </details>
+
+        <details class="shv28-foldcard">
+          <summary><span class="shv28-fi">⚙️</span><span class="shv28-ftx"><b>Настройки автоматики и щита</b><i>Марка, фазы, тип защиты, монтаж и правило БД</i></span><span class="shv28-arrow">⌄</span></summary>
+          <div class="shv28-foldbody">
+            <div class="shv28-grid2">
+              <label>Марка щита ${selectHtml('data-set="brand"', BRANDS, cfg.brand, x => x, x => x)}</label>
+              <label>Марка автоматики ${selectHtml('data-set="autoBrand"', BRANDS, cfg.autoBrand, x => x, x => x)}</label>
+              <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
+              <label>Кривая ${selectHtml('data-set="curve"', CURVES, cfg.curve, x => x, x => x)}</label>
+              <label>Тип УЗО ${selectHtml('data-set="rcdType"', RCD_TYPES, cfg.rcdType, x => x, x => x)}</label>
+              <label>Монтаж ${selectHtml('data-set="wall"', WALLS, cfg.wall, x => x, x => x)}</label>
+            </div>
+            <div class="shv28-sublabel">Тип защиты</div>
+            ${selectHtml('data-set="protection" class="shv28-wide"', PROTECTIONS, cfg.protection, o => o.v, o => o.t)}
+            <div class="shv28-sublabel">Правило подбора по БД</div>
+            ${selectHtml('data-set="dbRule" class="shv28-wide"', DB_RULES, cfg.dbRule, o => o.v, o => o.t)}
+          </div>
+        </details>
 
         <div class="shv28-card">
           <h3>Помещения</h3>
-          <div class="shv28-rooms">
-            ${ROOMS.map(r => `
-              <div class="shv28-room">
-                <span class="shv28-room-ic">${r.icon}</span>
-                <span class="shv28-room-lb">${esc(r.label)}</span>
-                <div class="shv28-stepper">
-                  <button type="button" data-dec="${r.key}">−</button>
-                  <input type="number" inputmode="numeric" min="0" data-room="${r.key}" value="${esc(cfg.rooms[r.key] || 0)}">
-                  <button type="button" data-inc="${r.key}">+</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
+          <div class="shv28-rooms">${ROOMS.map(r => `
+            <div class="shv28-room">
+              <span class="shv28-room-ic">${r.icon}</span>
+              <div class="shv28-room-tx"><b>${esc(r.label)}</b><i>${esc(r.desc)}</i></div>
+              <div class="shv28-stepper"><button type="button" data-dec="${r.key}">−</button><input type="number" inputmode="numeric" min="0" data-room="${r.key}" value="${esc(cfg.rooms[r.key] || 0)}"><button type="button" data-inc="${r.key}">+</button></div>
+            </div>`).join("")}</div>
         </div>
 
         <div class="shv28-card">
           <h3>Отдельные линии</h3>
-          <div class="shv28-lines">
-            ${LINES.map(l => `
-              <button type="button" class="shv28-line ${cfg.lines[l.key] ? "on" : ""}" data-line="${l.key}">
-                <span class="shv28-line-lb">${esc(l.label)}</span>
-                <span class="shv28-nom">${esc(l.nom)}</span>
-                <span class="shv28-tick">${cfg.lines[l.key] ? "✓" : ""}</span>
-              </button>
-            `).join("")}
-          </div>
+          <div class="shv28-lines">${LINES.map(l => `<button type="button" class="shv28-line ${cfg.lines[l.key] ? "on" : ""}" data-line="${l.key}"><span class="shv28-line-lb">${esc(l.label)}</span><span class="shv28-nom">${esc(l.nom)}</span><span class="shv28-tick">${cfg.lines[l.key] ? "✓" : ""}</span></button>`).join("")}</div>
         </div>
 
         <div class="shv28-card">
           <h3>Опции щита</h3>
-          <div class="shv28-opts">
-            ${OPTS.map(o => `
-              <button type="button" class="shv28-opt ${cfg.opts[o.key] ? "on" : ""}" data-opt="${o.key}">
-                <span>${esc(o.label)}</span><b>${cfg.opts[o.key] ? "вкл" : "выкл"}</b>
-              </button>
-            `).join("")}
-          </div>
-        </div>
-
-        <div class="shv28-card">
-          <h3>Корпус щита</h3>
-          <div class="shv28-grid2">
-            <label>Марка
-              <select data-brand>
-                ${BRANDS.map(b => `<option ${cfg.brand === b ? "selected" : ""}>${esc(b)}</option>`).join("")}
-              </select>
+          <div class="shv28-opts">${OPTS.map(o => `<button type="button" class="shv28-opt ${cfg.opts[o.key] ? "on" : ""}" data-opt="${o.key}"><span>${esc(o.label)}</span><b>${cfg.opts[o.key] ? "вкл" : "выкл"}</b></button>`).join("")}</div>
+          <div class="shv28-grid2" style="margin-top:10px">
+            <label>Размер щита (модулей)
+              ${cfg.sizeMode === "auto"
+                ? `<input value="${size} (авто)" disabled style="height:40px;border:1px solid rgba(15,23,42,.14);border-radius:10px;padding:0 8px;background:#f1f5f9;color:#475569;font:800 14px/1 system-ui;">`
+                : selectHtml('data-set="size"', SIZES, size, x => x, x => x)}
             </label>
-            <label>Размер (модулей)
-              <select data-size ${cfg.sizeMode === "auto" ? "disabled" : ""}>
-                ${SIZES.map(s => `<option value="${s}" ${size === s ? "selected" : ""}>${s}</option>`).join("")}
-              </select>
-            </label>
+            <button type="button" class="shv28-sizemode ${cfg.sizeMode === "auto" ? "on" : ""}" data-sizemode><span>Размер авто</span><b>${cfg.sizeMode === "auto" ? "авто" : "вручную"}</b></button>
           </div>
-          <button type="button" class="shv28-sizemode ${cfg.sizeMode === "auto" ? "on" : ""}" data-sizemode>
-            <span>Размер автоматически по числу модулей</span><b>${cfg.sizeMode === "auto" ? "авто" : "вручную"}</b>
-          </button>
         </div>
 
         <div class="shv28-summary">
-          <div><span>Линий (примерно)</span><b>${pc.lines}</b></div>
-          <div><span>Модулей (примерно)</span><b>~${pc.modules}</b></div>
-          <div><span>Щит</span><b>${esc(cfg.brand)} · ${size} мод.</b></div>
+          <div><span>Линий ~</span><b>${pc.lines}</b></div>
+          <div><span>Модулей ~</span><b>~${pc.modules}</b></div>
+          <div><span>Щит</span><b>${esc(cfg.brand)} · ${size}</b></div>
         </div>
 
-        <button type="button" class="shv28-next" data-next>
-          Рассчитать щит по БД →
-          <small>подключим на шаге V28.3</small>
-        </button>
-      </div>
-    `;
+        <div class="shv28-card">
+          <h3>Черновик щита</h3>
+          <div id="shv28-draft" class="shv28-draft">${cfg.draft ? draftHtml(cfg.draft) : `<div class="shv28-draft-empty">Нажми «Сгенерировать черновик».</div>`}</div>
+        </div>
+
+        <div class="shv28-actions">
+          <button type="button" class="shv28-btn gen" data-gen>Сгенерировать черновик</button>
+          <button type="button" class="shv28-btn add" data-add>Добавить в смету</button>
+          <button type="button" class="shv28-btn clr" data-clear>Очистить</button>
+        </div>
+      </div>`;
   }
 
-  // ---------- СОБЫТИЯ ----------
-  function clamp(n) { n = Math.floor(Number(n) || 0); return n < 0 ? 0 : n; }
+  const clamp = n => { n = Math.floor(Number(n) || 0); return n < 0 ? 0 : n; };
 
   function bindOnce() {
     if (window.__EP_SHIELD_V28_BOUND__) return;
     window.__EP_SHIELD_V28_BOUND__ = true;
-
     document.addEventListener("click", (e) => {
       const root = document.getElementById("ep-shield-v28-root");
       if (!root || !root.contains(e.target)) return;
-
-      const tpl = e.target.closest?.("[data-tpl]");
-      if (tpl) {
-        const k = tpl.dataset.tpl;
-        cfg.template = k;
-        ROOMS.forEach(r => cfg.rooms[r.key] = (TEMPLATES[k] || {})[r.key] || 0);
-        save(cfg); render(); return;
-      }
-      const inc = e.target.closest?.("[data-inc]");
+      const t = e.target;
+      const tpl = t.closest?.("[data-tpl]");
+      if (tpl) { const k = tpl.dataset.tpl; cfg.template = k; ROOMS.forEach(r => cfg.rooms[r.key] = (TEMPLATES[k] || {})[r.key] || 0); save(cfg); render(); return; }
+      const prof = t.closest?.("[data-prof]");
+      if (prof) { cfg.profile = prof.dataset.prof; save(cfg); render(); return; }
+      const inc = t.closest?.("[data-inc]");
       if (inc) { cfg.rooms[inc.dataset.inc] = clamp((cfg.rooms[inc.dataset.inc] || 0) + 1); save(cfg); render(); return; }
-      const dec = e.target.closest?.("[data-dec]");
+      const dec = t.closest?.("[data-dec]");
       if (dec) { cfg.rooms[dec.dataset.dec] = clamp((cfg.rooms[dec.dataset.dec] || 0) - 1); save(cfg); render(); return; }
-      const line = e.target.closest?.("[data-line]");
+      const line = t.closest?.("[data-line]");
       if (line) { const k = line.dataset.line; cfg.lines[k] = !cfg.lines[k]; save(cfg); render(); return; }
-      const opt = e.target.closest?.("[data-opt]");
+      const opt = t.closest?.("[data-opt]");
       if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; save(cfg); render(); return; }
-      const sm = e.target.closest?.("[data-sizemode]");
+      const sm = t.closest?.("[data-sizemode]");
       if (sm) { cfg.sizeMode = cfg.sizeMode === "auto" ? "manual" : "auto"; save(cfg); render(); return; }
-      const next = e.target.closest?.("[data-next]");
-      if (next) {
-        alert("Конфигурация сохранена.\nРасчёт по БД и смета появятся на шаге V28.3, визуализация щита — V28.4.");
-        return;
-      }
+      const gen = t.closest?.("[data-gen]");
+      if (gen) { cfg.draft = buildPlan(); save(cfg); render(); return; }
+      const add = t.closest?.("[data-add]");
+      if (add) { alert("Подбор позиций по БД и добавление в смету появятся на шаге V28.3.\nСейчас черновик — это план линий."); return; }
+      const clr = t.closest?.("[data-clear]");
+      if (clr) { if (confirm("Очистить черновик и сбросить настройки щита?")) { cfg = defaultConfig(); save(cfg); render(); } return; }
     });
-
-    // ручной ввод числа помещений + выбор марки/размера
     document.addEventListener("change", (e) => {
       const root = document.getElementById("ep-shield-v28-root");
       if (!root || !root.contains(e.target)) return;
       const ri = e.target.closest?.("input[data-room]");
       if (ri) { cfg.rooms[ri.dataset.room] = clamp(ri.value); save(cfg); render(); return; }
-      const br = e.target.closest?.("select[data-brand]");
-      if (br) { cfg.brand = br.value; save(cfg); render(); return; }
-      const sz = e.target.closest?.("select[data-size]");
-      if (sz) { cfg.size = Number(sz.value) || 24; save(cfg); render(); return; }
+      const set = e.target.closest?.("[data-set]");
+      if (set) { cfg[set.dataset.set] = set.value; save(cfg); render(); return; }
     });
   }
 
-  // ---------- ТОЧКА ВХОДА (роутер) ----------
-  function bindPage() {
-    cfg = load();
-    bindOnce();
-    render();
-  }
-
-  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)) };
+  function bindPage() { cfg = load(); bindOnce(); render(); }
+  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)), buildPlan };
 })();
