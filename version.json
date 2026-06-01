@@ -1,1 +1,1 @@
-{"version":"V27.10","updatedAt":"2026-06-01T03:30:00.000Z","note":"V27.10: compact item cards inside folders, scroll position preserved when opening/closing folders."}
+{"version":"V28.2","updatedAt":"2026-06-01T04:00:00.000Z","note":"V28.2 Shield configurator screens: clean module (templates, rooms, separate lines, options, enclosure brand/size) wired via router bindPage. DB-driven calc -> V28.3, visualization -> V28.4."}
