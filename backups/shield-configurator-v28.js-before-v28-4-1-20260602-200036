@@ -103,7 +103,7 @@
   function save(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
 
   let cfg = load();
-  const openState = { tpl: false, settings: false, opts: false, rail: false };
+  const openState = { tpl: false, settings: false, opts: false };
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function previewCounts() {
@@ -234,48 +234,6 @@
     return { items, total };
   }
 
-  // Раскладка по DIN-рейкам: вводной -> по группам (диф/УЗО + автоматы). 12 модулей в ряду.
-  function buildRailLayout(draft) {
-    if (!draft || !draft.groups) return null;
-    const headW = Number(cfg.difWidth) || 2;
-    const cells = [];
-    if (cfg.opts.vvod) cells.push({ label: `Ввод ${cfg.introAmp}А`, w: cfg.phase === "3" ? 4 : 2, type: "input" });
-    if (cfg.opts.uzm) cells.push({ label: "Реле U", w: cfg.phase === "3" ? 3 : 2, type: "extra" });
-    if (cfg.opts.opn) cells.push({ label: "ОПН", w: cfg.phase === "3" ? 4 : 2, type: "extra" });
-    draft.groups.forEach(g => {
-      cells.push({ label: `${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} ${g.leak}мА`, w: headW, type: "rcd", grp: g.key });
-      g.lines.forEach(l => cells.push({ label: l.nom, w: 1, type: "avt", grp: g.key, title: l.name }));
-    });
-    const used = cells.reduce((s, c) => s + c.w, 0);
-    return { cells, used, perRow: 12 };
-  }
-
-  // отрисовка раскладки: упаковка по 12 модулей в ряд, перенос с зазором (как реальные рейки)
-  function railHtml(draft) {
-    const rl = buildRailLayout(draft);
-    if (!rl || !rl.cells.length) return "";
-    const per = rl.perRow;
-    const rows = []; let cur = [], fill = 0;
-    rl.cells.forEach(c => {
-      const w = Math.min(c.w, per);
-      if (fill + w > per) { rows.push({ cells: cur, fill }); cur = []; fill = 0; }
-      cur.push(Object.assign({}, c, { w })); fill += w;
-    });
-    if (cur.length) rows.push({ cells: cur, fill });
-    const rowsHtml = rows.map((r, ri) => {
-      const cellsH = r.cells.map(c =>
-        `<div class="shv28-cell ${c.type}" style="grid-column:span ${c.w}" title="${esc(c.title || c.label)}"><span>${esc(c.label)}</span></div>`
-      ).join("");
-      const gap = r.fill < per ? `<div class="shv28-cell gap" style="grid-column:span ${per - r.fill}"></div>` : "";
-      return `<div class="shv28-rail"><div class="shv28-rail-no">Рейка ${ri + 1}</div><div class="shv28-rail-grid">${cellsH}${gap}</div></div>`;
-    }).join("");
-    const size = cfg.sizeMode === "auto" ? previewCounts().suggestedSize : cfg.size;
-    return `<details class="shv28-foldcard" data-fold="rail" ${openState.rail ? "open" : ""}>
-      <summary><span class="shv28-fi">🔲</span><span class="shv28-ftx"><b>Раскладка по рейкам</b><i>${rl.used} мод. · рядов: ${rows.length} · корпус: ${size} мод.</i></span><span class="shv28-arrow">⌄</span></summary>
-      <div class="shv28-foldbody">${rowsHtml}<div class="shv28-draft-note2">Серое — свободные модули. По 12 модулей в ряду. Вводной/ОПН/реле — сверху, далее группы: диф/УЗО + автоматы.</div></div>
-    </details>`;
-  }
-
   // применить ручную цену к ненайденной позиции
   function manualFor(key) { const v = cfg.manualPrices && cfg.manualPrices[key]; return v ? Number(v) : 0; }
 
@@ -392,7 +350,6 @@
     return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
       ${groupsHtml}
       ${aggHtml}
-      ${railHtml(draft)}
       ${consHtml}
       ${workHtml}
       <div class="shv28-totals">
