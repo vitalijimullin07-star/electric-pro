@@ -57,7 +57,7 @@
   <script defer src="assets/js/router.js?v=v28-2-shield-configurator-20260601-01"></script>
   <script defer src="assets/js/app-shell.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
   <link rel="stylesheet" href="assets/css/ui-fixes-v12.css?v=v24-3-3-db-import-autosave-20260525-01">
-  <link rel="stylesheet" href="modules/shield/shield-configurator-v28.css?v=v28-3b-1-shield-groups-20260601-01">
+  <link rel="stylesheet" href="modules/shield/shield-configurator-v28.css?v=v28-5-1-shield-fold-replace-20260601-01">
 </head>
 
 <body data-visual-mode="night" data-animation="glass" data-button-shape="soft" data-bg-style="live">
@@ -311,7 +311,7 @@
   <script defer src="assets/js/v24-3-2-menu-diagnostics-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
 
 
-  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-3b-1-shield-groups-20260601-01"></script>
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-5-1-shield-fold-replace-20260601-01"></script>
 
 
   <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
@@ -328,7 +328,7 @@
   <script defer src="modules/shield/shield-db-resolver-v28.js?v=v28-5-db-specs-20260601-01"></script>
   <script defer src="modules/database/db-params-v28.js?v=v28-4-db-params-20260601-01"></script>
   
-  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-3b-1-shield-groups-20260601-01"></script>
+  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-5-1-shield-fold-replace-20260601-01"></script>
 
 
   <script defer src="assets/js/admin-v26-7-subscription-panel-restore.js?v=v26-7-admin-subscription-restore-20260528-01"></script>

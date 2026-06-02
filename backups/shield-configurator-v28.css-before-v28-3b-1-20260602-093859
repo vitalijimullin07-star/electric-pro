@@ -168,14 +168,3 @@
 .shv28-alt span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .shv28-alt b { flex:0 0 auto; color:#16a34a; font:900 12px/1 system-ui; }
 .shv28-alt.cur { background:#dcfce7; border-color:#22c55e; }
-
-/* группы защиты в черновике (V28.3b-1) */
-.shv28-group { border:1px solid rgba(15,23,42,.12); border-radius:12px; overflow:hidden; margin-bottom:10px; background:#fff; }
-.shv28-group-head { display:flex; align-items:center; gap:8px; padding:9px 11px; background:#eef2ff; }
-.shv28-group-head .gt { flex:1; min-width:0; font:900 13px/1.2 system-ui; color:#312e81; }
-.shv28-group-head .gl { flex:0 0 auto; background:#c7d2fe; color:#312e81; border-radius:999px; padding:2px 8px; font:900 11px/1.2 system-ui; }
-.shv28-group-head .gc { flex:0 0 auto; color:#64748b; font:800 11px/1.2 system-ui; }
-.shv28-prot { padding:9px 11px; font:800 12px/1.3 system-ui; border-bottom:1px solid rgba(15,23,42,.08); }
-.shv28-prot.ok { color:#15803d; background:#f0fdf4; cursor:pointer; } .shv28-prot.ok b { color:#0f172a; } .shv28-prot.ok i { font-style:normal; color:#94a3b8; }
-.shv28-prot.no { color:#b45309; background:#fffbeb; }
-.shv28-group-lines { padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
