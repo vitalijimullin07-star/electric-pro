@@ -1,0 +1,1 @@
+{"version":"V28.4-1","updatedAt":"2026-06-02T11:00:00.000Z","note":"V28.4-1 Shield rail layout: visual DIN-rail packing (12 modules per row) from the draft - input/SPD/voltage relay on top, then per group RCD/diff + breakers; devices span their module width, wrap to next rail leaving a gap; color-coded by type; collapsible block in draft. Single-line scheme -> V28.4-2."}

@@ -104,7 +104,6 @@
 
   let cfg = load();
   const openState = { tpl: false, settings: false, opts: false, rail: false };
-  let railOpen = false, railSel = null, railCells = [];
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function previewCounts() {
@@ -235,92 +234,46 @@
     return { items, total };
   }
 
-  // Раскладка по DIN-рейкам: вводной -> по группам (диф/УЗО + автоматы). Обозначения QF/QD.
+  // Раскладка по DIN-рейкам: вводной -> по группам (диф/УЗО + автоматы). 12 модулей в ряду.
   function buildRailLayout(draft) {
     if (!draft || !draft.groups) return null;
     const headW = Number(cfg.difWidth) || 2;
     const cells = [];
-    let idx = 0, qf = 0, qd = 0;
-    const add = c => { c.idx = idx++; cells.push(c); };
-    if (cfg.opts.vvod) add({ des: "QF0", label: `Ввод`, nom: `${cfg.introAmp}А`, serves: `Вводной автомат, ${cfg.phase === "3" ? "3 фазы" : "1 фаза"}`, w: cfg.phase === "3" ? 4 : 2, type: "input" });
-    if (cfg.opts.uzm) add({ des: "KV1", label: "Реле U", nom: "", serves: "Реле напряжения (защита от скачков)", w: cfg.phase === "3" ? 3 : 2, type: "extra" });
-    if (cfg.opts.opn) add({ des: "FV1", label: "ОПН", nom: "", serves: "Ограничитель перенапряжений (УЗИП)", w: cfg.phase === "3" ? 4 : 2, type: "extra" });
+    if (cfg.opts.vvod) cells.push({ label: `Ввод ${cfg.introAmp}А`, w: cfg.phase === "3" ? 4 : 2, type: "input" });
+    if (cfg.opts.uzm) cells.push({ label: "Реле U", w: cfg.phase === "3" ? 3 : 2, type: "extra" });
+    if (cfg.opts.opn) cells.push({ label: "ОПН", w: cfg.phase === "3" ? 4 : 2, type: "extra" });
     draft.groups.forEach(g => {
-      qd++;
-      add({ des: "QD" + qd, label: g.prot.kind === "dif" ? "ДИФ" : "УЗО", nom: `40А ${g.leak}мА`, serves: `${g.title} — защита группы`, w: headW, type: "rcd", grp: g.key, dbName: g.prot.found ? g.prot.name : "", price: g.prot.found ? g.prot.price : 0, found: g.prot.found });
-      g.lines.forEach(l => {
-        qf++;
-        add({ des: "QF" + qf, label: l.nom, nom: l.nom, serves: l.name, w: 1, type: "avt", grp: g.key, dbName: l.dbFound ? l.dbName : "", price: l.dbFound ? l.dbPrice : 0, found: l.dbFound });
-      });
+      cells.push({ label: `${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} ${g.leak}мА`, w: headW, type: "rcd", grp: g.key });
+      g.lines.forEach(l => cells.push({ label: l.nom, w: 1, type: "avt", grp: g.key, title: l.name }));
     });
     const used = cells.reduce((s, c) => s + c.w, 0);
     return { cells, used, perRow: 12 };
   }
 
-  // упаковка ячеек по рядам (12 модулей), перенос с зазором
-  function railRows(cells, per) {
+  // отрисовка раскладки: упаковка по 12 модулей в ряд, перенос с зазором (как реальные рейки)
+  function railHtml(draft) {
+    const rl = buildRailLayout(draft);
+    if (!rl || !rl.cells.length) return "";
+    const per = rl.perRow;
     const rows = []; let cur = [], fill = 0;
-    cells.forEach(c => {
+    rl.cells.forEach(c => {
       const w = Math.min(c.w, per);
       if (fill + w > per) { rows.push({ cells: cur, fill }); cur = []; fill = 0; }
-      cur.push(c); fill += w;
+      cur.push(Object.assign({}, c, { w })); fill += w;
     });
     if (cur.length) rows.push({ cells: cur, fill });
-    return rows;
-  }
-
-  function cellHtml(c) {
-    return `<div class="shv28-cell ${c.type} ${railSel === c.idx ? "sel" : ""}" data-cell="${c.idx}" style="grid-column:span ${c.w}" title="${esc(c.serves || c.label)}">
-      ${c.des ? `<span class="des">${esc(c.des)}</span>` : ""}<span class="nm">${esc(c.label)}</span>${c.nom && c.nom !== c.label ? `<span class="amp">${esc(c.nom)}</span>` : ""}</div>`;
-  }
-
-  function railGridHtml(rl, per) {
-    return railRows(rl.cells, per).map((r, ri) => {
-      const cellsH = r.cells.map(cellHtml).join("");
+    const rowsHtml = rows.map((r, ri) => {
+      const cellsH = r.cells.map(c =>
+        `<div class="shv28-cell ${c.type}" style="grid-column:span ${c.w}" title="${esc(c.title || c.label)}"><span>${esc(c.label)}</span></div>`
+      ).join("");
       const gap = r.fill < per ? `<div class="shv28-cell gap" style="grid-column:span ${per - r.fill}"></div>` : "";
       return `<div class="shv28-rail"><div class="shv28-rail-no">Рейка ${ri + 1}</div><div class="shv28-rail-grid">${cellsH}${gap}</div></div>`;
     }).join("");
-  }
-
-  // карточка выбранного аппарата
-  function railCardHtml() {
-    if (railSel == null || !railCells[railSel]) return "";
-    const c = railCells[railSel];
-    const typeT = c.type === "input" ? "Вводной автомат" : c.type === "rcd" ? "Дифф./УЗО (защита группы)" : c.type === "avt" ? "Автоматический выключатель" : "Аппарат";
-    return `<div class="shv28-railcard">
-      <div class="rc-head"><b>${esc(c.des || "")} · ${esc(c.label)}${c.nom && c.nom !== c.label ? " " + esc(c.nom) : ""}</b><button type="button" class="rc-x" data-cellclose>✕</button></div>
-      <div class="rc-row"><span>Тип</span><b>${esc(typeT)}</b></div>
-      <div class="rc-row"><span>Назначение</span><b>${esc(c.serves || "—")}</b></div>
-      <div class="rc-row"><span>Модулей</span><b>${c.w}</b></div>
-      ${c.dbName ? `<div class="rc-row"><span>Из БД</span><b>${esc(c.dbName)}</b></div>` : (c.type === "avt" || c.type === "rcd") ? `<div class="rc-row"><span>Из БД</span><b style="color:#b45309">не найдено</b></div>` : ""}
-      ${c.price ? `<div class="rc-row"><span>Цена</span><b>${Math.round(c.price)} ₽</b></div>` : ""}
-    </div>`;
-  }
-
-  // полноэкранный оверлей раскладки
-  function railOverlayHtml() {
-    if (!railOpen) return "";
-    const rl = buildRailLayout(cfg.draft);
-    railCells = rl ? rl.cells : [];
-    if (!rl || !rl.cells.length) {
-      return `<div class="shv28-overlay"><div class="shv28-ov-head"><b>Раскладка по рейкам</b><button type="button" class="rc-x" data-railclose>✕</button></div><div class="shv28-ov-body"><div class="shv28-draft-empty">Сначала нажми «Сгенерировать черновик».</div></div></div>`;
-    }
     const size = cfg.sizeMode === "auto" ? previewCounts().suggestedSize : cfg.size;
-    const rows = railRows(rl.cells, rl.perRow).length;
-    return `<div class="shv28-overlay">
-      <div class="shv28-ov-head"><b>Раскладка по рейкам</b><span class="ov-sub">${rl.used} мод. · рядов ${rows} · корпус ${size}</span><button type="button" class="rc-x" data-railclose>✕</button></div>
-      <div class="shv28-ov-body">
-        ${railGridHtml(rl, rl.perRow)}
-        ${railCardHtml()}
-        <div class="shv28-ov-legend"><span class="lg input">ввод</span><span class="lg rcd">диф/УЗО</span><span class="lg avt">автомат</span><span class="lg extra">прочее</span><span class="lg gap">свободно</span></div>
-        <div class="shv28-draft-note2">Нажми на аппарат — покажу что это и за что отвечает.</div>
-      </div>
-      <div class="shv28-ov-foot">
-        <button type="button" class="shv28-btn" style="background:#475569" data-railprint>🖨 Печать PDF</button>
-        <button type="button" class="shv28-btn" style="background:#475569" data-railsave>🖼 Сохранить</button>
-        <button type="button" class="shv28-btn" style="background:#0ea5e9" data-railclose>Закрыть</button>
-      </div>
-    </div>`;
+    return `<details class="shv28-foldcard" data-fold="rail" ${openState.rail ? "open" : ""}>
+      <summary><span class="shv28-fi">🔲</span><span class="shv28-ftx"><b>Раскладка по рейкам</b><i>${rl.used} мод. · рядов: ${rows.length} · корпус: ${size} мод.</i></span><span class="shv28-arrow">⌄</span></summary>
+      <div class="shv28-foldbody">${rowsHtml}<div class="shv28-draft-note2">Серое — свободные модули. По 12 модулей в ряду. Вводной/ОПН/реле — сверху, далее группы: диф/УЗО + автоматы.</div></div>
+    </details>`;
   }
 
   // применить ручную цену к ненайденной позиции
@@ -439,6 +392,7 @@
     return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
       ${groupsHtml}
       ${aggHtml}
+      ${railHtml(draft)}
       ${consHtml}
       ${workHtml}
       <div class="shv28-totals">
@@ -515,10 +469,6 @@
           </div>
         </details>
 
-        <div class="shv28-card shv28-railentry">
-          <button type="button" class="shv28-railbtn" data-railopen><span>🔲 Раскладка по рейкам</span><b>${cfg.draft ? "открыть" : "нужен черновик"}</b></button>
-        </div>
-
         <div class="shv28-card">
           <h3>Помещения</h3>
           <div class="shv28-rooms">${ROOMS.map(r => `
@@ -559,7 +509,7 @@
           <button type="button" class="shv28-btn add" data-add>➕ В смету</button>
           <button type="button" class="shv28-btn clr" data-clear>🗑 Очистить</button>
         </div>
-      </div>${railOverlayHtml()}`;
+      </div>`;
   }
 
   const clamp = n => { n = Math.floor(Number(n) || 0); return n < 0 ? 0 : n; };
@@ -605,14 +555,6 @@
       }
       const gen = t.closest?.("[data-gen]");
       if (gen) { cfg.draft = resolveDraft(buildPlan()); save(cfg); render(); return; }
-      // раскладка по рейкам — открыть/закрыть/клик по аппарату
-      if (t.closest?.("[data-railopen]")) { if (!cfg.draft) { alert("Сначала нажми «Сгенерировать черновик»."); return; } railOpen = true; railSel = null; render(); return; }
-      if (t.closest?.("[data-railclose]")) { railOpen = false; railSel = null; render(); return; }
-      if (t.closest?.("[data-cellclose]")) { railSel = null; render(); return; }
-      const cellEl = t.closest?.("[data-cell]");
-      if (cellEl) { railSel = Number(cellEl.dataset.cell); render(); return; }
-      if (t.closest?.("[data-railprint]")) { alert("Печать в PDF появится в следующем шаге."); return; }
-      if (t.closest?.("[data-railsave]")) { alert("Сохранение изображения появится в следующем шаге."); return; }
       // вписать цену вручную для ненайденной позиции
       const man = t.closest?.("[data-manual]");
       if (man) {
