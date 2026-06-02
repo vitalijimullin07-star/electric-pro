@@ -157,7 +157,6 @@
     badge.dataset.moduleKey = info.key;
     badge.textContent = info.version;
     el.appendChild(badge);
-    _added++;
   }
 
   function findCardCandidates() {
@@ -174,10 +173,8 @@
     return Array.from(document.querySelectorAll(selectors.join(",")));
   }
 
-  let _added = 0;
   function applyBadges() {
     const candidates = findCardCandidates();
-    _added = 0;
 
     candidates.forEach(el => {
       if (el.closest("#ep-pool-v21-screen")) return;
@@ -195,44 +192,37 @@
       }
     });
 
-    // лог только если реально что-то добавили (без спама на каждый клик)
-    if (_added > 0) {
-      window.Diagnostics?.ok?.({
-        file: FILE,
-        module: "ModuleVersionBadgesV212",
-        functionName: "applyBadges()",
-        place: "ui",
-        code: "module-version-badges-applied",
-        message: "Версии модулей нанесены на карточки и меню (+" + _added + ")."
-      });
-    }
-  }
-
-  // единый дебаунс-планировщик: коалесцирует частые вызовы в один
-  let _schedTimer = null;
-  function scheduleBadges(delay) {
-    if (_schedTimer) return;
-    _schedTimer = setTimeout(() => { _schedTimer = null; applyBadges(); }, delay || 350);
+    window.Diagnostics?.ok?.({
+      file: FILE,
+      module: "ModuleVersionBadgesV212",
+      functionName: "applyBadges()",
+      place: "ui",
+      code: "module-version-badges-applied",
+      message: "Версии модулей нанесены на карточки и меню."
+    });
   }
 
   function setVersion(key, version) {
     ModuleVersions[key] = version;
-    scheduleBadges(200);
+    applyBadges();
   }
 
   function init() {
     applyBadges();
-    scheduleBadges(900);
-    setTimeout(() => scheduleBadges(0), 2500);
+    setTimeout(applyBadges, 700);
+    setTimeout(applyBadges, 1800);
+    setTimeout(applyBadges, 3500);
 
-    // клик/навигация/фокус — только дебаунс-планировщик (без двойных таймаутов и спама)
-    document.addEventListener("click", () => scheduleBadges(450), true);
-    window.addEventListener("hashchange", () => scheduleBadges(500));
-    window.addEventListener("focus", () => scheduleBadges(600));
+    document.addEventListener("click", () => {
+      setTimeout(applyBadges, 450);
+      setTimeout(applyBadges, 1200);
+    }, true);
+
+    window.addEventListener("hashchange", () => setTimeout(applyBadges, 700));
+    window.addEventListener("focus", () => setTimeout(applyBadges, 700));
 
     window.ModuleVersionBadgesV212 = {
       apply: applyBadges,
-      schedule: scheduleBadges,
       setVersion,
       versions: ModuleVersions
     };
