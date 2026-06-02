@@ -36,26 +36,10 @@
   ];
   const OPTS = [
     { key: "master", label: "Мастер-кнопка (только свет)" },
+    { key: "uzm",    label: "Реле напряжения (УЗМ)" },
     { key: "scheme", label: "Однолинейная схема" },
     { key: "glands", label: "Кабельные вводы / сальники" }
   ];
-  const OPTS_PROT = [
-    { key: "vvod", label: "Вводной автомат" },
-    { key: "uzm", label: "Реле напряжения (УЗМ)" },
-    { key: "opn", label: "ОПН / УЗИП" },
-    { key: "uzdp", label: "УЗДП (от дуги)" },
-    { key: "phaseSwitch", label: "Переключатель фаз" },
-    { key: "avr", label: "АВР (резерв)" },
-    { key: "priority", label: "Реле приоритета" },
-    { key: "contactor", label: "Контактор (мастер)" },
-    { key: "rubilnik", label: "Рубильник нагрузки" },
-    { key: "meter", label: "Счётчик" },
-    { key: "bell", label: "Звонок" },
-    { key: "serviceSocket", label: "Сервисная розетка" }
-  ];
-  const INTRO_AMPS = [16, 25, 32, 40, 50, 63];
-  const DIST = [{ v: "nbus", t: "N-шины" }, { v: "cross", t: "Кросс-модуль" }];
-  const DIFW = [{ v: "2", t: "2 модуля" }, { v: "1", t: "1 модуль" }];
   const BRANDS = ["IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
   const SIZES = [6, 12, 24, 36, 48, 60, 72];
   const PROFILES = [{ key: "budget", label: "Бюджет" }, { key: "standard", label: "Стандарт" }, { key: "top", label: "Топ" }];
@@ -87,8 +71,8 @@
   function defaultConfig() {
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
     const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
-    const opts = { master: true, scheme: true, glands: false, vvod: true, uzm: true, opn: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, contactor: false, rubilnik: false, meter: false, bell: false, serviceSocket: false };
-    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, draft: null };
+    const opts = { master: true, uzm: true, scheme: true, glands: false };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", sizeMode: "auto", size: 24, draft: null };
   }
   function load() {
     try {
@@ -101,7 +85,7 @@
   function save(c) { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch (e) {} }
 
   let cfg = load();
-  const openState = { tpl: false, settings: false, opts: false };
+  const openState = { tpl: false, settings: false };
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function previewCounts() {
@@ -255,34 +239,6 @@
           </div>
         </details>
 
-        <details class="shv28-foldcard" data-fold="opts" ${openState.opts ? "open" : ""}>
-          <summary><span class="shv28-fi">🛡️</span><span class="shv28-ftx"><b>Опции щита</b><i>Аппараты защиты, распределение, размер корпуса</i></span><span class="shv28-arrow">⌄</span></summary>
-          <div class="shv28-foldbody">
-            <div class="shv28-sublabel">Аппараты защиты и автоматика</div>
-            <div class="shv28-opts">${OPTS_PROT.map(o => `<button type="button" class="shv28-opt ${cfg.opts[o.key] ? "on" : ""}" data-opt="${o.key}"><span>${esc(o.label)}</span><b>${cfg.opts[o.key] ? "вкл" : "выкл"}</b></button>`).join("")}</div>
-            <div class="shv28-sublabel">Прочее</div>
-            <div class="shv28-opts">${OPTS.map(o => `<button type="button" class="shv28-opt ${cfg.opts[o.key] ? "on" : ""}" data-opt="${o.key}"><span>${esc(o.label)}</span><b>${cfg.opts[o.key] ? "вкл" : "выкл"}</b></button>`).join("")}</div>
-            <div class="shv28-sublabel">Вводной автомат</div>
-            <div class="shv28-grid2">
-              <label>Номинал ${selectHtml('data-set="introAmp"', INTRO_AMPS, cfg.introAmp, x => x, x => x + " А")}</label>
-              <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
-            </div>
-            <div class="shv28-sublabel">Распределение нуля / земли</div>
-            <div class="shv28-prof">${DIST.map(d => `<button type="button" class="shv28-prof-btn ${cfg.distribution === d.v ? "active" : ""}" data-dist="${d.v}">${esc(d.t)}</button>`).join("")}</div>
-            <div class="shv28-sublabel">Правила сборки</div>
-            <button type="button" class="shv28-opt ${cfg.allLinesRcd ? "on" : ""}" data-allrcd style="width:100%"><span>Все отходящие линии через УЗО/диф</span><b>${cfg.allLinesRcd ? "да" : "нет"}</b></button>
-            <div class="shv28-grid2" style="margin-top:8px">
-              <label>Ширина диф/УЗО ${selectHtml('data-set="difWidth"', DIFW, cfg.difWidth, o => o.v, o => o.t)}</label>
-              <label>Размер щита (мод.)
-                ${cfg.sizeMode === "auto"
-                  ? `<input value="${size} (авто)" disabled style="height:40px;border:1px solid rgba(15,23,42,.14);border-radius:10px;padding:0 8px;background:#f1f5f9;color:#475569;font:800 14px/1 system-ui;">`
-                  : selectHtml('data-set="size"', SIZES, size, x => x, x => x)}
-              </label>
-            </div>
-            <button type="button" class="shv28-sizemode ${cfg.sizeMode === "auto" ? "on" : ""}" data-sizemode style="margin-top:8px"><span>Размер авто (по числу модулей)</span><b>${cfg.sizeMode === "auto" ? "авто" : "вручную"}</b></button>
-          </div>
-        </details>
-
         <div class="shv28-card">
           <h3>Помещения</h3>
           <div class="shv28-rooms">${ROOMS.map(r => `
@@ -298,7 +254,18 @@
           <div class="shv28-lines">${LINES.map(l => `<button type="button" class="shv28-line ${cfg.lines[l.key] ? "on" : ""}" data-line="${l.key}"><span class="shv28-line-lb">${esc(l.label)}</span><span class="shv28-nom">${esc(l.nom)}</span><span class="shv28-tick">${cfg.lines[l.key] ? "✓" : ""}</span></button>`).join("")}</div>
         </div>
 
-
+        <div class="shv28-card">
+          <h3>Опции щита</h3>
+          <div class="shv28-opts">${OPTS.map(o => `<button type="button" class="shv28-opt ${cfg.opts[o.key] ? "on" : ""}" data-opt="${o.key}"><span>${esc(o.label)}</span><b>${cfg.opts[o.key] ? "вкл" : "выкл"}</b></button>`).join("")}</div>
+          <div class="shv28-grid2" style="margin-top:10px">
+            <label>Размер щита (модулей)
+              ${cfg.sizeMode === "auto"
+                ? `<input value="${size} (авто)" disabled style="height:40px;border:1px solid rgba(15,23,42,.14);border-radius:10px;padding:0 8px;background:#f1f5f9;color:#475569;font:800 14px/1 system-ui;">`
+                : selectHtml('data-set="size"', SIZES, size, x => x, x => x)}
+            </label>
+            <button type="button" class="shv28-sizemode ${cfg.sizeMode === "auto" ? "on" : ""}" data-sizemode><span>Размер авто</span><b>${cfg.sizeMode === "auto" ? "авто" : "вручную"}</b></button>
+          </div>
+        </div>
 
         <div class="shv28-summary">
           <div><span>Линий ~</span><b>${pc.lines}</b></div>
@@ -347,10 +314,6 @@
       if (line) { const k = line.dataset.line; cfg.lines[k] = !cfg.lines[k]; save(cfg); render(); return; }
       const opt = t.closest?.("[data-opt]");
       if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; save(cfg); render(); return; }
-      const dist = t.closest?.("[data-dist]");
-      if (dist) { cfg.distribution = dist.dataset.dist; save(cfg); render(); return; }
-      const allrcd = t.closest?.("[data-allrcd]");
-      if (allrcd) { cfg.allLinesRcd = !cfg.allLinesRcd; save(cfg); render(); return; }
       const sm = t.closest?.("[data-sizemode]");
       if (sm) { cfg.sizeMode = cfg.sizeMode === "auto" ? "manual" : "auto"; save(cfg); render(); return; }
       const rec = t.closest?.("[data-recognize]");
