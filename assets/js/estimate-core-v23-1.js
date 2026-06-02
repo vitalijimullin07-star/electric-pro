@@ -1,10 +1,15 @@
 (function () {
-  const VERSION = "V23.1";
+  const VERSION = "V28.7";
   const FILE = "assets/js/estimate-core-v23-1.js";
   const STORAGE_KEY = "ep_estimate_draft_v23";
   const POOL_DRAFT_KEY = "ep_pool_v22_draft";
 
   const n = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
+  const moneyApi = () => window.EPDBMoneyV287;
+  const activeBase = () => window.EPDatabaseV27?.getActiveBase?.() || document.body?.dataset?.epActiveBase || "my";
+  const parsePrice = v => moneyApi()?.parseMoneyInput?.(v) ?? n(String(v ?? 0).replace(",", "."), 0);
+  const calcLineTotal = (price, qty) => moneyApi()?.calcLineTotal?.(price, qty) ?? (Math.round(parsePrice(price) * n(qty, 0) * 100) / 100);
+  const unitPriceText = (value, base) => moneyApi()?.formatUnitPrice?.(value, base || activeBase()) ?? String(parsePrice(value));
   const uid = () => "ed_" + Date.now().toString(36) + "_" + Math.random().toString(16).slice(2);
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;",
@@ -14,8 +19,8 @@
     "'": "&#039;"
   }[c]));
 
-  function money(v) {
-    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
+  function money(v, base) {
+    return moneyApi()?.formatMoneyTotal?.(v, base || activeBase()) ?? (Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽");
   }
 
   function diag(code, message, extra = {}) {
@@ -65,6 +70,7 @@
       return {
         version: data.version || VERSION,
         updatedAt: data.updatedAt || "",
+        settings: data.settings || moneyApi()?.getSettings?.(activeBase()) || null,
         rows: data.rows
       };
     }
@@ -79,6 +85,7 @@
     const out = {
       version: VERSION,
       updatedAt: new Date().toISOString(),
+      settings: draft.settings || moneyApi()?.getSettings?.(activeBase()) || null,
       rows: Array.isArray(draft.rows) ? draft.rows : []
     };
     writeJson(STORAGE_KEY, out);
@@ -88,7 +95,7 @@
 
   function normalizeRow(row, source, meta = {}) {
     const qty = n(row.qty, 0);
-    const price = n(row.price, 0);
+    const price = parsePrice(row.price);
     const type = row.type === "work" ? "work" : "material";
     const name = String(row.name || row.dbName || "Позиция").trim();
 
@@ -112,7 +119,9 @@
       qty,
       unit: row.unit || "шт",
       price,
-      total: Math.round(qty * price * 100) / 100,
+      total: calcLineTotal(price, qty),
+      currency: row.currency || moneyApi()?.getSettings?.(row.raw?.dbSourceBase || activeBase())?.currency || undefined,
+      currencySymbol: row.currencySymbol || moneyApi()?.getSettings?.(row.raw?.dbSourceBase || activeBase())?.currencySymbol || undefined,
 
       missingDb: !!row.missingDb,
       warning: Array.isArray(row.dbPickWarnings) ? row.dbPickWarnings.join("; ") : (row.warning || ""),
@@ -268,7 +277,7 @@
               <div class="ecore-row ${row.missingDb ? "miss" : ""}">
                 <div>
                   <b>${esc(row.dbName || row.name)}</b>
-                  <p>${row.type === "work" ? "Работа" : "Материал"} · ${esc(row.qty)} ${esc(row.unit)} · ${esc(money(row.price))}</p>
+                  <p>${row.type === "work" ? "Работа" : "Материал"} · ${esc(row.qty)} ${esc(row.unit)} · ${esc(unitPriceText(row.price))} ${esc(row.currencySymbol || moneyApi()?.currencyLabel?.(row.raw?.dbSourceBase || activeBase()) || "₽")}</p>
                   ${row.warning ? `<small>${esc(row.warning)}</small>` : ""}
                 </div>
                 <div>

@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 
-const V="V28.4";
+const V="V28.7";
 const JS="assets/js/database-v26-surgical-monolith.js";
 const K={my:"epdb26_my",srv:"epdb26_server",mas:"epdb26_masters",mig:"epdb26_migrated",log:"epdb26_log",save:"epdb26_save",clear:"epdb26_clear_meta"};
 
@@ -9,7 +9,7 @@ const SORT_HINTS={"консультация и обследование элек
 const CAT_ORDER={"Электромонтажные работы (услуги)":0,"Подготовительные работы":1,"Высверливание подрозетников":2,"Чистовая установка":3,"Штробление и резка":4,"Щитовое":5,"Освещение":6,"Монтаж":7,"Монтаж электропроводки":8,"Монтаж электроустановочных изделий":9,"Системы обогрева \"тёплый пол\"":10,"Слаботочные системы":11,"Подключение электрооборудования и бытовых приборов":12,"Демонтаж":13};
 const SUB_ORDER={"Электромонтажные работы (услуги)\u0001Работы":0,"Подготовительные работы\u0001Работы":1,"Высверливание подрозетников\u0001Стандарт":2,"Чистовая установка\u0001Механизмы":3,"Штробление и резка\u0001Алмазная резка":4,"Щитовое\u0001Монтаж":5,"Освещение\u0001Светильники":6,"Монтаж\u0001Прокладка кабеля в гофре / пол":7,"Монтаж\u0001Прокладка кабеля":8,"Монтаж электропроводки\u0001Работы":9,"Щитовое\u0001Сборка щита":10,"Чистовая установка\u0001Накладные механизмы":11,"Монтаж электроустановочных изделий\u0001Работы":12,"Освещение\u0001LED / профиль":13,"Системы обогрева \"тёплый пол\"\u0001Работы":14,"Слаботочные системы\u0001Работы":15,"Подключение электрооборудования и бытовых приборов\u0001Работы":16,"Демонтаж\u0001Демонтаж":17};
 
-const S={base:"my",type:"work",q:"",edit:false,sel:new Set(),open:new Set(),imp:new Set(),preview:[],master:""};
+const S={base:"my",type:"work",q:"",edit:false,sel:new Set(),open:new Set(),imp:new Set(),preview:[],previewSettings:null,master:""};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -18,7 +18,22 @@ const nrm=v=>String(v??"").toLowerCase().replace(/ё/g,"е").replace(/[×хx]/g,
 const id=()=> "db26_"+Date.now().toString(36)+"_"+Math.random().toString(16).slice(2);
 const rj=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")}catch(e){return d}};
 const wj=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const money=v=>Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽";
+const dbMoney=()=>window.EPDBMoneyV287;
+const parsePrice=v=>dbMoney()?.parseMoneyInput?.(v) ?? (Number(String(v??0).replace(",","."))||0);
+const unitPriceText=v=>dbMoney()?.formatUnitPrice?.(v,S.base) ?? String(parsePrice(v));
+const money=v=>dbMoney()?.formatMoneyTotal?.(v,S.base) ?? (Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽");
+const currencyLabel=()=>dbMoney()?.currencyLabel?.(S.base) ?? "₽";
+function currencyOptions(base=S.base){
+  const m=dbMoney(); const cur=m?.getSettings?.(base)?.currency || "BYN";
+  const list=m?.currencies || {BYN:{title:"Белорусский рубль"},RUB:{title:"Российский рубль"},USD:{title:"Доллар США"},EUR:{title:"Евро"}};
+  return Object.keys(list).map(k=>`<option value="${esc(k)}" ${k===cur?"selected":""}>${esc(k)} — ${esc(list[k].title||k)}</option>`).join("");
+}
+function setCurrencyForActiveDb(value){
+  if(!can()) return alert("Валюту этой БД менять нельзя.");
+  dbMoney()?.setCurrency?.(S.base,value);
+  log("currency-change","Валюта БД изменена",{base:S.base,currency:value});
+  render();
+}
 
 function email(){try{return firebase?.auth?.().currentUser?.email||""}catch(e){} try{return auth?.currentUser?.email||""}catch(e){} return ""}
 function admin(){return String(email()).toLowerCase()==="vits0007@gmail.com"||/(^|\s)admin(\s|$)/i.test(document.body.textContent||"")}
@@ -48,7 +63,7 @@ function item(x={},type,baseType){
     subcategory=h.sc||h.g||"Без подкатегории";
   }
 
-  let price=Number(x.price??x.cost??x.p??x.Цена??0)||0;
+  let price=parsePrice(x.price??x.cost??x.p??x.Цена??0);
   let unit=String(x.unit||x.u||x.ed||x.Ед||"шт").trim()||"шт";
   return {
     ...x,
@@ -181,6 +196,10 @@ function css(){
 .db264-preview{display:grid!important;gap:6px!important;margin:10px 0!important;max-height:42vh!important;overflow:auto!important}
 .db264-preview div{padding:8px 10px!important;border-radius:12px!important;background:#fff!important;border:1px solid rgba(15,23,42,.08)!important}
 .db264-ai-note{padding:10px!important;border-radius:14px!important;background:#fff7ed!important;color:#9a3412!important;font-weight:850!important;line-height:1.35!important}
+.db287-currency{display:grid!important;gap:8px!important;margin:10px 0!important;padding:10px!important;border-radius:16px!important;background:rgba(240,253,244,.95)!important;border:1px solid rgba(34,197,94,.28)!important;color:#14532d!important}
+.db287-currency label{display:grid!important;gap:5px!important;font-size:12px!important;font-weight:950!important}
+.db287-currency select{width:100%!important;min-height:44px!important;border:1px solid rgba(15,23,42,.12)!important;border-radius:14px!important;background:#fff!important;color:#0f172a!important;padding:8px 10px!important;font-size:15px!important;font-weight:900!important}
+.db287-currency p{margin:0!important;color:#166534!important;font-size:12px!important;font-weight:800!important;line-height:1.3!important}
 @media(max-width:720px){.db264-actions{grid-template-columns:1fr!important}}
 `;
   document.head.appendChild(st);
@@ -207,13 +226,13 @@ function render(){
   css(); hideOld(); autoSortStorage(false);
   let rs=rows(),e=el();
   e.innerHTML=`
-<div class="db26h"><button data-db26-close>←</button><div><h2>База данных</h2><p data-db264-version-line="1">${role()} · ${V}</p></div><b class="db26pill">${esc(title())}</b><button class="db26dot" data-db26-diag></button></div>
+<div class="db26h"><button data-db26-close>←</button><div><h2>База данных</h2><p data-db264-version-line="1">${role()} · ${V} · ${esc(currencyLabel())}</p></div><b class="db26pill">${esc(title())}</b><button class="db26dot" data-db26-diag></button></div>
 <div class="db26status">✅ Локально: готово · импорт JSON/текст внутри, фото/PDF/Excel через ИИ/парсер по подтверждению</div>
 <main class="db26shell">
 <section class="db26card"><div class="db26switch"><button data-db26-base="server" class="${S.base==="server"?"on":""}">БД сервера</button><button data-db26-base="my" class="${S.base==="my"?"on":""}">БД моя</button>${admin()?`<button data-db26-base="masters" class="${S.base==="masters"?"on":""}">БД мастеров</button>`:""}</div><p>${esc(note())}</p></section>
 <section class="db26card"><button class="db26et" data-db26-editor><span>${S.edit?"▾":"▸"}</span><b>Редактор БД</b><em>${S.edit?"открыт":"свернут"}</em></button>${S.edit?editor():""}</section>
 <section class="db26card"><div class="db26tabs"><button data-db26-type="work" class="${S.type==="work"?"on":""}">Работа</button><button data-db26-type="material" class="${S.type==="material"?"on":""}">Материал</button></div><input class="db26search" data-db26-search placeholder="Поиск..." value="${esc(S.q)}"><div class="db26lh"><h3>${S.type==="work"?"Работы":"Материалы"}</h3><span>${rs.length} поз. · ${can()?"редактирование доступно":"только просмотр"}</span><button data-db26-toggle>${S.open.size?"Свернуть":"Развернуть"}</button></div><div class="db26tree">${tree(rs)}</div></section>
-<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button><button data-ep-recognize-specs>🔍 Параметры</button></div></section>
+<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db287-currency"><label>Валюта активной БД<select data-db287-currency ${can()?"":"disabled"}>${currencyOptions(S.base)}</select></label><p>Цена хранится без округления: 10.43, 13.651, 2.222952. Итог строки показывается до копеек.</p></div><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button><button data-ep-recognize-specs>🔍 Параметры</button></div></section>
 <section class="db26card"><h3>Склад</h3><p>Склад подключим следующим отдельным модулем после финальной стабилизации БД.</p></section>
 </main><div id="db26modal" class="hidden"></div>`;
   applyOpenState();
@@ -233,7 +252,7 @@ function tree(a){
   return g.map(c=>{let ck=S.base+"|"+S.type+"|"+c.c,op=S.open.has(ck),ids=c.ss.flatMap(s=>s.it.map(x=>x.id)),ch=ids.length&&ids.every(i=>S.sel.has(i));return `<div class="db26fold ${op?"open":""}"><div class="db26chk"><label><input type="checkbox" data-db26-catcheck="${esc(ck)}" ${ch?"checked":""}></label><button class="db26fh" data-db26-cat="${esc(ck)}"><span>${op?"📂":"📁"}</span><b>${esc(c.c)}</b><em>${ids.length}</em></button></div><div class="db26body">${c.ss.map(s=>sub(ck,s)).join("")}</div></div>`}).join("");
 }
 function sub(ck,s){let sk=ck+"|"+s.s,op=S.open.has(sk),ids=s.it.map(x=>x.id),ch=ids.length&&ids.every(i=>S.sel.has(i));return `<div class="db26sub ${op?"open":""}"><div class="db26chk"><label><input type="checkbox" data-db26-subcheck="${esc(sk)}" ${ch?"checked":""}></label><button class="db26sh" data-db26-sub="${esc(sk)}"><span>${op?"▾":"▸"}</span><b>${esc(s.s)}</b><em>${ids.length}</em></button></div><div class="db26items">${s.it.map(it).join("")}</div></div>`}
-function it(x){let ch=S.sel.has(x.id);return `<div class="db26it ${ch?"sel":""}"><label><input type="checkbox" data-db26-check="${esc(x.id)}" ${ch?"checked":""}></label><button class="db26im" data-db26-card="${esc(x.id)}"><b>${esc(x.name)}</b><p>${money(x.price)} / ${esc(x.unit)} · ${x.type==="work"?"Работа":"Материал"}</p></button></div>`}
+function it(x){let ch=S.sel.has(x.id);return `<div class="db26it ${ch?"sel":""}"><label><input type="checkbox" data-db26-check="${esc(x.id)}" ${ch?"checked":""}></label><button class="db26im" data-db26-card="${esc(x.id)}"><b>${esc(x.name)}</b><p>${unitPriceText(x.price)} ${esc(currencyLabel())} / ${esc(x.unit)} · ${x.type==="work"?"Работа":"Материал"}</p></button></div>`}
 
 function updateFolderIcon(fold){let sp=fold?.querySelector("[data-db26-cat] span,.db26fh span");if(sp)sp.textContent=fold.classList.contains("open")?"📂":"📁"}
 function updateSubIcon(sub){let sp=sub?.querySelector("[data-db26-sub] span,.db26sh span");if(sp)sp.textContent=sub.classList.contains("open")?"▾":"▸"}
@@ -251,14 +270,14 @@ function closeModal(){$("#db26modal")?.classList.add("hidden")}
 function card(i){let x=byId(i);if(!x)return;openModal(`<div class="db264-panel"><div class="db264-head"><h3>Карточка позиции</h3><button data-db26-closemodal>×</button></div>
 <div class="db264-grid">
 <label>Название<input data-db264-edit="name" value="${esc(x.name)}"></label>
-<label>Цена<input data-db264-edit="price" type="number" step="0.01" value="${esc(x.price)}"></label>
+<label>Цена<input data-db264-edit="price" type="text" inputmode="decimal" value="${esc(unitPriceText(x.price))}"></label>
 <label>Единица<input data-db264-edit="unit" value="${esc(x.unit)}"></label>
 <label>Папка / категория<input data-db264-edit="category" value="${esc(x.category)}"></label>
 <label>Подпапка<input data-db264-edit="subcategory" value="${esc(x.subcategory)}"></label>
 <label>Тип<select data-db264-edit="type"><option value="work" ${x.type==="work"?"selected":""}>Работа</option><option value="material" ${x.type==="material"?"selected":""}>Материал</option></select></label>
 </div>
 <div class="db264-actions"><button class="green" data-db264-save-card="${esc(x.id)}">Сохранить</button><button data-db26-closemodal>Закрыть</button></div></div>`)}
-function saveCard(i){if(!can())return alert("Эту БД нельзя редактировать.");let a=base(S.base),x=a.find(y=>y.id===i);if(!x)return;let m=$("#db26modal");["name","price","unit","category","subcategory","type"].forEach(k=>{let inp=$(`[data-db264-edit="${k}"]`,m);if(!inp)return;let v=inp.value;if(k==="price")v=Number(v||0);x[k]=v;});x.n=x.name;x.p=x.price;x.u=x.unit;x.c=x.category;x.sc=x.subcategory;x.g=x.subcategory;x.updatedAt=new Date().toISOString();save(S.base,a);closeModal();render()}
+function saveCard(i){if(!can())return alert("Эту БД нельзя редактировать.");let a=base(S.base),x=a.find(y=>y.id===i);if(!x)return;let m=$("#db26modal");["name","price","unit","category","subcategory","type"].forEach(k=>{let inp=$(`[data-db264-edit="${k}"]`,m);if(!inp)return;let v=inp.value;if(k==="price")v=parsePrice(v);x[k]=v;});x.n=x.name;x.p=x.price;x.u=x.unit;x.c=x.category;x.sc=x.subcategory;x.g=x.subcategory;x.updatedAt=new Date().toISOString();save(S.base,a);closeModal();render()}
 
 function add(){if(!can())return;let x=item({name:"Новая позиция",price:0,unit:"шт",category:S.type==="work"?"Работы":"Материалы",subcategory:"Без подкатегории",type:S.type},S.type,S.base);let a=base(S.base);a.push(x);save(S.base,a);render();setTimeout(()=>card(x.id),80)}
 function del(){if(!can())return alert("Эту БД нельзя редактировать.");if(!S.sel.size)return alert("Ничего не выбрано.");if(confirm("Удалить выбранные позиции: "+S.sel.size+"?")){save(S.base,base(S.base).filter(x=>!S.sel.has(x.id)));S.sel.clear();render()}}
@@ -274,17 +293,23 @@ function hardClearBase(){
 }
 function move(){if(!can())return alert("Эту БД нельзя редактировать.");if(!S.sel.size)return alert("Ничего не выбрано.");let c=prompt("Новая папка","");if(!c)return;let s=prompt("Новая подпапка","Без подкатегории")||"Без подкатегории",a=base(S.base);a.forEach(x=>{if(S.sel.has(x.id)){x.category=c;x.c=c;x.subcategory=s;x.sc=s;x.g=s}});save(S.base,a);render()}
 
-function exp(){let a=sortRows(base(S.base));let payload={version:V,source:S.base,exportedAt:new Date().toISOString(),workDB:a.filter(x=>x.type==="work").map(shortItem),matDB:a.filter(x=>x.type==="material").map(shortItem)};let b=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),l=document.createElement("a");l.href=URL.createObjectURL(b);l.download="electric-pro-db-v26-4-"+S.base+".json";document.body.appendChild(l);l.click();setTimeout(()=>{URL.revokeObjectURL(l.href);l.remove()},500)}
-function shortItem(x){return {id:x.id,n:x.name,p:x.price,u:x.unit,c:x.category,sc:x.subcategory,g:x.g||x.subcategory,type:x.type,source:x.source||"manual"}}
+function exp(){
+  let a=sortRows(base(S.base));
+  let payload={version:V,source:S.base,exportedAt:new Date().toISOString(),workDB:a.filter(x=>x.type==="work").map(shortItem),matDB:a.filter(x=>x.type==="material").map(shortItem)};
+  payload=dbMoney()?.decorateExportPayload?.(payload,S.base)||payload;
+  let b=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),l=document.createElement("a");
+  l.href=URL.createObjectURL(b);l.download="electric-pro-db-v28-7-"+S.base+".json";document.body.appendChild(l);l.click();setTimeout(()=>{URL.revokeObjectURL(l.href);l.remove()},500)
+}
+function shortItem(x){return {id:x.id,n:x.name,p:parsePrice(x.price),u:x.unit,c:x.category,sc:x.subcategory,g:x.g||x.subcategory,type:x.type,source:x.source||"manual"}}
 
-function parseJsonData(data,typeHint){let out=[];if(Array.isArray(data))data.forEach(x=>out.push(item(x,x.type||typeHint,S.base)));if(Array.isArray(data.workDB))data.workDB.forEach(x=>out.push(item(x,"work",S.base)));if(Array.isArray(data.matDB))data.matDB.forEach(x=>out.push(item(x,"material",S.base)));if(Array.isArray(data.items))data.items.forEach(x=>out.push(item(x,x.type||typeHint,S.base)));return sortRows(out)}
+function parseJsonData(data,typeHint){let out=[];S.previewSettings=dbMoney()?.extractSettings?.(data)||null;if(Array.isArray(data))data.forEach(x=>out.push(item(x,x.type||typeHint,S.base)));if(Array.isArray(data.workDB))data.workDB.forEach(x=>out.push(item(x,"work",S.base)));if(Array.isArray(data.matDB))data.matDB.forEach(x=>out.push(item(x,"material",S.base)));if(Array.isArray(data.items))data.items.forEach(x=>out.push(item(x,x.type||typeHint,S.base)));return sortRows(out)}
 function parseText(txt){return sortRows(String(txt||"").split(/\r?\n/).filter(Boolean).map(line=>{let p=line.split(/[;\t,]/).map(s=>s.trim());return item({name:p[0],category:p[1]||"Импорт",subcategory:p[2]||"Без подкатегории",unit:p[3]||"шт",price:p[4]||0,type:S.type},S.type,S.base)}))}
 function duplicateInfo(rows){let a=base(S.base),add=0,dup=0;rows.forEach(x=>{let sig=nrm(x.type+"|"+x.name+"|"+x.unit);a.some(y=>nrm(y.type+"|"+y.name+"|"+y.unit)===sig)?dup++:add++});return {add,dup}}
 function previewImport(rows,src){S.preview=rows;if(!rows.length)return alert("Позиции не найдены.");let info=duplicateInfo(rows),w=rows.filter(x=>x.type==="work").length,m=rows.filter(x=>x.type==="material").length;openModal(`<div class="db264-panel"><div class="db264-head"><h3>Предпросмотр импорта</h3><button data-db26-closemodal>×</button></div>
 <p><b>Источник:</b> ${esc(src)}<br><b>Найдено:</b> ${rows.length} поз. · работы ${w} · материалы ${m}<br><b>Новые:</b> ${info.add} · <b>дубли:</b> ${info.dup}</p>
-<div class="db264-preview">${rows.slice(0,30).map(x=>`<div><b>${esc(x.name)}</b><br>${money(x.price)} / ${esc(x.unit)} · ${esc(x.category)} / ${esc(x.subcategory)} · ${x.type==="work"?"Работа":"Материал"}</div>`).join("")}${rows.length>30?`<div>… ещё ${rows.length-30} поз.</div>`:""}</div>
+<div class="db264-preview">${rows.slice(0,30).map(x=>`<div><b>${esc(x.name)}</b><br>${unitPriceText(x.price)} ${esc(currencyLabel())} / ${esc(x.unit)} · ${esc(x.category)} / ${esc(x.subcategory)} · ${x.type==="work"?"Работа":"Материал"}</div>`).join("")}${rows.length>30?`<div>… ещё ${rows.length-30} поз.</div>`:""}</div>
 <div class="db264-actions"><button class="green" data-db264-import-apply="with">Добавить с ценами</button><button data-db264-import-apply="noprice">Добавить без цен</button><button class="red" data-db264-import-apply="replace">Заменить выбранную БД</button><button data-db26-closemodal>Отмена</button></div></div>`)}
-function applyImport(mode){if(!can())return alert("Импорт в эту БД запрещён.");let rows=S.preview||[];if(!rows.length)return;let a=mode==="replace"?[]:base(S.base),add=0,dup=0;rows.forEach(x=>{let y=item({...x,price:mode==="noprice"?0:x.price,p:mode==="noprice"?0:x.price,id:mode==="replace"?x.id:undefined,source:"import_v26_4"},x.type,S.base);let sig=nrm(y.type+"|"+y.name+"|"+y.unit);if(mode!=="replace"&&a.some(z=>nrm(z.type+"|"+z.name+"|"+z.unit)===sig)){dup++;return}a.push(y);add++;});save(S.base,a);S.preview=[];closeModal();render();alert("Импорт завершён. Добавлено: "+add+". Дубли: "+dup+".")}
+function applyImport(mode){if(!can())return alert("Импорт в эту БД запрещён.");let rows=S.preview||[];if(!rows.length)return;let a=mode==="replace"?[]:base(S.base),add=0,dup=0;rows.forEach(x=>{let y=item({...x,price:mode==="noprice"?0:x.price,p:mode==="noprice"?0:x.price,id:mode==="replace"?x.id:undefined,source:"import_v26_4"},x.type,S.base);let sig=nrm(y.type+"|"+y.name+"|"+y.unit);if(mode!=="replace"&&a.some(z=>nrm(z.type+"|"+z.name+"|"+z.unit)===sig)){dup++;return}a.push(y);add++;});save(S.base,a);if(S.previewSettings)dbMoney()?.applyImportedSettings?.(S.base,S.previewSettings);S.preview=[];S.previewSettings=null;closeModal();render();alert("Импорт завершён. Добавлено: "+add+". Дубли: "+dup+".")}
 function aiNotice(file,kind){openModal(`<div class="db264-panel"><div class="db264-head"><h3>Нужен ИИ / парсер</h3><button data-db26-closemodal>×</button></div><div class="db264-ai-note">Файл «${esc(file.name)}» похож на ${esc(kind)}. Для такого импорта нужно распознавание: фото/PDF через ИИ/OCR, Excel через XLSX-парсер. Сейчас файл никуда не отправлялся. На следующем шаге подключим обработчик и будем отдельно предупреждать, когда используется ИИ и расходуются токены.</div><div class="db264-actions"><button data-db26-closemodal>Понятно</button></div></div>`)}
 function excelRowsToItems(aoa){if(!Array.isArray(aoa)||!aoa.length)return[];var nz=function(v){return String(v==null?"":v).toLowerCase().replace(/\u0451/g,"\u0435").replace(/\s+/g," ").trim()};var rows=aoa.map(function(r){return Array.isArray(r)?r:[r]});var head=rows[0].map(nz);var hasHeader=head.some(function(h){return /\u043d\u0430\u0438\u043c\u0435\u043d|\u043d\u0430\u0437\u0432\u0430\u043d|name|\u0442\u043e\u0432\u0430\u0440|\u0443\u0441\u043b\u0443\u0433|\u0440\u0430\u0431\u043e\u0442|\u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b|\u0446\u0435\u043d\u0430|\u0441\u0442\u043e\u0438\u043c|price|\u0435\u0434|unit|\u0438\u0437\u043c|\u043f\u0430\u043f\u043a|\u043a\u0430\u0442\u0435\u0433\u043e\u0440|group|\u0433\u0440\u0443\u043f\u043f/.test(h)});var map={name:0,category:1,subcategory:2,unit:3,price:4},start=0;if(hasHeader){start=1;var find=function(){var keys=[].slice.call(arguments);return head.findIndex(function(h){return keys.some(function(k){return h.indexOf(k)>=0})})};var iName=find("\u043d\u0430\u0438\u043c\u0435\u043d","\u043d\u0430\u0437\u0432\u0430\u043d","name","\u0442\u043e\u0432\u0430\u0440","\u043f\u043e\u0437\u0438\u0446","\u0440\u0430\u0431\u043e\u0442","\u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b");var iCat=find("\u043f\u0430\u043f\u043a","\u043a\u0430\u0442\u0435\u0433\u043e\u0440","\u0440\u0430\u0437\u0434\u0435\u043b","group","\u0433\u0440\u0443\u043f\u043f");var iSub=find("\u043f\u043e\u0434\u043f\u0430\u043f\u043a","\u043f\u043e\u0434\u043a\u0430\u0442\u0435\u0433","\u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b","subgroup");var iUnit=find("\u0435\u0434","unit","\u0438\u0437\u043c");var iPrice=find("\u0446\u0435\u043d\u0430","\u0441\u0442\u043e\u0438\u043c","price","\u0440\u0443\u0431");map={name:iName>=0?iName:0,category:iCat>=0?iCat:1,subcategory:iSub>=0?iSub:2,unit:iUnit>=0?iUnit:3,price:iPrice>=0?iPrice:4}}var out=[];for(var i=start;i<rows.length;i++){var r=rows[i];var nm=String(r[map.name]==null?"":r[map.name]).trim();if(!nm)continue;out.push(item({name:nm,category:String(r[map.category]==null?"":r[map.category]).trim()||"\u0418\u043c\u043f\u043e\u0440\u0442",subcategory:String(r[map.subcategory]==null?"":r[map.subcategory]).trim()||"\u0411\u0435\u0437 \u043f\u043e\u0434\u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438",unit:String(r[map.unit]==null?"":r[map.unit]).trim()||"\u0448\u0442",price:r[map.price]==null?0:r[map.price],type:S.type},S.type,S.base))}return sortRows(out)}function imp(file){if(!file)return;if(!can())return alert("Импорт в эту БД запрещён.");let name=file.name.toLowerCase(),type=file.type||"";if(type.startsWith("image/"))return aiNotice(file,"изображение");if(name.endsWith(".pdf"))return aiNotice(file,"PDF");if(/\.xlsx?$/.test(name)){if(typeof XLSX==="undefined")return aiNotice(file,"Excel");var rb=new FileReader();rb.onload=function(){try{var wb=XLSX.read(new Uint8Array(rb.result),{type:"array"});var ws=wb.Sheets[wb.SheetNames[0]];var aoa=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:""});var arr=excelRowsToItems(aoa);previewImport(arr,file.name)}catch(e){alert("\u041e\u0448\u0438\u0431\u043a\u0430 \u0447\u0442\u0435\u043d\u0438\u044f Excel: "+(e.message||e))}};rb.readAsArrayBuffer(file);return}let rd=new FileReader();rd.onload=()=>{try{let txt=String(rd.result||""),arr=name.endsWith(".json")?parseJsonData(JSON.parse(txt),S.type):parseText(txt);previewImport(arr,file.name)}catch(e){alert("Ошибка импорта: "+(e.message||e))}};rd.readAsText(file)}
 
@@ -456,6 +481,7 @@ function click(e){
 }
 function change(e){
   if(!e.target.closest?.("#ep-db-v26"))return;
+  let cur=e.target.closest("[data-db287-currency]"); if(cur){setCurrencyForActiveDb(cur.value);return}
   let ch=e.target.closest("[data-db26-check]"); if(ch){ch.checked?S.sel.add(ch.dataset.db26Check):S.sel.delete(ch.dataset.db26Check);return}
   let cc=e.target.closest("[data-db26-catcheck]"); if(cc){let cat=cc.dataset.db26Cat.split("|").slice(2).join("|");rows().filter(x=>x.category===cat).forEach(x=>cc.checked?S.sel.add(x.id):S.sel.delete(x.id));render();return}
   let sc=e.target.closest("[data-db26-subcheck]"); if(sc){let p=sc.dataset.db26Sub.split("|"),cat=p[2],sub=p.slice(3).join("|");rows().filter(x=>x.category===cat&&x.subcategory===sub).forEach(x=>sc.checked?S.sel.add(x.id):S.sel.delete(x.id));render();return}
@@ -496,5 +522,5 @@ window.addEventListener("click",click,true);
 window.addEventListener("change",change,true);
 window.addEventListener("input",input,true);
 window.addEventListener("DOMContentLoaded",()=>{boot();observe();[120,300,700,1500,3000].forEach(ms=>setTimeout(boot,ms))});
-log("ready","БД V26.4 Smart Sort/Edit/Import загружена");
+log("ready","БД V28.7 Currency & Money Precision загружена");
 })();

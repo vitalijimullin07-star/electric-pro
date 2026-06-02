@@ -1,1 +1,5 @@
-{"version":"V28.5-perf","updatedAt":"2026-06-02T16:00:00.000Z","note":"V28.5-perf UI performance: badges applyBadges() debounced (single coalescing scheduler, no per-click double timers), logs module-version-badges-applied only when badges actually added. Access-UI: boot runs once (removed 5 repeated boot timers), MutationObserver no longer watches attribute changes (childList/subtree, 300ms debounce), auth retry capped (8), Firestore query fan-out trimmed to canonical collections (user_subscriptions/ai_accounts/ai_balances), denied logs now warn/error not ok, shows 'подписка не загружена' state without infinite retries."}
+{
+  "version": "V28.7-db-money",
+  "updatedAt": "2026-06-03T00:00:00.000Z",
+  "note": "V28.7 DB Currency & Money Precision: добавлен безопасный слой валют БД, точный ввод/хранение цен 10.43/13.651/2.222952 без округления, экспорт settings, импорт settings из JSON, отображение итогов до копеек. Perf-fix V28.5 сохранён, щит не менялся."
+}

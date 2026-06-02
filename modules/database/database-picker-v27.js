@@ -3,13 +3,17 @@
   if(window.__EP_DATABASE_PICKER_V27__) return;
   window.__EP_DATABASE_PICKER_V27__=true;
 
-  const VERSION="V27.3";
+  const VERSION="V28.7";
   const ESTIMATE_KEY="ep_estimate_draft_v23";
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const norm=v=>String(v??"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
   const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-  const money=v=>Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽";
+  const moneyApi=()=>window.EPDBMoneyV287;
+  const parsePrice=v=>moneyApi()?.parseMoneyInput?.(v) ?? (Number(String(v??0).replace(",","."))||0);
+  const money=(v,base=state.base)=>moneyApi()?.formatMoneyTotal?.(v,base) ?? (Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽");
+  const unitPrice=(v,base=state.base)=>moneyApi()?.formatUnitPrice?.(v,base) ?? String(parsePrice(v));
+  const lineTotal=(price,qty)=>moneyApi()?.calcLineTotal?.(price,qty) ?? (Math.round((Number(price||0)||0)*(Number(qty||0)||0)*100)/100);
   const hash=s=>Math.abs(Array.from(String(s)).reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0,0)).toString(36);
 
   const state={type:"material",base:"my",query:"",openCat:new Set(),openSub:new Set()};
@@ -59,7 +63,7 @@
   function cssAttr(value){if(window.CSS?.escape) return CSS.escape(String(value));return String(value).replace(/"/g,'\\"');}
   function card(row){
     const qty=qtyInDraft(state.base,row);
-    return `<article class="ep27-card" data-ep27-id="${esc(row.id)}"><div class="ep27-card-top"><div><b>${esc(row.name)}</b><p>${esc(row.type==="work"?"Работа":"Материал")} · ${esc(row.category)} / ${esc(row.subcategory)} · ${esc(row.unit)}</p></div><div class="ep27-price">${esc(money(row.price))}</div></div><div class="ep27-qty"><button type="button" data-ep27-dec="${esc(row.id)}">-</button><input type="number" inputmode="numeric" min="0" step="1" data-ep27-qty="${esc(row.id)}" value="${esc(qty)}"><button type="button" data-ep27-inc="${esc(row.id)}">+</button></div></article>`;
+    return `<article class="ep27-card" data-ep27-id="${esc(row.id)}"><div class="ep27-card-top"><div><b>${esc(row.name)}</b><p>${esc(row.type==="work"?"Работа":"Материал")} · ${esc(row.category)} / ${esc(row.subcategory)} · ${esc(row.unit)}</p></div><div class="ep27-price">${esc(unitPrice(row.price))} ${esc(moneyApi()?.currencyLabel?.(state.base)||"₽")}</div></div><div class="ep27-qty"><button type="button" data-ep27-dec="${esc(row.id)}">-</button><input type="number" inputmode="numeric" min="0" step="1" data-ep27-qty="${esc(row.id)}" value="${esc(qty)}"><button type="button" data-ep27-inc="${esc(row.id)}">+</button></div></article>`;
   }
 
   function groupRows(rs){
@@ -92,7 +96,8 @@
   function upsert(base,item,qty,opts={}){
     const draft=getDraft();const rows=Array.isArray(draft.rows)?draft.rows:[];const key=rowKey(base,item);const index=rows.findIndex(r=>r?.raw?.dbPickKey===key);const safeQty=Math.max(0,Number(qty||0));
     if(safeQty<=0){if(index>=0) rows.splice(index,1);saveDraft({...draft,rows});if(!opts.silent)toast("Позиция убрана из сметы");return;}
-    const row={id:"dbpick_"+hash(key),createdAt:new Date().toISOString(),source:"dbpick",sourceVersion:VERSION,sourceBatchId:"manual_db_pick",type:item.type,category:item.category||"",subcategory:item.subcategory||"",name:item.name,calcName:item.name,dbName:item.name,dbItemId:item.id,qty:safeQty,unit:item.unit||"шт",price:Number(item.price||0)||0,total:Math.round(safeQty*(Number(item.price||0)||0)*100)/100,missingDb:false,warning:"",note:base==="server"?"Добавлено из БД сервера":"Добавлено из Моей БД",customerVisible:item.type==="work",supplierVisible:item.type==="material",raw:{dbPickKey:key,dbSourceBase:base,dbItemId:item.id,dbSourceKey:base==="server"?"epdb26_server":"epdb26_my",dbPickScore:100}};
+    const price=parsePrice(item.price);const currencySettings=moneyApi()?.getSettings?.(base)||null;
+    const row={id:"dbpick_"+hash(key),createdAt:new Date().toISOString(),source:"dbpick",sourceVersion:VERSION,sourceBatchId:"manual_db_pick",type:item.type,category:item.category||"",subcategory:item.subcategory||"",name:item.name,calcName:item.name,dbName:item.name,dbItemId:item.id,qty:safeQty,unit:item.unit||"шт",price,total:lineTotal(price,safeQty),currency:currencySettings?.currency||undefined,currencySymbol:currencySettings?.currencySymbol||undefined,missingDb:false,warning:"",note:base==="server"?"Добавлено из БД сервера":"Добавлено из Моей БД",customerVisible:item.type==="work",supplierVisible:item.type==="material",raw:{dbPickKey:key,dbSourceBase:base,dbItemId:item.id,dbSourceKey:base==="server"?"epdb26_server":"epdb26_my",dbPickScore:100}};
     if(index>=0) rows[index]={...rows[index],...row,id:rows[index].id||row.id,createdAt:rows[index].createdAt||row.createdAt}; else rows.push(row);
     saveDraft({...draft,rows});if(!opts.silent)toast("Добавлено в предварительную смету");
   }
@@ -106,13 +111,13 @@
   }
   function close(){$("#ep-db-picker-v27")?.classList.add("hidden");document.body.classList.remove("ep27-picker-open");renderMainEstimate();}
 
-  function totals(rows){return (rows||[]).reduce((acc,row)=>{const val=Number(row.total||(Number(row.qty||0)*Number(row.price||0))||0);acc.all+=val;if(row.type==="work")acc.work+=val;else acc.material+=val;return acc;},{all:0,work:0,material:0});}
+  function totals(rows){return (rows||[]).reduce((acc,row)=>{const val=Number(row.total||lineTotal(row.price,row.qty)||0);acc.all+=val;if(row.type==="work")acc.work+=val;else acc.material+=val;return acc;},{all:0,work:0,material:0});}
   function findMainEstimateCard(){return $$(".card").find(card=>/Предварительная смета/i.test(card.textContent||""));}
   function renderMainEstimate(){
     if(document.body.dataset.route && document.body.dataset.route!=="main") return;
     const target=findMainEstimateCard();if(!target)return;
     target.classList.add("ep27-estimate-card");const dr=getDraft();const rows=dr.rows||[];const t=totals(rows);const preview=rows.slice(-8).reverse();
-    target.innerHTML=`<div class="ep27-estimate-head"><h3>Предварительная смета</h3><span class="ep27-estimate-total">${esc(money(t.all))}</span></div>${rows.length?`<p class="badge">${esc(rows.length)} поз. · работы ${esc(money(t.work))} · материалы ${esc(money(t.material))}</p>`:`<p class="badge">Пока пусто</p>`}<div class="ep27-estimate-list">${preview.length?preview.map(row=>`<div class="ep27-estimate-row"><div><b>${esc(row.dbName||row.name)}</b><p>${esc(row.type==="work"?"Работа":"Материал")} · ${esc(row.qty)} ${esc(row.unit)} · ${esc(money(row.price))}</p></div><strong>${esc(money(row.total))}</strong></div>`).join(""):`<p style="color:var(--muted);">Нажми «Материалы» или «Работа», выбери позиции плюсиками — они появятся здесь.</p>`}</div><div class="ep27-estimate-actions"><button type="button" class="primary" data-ep27-open-estimate>Открыть черновик</button><button type="button" class="ghost" data-ep27-clear-estimate>Очистить</button></div>`;
+    target.innerHTML=`<div class="ep27-estimate-head"><h3>Предварительная смета</h3><span class="ep27-estimate-total">${esc(money(t.all))}</span></div>${rows.length?`<p class="badge">${esc(rows.length)} поз. · работы ${esc(money(t.work))} · материалы ${esc(money(t.material))}</p>`:`<p class="badge">Пока пусто</p>`}<div class="ep27-estimate-list">${preview.length?preview.map(row=>`<div class="ep27-estimate-row"><div><b>${esc(row.dbName||row.name)}</b><p>${esc(row.type==="work"?"Работа":"Материал")} · ${esc(row.qty)} ${esc(row.unit)} · ${esc(unitPrice(row.price))} ${esc(moneyApi()?.currencyLabel?.(row.raw?.dbSourceBase||state.base)||"₽")}</p></div><strong>${esc(money(row.total))}</strong></div>`).join(""):`<p style="color:var(--muted);">Нажми «Материалы» или «Работа», выбери позиции плюсиками — они появятся здесь.</p>`}</div><div class="ep27-estimate-actions"><button type="button" class="primary" data-ep27-open-estimate>Открыть черновик</button><button type="button" class="ghost" data-ep27-clear-estimate>Очистить</button></div>`;
   }
   function clearEstimate(){if(!confirm("Очистить предварительную смету?"))return;saveDraft({version:"V23.1",rows:[]});toast("Предварительная смета очищена");}
   function patchRouter(){

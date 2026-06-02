@@ -3,7 +3,7 @@
   if(window.__EP_DATABASE_GATEWAY_V27__) return;
   window.__EP_DATABASE_GATEWAY_V27__=true;
 
-  const VERSION="V27.3";
+  const VERSION="V28.7";
   const KEYS={
     my:"epdb26_my",
     server:"epdb26_server",
@@ -18,6 +18,8 @@
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const norm=v=>String(v??"").toLowerCase().replace(/ё/g,"е").replace(/[×хx]/g,"x").replace(/[^a-zа-я0-9x.,\s/_-]/gi," ").replace(/\s+/g," ").trim();
   const uid=s=>"dbv27_"+Math.abs(Array.from(String(s)).reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0,0)).toString(36);
+  const moneyApi=()=>window.EPDBMoneyV287;
+  const parsePrice=v=>moneyApi()?.parseMoneyInput?.(v) ?? (Number(String(v??0).replace(",","."))||0);
 
   function readJson(key,fallback){try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}catch(e){return fallback;}}
   function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(e){return false;}}
@@ -74,7 +76,7 @@
     const category=String(raw.category||raw.c||raw.cat||raw.folder||raw["Папка"]||(type==="work"?"Работы":"Материалы")).trim();
     const subcategory=String(raw.subcategory||raw.sc||raw.sub||raw.g||raw.group||raw["Подпапка"]||"Без подкатегории").trim();
     const unit=String(raw.unit||raw.u||raw.ed||raw["Ед"]||"шт").trim();
-    const price=Number(raw.price ?? raw.p ?? raw.cost ?? raw["Цена"] ?? 0)||0;
+    const price=parsePrice(raw.price ?? raw.p ?? raw.cost ?? raw["Цена"] ?? 0);
     const id=String(raw.id||uid([type,name,unit,category,subcategory].join("|")));
     return {...raw,id,type,name,n:name,category,c:category,subcategory,sc:subcategory,unit,u:unit,price,p:price,active:raw.active!==false};
   }
@@ -124,6 +126,6 @@
 
   function boot(){syncFromDbButtons();getActiveBase();}
 
-  window.EPDatabaseV27={version:VERSION,keys:KEYS,getActiveBase,setActiveBase,baseTitle,getRows,saveRows,normalizeItem,sortRows,readJson,writeJson,boot};
+  window.EPDatabaseV27={version:VERSION,keys:KEYS,getActiveBase,setActiveBase,baseTitle,getRows,saveRows,normalizeItem,sortRows,readJson,writeJson,getMoneySettings:(base)=>moneyApi()?.getSettings?.(base||getActiveBase()),formatMoney:(value,base)=>moneyApi()?.formatMoneyTotal?.(value,base||getActiveBase()),formatUnitPrice:(value,base)=>moneyApi()?.formatUnitPrice?.(value,base||getActiveBase()),boot};
   window.addEventListener("DOMContentLoaded",()=>{bind();boot();[200,800,1800].forEach(ms=>setTimeout(boot,ms));});
 })();
