@@ -179,16 +179,3 @@
 .shv28-prot.ok { color:#15803d; background:#f0fdf4; cursor:pointer; } .shv28-prot.ok b { color:#0f172a; } .shv28-prot.ok i { font-style:normal; color:#94a3b8; }
 .shv28-prot.no { color:#b45309; background:#fffbeb; }
 .shv28-group-lines { padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
-
-/* расходка и шины (V28.3b-3) */
-.shv28-cons { border:1px solid rgba(15,23,42,.12); border-radius:12px; overflow:hidden; margin-bottom:10px; background:#fff; }
-.shv28-cons-head { padding:9px 11px; background:#fef3c7; color:#78350f; font:900 12px/1.3 system-ui; }
-.shv28-cons-head b { color:#0f172a; }
-.shv28-cons-row { display:flex; align-items:center; gap:8px; padding:7px 11px; border-top:1px solid rgba(15,23,42,.06); font:700 12px/1.2 system-ui; }
-.shv28-cons-row .cl { flex:1; min-width:0; color:#0f172a; }
-.shv28-cons-row .cq { flex:0 0 auto; color:#64748b; font:800 11px/1; }
-.shv28-cons-row .cp { flex:0 0 auto; color:#16a34a; font:900 12px/1; }
-.shv28-cons-row .cp.no { color:#b45309; font:700 11px/1; }
-.shv28-cons-note { padding:7px 11px; border-top:1px solid rgba(15,23,42,.06); color:#64748b; font:600 10px/1.3 system-ui; }
-.shv28-grand { background:rgba(2,20,21,.9); color:#e2e8f0; border-radius:12px; padding:12px; text-align:center; font:800 13px/1.3 system-ui; margin-bottom:10px; }
-.shv28-grand b { color:#4ade80; font:900 16px/1 system-ui; }

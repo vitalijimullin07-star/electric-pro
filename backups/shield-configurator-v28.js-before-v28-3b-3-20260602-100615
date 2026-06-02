@@ -172,39 +172,7 @@
       });
       return { key: def.key, title: def.title, leak: def.leak, prot, lines };
     }).filter(Boolean);
-    return { groups, cons: buildConsumables(groups) };
-  }
-
-  // Расходка и шины — считаются формулой, цены ищутся в БД по ключевым словам.
-  function buildConsumables(groups) {
-    const R = window.ShieldDbResolverV28;
-    const automats = groups.reduce((s, g) => s + g.lines.length, 0);
-    const rcds = groups.length;
-    const rule = cfg.dbRule === "max" ? "max" : "min";
-    const sec = Number(cfg.introAmp) > 40 ? 10 : 6;
-    const items = [];
-    const addDev = (label, spec, qty) => {
-      const res = R ? R.resolve(spec, { rule, preferBrand: cfg.autoBrand }) : { found: false };
-      items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
-    };
-    const addKw = (label, kws, qty, exclude) => {
-      const res = R ? R.findByKeywords(kws, { rule, exclude }) : { found: false };
-      items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
-    };
-    if (cfg.opts.vvod) addDev(`Вводной автомат ${cfg.introAmp}А ${cfg.phase === "3" ? "3ф" : "1ф"}`, { kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, 1);
-    const comb1 = Math.ceil(automats / 12), comb2 = Math.ceil(rcds / 6);
-    if (comb1 > 0) addKw(`Гребёнка 1П 25см`, ["гребен"], comb1);
-    if (comb2 > 0) addKw(`Гребёнка 2П 25см`, ["гребен"], comb2);
-    addKw(`ПуГВ 1×${sec} синий (м)`, ["пугв", String(sec), "син"], 5);
-    addKw(`ПуГВ 1×${sec} белый (м)`, ["пугв", String(sec), "бел"], 5);
-    addKw(`НШВИ 1×${sec} (упак)`, ["ншви", String(sec)], 1, ["(2)"]);
-    addKw(`НШВИ 2×6 (упак)`, ["ншви(2)", "6"], 1);
-    addKw(`НШВИ 2×10 (упак)`, ["ншви(2)", "10"], 1);
-    addKw(`N-шина на группу`, ["шина"], rcds, ["pe"]);
-    addKw(`PE-шина (пинов: ${automats + 8})`, ["шина"], 1);
-    addKw(`Распределительная N-шина`, ["шина"], 1);
-    const total = items.reduce((s, x) => s + (x.total || 0), 0);
-    return { automats, rcds, sec, items, total };
+    return { groups };
   }
 
   function selectHtml(attr, list, current, getV, getT) {
@@ -247,22 +215,9 @@
       }).join("");
       return `<div class="shv28-group"><div class="shv28-group-head"><span class="gt">${esc(g.title)}</span><span class="gl">${g.leak}мА</span><span class="gc">${g.lines.length} лин.</span></div>${protHtml}<div class="shv28-group-lines">${linesHtml}</div></div>`;
     }).join("");
-    const cons = draft.cons;
-    let consHtml = "";
-    if (cons) {
-      const rows = cons.items.map(x =>
-        `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${x.found
-          ? `<span class="cp">${Math.round(x.total)} ₽</span>`
-          : `<span class="cp no">нет в БД</span>`}</div>`
-      ).join("");
-      consHtml = `<div class="shv28-cons"><div class="shv28-cons-head">Расходка и шины (приблизительно) · ≈ <b>${Math.round(cons.total)} ₽</b></div>${rows}<div class="shv28-cons-note">Автоматов: ${cons.automats} · групп (диф/УЗО): ${cons.rcds} · ПуГВ/НШВИ сечение: 1×${cons.sec}</div></div>`;
-    }
-    const grand = Math.round(total + (cons ? cons.total : 0));
-    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b> · аппараты ≈ <b>${Math.round(total)} ₽</b></div>
+    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b> · ≈ <b>${Math.round(total)} ₽</b></div>
       ${groupsHtml}
-      ${consHtml}
-      <div class="shv28-grand">Материалы щита (аппараты + расходка) ≈ <b>${grand} ₽</b></div>
-      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Установка (×кол-во) и ниша/вырубка (×модули по стене) + «Добавить в смету» — шаг V28.3b-4.</div>`;
+      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Шины, контактор/мастер и итоговая смета — следующие шаги (V28.3b-2/3).</div>`;
   }
 
   function render() {

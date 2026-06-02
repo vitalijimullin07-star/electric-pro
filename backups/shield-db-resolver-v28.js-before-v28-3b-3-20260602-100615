@@ -242,21 +242,5 @@
     };
   }
 
-  // поиск расходки по ключевым словам (гребёнки, ПуГВ, НШВИ, шины и т.п.)
-  function findByKeywords(keywords, opts = {}) {
-    const rows = opts.rows || readMaterials(opts.base);
-    const kws = (keywords || []).map(k => String(k).toLowerCase().replace(/ё/g, "е"));
-    const ex = (opts.exclude || []).map(k => String(k).toLowerCase().replace(/ё/g, "е"));
-    let matches = rows.filter(r => {
-      const n = String(r.name || "").toLowerCase().replace(/ё/g, "е");
-      return kws.every(k => n.includes(k)) && !ex.some(e => n.includes(e));
-    });
-    if (!matches.length) return { found: false };
-    matches = matches.map(m => ({ name: m.name, price: Number(m.price) || 0 }))
-      .sort((a, b) => a.price - b.price);
-    const chosen = opts.rule === "max" ? matches[matches.length - 1] : matches[0];
-    return { found: true, item: chosen, price: chosen.price, candidates: matches.length, alternatives: matches };
-  }
-
-  window.ShieldDbResolverV28 = { parseDevice, normalizeLeak, resolve, readMaterials, latinize, findByKeywords };
+  window.ShieldDbResolverV28 = { parseDevice, normalizeLeak, resolve, readMaterials, latinize };
 })();
