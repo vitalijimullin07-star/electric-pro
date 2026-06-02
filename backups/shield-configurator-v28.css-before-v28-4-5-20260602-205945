@@ -255,33 +255,3 @@
 /* сворачивание группы в черновике (V28.4-3) */
 .shv28-group-head { cursor:pointer; user-select:none; }
 .shv28-group-head .gx { flex:0 0 auto; width:24px; height:24px; border-radius:7px; background:#c7d2fe; color:#312e81; display:flex; align-items:center; justify-content:center; font:900 12px/1 system-ui; margin-left:2px; }
-
-/* переключатель видов + однолинейная схема (V28.4-4) */
-.shv28-ov-tabs { display:flex; gap:6px; padding:8px 16px; background:#111827; }
-.shv28-ov-tabs button { flex:1; border:0; border-radius:9px; padding:9px; background:#1f2937; color:#cbd5e1; font:800 12px/1 system-ui; }
-.shv28-ov-tabs button.act { background:#0ea5e9; color:#fff; }
-.sch { color:#e2e8f0; }
-.sch-node { border-radius:10px; padding:10px 12px; font:800 12px/1.25 system-ui; text-align:center; }
-.sch-node.input { background:#7f1d1d; color:#fee2e2; border:1px solid #ef4444; }
-.sch-extras { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:8px 0; }
-.sch-extras span { background:#854d0e; color:#fef3c7; border-radius:999px; padding:4px 10px; font:800 10px/1 system-ui; }
-.sch-bus { margin:10px 0; text-align:center; color:#94a3b8; font:800 10px/1 system-ui; border-top:2px dashed #334155; border-bottom:2px dashed #334155; padding:6px 0; }
-.sch-groups { display:flex; flex-direction:column; gap:12px; }
-.sch-branch { position:relative; padding-left:14px; border-left:2px solid #334155; }
-.sch-node.rcd { background:#14532d; color:#dcfce7; border:1px solid #22c55e; }
-.sch-node.dif { background:#0c4a6e; color:#e0f2fe; border:1px solid #38bdf8; }
-.sch-lines { display:flex; flex-direction:column; gap:5px; margin-top:6px; padding-left:10px; }
-.sch-line { display:flex; align-items:center; gap:8px; background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:7px 9px; }
-.sch-line .d { flex:0 0 auto; background:#1e3a8a; color:#dbeafe; border-radius:6px; padding:2px 6px; font:900 9px/1.2 system-ui; }
-.sch-line .nom { flex:0 0 auto; background:#075985; color:#e0f2fe; border-radius:6px; padding:2px 6px; font:900 10px/1 system-ui; }
-.sch-line .nm { flex:1; min-width:0; color:#cbd5e1; font:700 11px/1.2 system-ui; }
-
-/* SVG-схема (V28.4-5): белый холст внутри тёмного оверлея */
-.shv28-scheme-wrap { background:#fff; border-radius:12px; padding:8px; overflow:auto; max-width:100%; }
-#shv28-scheme-svg { display:block; background:#fff; }
-#shv28-scheme-svg .ep-sd { stroke:#111; stroke-width:2; fill:none; }
-#shv28-scheme-svg .ep-id { font:800 14px/1 system-ui; fill:#111; text-anchor:start; }
-#shv28-scheme-svg .ep-lbl { font:600 12px/1 system-ui; fill:#444; text-anchor:start; }
-#shv28-scheme-svg .ep-rt { font:800 13px/1 system-ui; fill:#0056b3; text-anchor:start; }
-#shv28-scheme-svg .ep-bd { fill:#fff; }
-#shv28-scheme-svg text { pointer-events:none; }

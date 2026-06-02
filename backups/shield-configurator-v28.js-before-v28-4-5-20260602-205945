@@ -104,7 +104,7 @@
 
   let cfg = load();
   const openState = { tpl: false, settings: false, opts: false, rail: false };
-  let railOpen = false, railSel = null, railCells = [], railView = "rails";
+  let railOpen = false, railSel = null, railCells = [];
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function previewCounts() {
@@ -173,7 +173,7 @@
         const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
         return Object.assign({ name: line.name, nom: line.nom, note: line.note, amp }, resolveAvt(amp));
       });
-      return { key: def.key, title: def.title, leak: def.leak, prot, lines, collapsed: true };
+      return { key: def.key, title: def.title, leak: def.leak, prot, lines };
     }).filter(Boolean);
     const cons = buildConsumables(groups);
     const sizeMod = cfg.sizeMode === "auto" ? (previewCounts().suggestedSize) : cfg.size;
@@ -297,31 +297,6 @@
     </div>`;
   }
 
-  // дерево узлов для SVG-схемы (из черновика щита), обозначения QF/QD
-  function buildSchemeTree(draft) {
-    if (!draft || !draft.groups || !draft.groups.length) return null;
-    let qf = 0, qd = 0;
-    const amp = n => String(n).replace(/[^\d]/g, "") + "А";
-    const groupNodes = draft.groups.map(g => {
-      qd++;
-      const lines = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
-      return { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: lines };
-    });
-    // главная линия: ввод -> [реле] -> [ОПН] -> [счётчик] -> (узел с группами)
-    let root = cfg.opts.vvod
-      ? { id: "QF0", type: "mcb", label: "Ввод " + (cfg.phase === "3" ? "3ф" : "1ф"), rating: amp(cfg.introAmp), children: [] }
-      : { id: "QS1", type: "switch", label: "Ввод", rating: amp(cfg.introAmp), children: [] };
-    let tail = root;
-    const chain = n => { tail.children = [n]; tail = n; };
-    if (cfg.opts.uzm) chain({ id: "KV1", type: "relay", label: "Реле напр.", rating: amp(cfg.introAmp), children: [] });
-    if (cfg.opts.opn) chain({ id: "FV1", type: "spd", label: "УЗИП", rating: "T2", children: [] });
-    if (cfg.opts.meter) chain({ id: "PI1", type: "meter", label: "Счётчик", rating: amp(cfg.introAmp), children: [] });
-    if (cfg.opts.rubilnik && root.id !== "QS1") chain({ id: "QS1", type: "switch", label: "Рубильник", rating: amp(cfg.introAmp), children: [] });
-    tail.isCrossModule = (cfg.distribution === "cross");
-    tail.children = groupNodes;
-    return root;
-  }
-
   // полноэкранный оверлей раскладки
   function railOverlayHtml() {
     if (!railOpen) return "";
@@ -332,14 +307,14 @@
     }
     const size = cfg.sizeMode === "auto" ? previewCounts().suggestedSize : cfg.size;
     const rows = railRows(rl.cells, rl.perRow).length;
-    const tabs = `<div class="shv28-ov-tabs"><button type="button" class="${railView === "rails" ? "act" : ""}" data-railview="rails">Рейки</button><button type="button" class="${railView === "scheme" ? "act" : ""}" data-railview="scheme">Схема</button></div>`;
-    const body = railView === "scheme"
-      ? `<div class="shv28-scheme-wrap"><svg id="shv28-scheme-svg" xmlns="http://www.w3.org/2000/svg"></svg></div><div class="shv28-draft-note2">Однолинейная схема: ввод → защита → группы (диф/УЗО) → линии. Прокрути вбок/вниз.</div>`
-      : `${railGridHtml(rl, rl.perRow)}${railCardHtml()}<div class="shv28-ov-legend"><span class="lg input">ввод</span><span class="lg rcd">диф/УЗО</span><span class="lg avt">автомат</span><span class="lg extra">прочее</span><span class="lg gap">свободно</span></div><div class="shv28-draft-note2">Нажми на аппарат — покажу что это и за что отвечает.</div>`;
     return `<div class="shv28-overlay">
-      <div class="shv28-ov-head"><b>Щит</b><span class="ov-sub">${rl.used} мод. · рядов ${rows} · корпус ${size}</span><button type="button" class="rc-x" data-railclose>✕</button></div>
-      ${tabs}
-      <div class="shv28-ov-body">${body}</div>
+      <div class="shv28-ov-head"><b>Раскладка по рейкам</b><span class="ov-sub">${rl.used} мод. · рядов ${rows} · корпус ${size}</span><button type="button" class="rc-x" data-railclose>✕</button></div>
+      <div class="shv28-ov-body">
+        ${railGridHtml(rl, rl.perRow)}
+        ${railCardHtml()}
+        <div class="shv28-ov-legend"><span class="lg input">ввод</span><span class="lg rcd">диф/УЗО</span><span class="lg avt">автомат</span><span class="lg extra">прочее</span><span class="lg gap">свободно</span></div>
+        <div class="shv28-draft-note2">Нажми на аппарат — покажу что это и за что отвечает.</div>
+      </div>
       <div class="shv28-ov-foot">
         <button type="button" class="shv28-btn" style="background:#475569" data-railprint>🖨 Печать PDF</button>
         <button type="button" class="shv28-btn" style="background:#475569" data-railsave>🖼 Сохранить</button>
@@ -541,7 +516,7 @@
         </details>
 
         <div class="shv28-card shv28-railentry">
-          <button type="button" class="shv28-railbtn" data-railopen><span>🔲 Раскладка и схема щита</span><b>${cfg.draft ? "открыть" : "нужен черновик"}</b></button>
+          <button type="button" class="shv28-railbtn" data-railopen><span>🔲 Раскладка по рейкам</span><b>${cfg.draft ? "открыть" : "нужен черновик"}</b></button>
         </div>
 
         <div class="shv28-card">
@@ -585,11 +560,6 @@
           <button type="button" class="shv28-btn clr" data-clear>🗑 Очистить</button>
         </div>
       </div>${railOverlayHtml()}`;
-    if (railOpen && railView === "scheme" && window.ShieldSchemeSVG) {
-      const svgEl = document.getElementById("shv28-scheme-svg");
-      const tree = buildSchemeTree(cfg.draft);
-      if (svgEl && tree) window.ShieldSchemeSVG.render(svgEl, tree);
-    }
   }
 
   const clamp = n => { n = Math.floor(Number(n) || 0); return n < 0 ? 0 : n; };
@@ -641,8 +611,6 @@
       // раскладка по рейкам — открыть/закрыть/клик по аппарату
       if (t.closest?.("[data-railopen]")) { if (!cfg.draft) { alert("Сначала нажми «Сгенерировать черновик»."); return; } railOpen = true; railSel = null; render(); return; }
       if (t.closest?.("[data-railclose]")) { railOpen = false; railSel = null; render(); return; }
-      const rview = t.closest?.("[data-railview]");
-      if (rview) { railView = rview.dataset.railview; railSel = null; render(); return; }
       if (t.closest?.("[data-cellclose]")) { railSel = null; render(); return; }
       const cellEl = t.closest?.("[data-cell]");
       if (cellEl) { railSel = Number(cellEl.dataset.cell); render(); return; }
