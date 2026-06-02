@@ -184,16 +184,6 @@
     } catch (e) {}
     return [];
   }
-  function readWorks(base) {
-    try {
-      const api = window.EPDatabaseV27;
-      if (api && api.getRows) {
-        const b = base || api.getActiveBase();
-        return api.getRows(b, "work") || [];
-      }
-    } catch (e) {}
-    return [];
-  }
 
   function cleanSpecs(sp) {
     const out = {};
@@ -268,5 +258,5 @@
     return { found: true, item: chosen, price: chosen.price, candidates: matches.length, alternatives: matches };
   }
 
-  window.ShieldDbResolverV28 = { parseDevice, normalizeLeak, resolve, readMaterials, readWorks, latinize, findByKeywords };
+  window.ShieldDbResolverV28 = { parseDevice, normalizeLeak, resolve, readMaterials, latinize, findByKeywords };
 })();

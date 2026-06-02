@@ -200,13 +200,3 @@
 .shv28-agg-row span:first-child { flex:1; min-width:0; color:#0f172a; }
 .shv28-agg-row .q { flex:0 0 auto; color:#64748b; font:800 11px/1; }
 .shv28-agg-row .p { flex:0 0 auto; color:#16a34a; font:900 12px/1; }
-
-/* работа, ручной ввод, итоги (V28.3b-4) */
-.shv28-cons-head.work { background:#e0e7ff; color:#3730a3; }
-.shv28-manual { border:1px solid #f59e0b; background:#fffbeb; color:#b45309; border-radius:8px; padding:4px 9px; font:800 10px/1 system-ui; }
-.shv28-cons-row .cp i { font-style:normal; color:#94a3b8; font-weight:600; }
-.shv28-totals { display:flex; flex-direction:column; gap:6px; background:#fff; border:1px solid rgba(15,23,42,.12); border-radius:12px; padding:11px; margin-bottom:10px; }
-.shv28-totals > div { display:flex; align-items:center; justify-content:space-between; font:800 13px/1.2 system-ui; color:#475569; }
-.shv28-totals > div b { color:#0f172a; font:900 14px/1 system-ui; }
-.shv28-totals .grand { border-top:1px dashed rgba(15,23,42,.18); padding-top:8px; margin-top:2px; }
-.shv28-totals .grand span { color:#0f172a; } .shv28-totals .grand b { color:#16a34a; font:900 18px/1 system-ui; }

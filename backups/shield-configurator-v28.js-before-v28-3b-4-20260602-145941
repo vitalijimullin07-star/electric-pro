@@ -89,14 +89,13 @@
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
     const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
     const opts = { master: true, scheme: true, glands: false, vvod: true, uzm: true, opn: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, contactor: false, rubilnik: false, meter: false, bell: false, serviceSocket: false };
-    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, manualPrices: {}, draft: null };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, draft: null };
   }
   function load() {
     try {
       const c = JSON.parse(localStorage.getItem(CFG_KEY) || "null");
       if (!c) return defaultConfig();
       const d = defaultConfig();
-      if (!c.manualPrices) c.manualPrices = {};
       return Object.assign(d, c, { rooms: Object.assign(d.rooms, c.rooms || {}), lines: Object.assign(d.lines, c.lines || {}), opts: Object.assign(d.opts, c.opts || {}) });
     } catch (e) { return defaultConfig(); }
   }
@@ -174,10 +173,7 @@
       });
       return { key: def.key, title: def.title, leak: def.leak, prot, lines };
     }).filter(Boolean);
-    const cons = buildConsumables(groups);
-    const sizeMod = cfg.sizeMode === "auto" ? (previewCounts().suggestedSize) : cfg.size;
-    const work = buildWork(groups, cons, sizeMod);
-    return { groups, cons, work };
+    return { groups, cons: buildConsumables(groups) };
   }
 
   // Расходка и шины — считаются формулой, цены ищутся в БД по ключевым словам.
@@ -212,56 +208,6 @@
     addKw(`Распределительная N-шина`, ["шина"], 1);
     const total = items.reduce((s, x) => s + (x.total || 0), 0);
     return { automats, rcds, sec, items, total };
-  }
-
-  // Работа: установка аппаратов (×кол-во) + ниша/вырубка (×модули по стене). Цены из БД (работы).
-  function buildWork(groups, cons, size) {
-    const R = window.ShieldDbResolverV28;
-    const works = R ? R.readWorks() : [];
-    const rule = cfg.dbRule === "max" ? "max" : "min";
-    const automats = groups.reduce((s, g) => s + g.lines.length, 0) + (cfg.opts.vvod ? 1 : 0);
-    const rcds = groups.length;
-    const items = [];
-    const addW = (label, kws, qty, exclude) => {
-      const res = R ? R.findByKeywords(kws, { rows: works, rule, exclude }) : { found: false };
-      items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
-    };
-    if (automats > 0) addW("Установка автоматов", ["установ", "автомат"], automats, ["узо", "диф", "щит"]);
-    if (rcds > 0) addW("Установка УЗО/диф", ["установ", "узо"], rcds);
-    addW("Сборка щита", ["сборк", "щит"], 1);
-    addW(`Ниша/вырубка под щит (${esc(cfg.wall)})`, ["ниш", cfg.wall.toLowerCase()], size, []);
-    const total = items.reduce((s, x) => s + (x.total || 0), 0);
-    return { items, total };
-  }
-
-  // применить ручную цену к ненайденной позиции
-  function manualFor(key) { const v = cfg.manualPrices && cfg.manualPrices[key]; return v ? Number(v) : 0; }
-
-  // добавить весь щит в предварительную смету (ep_estimate_draft_v23)
-  function addToEstimate() {
-    const draft = cfg.draft;
-    if (!draft) { alert("Сначала сгенерируй черновик."); return; }
-    const KEY = "ep_estimate_draft_v23";
-    let est;
-    try { est = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
-    if (!est || typeof est !== "object") est = { version: "V23.1", rows: [] };
-    if (!Array.isArray(est.rows)) est.rows = [];
-    let added = 0, skipped = 0;
-    const pushRow = (name, qty, price, unit) => {
-      const p = Number(price) || 0; const q = qty || 1;
-      if (!p) { skipped++; return; }
-      est.rows.push({ name, calcName: name, dbName: name, qty: q, unit: unit || "шт", price: p, total: Math.round(q * p), src: "shield" });
-      added++;
-    };
-    draft.groups.forEach(g => {
-      if (g.prot.found) pushRow(g.prot.name, 1, g.prot.price, "шт");
-      g.lines.forEach(l => { if (l.dbFound) pushRow(l.dbName, 1, l.dbPrice, "шт"); });
-    });
-    if (draft.cons) draft.cons.items.forEach(x => { const key = "cons:" + x.label; pushRow(x.found ? x.name : x.label, x.qty, x.found ? x.price : manualFor(key), "шт"); });
-    if (draft.work) draft.work.items.forEach(x => { const key = "work:" + x.label; pushRow(x.found ? x.name : x.label, x.qty, x.found ? x.price : manualFor(key), "шт"); });
-    est.updatedAt = new Date().toISOString();
-    try { localStorage.setItem(KEY, JSON.stringify(est)); } catch (e) { alert("Не удалось сохранить: " + (e.message || e)); return; }
-    alert("Добавлено в смету: " + added + " поз." + (skipped ? ("\nБез цены пропущено: " + skipped + " — впиши цену кнопкой «вписать ₽».") : "") + "\nОткрой «Смета», чтобы увидеть.");
   }
 
   function selectHtml(attr, list, current, getV, getT) {
@@ -315,50 +261,22 @@
     const aggHtml = aggRows ? `<div class="shv28-agg"><div class="shv28-agg-head">Аппараты — кратко</div>${aggRows}</div>` : "";
 
     const cons = draft.cons;
-    let consHtml = "", consTotal = 0;
+    let consHtml = "";
     if (cons) {
-      const rows = cons.items.map(x => {
-        const key = "cons:" + x.label;
-        let price = x.found ? x.total : manualFor(key) * x.qty;
-        consTotal += price || 0;
-        const right = x.found
+      const rows = cons.items.map(x =>
+        `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${x.found
           ? `<span class="cp">${Math.round(x.total)} ₽</span>`
-          : (manualFor(key) ? `<span class="cp">${Math.round(manualFor(key) * x.qty)} ₽ <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
-        return `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${right}</div>`;
-      }).join("");
-      consHtml = `<div class="shv28-cons"><div class="shv28-cons-head">Расходка и шины · ≈ <b id="x">${Math.round(consTotal)} ₽</b></div>${rows}<div class="shv28-cons-note">Автоматов: ${cons.automats} · групп: ${cons.rcds} · ПуГВ/НШВИ: 1×${cons.sec}</div></div>`;
+          : `<span class="cp no">нет в БД</span>`}</div>`
+      ).join("");
+      consHtml = `<div class="shv28-cons"><div class="shv28-cons-head">Расходка и шины (приблизительно) · ≈ <b>${Math.round(cons.total)} ₽</b></div>${rows}<div class="shv28-cons-note">Автоматов: ${cons.automats} · групп (диф/УЗО): ${cons.rcds} · ПуГВ/НШВИ сечение: 1×${cons.sec}</div></div>`;
     }
-
-    // работа
-    const work = draft.work;
-    let workHtml = "", workTotal = 0;
-    if (work) {
-      const rows = work.items.map(x => {
-        const key = "work:" + x.label;
-        let price = x.found ? x.total : manualFor(key) * x.qty;
-        workTotal += price || 0;
-        const right = x.found
-          ? `<span class="cp">${Math.round(x.total)} ₽</span>`
-          : (manualFor(key) ? `<span class="cp">${Math.round(manualFor(key) * x.qty)} ₽ <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
-        return `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${right}</div>`;
-      }).join("");
-      workHtml = `<div class="shv28-cons"><div class="shv28-cons-head work">Работа · ≈ <b>${Math.round(workTotal)} ₽</b></div>${rows}</div>`;
-    }
-
-    const matTotal = total + consTotal;
-    const grand = Math.round(matTotal + workTotal);
-    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
+    const grand = Math.round(total + (cons ? cons.total : 0));
+    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b> · аппараты ≈ <b>${Math.round(total)} ₽</b></div>
       ${groupsHtml}
       ${aggHtml}
       ${consHtml}
-      ${workHtml}
-      <div class="shv28-totals">
-        <div><span>Материалы</span><b>${Math.round(matTotal)} ₽</b></div>
-        <div><span>Работа</span><b>${Math.round(workTotal)} ₽</b></div>
-        <div class="grand"><span>ИТОГ</span><b>${grand} ₽</b></div>
-      </div>
-      <button type="button" class="shv28-btn add" style="width:100%;margin-bottom:8px" data-toestimate>➕ Добавить щит в смету</button>
-      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Не найдено в БД — нажми «вписать ₽» (своя цена) или оставь до ответа поставщика.</div>`;
+      <div class="shv28-grand">Материалы щита (аппараты + расходка) ≈ <b>${grand} ₽</b></div>
+      <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Установка (×кол-во) и ниша/вырубка (×модули по стене) + «Добавить в смету» — шаг V28.3b-4.</div>`;
   }
 
   function render() {
@@ -512,22 +430,6 @@
       }
       const gen = t.closest?.("[data-gen]");
       if (gen) { cfg.draft = resolveDraft(buildPlan()); save(cfg); render(); return; }
-      // вписать цену вручную для ненайденной позиции
-      const man = t.closest?.("[data-manual]");
-      if (man) {
-        const key = man.dataset.manual;
-        const cur = cfg.manualPrices[key] || "";
-        const val = prompt("Цена за единицу, ₽ (пусто — отмена):", cur);
-        if (val !== null) {
-          const n = Math.max(0, Number(String(val).replace(",", ".").replace(/[^\d.]/g, "")) || 0);
-          if (n > 0) cfg.manualPrices[key] = n; else delete cfg.manualPrices[key];
-          save(cfg); render();
-        }
-        return;
-      }
-      // добавить щит в смету
-      const toEst = t.closest?.("[data-toestimate]");
-      if (toEst) { addToEstimate(); return; }
       // показать/скрыть альтернативы группового диф/УЗО
       const palts = t.closest?.("[data-palts]");
       if (palts && !t.closest?.("[data-ppick]")) { const gi = Number(palts.dataset.palts); const g = cfg.draft?.groups?.[gi]; if (g) { g.prot.showAlts = !g.prot.showAlts; save(cfg); render(); } return; }
