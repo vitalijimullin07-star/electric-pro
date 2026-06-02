@@ -54,7 +54,6 @@
     { key: "serviceSocket", label: "Сервисная розетка" }
   ];
   const INTRO_AMPS = [16, 25, 32, 40, 50, 63];
-  const PUGV = [{ v: "6", t: "1×6" }, { v: "10", t: "1×10" }];
   const DIST = [{ v: "nbus", t: "N-шины" }, { v: "cross", t: "Кросс-модуль" }];
   const DIFW = [{ v: "2", t: "2 модуля" }, { v: "1", t: "1 модуль" }];
   const BRANDS = ["IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
@@ -89,7 +88,7 @@
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
     const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
     const opts = { master: true, scheme: true, glands: false, vvod: true, uzm: true, opn: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, contactor: false, rubilnik: false, meter: false, bell: false, serviceSocket: false };
-    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, draft: null };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, draft: null };
   }
   function load() {
     try {
@@ -182,7 +181,7 @@
     const automats = groups.reduce((s, g) => s + g.lines.length, 0);
     const rcds = groups.length;
     const rule = cfg.dbRule === "max" ? "max" : "min";
-    const sec = Number(cfg.pugvSec) || 6;
+    const sec = Number(cfg.introAmp) > 40 ? 10 : 6;
     const items = [];
     const addDev = (label, spec, qty) => {
       const res = R ? R.resolve(spec, { rule, preferBrand: cfg.autoBrand }) : { found: false };
@@ -193,16 +192,14 @@
       items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
     };
     if (cfg.opts.vvod) addDev(`Вводной автомат ${cfg.introAmp}А ${cfg.phase === "3" ? "3ф" : "1ф"}`, { kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, 1);
-    // гребёнки: суммарная длина (25 см на каждые 12 авт / 6 диф)
     const comb1 = Math.ceil(automats / 12), comb2 = Math.ceil(rcds / 6);
-    if (comb1 > 0) addKw(`Гребёнка 1П 25см (всего ${comb1 * 25} см)`, ["гребен"], comb1, ["2п", "2p"]);
-    if (comb2 > 0) addKw(`Гребёнка 2П 25см (всего ${comb2 * 25} см)`, ["гребен", "2"], comb2);
-    // ПуГВ выбранного сечения + НШВИ того же сечения
+    if (comb1 > 0) addKw(`Гребёнка 1П 25см`, ["гребен"], comb1);
+    if (comb2 > 0) addKw(`Гребёнка 2П 25см`, ["гребен"], comb2);
     addKw(`ПуГВ 1×${sec} синий (м)`, ["пугв", String(sec), "син"], 5);
     addKw(`ПуГВ 1×${sec} белый (м)`, ["пугв", String(sec), "бел"], 5);
     addKw(`НШВИ 1×${sec} (упак)`, ["ншви", String(sec)], 1, ["(2)"]);
-    addKw(`НШВИ 2×${sec} (упак)`, ["ншви(2)", String(sec)], 1);
-    // шины
+    addKw(`НШВИ 2×6 (упак)`, ["ншви(2)", "6"], 1);
+    addKw(`НШВИ 2×10 (упак)`, ["ншви(2)", "10"], 1);
     addKw(`N-шина на группу`, ["шина"], rcds, ["pe"]);
     addKw(`PE-шина (пинов: ${automats + 8})`, ["шина"], 1);
     addKw(`Распределительная N-шина`, ["шина"], 1);
@@ -250,16 +247,6 @@
       }).join("");
       return `<div class="shv28-group"><div class="shv28-group-head"><span class="gt">${esc(g.title)}</span><span class="gl">${g.leak}мА</span><span class="gc">${g.lines.length} лин.</span></div>${protHtml}<div class="shv28-group-lines">${linesHtml}</div></div>`;
     }).join("");
-    // краткий итог: агрегируем автоматы по номиналу, защиту по типу
-    const avtAgg = {}, protAgg = {};
-    draft.groups.forEach(g => {
-      if (g.prot.found) { const k = `${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА`; (protAgg[k] = protAgg[k] || { c: 0, t: 0 }); protAgg[k].c++; protAgg[k].t += Number(g.prot.price) || 0; }
-      g.lines.forEach(l => { if (l.dbFound) { const k = `Автомат ${l.nom}`; (avtAgg[k] = avtAgg[k] || { c: 0, t: 0 }); avtAgg[k].c++; avtAgg[k].t += Number(l.dbPrice) || 0; } });
-    });
-    const aggRows = [...Object.entries(protAgg), ...Object.entries(avtAgg)]
-      .map(([k, v]) => `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p">${Math.round(v.t)} ₽</span></div>`).join("");
-    const aggHtml = aggRows ? `<div class="shv28-agg"><div class="shv28-agg-head">Аппараты — кратко</div>${aggRows}</div>` : "";
-
     const cons = draft.cons;
     let consHtml = "";
     if (cons) {
@@ -273,7 +260,6 @@
     const grand = Math.round(total + (cons ? cons.total : 0));
     return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b> · аппараты ≈ <b>${Math.round(total)} ₽</b></div>
       ${groupsHtml}
-      ${aggHtml}
       ${consHtml}
       <div class="shv28-grand">Материалы щита (аппараты + расходка) ≈ <b>${grand} ₽</b></div>
       <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Установка (×кол-во) и ниша/вырубка (×модули по стене) + «Добавить в смету» — шаг V28.3b-4.</div>`;
@@ -326,8 +312,6 @@
               <label>Номинал ${selectHtml('data-set="introAmp"', INTRO_AMPS, cfg.introAmp, x => x, x => x + " А")}</label>
               <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
             </div>
-            <div class="shv28-sublabel">ПуГВ в щите (НШВИ подберутся под это сечение)</div>
-            <div class="shv28-prof">${PUGV.map(d => `<button type="button" class="shv28-prof-btn ${cfg.pugvSec === d.v ? "active" : ""}" data-set2="pugvSec:${d.v}">ПуГВ ${esc(d.t)}</button>`).join("")}</div>
             <div class="shv28-sublabel">Распределение нуля / земли</div>
             <div class="shv28-prof">${DIST.map(d => `<button type="button" class="shv28-prof-btn ${cfg.distribution === d.v ? "active" : ""}" data-dist="${d.v}">${esc(d.t)}</button>`).join("")}</div>
             <div class="shv28-sublabel">Правила сборки</div>
@@ -410,8 +394,6 @@
       if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; save(cfg); render(); return; }
       const dist = t.closest?.("[data-dist]");
       if (dist) { cfg.distribution = dist.dataset.dist; save(cfg); render(); return; }
-      const set2 = t.closest?.("[data-set2]");
-      if (set2) { const [k, v] = set2.dataset.set2.split(":"); cfg[k] = v; save(cfg); render(); return; }
       const allrcd = t.closest?.("[data-allrcd]");
       if (allrcd) { cfg.allLinesRcd = !cfg.allLinesRcd; save(cfg); render(); return; }
       const sm = t.closest?.("[data-sizemode]");
