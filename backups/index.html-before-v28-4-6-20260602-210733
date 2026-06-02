@@ -311,7 +311,7 @@
   <script defer src="assets/js/v24-3-2-menu-diagnostics-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
 
 
-  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-4-6-shield-gost-symbols-20260602-01"></script>
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-4-5-shield-scheme-svg-20260602-01"></script>
 
 
   <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
@@ -328,7 +328,7 @@
   <script defer src="modules/shield/shield-db-resolver-v28.js?v=v28-3b-4-shield-estimate-20260602-01"></script>
   <script defer src="modules/database/db-params-v28.js?v=v28-4-db-params-20260601-01"></script>
   
-  <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-4-6-shield-gost-symbols-20260602-01"></script>
+  <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-4-5-shield-scheme-svg-20260602-01"></script>
   <script defer src="modules/shield/shield-configurator-v28.js?v=v28-4-5-shield-scheme-svg-20260602-01"></script>
 
 
