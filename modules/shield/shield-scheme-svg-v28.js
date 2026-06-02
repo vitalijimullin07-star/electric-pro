@@ -1,77 +1,69 @@
 /* ============================================================
-   Electric Pro — Shield Scheme SVG V28.4
-   Движок отрисовки однолинейной схемы (адаптирован из scheme.html).
-   Рисует дерево узлов {id,type,label,rating,isCrossModule,children}
-   с УГО-символами. Используется конфигуратором: дерево строится из щита.
+   Electric Pro — Shield Scheme SVG V28.4 (inline symbols)
+   Однолинейная схема. Символы рисуются НАПРЯМУЮ (без <use>/<symbol>)
+   с явными атрибутами fill/stroke — поэтому тороиды/прямоугольники
+   не заливаются чёрным. Геометрия УГО — ГОСТ-стиль (из scheme.html).
    API: window.ShieldSchemeSVG.render(svgEl, tree)
-   Типы: switch, mcb, rcd, rcbo, relay, meter, spd, contactor
    ============================================================ */
 (() => {
   "use strict";
   if (window.__EP_SHIELD_SCHEME_SVG__) return;
   window.__EP_SHIELD_SCHEME_SVG__ = true;
 
-  const NS = "http://www.w3.org/2000/svg";
   const SPACING_X = 140, SPACING_Y = 220, START_Y = 100, TEXT_OFFSET_X = 30;
+  const SD = 'stroke="#111" stroke-width="2" fill="none"';
+  const SD1 = 'stroke="#111" stroke-width="1.6" fill="none"';
+  const DOT = 'fill="#111"';
 
-  const DEFS = `
-    <symbol id="epsym-mcb" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="42" class="ep-sd"/><circle cx="20" cy="62" r="2.5" fill="black"/><line x1="20" y1="62" x2="9" y2="44" class="ep-sd"/><line x1="5" y1="49" x2="14" y2="39" class="ep-sd" stroke-width="1.6"/><line x1="20" y1="62" x2="20" y2="100" class="ep-sd"/></symbol>
-    <symbol id="epsym-rcd" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="42" class="ep-sd"/><circle cx="20" cy="62" r="2.5" fill="black"/><line x1="20" y1="62" x2="9" y2="44" class="ep-sd"/><line x1="20" y1="62" x2="20" y2="100" class="ep-sd"/><ellipse cx="20" cy="82" rx="9" ry="11" class="ep-sd" stroke-width="1.6"/></symbol>
-    <symbol id="epsym-rcbo" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="42" class="ep-sd"/><circle cx="20" cy="60" r="2.5" fill="black"/><line x1="20" y1="60" x2="9" y2="43" class="ep-sd"/><line x1="5" y1="48" x2="14" y2="38" class="ep-sd" stroke-width="1.6"/><line x1="20" y1="60" x2="20" y2="100" class="ep-sd"/><ellipse cx="20" cy="84" rx="8" ry="10" class="ep-sd" stroke-width="1.6"/></symbol>
-    <symbol id="epsym-switch" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="42" class="ep-sd"/><circle cx="20" cy="62" r="2.5" fill="black"/><line x1="20" y1="62" x2="9" y2="44" class="ep-sd"/><line x1="20" y1="62" x2="20" y2="100" class="ep-sd"/></symbol>
-    <symbol id="epsym-relay" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="25" class="ep-sd"/><rect x="5" y="25" width="30" height="50" class="ep-sd" stroke-width="1.6"/><text x="20" y="56" font-size="15" text-anchor="middle" font-weight="bold">U&lt;</text><line x1="20" y1="75" x2="20" y2="100" class="ep-sd"/></symbol>
-    <symbol id="epsym-meter" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="20" class="ep-sd"/><circle cx="20" cy="50" r="15" class="ep-sd" stroke-width="1.6"/><text x="20" y="54" font-size="10" text-anchor="middle" font-weight="bold">kWh</text><line x1="20" y1="80" x2="20" y2="100" class="ep-sd"/></symbol>
-    <symbol id="epsym-spd" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="28" class="ep-sd"/><rect x="11" y="28" width="18" height="34" class="ep-sd" stroke-width="1.6"/><line x1="20" y1="34" x2="20" y2="56" class="ep-sd"/><path d="M 14 44 L 20 34 L 26 44" class="ep-sd" stroke-width="1.6" fill="none"/><line x1="20" y1="62" x2="20" y2="100" class="ep-sd"/></symbol>
-    <symbol id="epsym-contactor" viewBox="0 0 40 100"><line x1="20" y1="0" x2="20" y2="42" class="ep-sd"/><circle cx="20" cy="62" r="2.5" fill="black"/><line x1="20" y1="62" x2="9" y2="44" class="ep-sd"/><path d="M 4 45 A 7 7 0 0 0 16 45" class="ep-sd" stroke-width="1.6" fill="none"/><line x1="20" y1="62" x2="20" y2="100" class="ep-sd"/></symbol>`;
-
-  function el(name, attrs) {
-    const n = document.createElementNS(NS, name);
-    for (const k in attrs) n.setAttribute(k, attrs[k]);
-    return n;
+  function symbolInner(type) {
+    switch (type) {
+      case "mcb":
+        return `<line x1="20" y1="0" x2="20" y2="30" ${SD}/><line x1="20" y1="30" x2="10" y2="50" ${SD}/><circle cx="20" cy="55" r="2.5" ${DOT}/><line x1="20" y1="55" x2="20" y2="100" ${SD}/><rect x="15" y="65" width="10" height="16" ${SD1}/><line x1="15" y1="65" x2="25" y2="81" ${SD1}/>`;
+      case "rcd":
+        return `<line x1="20" y1="0" x2="20" y2="30" ${SD}/><line x1="20" y1="30" x2="10" y2="50" ${SD}/><circle cx="20" cy="55" r="2.5" ${DOT}/><line x1="20" y1="55" x2="20" y2="100" ${SD}/><ellipse cx="20" cy="76" rx="10" ry="14" ${SD1}/>`;
+      case "rcbo":
+        return `<line x1="20" y1="0" x2="20" y2="28" ${SD}/><line x1="20" y1="28" x2="10" y2="46" ${SD}/><circle cx="20" cy="50" r="2.5" ${DOT}/><line x1="20" y1="50" x2="20" y2="100" ${SD}/><rect x="15" y="56" width="10" height="12" ${SD1}/><line x1="15" y1="56" x2="25" y2="68" ${SD1}/><ellipse cx="20" cy="83" rx="9" ry="12" ${SD1}/>`;
+      case "switch":
+        return `<line x1="20" y1="0" x2="20" y2="30" ${SD}/><line x1="20" y1="30" x2="10" y2="50" ${SD}/><circle cx="20" cy="55" r="2.5" ${DOT}/><line x1="20" y1="55" x2="20" y2="100" ${SD}/><line x1="3" y1="50" x2="17" y2="50" ${SD}/>`;
+      case "relay":
+        return `<line x1="20" y1="0" x2="20" y2="25" ${SD}/><rect x="5" y="25" width="30" height="50" ${SD1}/><text x="20" y="56" font-size="15" text-anchor="middle" font-weight="bold" fill="#111">U&lt;</text><line x1="20" y1="75" x2="20" y2="100" ${SD}/>`;
+      case "meter":
+        return `<line x1="20" y1="0" x2="20" y2="20" ${SD}/><circle cx="20" cy="50" r="15" ${SD1}/><text x="20" y="54" font-size="10" text-anchor="middle" font-weight="bold" fill="#111">kWh</text><line x1="20" y1="80" x2="20" y2="100" ${SD}/>`;
+      case "spd":
+        return `<line x1="20" y1="0" x2="20" y2="28" ${SD}/><rect x="10" y="28" width="20" height="38" ${SD1}/><line x1="20" y1="34" x2="20" y2="60" ${SD}/><path d="M 14 44 L 20 34 L 26 44" ${SD1}/><line x1="20" y1="66" x2="20" y2="100" ${SD}/>`;
+      case "contactor":
+        return `<line x1="20" y1="0" x2="20" y2="30" ${SD}/><line x1="20" y1="30" x2="10" y2="50" ${SD}/><circle cx="20" cy="55" r="2.5" ${DOT}/><line x1="20" y1="55" x2="20" y2="100" ${SD}/><path d="M 4 50 A 7 7 0 0 0 16 50" ${SD1}/>`;
+      default:
+        return `<line x1="20" y1="0" x2="20" y2="100" ${SD}/>`;
+    }
   }
+
+  const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function render(svgEl, tree) {
     if (!svgEl || !tree) return;
-    svgEl.innerHTML = `<defs>${DEFS}</defs><g class="ep-scheme-root"></g>`;
-    const root = svgEl.querySelector(".ep-scheme-root");
     let leafCount = 0, maxY = 0;
-
-    const line = (x1, y1, x2, y2, color = "black", w = 2, dash = "") => {
-      const a = { x1, y1, x2, y2, stroke: color, "stroke-width": w };
-      if (dash) a["stroke-dasharray"] = dash;
-      root.appendChild(el("line", a));
-    };
-    const term = (x, y) => root.appendChild(el("circle", { cx: x, cy: y, r: 3.5, fill: "black" }));
+    const wires = [], devices = [];
+    const line = (arr, x1, y1, x2, y2, color = "#111", w = 2, dash = "") =>
+      arr.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`);
 
     function calc(node, depth = 0) {
       node.y = START_Y + depth * SPACING_Y;
       if (node.y > maxY) maxY = node.y;
       if (!node.children || !node.children.length) { node.x = leafCount * SPACING_X; leafCount++; }
-      else {
-        node.children.forEach(c => calc(c, depth + 1));
-        node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2;
-      }
+      else { node.children.forEach(c => calc(c, depth + 1)); node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2; }
     }
     function shift(node, off) { node.x += off; if (node.children) node.children.forEach(c => shift(c, off)); }
 
     function device(node) {
-      const g = el("g", { transform: `translate(${node.x}, ${node.y})`, class: "ep-dev", "data-id": node.id });
-      const use = el("use", { href: `#epsym-${node.type}`, x: -20, y: 0, width: 40, height: 100 });
-      use.setAttributeNS("http://www.w3.org/1999/xlink", "href", `#epsym-${node.type}`);
-      g.appendChild(use);
-      const tId = el("text", { x: TEXT_OFFSET_X, y: 20, class: "ep-id" }); tId.textContent = node.id; g.appendChild(tId);
       const hasCh = node.children && node.children.length > 0;
+      let texts;
       if (hasCh || node.isCrossModule) {
-        const tL = el("text", { x: TEXT_OFFSET_X, y: 45, class: "ep-lbl" }); tL.textContent = node.label; g.appendChild(tL);
-        const tR = el("text", { x: TEXT_OFFSET_X, y: 65, class: "ep-rt" }); tR.textContent = node.rating; g.appendChild(tR);
+        texts = `<text x="${TEXT_OFFSET_X}" y="20" font-size="14" font-weight="bold" fill="#111">${esc(node.id)}</text><text x="${TEXT_OFFSET_X}" y="45" font-size="12" fill="#444">${esc(node.label)}</text><text x="${TEXT_OFFSET_X}" y="65" font-size="13" font-weight="bold" fill="#0056b3">${esc(node.rating)}</text>`;
       } else {
-        const lg = el("g", { transform: "translate(0,115)" });
-        lg.appendChild(el("rect", { x: TEXT_OFFSET_X - 5, y: -10, width: 150, height: 35, class: "ep-bd" }));
-        const tL = el("text", { x: TEXT_OFFSET_X, y: 5, class: "ep-lbl" }); tL.textContent = node.label; lg.appendChild(tL);
-        const tR = el("text", { x: TEXT_OFFSET_X, y: 23, class: "ep-rt" }); tR.textContent = node.rating; lg.appendChild(tR);
-        g.appendChild(lg);
+        texts = `<text x="${TEXT_OFFSET_X}" y="20" font-size="14" font-weight="bold" fill="#111">${esc(node.id)}</text><g transform="translate(0,115)"><rect x="${TEXT_OFFSET_X - 5}" y="-10" width="160" height="35" fill="#fff"/><text x="${TEXT_OFFSET_X}" y="5" font-size="12" fill="#444">${esc(node.label)}</text><text x="${TEXT_OFFSET_X}" y="23" font-size="13" font-weight="bold" fill="#0056b3">${esc(node.rating)}</text></g>`;
       }
-      root.appendChild(g);
+      devices.push(`<g transform="translate(${node.x},${node.y})"><g transform="translate(-20,0)">${symbolInner(node.type)}</g>${texts}</g>`);
     }
 
     function draw(node, isRoot) {
@@ -79,40 +71,40 @@
       if (isRoot) {
         const totalW = Math.max(1, leafCount - 1) * SPACING_X;
         const x0 = node.x - 50, x1 = node.x + totalW + 50;
-        line(x0, 30, x1, 30, "#16a34a", 3, "6 4");
-        line(node.x, 30, node.x, node.y, "#16a34a", 2);
-        line(x0, 50, x1, 50, "#2563eb", 3);
-        line(node.x - 10, 50, node.x - 10, node.y, "#2563eb", 2);
+        line(wires, x0, 30, x1, 30, "#16a34a", 3, "6 4");
+        line(wires, node.x, 30, node.x, node.y, "#16a34a", 2);
+        line(wires, x0, 50, x1, 50, "#2563eb", 3);
+        line(wires, node.x - 10, 50, node.x - 10, node.y, "#2563eb", 2);
       }
       if (node.children && node.children.length > 0) {
         let busY = node.y + 115, lineStartY = node.y + 100;
         if (node.isCrossModule) {
           const cx = node.x - 20, cy = node.y + 110;
-          root.appendChild(el("rect", { x: cx, y: cy, width: 40, height: 45, fill: "#f8f9fa", stroke: "#adb5bd", rx: 4 }));
-          line(cx + 8, cy + 8, cx + 8, cy + 37, "#dc2626", 2);
-          line(cx + 16, cy + 8, cx + 16, cy + 37, "#dc2626", 2);
-          line(cx + 24, cy + 8, cx + 24, cy + 37, "#dc2626", 2);
-          line(cx + 32, cy + 8, cx + 32, cy + 37, "#2563eb", 2);
+          devices.push(`<rect x="${cx}" y="${cy}" width="40" height="45" fill="#f8f9fa" stroke="#adb5bd" rx="4"/>`);
+          line(wires, cx + 8, cy + 8, cx + 8, cy + 37, "#dc2626", 2);
+          line(wires, cx + 16, cy + 8, cx + 16, cy + 37, "#dc2626", 2);
+          line(wires, cx + 24, cy + 8, cx + 24, cy + 37, "#dc2626", 2);
+          line(wires, cx + 32, cy + 8, cx + 32, cy + 37, "#2563eb", 2);
           busY = cy + 65; lineStartY = cy + 45;
-          line(node.x, node.y + 100, node.x, cy);
+          line(wires, node.x, node.y + 100, node.x, cy);
         }
-        line(node.x, lineStartY, node.x, busY);
-        if (node.children.length > 1) {
-          line(node.children[0].x, busY, node.children[node.children.length - 1].x, busY, "black", 3);
-        }
-        node.children.forEach(c => { line(c.x, busY, c.x, c.y); draw(c, false); });
+        line(wires, node.x, lineStartY, node.x, busY);
+        if (node.children.length > 1) line(wires, node.children[0].x, busY, node.children[node.children.length - 1].x, busY, "#111", 3);
+        node.children.forEach(c => { line(wires, c.x, busY, c.x, c.y); draw(c, false); });
       } else {
         const tailY = node.y + 140;
-        line(node.x, node.y + 100, node.x, tailY);
-        term(node.x, tailY);
+        line(wires, node.x, node.y + 100, node.x, tailY);
+        wires.push(`<circle cx="${node.x}" cy="${tailY}" r="3.5" fill="#111"/>`);
       }
     }
 
     calc(tree);
     shift(tree, 120);
+    draw(tree, true);
     svgEl.setAttribute("width", Math.max(500, leafCount * SPACING_X + 160));
     svgEl.setAttribute("height", maxY + 300);
-    draw(tree, true);
+    // сначала провода/шины, потом устройства и подписи (поверх)
+    svgEl.innerHTML = wires.join("") + devices.join("");
   }
 
   window.ShieldSchemeSVG = { render };
