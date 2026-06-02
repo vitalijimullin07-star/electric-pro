@@ -391,7 +391,7 @@
         }
         return `<div class="shv28-draft-row2"><div class="r1"><span class="nm">${esc(p.name)}</span><span class="nom">${esc(p.nom)}</span></div>${db}</div>`;
       }).join("");
-      return `<div class="shv28-group"><div class="shv28-group-head" data-gcollapse="${gi}"><span class="gt">${esc(g.title)}</span><span class="gl">${g.leak}мА</span><span class="gc">${g.lines.length} лин.</span><span class="gx">${g.collapsed ? "▸" : "▾"}</span></div>${protHtml}${g.collapsed ? "" : `<div class="shv28-group-lines">${linesHtml}</div>`}</div>`;
+      return `<div class="shv28-group"><div class="shv28-group-head"><span class="gt">${esc(g.title)}</span><span class="gl">${g.leak}мА</span><span class="gc">${g.lines.length} лин.</span></div>${protHtml}<div class="shv28-group-lines">${linesHtml}</div></div>`;
     }).join("");
     // краткий итог: агрегируем автоматы по номиналу, защиту по типу
     const avtAgg = {}, protAgg = {};
@@ -605,9 +605,6 @@
       }
       const gen = t.closest?.("[data-gen]");
       if (gen) { cfg.draft = resolveDraft(buildPlan()); save(cfg); render(); return; }
-      // свернуть/развернуть группу в черновике
-      const gcol = t.closest?.("[data-gcollapse]");
-      if (gcol) { const gi = Number(gcol.dataset.gcollapse); const g = cfg.draft?.groups?.[gi]; if (g) { g.collapsed = !g.collapsed; save(cfg); render(); } return; }
       // раскладка по рейкам — открыть/закрыть/клик по аппарату
       if (t.closest?.("[data-railopen]")) { if (!cfg.draft) { alert("Сначала нажми «Сгенерировать черновик»."); return; } railOpen = true; railSel = null; render(); return; }
       if (t.closest?.("[data-railclose]")) { railOpen = false; railSel = null; render(); return; }
