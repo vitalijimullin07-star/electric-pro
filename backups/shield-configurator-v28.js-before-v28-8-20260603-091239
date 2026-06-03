@@ -58,7 +58,7 @@
   const DIST = [{ v: "nbus", t: "N-шины" }, { v: "cross", t: "Кросс-модуль" }];
   const DIFW = [{ v: "2", t: "2 модуля" }, { v: "1", t: "1 модуль" }];
   const BRANDS = ["IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
-  const SIZES = [12, 24, 36, 48, 60, 72];
+  const SIZES = [6, 12, 24, 36, 48, 60, 72];
   const PROFILES = [{ key: "budget", label: "Бюджет" }, { key: "standard", label: "Стандарт" }, { key: "top", label: "Топ" }];
   const PHASES = [{ v: "1", t: "220В / 1 фаза" }, { v: "3", t: "380В / 3 фазы" }];
   const CURVES = ["C", "B", "A", "D"];
@@ -223,14 +223,14 @@
     const automats = groups.reduce((s, g) => s + g.lines.length, 0) + (cfg.opts.vvod ? 1 : 0);
     const rcds = groups.length;
     const items = [];
-    const addW = (label, kws, qty, exclude, perModule) => {
+    const addW = (label, kws, qty, exclude) => {
       const res = R ? R.findByKeywords(kws, { rows: works, rule, exclude }) : { found: false };
-      items.push({ label, qty, perModule: !!perModule, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
+      items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
     };
     if (automats > 0) addW("Установка автоматов", ["установ", "автомат"], automats, ["узо", "диф", "щит"]);
     if (rcds > 0) addW("Установка УЗО/диф", ["установ", "узо"], rcds);
-    addW("Монтаж щита в нишу/стену", ["монтаж", "щит"], 1);
-    addW(`Вырубка ниши под щит (${esc(cfg.wall)})`, ["ниш", cfg.wall.toLowerCase()], size, [], true);
+    addW("Сборка щита", ["сборк", "щит"], 1);
+    addW(`Ниша/вырубка под щит (${esc(cfg.wall)})`, ["ниш", cfg.wall.toLowerCase()], size, []);
     const total = items.reduce((s, x) => s + (x.total || 0), 0);
     return { items, total };
   }
@@ -341,7 +341,6 @@
       ${tabs}
       <div class="shv28-ov-body">${body}</div>
       <div class="shv28-ov-foot">
-        <button type="button" class="shv28-btn" style="background:#475569" data-railfull>⛶ Во весь экран</button>
         <button type="button" class="shv28-btn" style="background:#475569" data-railprint>🖨 Печать PDF</button>
         <button type="button" class="shv28-btn" style="background:#475569" data-railsave>🖼 Сохранить</button>
         <button type="button" class="shv28-btn" style="background:#0ea5e9" data-railclose>Закрыть</button>
@@ -450,13 +449,11 @@
     if (work) {
       const rows = work.items.map(x => {
         const key = "work:" + x.label;
-        const unit = x.found ? x.price : manualFor(key);
-        const total = x.found ? x.total : manualFor(key) * x.qty;
-        workTotal += total || 0;
-        const breakdown = x.perModule && unit ? ` <i>(${cur(unit)} × ${x.qty})</i>` : "";
-        const right = (x.found || manualFor(key))
-          ? `<span class="cp">${cur(total)}${x.found ? breakdown : (breakdown || " <i>(вручную)</i>")}</span>`
-          : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽${x.perModule ? " за модуль" : ""}</button>`;
+        let price = x.found ? x.total : manualFor(key) * x.qty;
+        workTotal += price || 0;
+        const right = x.found
+          ? `<span class="cp">${cur(x.total)}</span>`
+          : (manualFor(key) ? `<span class="cp">${cur(manualFor(key) * x.qty)} <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
         return `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${right}</div>`;
       }).join("");
       workHtml = `<div class="shv28-cons"><div class="shv28-cons-head work">Работа · ≈ <b>${cur(workTotal)}</b></div>${rows}</div>`;
@@ -502,7 +499,7 @@
               <label>Марка щита ${selectHtml('data-set="brand"', BRANDS, cfg.brand, x => x, x => x)}</label>
               <label>Марка автоматики ${selectHtml('data-set="autoBrand"', BRANDS, cfg.autoBrand, x => x, x => x)}</label>
               <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
-              <label>Класс аппаратов защиты ${selectHtml('data-set="curve"', CURVES, cfg.curve, x => x, x => "Класс " + x)}</label>
+              <label>Кривая ${selectHtml('data-set="curve"', CURVES, cfg.curve, x => x, x => x)}</label>
               <label>Тип УЗО ${selectHtml('data-set="rcdType"', RCD_TYPES, cfg.rcdType, x => x, x => x)}</label>
               <label>Монтаж ${selectHtml('data-set="wall"', WALLS, cfg.wall, x => x, x => x)}</label>
             </div>
@@ -651,14 +648,6 @@
       if (cellEl) { railSel = Number(cellEl.dataset.cell); render(); return; }
       if (t.closest?.("[data-railprint]")) { alert("Печать в PDF появится в следующем шаге."); return; }
       if (t.closest?.("[data-railsave]")) { alert("Сохранение изображения появится в следующем шаге."); return; }
-      if (t.closest?.("[data-railfull]")) {
-        try {
-          const ov = document.querySelector(".shv28-overlay");
-          if (!document.fullscreenElement) { (ov?.requestFullscreen || ov?.webkitRequestFullscreen)?.call(ov); }
-          else { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); }
-        } catch (e) {}
-        return;
-      }
       // вписать цену вручную для ненайденной позиции
       const man = t.closest?.("[data-manual]");
       if (man) {
