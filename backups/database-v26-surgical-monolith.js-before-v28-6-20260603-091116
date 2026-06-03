@@ -18,7 +18,7 @@ const nrm=v=>String(v??"").toLowerCase().replace(/ё/g,"е").replace(/[×хx]/g,
 const id=()=> "db26_"+Date.now().toString(36)+"_"+Math.random().toString(16).slice(2);
 const rj=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")}catch(e){return d}};
 const wj=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const money=v=>(window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(Number(v||0)):(Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽");
+const money=v=>Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽";
 
 function email(){try{return firebase?.auth?.().currentUser?.email||""}catch(e){} try{return auth?.currentUser?.email||""}catch(e){} return ""}
 function admin(){return String(email()).toLowerCase()==="vits0007@gmail.com"||/(^|\s)admin(\s|$)/i.test(document.body.textContent||"")}
@@ -213,7 +213,7 @@ function render(){
 <section class="db26card"><div class="db26switch"><button data-db26-base="server" class="${S.base==="server"?"on":""}">БД сервера</button><button data-db26-base="my" class="${S.base==="my"?"on":""}">БД моя</button>${admin()?`<button data-db26-base="masters" class="${S.base==="masters"?"on":""}">БД мастеров</button>`:""}</div><p>${esc(note())}</p></section>
 <section class="db26card"><button class="db26et" data-db26-editor><span>${S.edit?"▾":"▸"}</span><b>Редактор БД</b><em>${S.edit?"открыт":"свернут"}</em></button>${S.edit?editor():""}</section>
 <section class="db26card"><div class="db26tabs"><button data-db26-type="work" class="${S.type==="work"?"on":""}">Работа</button><button data-db26-type="material" class="${S.type==="material"?"on":""}">Материал</button></div><input class="db26search" data-db26-search placeholder="Поиск..." value="${esc(S.q)}"><div class="db26lh"><h3>${S.type==="work"?"Работы":"Материалы"}</h3><span>${rs.length} поз. · ${can()?"редактирование доступно":"только просмотр"}</span><button data-db26-toggle>${S.open.size?"Свернуть":"Развернуть"}</button></div><div class="db26tree">${tree(rs)}</div></section>
-<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button><button data-ep-recognize-specs>🔍 Параметры</button><select data-ep-currency class="db26cur" title="Валюта">${(window.EPCurrency?window.EPCurrency.list():[{code:"RUB",symbol:"₽",name:"Рубль"}]).map(c=>`<option value="${c.code}"${(window.EPCurrency&&window.EPCurrency.code()===c.code)?" selected":""}>${c.symbol} ${c.name}</option>`).join("")}</select></div></section>
+<section class="db26card"><h3>Экспорт / импорт</h3><p>JSON и текст импортируются внутри приложения. Фото/PDF/Excel — через ИИ/парсер только после предупреждения.</p><div class="db26act db264-actions"><button data-db26-export>Экспорт JSON</button><label class="db26file">Импорт файла<input type="file" data-db26-import accept=".json,.txt,.csv,.xlsx,.xls,.pdf,image/*"></label><button data-db264-autosort>Автосортировка</button><button data-ep-recognize-specs>🔍 Параметры</button></div></section>
 <section class="db26card"><h3>Склад</h3><p>Склад подключим следующим отдельным модулем после финальной стабилизации БД.</p></section>
 </main><div id="db26modal" class="hidden"></div>`;
   applyOpenState();
@@ -258,7 +258,7 @@ function card(i){let x=byId(i);if(!x)return;openModal(`<div class="db264-panel">
 <label>Тип<select data-db264-edit="type"><option value="work" ${x.type==="work"?"selected":""}>Работа</option><option value="material" ${x.type==="material"?"selected":""}>Материал</option></select></label>
 </div>
 <div class="db264-actions"><button class="green" data-db264-save-card="${esc(x.id)}">Сохранить</button><button data-db26-closemodal>Закрыть</button></div></div>`)}
-function saveCard(i){if(!can())return alert("Эту БД нельзя редактировать.");let a=base(S.base),x=a.find(y=>y.id===i);if(!x)return;let m=$("#db26modal");["name","price","unit","category","subcategory","type"].forEach(k=>{let inp=$(`[data-db264-edit="${k}"]`,m);if(!inp)return;let v=inp.value;if(k==="price")v=(window.EPCurrency&&window.EPCurrency.parse)?window.EPCurrency.parse(v):Number(v||0);x[k]=v;});x.n=x.name;x.p=x.price;x.u=x.unit;x.c=x.category;x.sc=x.subcategory;x.g=x.subcategory;x.updatedAt=new Date().toISOString();save(S.base,a);closeModal();render()}
+function saveCard(i){if(!can())return alert("Эту БД нельзя редактировать.");let a=base(S.base),x=a.find(y=>y.id===i);if(!x)return;let m=$("#db26modal");["name","price","unit","category","subcategory","type"].forEach(k=>{let inp=$(`[data-db264-edit="${k}"]`,m);if(!inp)return;let v=inp.value;if(k==="price")v=Number(v||0);x[k]=v;});x.n=x.name;x.p=x.price;x.u=x.unit;x.c=x.category;x.sc=x.subcategory;x.g=x.subcategory;x.updatedAt=new Date().toISOString();save(S.base,a);closeModal();render()}
 
 function add(){if(!can())return;let x=item({name:"Новая позиция",price:0,unit:"шт",category:S.type==="work"?"Работы":"Материалы",subcategory:"Без подкатегории",type:S.type},S.type,S.base);let a=base(S.base);a.push(x);save(S.base,a);render();setTimeout(()=>card(x.id),80)}
 function del(){if(!can())return alert("Эту БД нельзя редактировать.");if(!S.sel.size)return alert("Ничего не выбрано.");if(confirm("Удалить выбранные позиции: "+S.sel.size+"?")){save(S.base,base(S.base).filter(x=>!S.sel.has(x.id)));S.sel.clear();render()}}
@@ -456,7 +456,6 @@ function click(e){
 }
 function change(e){
   if(!e.target.closest?.("#ep-db-v26"))return;
-  let cur=e.target.closest("[data-ep-currency]"); if(cur){if(window.EPCurrency)window.EPCurrency.set(cur.value);render();return}
   let ch=e.target.closest("[data-db26-check]"); if(ch){ch.checked?S.sel.add(ch.dataset.db26Check):S.sel.delete(ch.dataset.db26Check);return}
   let cc=e.target.closest("[data-db26-catcheck]"); if(cc){let cat=cc.dataset.db26Cat.split("|").slice(2).join("|");rows().filter(x=>x.category===cat).forEach(x=>cc.checked?S.sel.add(x.id):S.sel.delete(x.id));render();return}
   let sc=e.target.closest("[data-db26-subcheck]"); if(sc){let p=sc.dataset.db26Sub.split("|"),cat=p[2],sub=p.slice(3).join("|");rows().filter(x=>x.category===cat&&x.subcategory===sub).forEach(x=>sc.checked?S.sel.add(x.id):S.sel.delete(x.id));render();return}
