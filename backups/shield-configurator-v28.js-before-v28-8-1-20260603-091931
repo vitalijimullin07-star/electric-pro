@@ -106,7 +106,6 @@
   const openState = { tpl: false, settings: false, opts: false, rail: false };
   let railOpen = false, railSel = null, railCells = [], railView = "rails";
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const cur = v => (window.EPCurrency && window.EPCurrency.format) ? window.EPCurrency.format(v) : (Number(v || 0).toFixed(2) + " ₽");
 
   function previewCounts() {
     const r = cfg.rooms;
@@ -664,8 +663,8 @@
       const man = t.closest?.("[data-manual]");
       if (man) {
         const key = man.dataset.manual;
-        const curVal = cfg.manualPrices[key] || "";
-        const val = prompt("Цена за единицу (пусто — отмена):", curVal);
+        const cur = cfg.manualPrices[key] || "";
+        const val = prompt("Цена за единицу, ₽ (пусто — отмена):", cur);
         if (val !== null) {
           const n = Math.max(0, Number(String(val).replace(",", ".").replace(/[^\d.]/g, "")) || 0);
           if (n > 0) cfg.manualPrices[key] = n; else delete cfg.manualPrices[key];
