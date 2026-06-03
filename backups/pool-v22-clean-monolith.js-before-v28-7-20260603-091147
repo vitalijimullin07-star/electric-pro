@@ -15,7 +15,7 @@
 
   const n = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
   const ceil = v => Math.ceil(Math.max(0, n(v, 0)));
-  const money = v => ((window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(n(v,0)):(Number(n(v,0)).toFixed(2)+" ₽"));
+  const money = v => Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;",
     "<": "&lt;",
@@ -1235,7 +1235,7 @@
   }
 
   function money(v) {
-    return ((window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(n(v,0)):(Number(n(v,0)).toFixed(2)+" ₽"));
+    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
   }
 
   function readJson(key, fallback) {
@@ -1963,7 +1963,7 @@
   }
 
   function money(v) {
-    return ((window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(n(v,0)):(Number(n(v,0)).toFixed(2)+" ₽"));
+    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
   }
 
   function normalize(v) {

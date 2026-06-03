@@ -18,7 +18,7 @@ const nrm=v=>String(v??"").toLowerCase().replace(/ё/g,"е").replace(/[×хx]/g,
 const id=()=> "db26_"+Date.now().toString(36)+"_"+Math.random().toString(16).slice(2);
 const rj=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"")}catch(e){return d}};
 const wj=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const money=v=>(window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(Number(v||0)):(Number(v||0).toFixed(2)+" ₽");
+const money=v=>(window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(Number(v||0)):(Math.round(Number(v||0)).toLocaleString("ru-RU")+" ₽");
 
 function email(){try{return firebase?.auth?.().currentUser?.email||""}catch(e){} try{return auth?.currentUser?.email||""}catch(e){} return ""}
 function admin(){return String(email()).toLowerCase()==="vits0007@gmail.com"||/(^|\s)admin(\s|$)/i.test(document.body.textContent||"")}

@@ -299,8 +299,8 @@
 
 
 
-  <script defer src="assets/js/pool-v22-clean-monolith.js?v=v28-7-currency-all-20260603-01"></script>
-  <script defer src="assets/js/estimate-core-v23-1.js?v=v28-7-currency-all-20260603-01"></script>
+  <script defer src="assets/js/pool-v22-clean-monolith.js?v=v26-12-pool-zero-switch-reset-20260528-01"></script>
+  <script defer src="assets/js/estimate-core-v23-1.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
 
 
 
@@ -311,8 +311,8 @@
   <script defer src="assets/js/v24-3-2-menu-diagnostics-fix.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
 
 
-  <script defer src="assets/js/ep-currency-v28.js?v=v28-7-currency-all-20260603-01"></script>
-  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-7-currency-all-20260603-01"></script>
+  <script defer src="assets/js/ep-currency-v28.js?v=v28-6-currency-20260602-01"></script>
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-6-currency-20260602-01"></script>
 
 
   <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
@@ -330,7 +330,7 @@
   <script defer src="modules/database/db-params-v28.js?v=v28-4-db-params-20260601-01"></script>
   
   <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-4-7-shield-scheme-fix-20260602-01"></script>
-  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-7-currency-all-20260603-01"></script>
+  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-4-5-shield-scheme-svg-20260602-01"></script>
 
 
   <script defer src="assets/js/admin-v26-7-subscription-panel-restore.js?v=v26-7-admin-subscription-restore-20260528-01"></script>

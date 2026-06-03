@@ -293,7 +293,7 @@
       <div class="rc-row"><span>Назначение</span><b>${esc(c.serves || "—")}</b></div>
       <div class="rc-row"><span>Модулей</span><b>${c.w}</b></div>
       ${c.dbName ? `<div class="rc-row"><span>Из БД</span><b>${esc(c.dbName)}</b></div>` : (c.type === "avt" || c.type === "rcd") ? `<div class="rc-row"><span>Из БД</span><b style="color:#b45309">не найдено</b></div>` : ""}
-      ${c.price ? `<div class="rc-row"><span>Цена</span><b>${cur(c.price)}</b></div>` : ""}
+      ${c.price ? `<div class="rc-row"><span>Цена</span><b>${Math.round(c.price)} ₽</b></div>` : ""}
     </div>`;
   }
 
@@ -364,7 +364,7 @@
     const pushRow = (name, qty, price, unit) => {
       const p = Number(price) || 0; const q = qty || 1;
       if (!p) { skipped++; return; }
-      est.rows.push({ name, calcName: name, dbName: name, qty: q, unit: unit || "шт", price: p, total: Math.round(q * p * 100) / 100, src: "shield" });
+      est.rows.push({ name, calcName: name, dbName: name, qty: q, unit: unit || "шт", price: p, total: Math.round(q * p), src: "shield" });
       added++;
     };
     draft.groups.forEach(g => {
@@ -385,7 +385,7 @@
   function altsHtml(alts, curName, attrName, prefix) {
     if (!alts || !alts.length) return "";
     return `<div class="shv28-alts">` + alts.map((a, j) =>
-      `<button type="button" class="shv28-alt ${a.name === curName ? "cur" : ""}" ${attrName}="${prefix}:${j}"><span>${esc(a.name)}</span><b>${cur(a.price)}</b></button>`
+      `<button type="button" class="shv28-alt ${a.name === curName ? "cur" : ""}" ${attrName}="${prefix}:${j}"><span>${esc(a.name)}</span><b>${Math.round(a.price)} ₽</b></button>`
     ).join("") + `</div>`;
   }
 
@@ -398,7 +398,7 @@
       let protHtml;
       if (g.prot.found) {
         foundDev++; total += Number(g.prot.price) || 0;
-        protHtml = `<div class="shv28-prot ok" data-palts="${gi}">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — ${esc(g.prot.name)} · <b>${cur(g.prot.price)}</b>${g.prot.count > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
+        protHtml = `<div class="shv28-prot ok" data-palts="${gi}">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — ${esc(g.prot.name)} · <b>${Math.round(g.prot.price)} ₽</b>${g.prot.count > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
         if (g.prot.showAlts) protHtml += altsHtml(g.prot.alts, g.prot.name, "data-ppick", String(gi));
       } else {
         protHtml = `<div class="shv28-prot no">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — не найдено в БД</div>`;
@@ -409,7 +409,7 @@
         totalDev++;
         if (p.dbFound) {
           foundDev++; total += Number(p.dbPrice) || 0;
-          db = `<div class="shv28-draft-db ok" data-alts="${gi}:${li}">✅ ${esc(p.dbName)} · <b>${cur(p.dbPrice)}</b>${p.dbCount > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
+          db = `<div class="shv28-draft-db ok" data-alts="${gi}:${li}">✅ ${esc(p.dbName)} · <b>${Math.round(p.dbPrice)} ₽</b>${p.dbCount > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
           if (p.showAlts) db += altsHtml(p.alts, p.dbName, "data-pick", gi + ":" + li);
         } else {
           db = `<div class="shv28-draft-db no">⚠️ автомат ${esc(p.nom)} не найден</div>`;
@@ -425,7 +425,7 @@
       g.lines.forEach(l => { if (l.dbFound) { const k = `Автомат ${l.nom}`; (avtAgg[k] = avtAgg[k] || { c: 0, t: 0 }); avtAgg[k].c++; avtAgg[k].t += Number(l.dbPrice) || 0; } });
     });
     const aggRows = [...Object.entries(protAgg), ...Object.entries(avtAgg)]
-      .map(([k, v]) => `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p">${cur(v.t)}</span></div>`).join("");
+      .map(([k, v]) => `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p">${Math.round(v.t)} ₽</span></div>`).join("");
     const aggHtml = aggRows ? `<div class="shv28-agg"><div class="shv28-agg-head">Аппараты — кратко</div>${aggRows}</div>` : "";
 
     const cons = draft.cons;
@@ -436,11 +436,11 @@
         let price = x.found ? x.total : manualFor(key) * x.qty;
         consTotal += price || 0;
         const right = x.found
-          ? `<span class="cp">${cur(x.total)}</span>`
-          : (manualFor(key) ? `<span class="cp">${cur(manualFor(key) * x.qty)} <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
+          ? `<span class="cp">${Math.round(x.total)} ₽</span>`
+          : (manualFor(key) ? `<span class="cp">${Math.round(manualFor(key) * x.qty)} ₽ <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
         return `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${right}</div>`;
       }).join("");
-      consHtml = `<div class="shv28-cons"><div class="shv28-cons-head">Расходка и шины · ≈ <b id="x">${cur(consTotal)}</b></div>${rows}<div class="shv28-cons-note">Автоматов: ${cons.automats} · групп: ${cons.rcds} · ПуГВ/НШВИ: 1×${cons.sec}</div></div>`;
+      consHtml = `<div class="shv28-cons"><div class="shv28-cons-head">Расходка и шины · ≈ <b id="x">${Math.round(consTotal)} ₽</b></div>${rows}<div class="shv28-cons-note">Автоматов: ${cons.automats} · групп: ${cons.rcds} · ПуГВ/НШВИ: 1×${cons.sec}</div></div>`;
     }
 
     // работа
@@ -452,24 +452,24 @@
         let price = x.found ? x.total : manualFor(key) * x.qty;
         workTotal += price || 0;
         const right = x.found
-          ? `<span class="cp">${cur(x.total)}</span>`
-          : (manualFor(key) ? `<span class="cp">${cur(manualFor(key) * x.qty)} <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
+          ? `<span class="cp">${Math.round(x.total)} ₽</span>`
+          : (manualFor(key) ? `<span class="cp">${Math.round(manualFor(key) * x.qty)} ₽ <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
         return `<div class="shv28-cons-row"><span class="cl">${esc(x.label)}</span><span class="cq">×${x.qty}</span>${right}</div>`;
       }).join("");
-      workHtml = `<div class="shv28-cons"><div class="shv28-cons-head work">Работа · ≈ <b>${cur(workTotal)}</b></div>${rows}</div>`;
+      workHtml = `<div class="shv28-cons"><div class="shv28-cons-head work">Работа · ≈ <b>${Math.round(workTotal)} ₽</b></div>${rows}</div>`;
     }
 
     const matTotal = total + consTotal;
-    const grand = matTotal + workTotal;
+    const grand = Math.round(matTotal + workTotal);
     return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
       ${groupsHtml}
       ${aggHtml}
       ${consHtml}
       ${workHtml}
       <div class="shv28-totals">
-        <div><span>Материалы</span><b>${cur(matTotal)}</b></div>
-        <div><span>Работа</span><b>${cur(workTotal)}</b></div>
-        <div class="grand"><span>ИТОГ</span><b>${cur(grand)}</b></div>
+        <div><span>Материалы</span><b>${Math.round(matTotal)} ₽</b></div>
+        <div><span>Работа</span><b>${Math.round(workTotal)} ₽</b></div>
+        <div class="grand"><span>ИТОГ</span><b>${grand} ₽</b></div>
       </div>
       <button type="button" class="shv28-btn add" style="width:100%;margin-bottom:8px" data-toestimate>➕ Добавить щит в смету</button>
       <div class="shv28-draft-hint">⚙️ ${esc(PROTECTIONS.find(x => x.v === cfg.protection)?.t || "")} · правило БД: ${esc(DB_RULES.find(x => x.v === cfg.dbRule)?.t || "")}<br>Не найдено в БД — нажми «вписать ₽» (своя цена) или оставь до ответа поставщика.</div>`;

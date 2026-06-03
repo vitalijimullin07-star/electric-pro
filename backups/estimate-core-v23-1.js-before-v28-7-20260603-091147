@@ -15,7 +15,7 @@
   }[c]));
 
   function money(v) {
-    return ((window.EPCurrency&&window.EPCurrency.format)?window.EPCurrency.format(n(v,0)):(Number(n(v,0)).toFixed(2)+" ₽"));
+    return Math.round(n(v, 0)).toLocaleString("ru-RU") + " ₽";
   }
 
   function diag(code, message, extra = {}) {
