@@ -285,6 +285,3 @@
 #shv28-scheme-svg .ep-rt { font:800 13px/1 system-ui; fill:#0056b3; text-anchor:start; }
 #shv28-scheme-svg .ep-bd { fill:#fff; }
 #shv28-scheme-svg text { pointer-events:none; }
-
-/* "не найдено" в кратко (V28.9) */
-.shv28-agg-row .p.no { color:#b45309; font:700 11px/1 system-ui; }

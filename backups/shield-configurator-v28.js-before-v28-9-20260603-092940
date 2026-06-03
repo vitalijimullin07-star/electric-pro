@@ -53,21 +53,6 @@
     { key: "bell", label: "Звонок" },
     { key: "serviceSocket", label: "Сервисная розетка" }
   ];
-  // единый список аппаратов: порядок = сверху вниз в щите. symbol — для схемы, w1/w3 — модули в рейке, kws — поиск в БД.
-  const APPARATUS = [
-    { key: "vvod", des: "QF0", title: "Вводной автомат", symbol: "mcb", w1: 2, w3: 4, kws: ["вводн"], place: "inline", isVvod: true },
-    { key: "rubilnik", des: "QS1", title: "Рубильник нагрузки", symbol: "switch", w1: 2, w3: 4, kws: ["рубильник"], place: "inline" },
-    { key: "meter", des: "PI1", title: "Счётчик", symbol: "meter", w1: 3, w3: 6, kws: ["счетчик"], place: "inline" },
-    { key: "opn", des: "FV1", title: "ОПН / УЗИП", symbol: "spd", w1: 2, w3: 4, kws: ["опн"], place: "inline" },
-    { key: "uzm", des: "KV1", title: "Реле напряжения", symbol: "relay", w1: 2, w3: 3, kws: ["реле", "напряж"], place: "inline" },
-    { key: "avr", des: "SA1", title: "АВР (резерв)", symbol: "switch", w1: 4, w3: 6, kws: ["авр"], place: "inline" },
-    { key: "phaseSwitch", des: "SF1", title: "Переключатель фаз", symbol: "switch", w1: 3, w3: 3, kws: ["переключатель", "фаз"], place: "inline" },
-    { key: "priority", des: "KP1", title: "Реле приоритета", symbol: "relay", w1: 2, w3: 2, kws: ["приоритет"], place: "inline" },
-    { key: "contactor", des: "KM1", title: "Контактор", symbol: "contactor", w1: 1, w3: 3, kws: ["контактор"], place: "inline" },
-    { key: "uzdp", des: "QA1", title: "УЗДП (от дуги)", symbol: "mcb", w1: 1, w3: 1, kws: ["уздп"], place: "inline" },
-    { key: "bell", des: "HA1", title: "Звонок", symbol: "contactor", w1: 1, w3: 1, kws: ["звонок"], place: "branch" },
-    { key: "serviceSocket", des: "XS1", title: "Сервисная розетка", symbol: "mcb", w1: 1, w3: 1, kws: ["розетка", "щит"], place: "branch" }
-  ];
   const INTRO_AMPS = [16, 25, 32, 40, 50, 63];
   const PUGV = [{ v: "6", t: "1×6" }, { v: "10", t: "1×10" }];
   const DIST = [{ v: "nbus", t: "N-шины" }, { v: "cross", t: "Кросс-модуль" }];
@@ -130,9 +115,7 @@
     const wet = (r.baths + r.toilets) || 0, warm = r.warmFloors || 0, clim = r.climates || 0;
     const sepLines = LINES.reduce((n, l) => n + (cfg.lines[l.key] ? 1 : 0), 0);
     const lines = lightGroups + socketGroups + wet + warm + clim + sepLines;
-    const appMods = selectedApparatus().reduce((s, a) => s + a.w, 0);
-    const heads = 5 * (Number(cfg.difWidth) || 2);
-    const modules = lines + heads + appMods + 2;
+    const modules = lines * 2 + (cfg.opts.uzm ? 2 : 0) + 4;
     const suggestedSize = SIZES.find(s => s >= modules) || 72;
     return { lines, modules, suggestedSize, sepLines };
   }
@@ -196,33 +179,7 @@
     const cons = buildConsumables(groups);
     const sizeMod = cfg.sizeMode === "auto" ? (previewCounts().suggestedSize) : cfg.size;
     const work = buildWork(groups, cons, sizeMod);
-    return { groups, apparatus: buildApparatus(), cons, work };
-  }
-
-  // выбранные аппараты защиты/автоматики (в порядке APPARATUS), с шириной в модулях
-  function selectedApparatus() {
-    const ph3 = cfg.phase === "3";
-    return APPARATUS.filter(a => cfg.opts[a.key]).map(a => {
-      let title = a.title, nom = "";
-      if (a.isVvod) { title = `Вводной автомат ${cfg.introAmp}А ${ph3 ? "3ф" : "1ф"}`; nom = `${cfg.introAmp}А`; }
-      return Object.assign({}, a, { w: ph3 ? a.w3 : a.w1, title, nom });
-    });
-  }
-
-  // те же аппараты с ценой из БД (для черновика и итогов)
-  function buildApparatus() {
-    const R = window.ShieldDbResolverV28;
-    const rule = cfg.dbRule === "max" ? "max" : "min";
-    return selectedApparatus().map(a => {
-      let res = { found: false };
-      if (R) {
-        if (a.isVvod) res = R.resolve({ kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, { rule, preferBrand: cfg.autoBrand });
-        else res = R.findByKeywords(a.kws, { rule });
-      }
-      const name = res.found ? (res.item ? res.item.name : res.name) : "";
-      const price = res.found ? res.price : 0;
-      return { key: a.key, des: a.des, title: a.title, found: !!res.found, name, price };
-    });
+    return { groups, cons, work };
   }
 
   // Расходка и шины — считаются формулой, цены ищутся в БД по ключевым словам.
@@ -241,6 +198,7 @@
       const res = R ? R.findByKeywords(kws, { rule, exclude }) : { found: false };
       items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
     };
+    if (cfg.opts.vvod) addDev(`Вводной автомат ${cfg.introAmp}А ${cfg.phase === "3" ? "3ф" : "1ф"}`, { kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, 1);
     // гребёнки: суммарная длина (25 см на каждые 12 авт / 6 диф)
     const comb1 = Math.ceil(automats / 12), comb2 = Math.ceil(rcds / 6);
     if (comb1 > 0) addKw(`Гребёнка 1П 25см (всего ${comb1 * 25} см)`, ["гребен"], comb1, ["2п", "2p"]);
@@ -285,10 +243,9 @@
     const cells = [];
     let idx = 0, qf = 0, qd = 0;
     const add = c => { c.idx = idx++; cells.push(c); };
-    // все выбранные аппараты защиты/автоматики — сверху
-    selectedApparatus().forEach(a => {
-      add({ des: a.des, label: a.isVvod ? "Ввод" : a.title.split(" ")[0], nom: a.nom || "", serves: a.title, w: a.w, type: a.isVvod ? "input" : "extra" });
-    });
+    if (cfg.opts.vvod) add({ des: "QF0", label: `Ввод`, nom: `${cfg.introAmp}А`, serves: `Вводной автомат, ${cfg.phase === "3" ? "3 фазы" : "1 фаза"}`, w: cfg.phase === "3" ? 4 : 2, type: "input" });
+    if (cfg.opts.uzm) add({ des: "KV1", label: "Реле U", nom: "", serves: "Реле напряжения (защита от скачков)", w: cfg.phase === "3" ? 3 : 2, type: "extra" });
+    if (cfg.opts.opn) add({ des: "FV1", label: "ОПН", nom: "", serves: "Ограничитель перенапряжений (УЗИП)", w: cfg.phase === "3" ? 4 : 2, type: "extra" });
     draft.groups.forEach(g => {
       qd++;
       add({ des: "QD" + qd, label: g.prot.kind === "dif" ? "ДИФ" : "УЗО", nom: `40А ${g.leak}мА`, serves: `${g.title} — защита группы`, w: headW, type: "rcd", grp: g.key, dbName: g.prot.found ? g.prot.name : "", price: g.prot.found ? g.prot.price : 0, found: g.prot.found });
@@ -351,24 +308,18 @@
       const lines = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
       return { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: lines };
     });
-    const app = selectedApparatus();
-    const inline = app.filter(a => a.place === "inline");
-    const branch = app.filter(a => a.place === "branch");
-    // корень — первый inline-аппарат (обычно вводной), иначе виртуальный ввод
-    let root, tail;
-    if (inline.length) {
-      const r = inline[0];
-      root = { id: r.des, type: r.symbol, label: r.title.split(" ").slice(0, 2).join(" "), rating: r.nom || amp(cfg.introAmp), children: [] };
-      tail = root;
-      inline.slice(1).forEach(a => { const n = { id: a.des, type: a.symbol, label: a.title.split(" ").slice(0, 2).join(" "), rating: a.nom || "", children: [] }; tail.children = [n]; tail = n; });
-    } else {
-      root = { id: "QS0", type: "switch", label: "Ввод", rating: amp(cfg.introAmp), children: [] };
-      tail = root;
-    }
+    // главная линия: ввод -> [реле] -> [ОПН] -> [счётчик] -> (узел с группами)
+    let root = cfg.opts.vvod
+      ? { id: "QF0", type: "mcb", label: "Ввод " + (cfg.phase === "3" ? "3ф" : "1ф"), rating: amp(cfg.introAmp), children: [] }
+      : { id: "QS1", type: "switch", label: "Ввод", rating: amp(cfg.introAmp), children: [] };
+    let tail = root;
+    const chain = n => { tail.children = [n]; tail = n; };
+    if (cfg.opts.uzm) chain({ id: "KV1", type: "relay", label: "Реле напр.", rating: amp(cfg.introAmp), children: [] });
+    if (cfg.opts.opn) chain({ id: "FV1", type: "spd", label: "УЗИП", rating: "T2", children: [] });
+    if (cfg.opts.meter) chain({ id: "PI1", type: "meter", label: "Счётчик", rating: amp(cfg.introAmp), children: [] });
+    if (cfg.opts.rubilnik && root.id !== "QS1") chain({ id: "QS1", type: "switch", label: "Рубильник", rating: amp(cfg.introAmp), children: [] });
     tail.isCrossModule = (cfg.distribution === "cross");
-    // ветки звонок/розетка добавляются к группам (как отдельные отходящие)
-    const extraBranches = branch.map(a => ({ id: a.des, type: a.symbol, label: a.title, rating: a.nom || "", children: [] }));
-    tail.children = groupNodes.concat(extraBranches);
+    tail.children = groupNodes;
     return root;
   }
 
@@ -422,7 +373,6 @@
       if (g.prot.found) pushRow(g.prot.name, 1, g.prot.price, "шт");
       g.lines.forEach(l => { if (l.dbFound) pushRow(l.dbName, 1, l.dbPrice, "шт"); });
     });
-    if (draft.apparatus) draft.apparatus.forEach(a => { const key = "app:" + a.key; pushRow(a.found ? a.name : a.title, 1, a.found ? a.price : manualFor(key), "шт"); });
     if (draft.cons) draft.cons.items.forEach(x => { const key = "cons:" + x.label; pushRow(x.found ? x.name : x.label, x.qty, x.found ? x.price : manualFor(key), "шт"); });
     if (draft.work) draft.work.items.forEach(x => { const key = "work:" + x.label; pushRow(x.found ? x.name : x.label, x.qty, x.found ? x.price : manualFor(key), "шт"); });
     est.updatedAt = new Date().toISOString();
@@ -470,40 +420,15 @@
       }).join("");
       return `<div class="shv28-group"><div class="shv28-group-head" data-gcollapse="${gi}"><span class="gt">${esc(g.title)}</span><span class="gl">${g.leak}мА</span><span class="gc">${g.lines.length} лин.</span><span class="gx">${g.collapsed ? "▸" : "▾"}</span></div>${protHtml}${g.collapsed ? "" : `<div class="shv28-group-lines">${linesHtml}</div>`}</div>`;
     }).join("");
-    // краткий итог: все группы (вкл. ненайденные 10мА), автоматы по номиналу, аппараты
-    const avtAgg = {}, protMap = {};
+    // краткий итог: агрегируем автоматы по номиналу, защиту по типу
+    const avtAgg = {}, protAgg = {};
     draft.groups.forEach(g => {
-      const k = `${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА`;
-      const m = (protMap[k] = protMap[k] || { c: 0, t: 0, found: false });
-      m.c++; m.t += Number(g.prot.price) || 0; if (g.prot.found) m.found = true;
-      g.lines.forEach(l => { if (l.dbFound) { const ka = `Автомат ${l.nom}`; (avtAgg[ka] = avtAgg[ka] || { c: 0, t: 0 }); avtAgg[ka].c++; avtAgg[ka].t += Number(l.dbPrice) || 0; } });
+      if (g.prot.found) { const k = `${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА`; (protAgg[k] = protAgg[k] || { c: 0, t: 0 }); protAgg[k].c++; protAgg[k].t += Number(g.prot.price) || 0; }
+      g.lines.forEach(l => { if (l.dbFound) { const k = `Автомат ${l.nom}`; (avtAgg[k] = avtAgg[k] || { c: 0, t: 0 }); avtAgg[k].c++; avtAgg[k].t += Number(l.dbPrice) || 0; } });
     });
-    const apps = draft.apparatus || [];
-    const protRows = Object.entries(protMap).map(([k, v]) =>
-      `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p${v.found ? "" : " no"}">${v.found ? cur(v.t) : "не найдено"}</span></div>`).join("");
-    const avtRows = Object.entries(avtAgg).map(([k, v]) =>
-      `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p">${cur(v.t)}</span></div>`).join("");
-    const appRows = apps.map(a => {
-      const key = "app:" + a.key; const price = a.found ? a.price : manualFor(key);
-      return `<div class="shv28-agg-row"><span>${esc(a.title)}</span><span class="q">×1</span><span class="p${(a.found || manualFor(key)) ? "" : " no"}">${(a.found || manualFor(key)) ? cur(price) : "не найдено"}</span></div>`;
-    }).join("");
-    const aggHtml = (protRows || avtRows || appRows)
-      ? `<div class="shv28-agg"><div class="shv28-agg-head">Аппараты — кратко</div>${protRows}${appRows}${avtRows}</div>` : "";
-
-    // блок аппаратов защиты/автоматики (с ценой/ручным вводом)
-    let appHtml = "", appTotal = 0;
-    if (apps.length) {
-      const rows = apps.map(a => {
-        const key = "app:" + a.key;
-        const price = a.found ? a.price : manualFor(key);
-        appTotal += price || 0;
-        const right = a.found
-          ? `<span class="cp">${cur(a.price)}</span>`
-          : (manualFor(key) ? `<span class="cp">${cur(manualFor(key))} <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
-        return `<div class="shv28-cons-row"><span class="cl">${esc(a.title)}${a.found ? ` <i style="color:#94a3b8;font-weight:600">${esc(a.name)}</i>` : ""}</span>${right}</div>`;
-      }).join("");
-      appHtml = `<div class="shv28-cons"><div class="shv28-cons-head" style="background:#ede9fe;color:#5b21b6">Аппараты защиты / автоматика · ≈ <b>${cur(appTotal)}</b></div>${rows}</div>`;
-    }
+    const aggRows = [...Object.entries(protAgg), ...Object.entries(avtAgg)]
+      .map(([k, v]) => `<div class="shv28-agg-row"><span>${esc(k)}</span><span class="q">×${v.c}</span><span class="p">${cur(v.t)}</span></div>`).join("");
+    const aggHtml = aggRows ? `<div class="shv28-agg"><div class="shv28-agg-head">Аппараты — кратко</div>${aggRows}</div>` : "";
 
     const cons = draft.cons;
     let consHtml = "", consTotal = 0;
@@ -538,12 +463,11 @@
       workHtml = `<div class="shv28-cons"><div class="shv28-cons-head work">Работа · ≈ <b>${cur(workTotal)}</b></div>${rows}</div>`;
     }
 
-    const matTotal = total + appTotal + consTotal;
+    const matTotal = total + consTotal;
     const grand = matTotal + workTotal;
     return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
       ${groupsHtml}
       ${aggHtml}
-      ${appHtml}
       ${consHtml}
       ${workHtml}
       <div class="shv28-totals">
