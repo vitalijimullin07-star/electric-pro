@@ -202,7 +202,7 @@
   // выбранные аппараты защиты/автоматики (в порядке APPARATUS), с шириной в модулях
   function selectedApparatus() {
     const ph3 = cfg.phase === "3";
-    return APPARATUS.filter(a => cfg.opts[a.key] || (a.key === "contactor" && cfg.opts.master)).map(a => {
+    return APPARATUS.filter(a => cfg.opts[a.key]).map(a => {
       let title = a.title, nom = "";
       if (a.isVvod) { title = `Вводной автомат ${cfg.introAmp}А ${ph3 ? "3ф" : "1ф"}`; nom = `${cfg.introAmp}А`; }
       return Object.assign({}, a, { w: ph3 ? a.w3 : a.w1, title, nom });
@@ -285,19 +285,13 @@
     const cells = [];
     let idx = 0, qf = 0, qd = 0;
     const add = c => { c.idx = idx++; cells.push(c); };
-    const masterKM = cfg.opts.master;
-    // все выбранные аппараты сверху (кроме мастер-контактора — он уйдёт в группу освещения)
+    // все выбранные аппараты защиты/автоматики — сверху
     selectedApparatus().forEach(a => {
-      if (a.key === "contactor" && masterKM) return;
       add({ des: a.des, label: a.isVvod ? "Ввод" : a.title.split(" ")[0], nom: a.nom || "", serves: a.title, w: a.w, type: a.isVvod ? "input" : "extra" });
     });
     draft.groups.forEach(g => {
       qd++;
       add({ des: "QD" + qd, label: g.prot.kind === "dif" ? "ДИФ" : "УЗО", nom: `40А ${g.leak}мА`, serves: `${g.title} — защита группы`, w: headW, type: "rcd", grp: g.key, dbName: g.prot.found ? g.prot.name : "", price: g.prot.found ? g.prot.price : 0, found: g.prot.found });
-      // мастер-контактор: сразу после УЗО/диф освещения, до автоматов
-      if (g.key === "light" && masterKM) {
-        add({ des: "KM1", label: "Контактор", nom: "мастер", serves: "Контактор мастер-кнопки (отключает всё освещение)", w: cfg.phase === "3" ? 3 : 1, type: "extra", grp: g.key });
-      }
       g.lines.forEach(l => {
         qf++;
         add({ des: "QF" + qf, label: l.nom, nom: l.nom, serves: l.name, w: 1, type: "avt", grp: g.key, dbName: l.dbFound ? l.dbName : "", price: l.dbFound ? l.dbPrice : 0, found: l.dbFound });
@@ -352,21 +346,15 @@
     if (!draft || !draft.groups || !draft.groups.length) return null;
     let qf = 0, qd = 0;
     const amp = n => String(n).replace(/[^\d]/g, "") + "А";
-    const app = selectedApparatus();
-    const masterKM = cfg.opts.master;
     const groupNodes = draft.groups.map(g => {
       qd++;
-      const autom = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
-      const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: autom };
-      // мастер-контактор: между УЗО/диф освещения и автоматами освещения
-      if (g.key === "light" && masterKM) {
-        qdNode.children = [{ id: "KM1", type: "contactor", label: "Контактор (мастер)", rating: "", children: autom }];
-      }
-      return qdNode;
+      const lines = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
+      return { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: lines };
     });
-    // верхняя цепочка ввода (мастер-контактор сюда НЕ входит — он в ветке освещения)
-    const inline = app.filter(a => a.place === "inline" && !(a.key === "contactor" && masterKM));
+    const app = selectedApparatus();
+    const inline = app.filter(a => a.place === "inline");
     const branch = app.filter(a => a.place === "branch");
+    // корень — первый inline-аппарат (обычно вводной), иначе виртуальный ввод
     let root, tail;
     if (inline.length) {
       const r = inline[0];
@@ -378,6 +366,7 @@
       tail = root;
     }
     tail.isCrossModule = (cfg.distribution === "cross");
+    // ветки звонок/розетка добавляются к группам (как отдельные отходящие)
     const extraBranches = branch.map(a => ({ id: a.des, type: a.symbol, label: a.title, rating: a.nom || "", children: [] }));
     tail.children = groupNodes.concat(extraBranches);
     return root;
@@ -703,7 +692,7 @@
       const line = t.closest?.("[data-line]");
       if (line) { const k = line.dataset.line; cfg.lines[k] = !cfg.lines[k]; save(cfg); render(); return; }
       const opt = t.closest?.("[data-opt]");
-      if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; if (k === "master" && cfg.opts.master) cfg.opts.contactor = true; save(cfg); render(); return; }
+      if (opt) { const k = opt.dataset.opt; cfg.opts[k] = !cfg.opts[k]; save(cfg); render(); return; }
       const dist = t.closest?.("[data-dist]");
       if (dist) { cfg.distribution = dist.dataset.dist; save(cfg); render(); return; }
       const set2 = t.closest?.("[data-set2]");
