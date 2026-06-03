@@ -100,23 +100,6 @@
     house:  { kits: 1, baths: 2, toilets: 1, rooms: 4, bals: 0, warmFloors: 3, climates: 3 }
   };
   const TEMPLATE_LABELS = { studio: "Студия", one: "1-комн.", two: "2-комн.", three: "3-комн.", euro: "Евро-2", house: "Дом" };
-  // свои шаблоны: хранятся отдельно, захватывают помещения+линии+опции+настройки
-  const TPL_KEY = "ep_shield_templates_v28";
-  const TPL_FIELDS = ["profile", "phase", "curve", "rcdType", "protection", "wall", "dbRule", "introAmp", "pugvSec", "allLinesRcd", "difWidth", "distribution", "weakShield", "weakSize", "brand", "autoBrand", "sizeMode", "size"];
-  function loadCustomTpl() { try { return JSON.parse(localStorage.getItem(TPL_KEY) || "{}") || {}; } catch (e) { return {}; } }
-  function saveCustomTpl(o) { try { localStorage.setItem(TPL_KEY, JSON.stringify(o)); } catch (e) {} }
-  function snapshotTpl(label) {
-    const t = { label: label || "Свой", rooms: Object.assign({}, cfg.rooms), lines: Object.assign({}, cfg.lines), opts: Object.assign({}, cfg.opts) };
-    TPL_FIELDS.forEach(f => t[f] = cfg[f]);
-    return t;
-  }
-  function applyCustomTpl(t) {
-    if (!t) return;
-    if (t.rooms) ROOMS.forEach(r => cfg.rooms[r.key] = Number(t.rooms[r.key]) || 0);
-    if (t.lines) LINES.forEach(l => { if (t.lines[l.key] !== undefined) cfg.lines[l.key] = !!t.lines[l.key]; });
-    if (t.opts) Object.keys(cfg.opts).forEach(k => { if (t.opts[k] !== undefined) cfg.opts[k] = !!t.opts[k]; });
-    TPL_FIELDS.forEach(f => { if (t[f] !== undefined) cfg[f] = t[f]; });
-  }
 
   function defaultConfig() {
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
@@ -605,12 +588,6 @@
           <div class="shv28-foldbody">
             <div class="shv28-sublabel">Тип объекта</div>
             <div class="shv28-tpl">${Object.keys(TEMPLATES).map(k => `<button type="button" class="shv28-tpl-btn ${cfg.template === k ? "active" : ""}" data-tpl="${k}">${esc(TEMPLATE_LABELS[k])}</button>`).join("")}</div>
-            ${(() => { const ct = loadCustomTpl(); const keys = Object.keys(ct); return `
-            <div class="shv28-sublabel">Мои шаблоны</div>
-            <div class="shv28-tpl">
-              ${keys.length ? keys.map(k => `<button type="button" class="shv28-tpl-btn ${cfg.template === k ? "active" : ""}" data-tplcustom="${esc(k)}">${esc(ct[k].label || k)}<i class="shv28-tpl-del" data-tpldel="${esc(k)}" title="Удалить">✕</i></button>`).join("") : `<span class="shv28-tpl-empty">Пока нет. Настрой щит и нажми «Сохранить как шаблон».</span>`}
-            </div>
-            <button type="button" class="shv28-tpl-save" data-tplsave>💾 Сохранить текущие настройки как шаблон</button>`; })()}
             <div class="shv28-sublabel">Профиль качества</div>
             <div class="shv28-prof">${PROFILES.map(p => `<button type="button" class="shv28-prof-btn ${cfg.profile === p.key ? "active" : ""}" data-prof="${p.key}">${esc(p.label)}</button>`).join("")}</div>
           </div>
@@ -728,25 +705,6 @@
       const root = document.getElementById("ep-shield-v28-root");
       if (!root || !root.contains(e.target)) return;
       const t = e.target;
-      const tpldel = t.closest?.("[data-tpldel]");
-      if (tpldel) {
-        const k = tpldel.dataset.tpldel; const ct = loadCustomTpl();
-        if (ct[k] && confirm(`Удалить шаблон «${ct[k].label || k}»?`)) { delete ct[k]; saveCustomTpl(ct); render(); }
-        return;
-      }
-      const tplsave = t.closest?.("[data-tplsave]");
-      if (tplsave) {
-        const name = prompt("Название шаблона:", "Мой щит");
-        if (name && name.trim()) {
-          const ct = loadCustomTpl();
-          const key = "c" + Date.now();
-          ct[key] = snapshotTpl(name.trim());
-          saveCustomTpl(ct); cfg.template = key; save(cfg); render();
-        }
-        return;
-      }
-      const tplc = t.closest?.("[data-tplcustom]");
-      if (tplc) { const k = tplc.dataset.tplcustom; const ct = loadCustomTpl(); if (ct[k]) { applyCustomTpl(ct[k]); cfg.template = k; save(cfg); render(); } return; }
       const tpl = t.closest?.("[data-tpl]");
       if (tpl) { const k = tpl.dataset.tpl; cfg.template = k; ROOMS.forEach(r => cfg.rooms[r.key] = (TEMPLATES[k] || {})[r.key] || 0); save(cfg); render(); return; }
       const prof = t.closest?.("[data-prof]");

@@ -288,13 +288,3 @@
 
 /* "не найдено" в кратко (V28.9) */
 .shv28-agg-row .p.no { color:#b45309; font:700 11px/1 system-ui; }
-
-/* бейдж бренда выбранной позиции (V28.10) */
-.shv28-brand { display:inline-block; background:#1e3a8a; color:#dbeafe; border-radius:5px; padding:1px 6px; font:800 9px/1.4 system-ui; vertical-align:middle; }
-
-/* редактор шаблонов (V28.12) */
-.shv28-tpl-save { width:100%; margin-top:10px; padding:11px; border:1px dashed #6366f1; border-radius:10px; background:#eef2ff; color:#4338ca; font:800 13px/1 system-ui; cursor:pointer; }
-.shv28-tpl-save:active { background:#e0e7ff; }
-.shv28-tpl-btn { position:relative; }
-.shv28-tpl-del { margin-left:7px; display:inline-flex; width:16px; height:16px; align-items:center; justify-content:center; border-radius:50%; background:rgba(239,68,68,.15); color:#dc2626; font-size:9px; font-style:normal; }
-.shv28-tpl-empty { color:#94a3b8; font:600 12px/1.4 system-ui; padding:4px 2px; display:block; }
