@@ -72,8 +72,7 @@
   const PUGV = [{ v: "6", t: "1×6" }, { v: "10", t: "1×10" }];
   const DIST = [{ v: "nbus", t: "N-шины" }, { v: "cross", t: "Кросс-модуль" }];
   const DIFW = [{ v: "2", t: "2 модуля" }, { v: "1", t: "1 модуль" }];
-  const WEAK_SIZES = [12, 24, 36, 48];
-  const BRANDS = ["Любой", "IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
+  const BRANDS = ["IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
   const SIZES = [12, 24, 36, 48, 60, 72];
   const PROFILES = [{ key: "budget", label: "Бюджет" }, { key: "standard", label: "Стандарт" }, { key: "top", label: "Топ" }];
   const PHASES = [{ v: "1", t: "220В / 1 фаза" }, { v: "3", t: "380В / 3 фазы" }];
@@ -105,7 +104,7 @@
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
     const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
     const opts = { master: true, scheme: true, glands: false, vvod: true, uzm: true, opn: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, contactor: false, rubilnik: false, meter: false, bell: false, serviceSocket: false };
-    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", weakShield: false, weakSize: "12", sizeMode: "auto", size: 24, manualPrices: {}, draft: null };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", sizeMode: "auto", size: 24, manualPrices: {}, draft: null };
   }
   function load() {
     try {
@@ -123,14 +122,6 @@
   let railOpen = false, railSel = null, railCells = [], railView = "rails";
   const esc = v => String(v == null ? "" : v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const cur = v => (window.EPCurrency && window.EPCurrency.format) ? window.EPCurrency.format(v) : (Number(v || 0).toFixed(2) + " ₽");
-  // бейдж бренда выбранной позиции (определяется из названия)
-  const brandTag = name => {
-    try { const b = window.ShieldDbResolverV28?.parseDevice?.(name)?.brand; return b ? ` <span class="shv28-brand">${esc(b)}</span>` : ""; } catch (e) { return ""; }
-  };
-  // предпочитаемый бренд аппаратов ("Любой" -> без ограничения)
-  const brandPref = () => (cfg.autoBrand && cfg.autoBrand !== "Любой") ? cfg.autoBrand : "";
-  // вытащить бренд из названия выбранной позиции
-  const brandOf = name => { try { const R = window.ShieldDbResolverV28; return (R && R.parseDevice) ? (R.parseDevice(String(name || "")).brand || "") : ""; } catch (e) { return ""; } };
 
   function previewCounts() {
     const r = cfg.rooms;
@@ -179,7 +170,7 @@
   function resolveAvt(amp) {
     const R = window.ShieldDbResolverV28;
     if (!R || !amp) return { dbFound: false };
-    const res = R.resolve({ kind: "avt", curve: cfg.curve, amp }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: brandPref() });
+    const res = R.resolve({ kind: "avt", curve: cfg.curve, amp }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: cfg.autoBrand });
     if (res.found) return { dbFound: true, dbName: res.item.name, dbPrice: res.price, dbCount: res.candidates, alts: (res.alternatives || []).slice(0, 12), showAlts: false };
     return { dbFound: false };
   }
@@ -193,7 +184,7 @@
       if (!lns.length) return null;
       let prot = { kind: pk, amp: 40, leakMA: def.leak, found: false, showAlts: false };
       if (R) {
-        const res = R.resolve({ kind: pk, amp: 40, leakMA: def.leak }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: brandPref() });
+        const res = R.resolve({ kind: pk, amp: 40, leakMA: def.leak }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: cfg.brand });
         if (res.found) { prot.found = true; prot.name = res.item.name; prot.price = res.price; prot.count = res.candidates; prot.alts = (res.alternatives || []).slice(0, 12); }
       }
       const lines = lns.map(line => {
@@ -225,7 +216,7 @@
     return selectedApparatus().map(a => {
       let res = { found: false };
       if (R) {
-        if (a.isVvod) res = R.resolve({ kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, { rule, preferBrand: brandPref() });
+        if (a.isVvod) res = R.resolve({ kind: "avt", curve: cfg.curve, amp: Number(cfg.introAmp) }, { rule, preferBrand: cfg.autoBrand });
         else res = R.findByKeywords(a.kws, { rule });
       }
       const name = res.found ? (res.item ? res.item.name : res.name) : "";
@@ -243,7 +234,7 @@
     const sec = Number(cfg.pugvSec) || 6;
     const items = [];
     const addDev = (label, spec, qty) => {
-      const res = R ? R.resolve(spec, { rule, preferBrand: brandPref() }) : { found: false };
+      const res = R ? R.resolve(spec, { rule, preferBrand: cfg.autoBrand }) : { found: false };
       items.push({ label, qty, found: !!res.found, name: res.found ? res.item.name : "", price: res.found ? res.price : 0, total: res.found ? res.price * qty : 0 });
     };
     const addKw = (label, kws, qty, exclude) => {
@@ -263,7 +254,6 @@
     addKw(`N-шина на группу`, ["шина"], rcds, ["pe"]);
     addKw(`PE-шина (пинов: ${automats + 8})`, ["шина"], 1);
     addKw(`Распределительная N-шина`, ["шина"], 1);
-    if (cfg.weakShield) addKw(`Слаботочный щит ${cfg.weakSize} мод.`, ["слаботоч"], 1);
     const total = items.reduce((s, x) => s + (x.total || 0), 0);
     return { automats, rcds, sec, items, total };
   }
@@ -471,7 +461,7 @@
       let protHtml;
       if (g.prot.found) {
         foundDev++; total += Number(g.prot.price) || 0;
-        protHtml = `<div class="shv28-prot ok" data-palts="${gi}">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — ${esc(g.prot.name)}${brandTag(g.prot.name)} · <b>${cur(g.prot.price)}</b>${g.prot.count > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
+        protHtml = `<div class="shv28-prot ok" data-palts="${gi}">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — ${esc(g.prot.name)} · <b>${cur(g.prot.price)}</b>${g.prot.count > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
         if (g.prot.showAlts) protHtml += altsHtml(g.prot.alts, g.prot.name, "data-ppick", String(gi));
       } else {
         protHtml = `<div class="shv28-prot no">${g.prot.kind === "dif" ? "ДИФ" : "УЗО"} 40А ${g.leak}мА — не найдено в БД</div>`;
@@ -482,7 +472,7 @@
         totalDev++;
         if (p.dbFound) {
           foundDev++; total += Number(p.dbPrice) || 0;
-          db = `<div class="shv28-draft-db ok" data-alts="${gi}:${li}">✅ ${esc(p.dbName)}${brandTag(p.dbName)} · <b>${cur(p.dbPrice)}</b>${p.dbCount > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
+          db = `<div class="shv28-draft-db ok" data-alts="${gi}:${li}">✅ ${esc(p.dbName)} · <b>${cur(p.dbPrice)}</b>${p.dbCount > 1 ? ` <i>(заменить)</i>` : ""}</div>`;
           if (p.showAlts) db += altsHtml(p.alts, p.dbName, "data-pick", gi + ":" + li);
         } else {
           db = `<div class="shv28-draft-db no">⚠️ автомат ${esc(p.nom)} не найден</div>`;
@@ -521,7 +511,7 @@
         const right = a.found
           ? `<span class="cp">${cur(a.price)}</span>`
           : (manualFor(key) ? `<span class="cp">${cur(manualFor(key))} <i>(вручную)</i></span>` : `<button type="button" class="shv28-manual" data-manual="${esc(key)}">вписать ₽</button>`);
-        return `<div class="shv28-cons-row"><span class="cl">${esc(a.title)}${a.found ? ` <i style="color:#94a3b8;font-weight:600">${esc(a.name)}</i>${brandTag(a.name)}` : ""}</span>${right}</div>`;
+        return `<div class="shv28-cons-row"><span class="cl">${esc(a.title)}${a.found ? ` <i style="color:#94a3b8;font-weight:600">${esc(a.name)}</i>` : ""}</span>${right}</div>`;
       }).join("");
       appHtml = `<div class="shv28-cons"><div class="shv28-cons-head" style="background:#ede9fe;color:#5b21b6">Аппараты защиты / автоматика · ≈ <b>${cur(appTotal)}</b></div>${rows}</div>`;
     }
@@ -561,7 +551,7 @@
 
     const matTotal = total + appTotal + consTotal;
     const grand = matTotal + workTotal;
-    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · найдено <b>${foundDev}</b> из <b>${totalDev}</b> · бренд: <b>${esc(cfg.autoBrand === "Любой" || !cfg.autoBrand ? "любой" : cfg.autoBrand)}</b></div>
+    return `<div class="shv28-draft-note">Групп: <b>${draft.groups.length}</b> · аппаратов найдено <b>${foundDev}</b> из <b>${totalDev}</b></div>
       ${groupsHtml}
       ${aggHtml}
       ${appHtml}
@@ -597,8 +587,8 @@
           <summary><span class="shv28-fi">⚙️</span><span class="shv28-ftx"><b>Настройки автоматики и щита</b><i>Марка, фазы, тип защиты, монтаж и правило БД</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
             <div class="shv28-grid2">
-              <label>Марка корпуса щита ${selectHtml('data-set="brand"', BRANDS, cfg.brand, x => x, x => x)}</label>
-              <label>Бренд аппаратов (подбор) ${selectHtml('data-set="autoBrand"', BRANDS, cfg.autoBrand, x => x, x => x)}</label>
+              <label>Марка щита ${selectHtml('data-set="brand"', BRANDS, cfg.brand, x => x, x => x)}</label>
+              <label>Марка автоматики ${selectHtml('data-set="autoBrand"', BRANDS, cfg.autoBrand, x => x, x => x)}</label>
               <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
               <label>Класс аппаратов защиты ${selectHtml('data-set="curve"', CURVES, cfg.curve, x => x, x => "Класс " + x)}</label>
               <label>Тип УЗО ${selectHtml('data-set="rcdType"', RCD_TYPES, cfg.rcdType, x => x, x => x)}</label>
@@ -629,9 +619,6 @@
             <div class="shv28-prof">${DIST.map(d => `<button type="button" class="shv28-prof-btn ${cfg.distribution === d.v ? "active" : ""}" data-dist="${d.v}">${esc(d.t)}</button>`).join("")}</div>
             <div class="shv28-sublabel">Правила сборки</div>
             <button type="button" class="shv28-opt ${cfg.allLinesRcd ? "on" : ""}" data-allrcd style="width:100%"><span>Все отходящие линии через УЗО/диф</span><b>${cfg.allLinesRcd ? "да" : "нет"}</b></button>
-            <div class="shv28-sublabel">Слаботочный щит</div>
-            <button type="button" class="shv28-opt ${cfg.weakShield ? "on" : ""}" data-weak style="width:100%"><span>Слаботочный щит требуется</span><b>${cfg.weakShield ? "да" : "нет"}</b></button>
-            ${cfg.weakShield ? `<div class="shv28-grid2" style="margin-top:8px"><label>Модулей слаботочного ${selectHtml('data-set="weakSize"', WEAK_SIZES, cfg.weakSize, x => x, x => x + " мод.")}</label></div>` : ""}
             <div class="shv28-grid2" style="margin-top:8px">
               <label>Ширина диф/УЗО ${selectHtml('data-set="difWidth"', DIFW, cfg.difWidth, o => o.v, o => o.t)}</label>
               <label>Размер щита (мод.)
@@ -723,8 +710,6 @@
       if (set2) { const [k, v] = set2.dataset.set2.split(":"); cfg[k] = v; save(cfg); render(); return; }
       const allrcd = t.closest?.("[data-allrcd]");
       if (allrcd) { cfg.allLinesRcd = !cfg.allLinesRcd; save(cfg); render(); return; }
-      const weak = t.closest?.("[data-weak]");
-      if (weak) { cfg.weakShield = !cfg.weakShield; save(cfg); render(); return; }
       const sm = t.closest?.("[data-sizemode]");
       if (sm) { cfg.sizeMode = cfg.sizeMode === "auto" ? "manual" : "auto"; save(cfg); render(); return; }
       const rec = t.closest?.("[data-recognize]");
