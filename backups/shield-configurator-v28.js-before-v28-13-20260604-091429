@@ -410,92 +410,6 @@
     return root;
   }
 
-  // раскладка по рейкам как SVG (для печати/картинки)
-  function railSvg(rl) {
-    const per = rl.perRow;
-    const rows = railRows(rl.cells, per);
-    const MOD = 30, CH = 92, RH = 128, PAD = 16, TITLE = 46;
-    const W = per * MOD + PAD * 2;
-    const H = TITLE + rows.length * RH + PAD;
-    const size = cfg.sizeMode === "auto" ? previewCounts().suggestedSize : cfg.size;
-    const colors = { input: "#fde68a", rcd: "#bfdbfe", avt: "#bbf7d0", extra: "#e9d5ff", gap: "#f1f5f9" };
-    const out = [];
-    out.push(`<text x="${PAD}" y="26" font-size="18" font-weight="800" fill="#0f172a">Щит — ${rl.used} мод · корпус ${size}</text>`);
-    rows.forEach((r, ri) => {
-      const y = TITLE + ri * RH;
-      out.push(`<text x="${PAD}" y="${y - 5}" font-size="11" font-weight="700" fill="#64748b">Рейка ${ri + 1}</text>`);
-      let x = PAD;
-      r.cells.forEach(c => {
-        const w = c.w * MOD, cx = x + w / 2;
-        out.push(`<rect x="${x}" y="${y}" width="${w}" height="${CH}" rx="4" fill="${colors[c.type] || "#fff"}" stroke="#334155" stroke-width="1.5"/>`);
-        if (c.des) out.push(`<text x="${cx}" y="${y + 16}" font-size="11" font-weight="800" fill="#0f172a" text-anchor="middle">${esc(c.des)}</text>`);
-        const mid = c.nom || c.label || "";
-        if (mid) out.push(`<text x="${cx}" y="${y + CH / 2 + 4}" font-size="12" font-weight="700" fill="#1e3a8a" text-anchor="middle">${esc(mid)}</text>`);
-        if (c.w >= 2 && c.serves) out.push(`<text x="${cx}" y="${y + CH - 10}" font-size="9" fill="#475569" text-anchor="middle">${esc(c.serves.length > 30 ? c.serves.slice(0, 29) + "…" : c.serves)}</text>`);
-        x += w;
-      });
-      if (r.fill < per) {
-        const w = (per - r.fill) * MOD;
-        out.push(`<rect x="${x}" y="${y}" width="${w}" height="${CH}" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/>`);
-        out.push(`<text x="${x + w / 2}" y="${y + CH / 2 + 4}" font-size="10" fill="#94a3b8" text-anchor="middle">свободно</text>`);
-      }
-    });
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#fff"/>${out.join("")}</svg>`;
-  }
-
-  // SVG активной вкладки (схема или рейки) для экспорта
-  function currentExportSvg() {
-    if (railView === "scheme") {
-      const live = document.getElementById("shv28-scheme-svg");
-      if (!live || !live.querySelector("*")) return null;
-      const w = Number(live.getAttribute("width")) || 1000, h = Number(live.getAttribute("height")) || 1000;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#fff"/>${live.innerHTML}</svg>`;
-      return { svg, w, h, name: "shield-scheme", title: "Однолинейная схема" };
-    }
-    const rl = buildRailLayout(cfg.draft);
-    if (!rl || !rl.cells.length) return null;
-    const svg = railSvg(rl);
-    const mw = svg.match(/width="(\d+)"/), mh = svg.match(/height="(\d+)"/);
-    return { svg, w: Number(mw ? mw[1] : 1000), h: Number(mh ? mh[1] : 1000), name: "shield-rails", title: "Раскладка по рейкам" };
-  }
-
-  function downloadBlob(blob, name) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
-
-  function saveViewPng() {
-    const ex = currentExportSvg();
-    if (!ex) { alert("Сначала сгенерируй черновик."); return; }
-    const scale = 2;
-    const img = new Image();
-    img.onload = () => {
-      const cv = document.createElement("canvas");
-      cv.width = ex.w * scale; cv.height = ex.h * scale;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.drawImage(img, 0, 0);
-      const finish = u => { const a = document.createElement("a"); a.href = u; a.download = ex.name + ".png"; document.body.appendChild(a); a.click(); a.remove(); };
-      try { cv.toBlob(b => { if (b) downloadBlob(b, ex.name + ".png"); else finish(cv.toDataURL("image/png")); }, "image/png"); }
-      catch (e) { try { finish(cv.toDataURL("image/png")); } catch (e2) { alert("Не удалось сохранить картинку."); } }
-    };
-    img.onerror = () => alert("Не удалось сформировать картинку.");
-    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ex.svg);
-  }
-
-  function printView() {
-    const ex = currentExportSvg();
-    if (!ex) { alert("Сначала сгенерируй черновик."); return; }
-    const w = window.open("", "_blank");
-    if (!w) { alert("Разреши всплывающие окна, чтобы напечатать/сохранить в PDF."); return; }
-    w.document.open();
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + ex.title + '</title><style>@page{margin:8mm}body{margin:0;padding:12px;font-family:system-ui,Arial,sans-serif}h2{font:700 16px system-ui;margin:0 0 12px}svg{max-width:100%;height:auto;display:block}</style></head><body><h2>' + ex.title + '</h2>' + ex.svg + '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};</scr' + 'ipt></body></html>');
-    w.document.close();
-  }
-
   // полноэкранный оверлей раскладки
   function railOverlayHtml() {
     if (!railOpen) return "";
@@ -880,8 +794,8 @@
       if (t.closest?.("[data-cellclose]")) { railSel = null; render(); return; }
       const cellEl = t.closest?.("[data-cell]");
       if (cellEl) { railSel = Number(cellEl.dataset.cell); render(); return; }
-      if (t.closest?.("[data-railprint]")) { printView(); return; }
-      if (t.closest?.("[data-railsave]")) { saveViewPng(); return; }
+      if (t.closest?.("[data-railprint]")) { alert("Печать в PDF появится в следующем шаге."); return; }
+      if (t.closest?.("[data-railsave]")) { alert("Сохранение изображения появится в следующем шаге."); return; }
       if (t.closest?.("[data-railfull]")) {
         try {
           const ov = document.querySelector(".shv28-overlay");
