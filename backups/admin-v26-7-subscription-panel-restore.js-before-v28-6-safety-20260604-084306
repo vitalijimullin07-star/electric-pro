@@ -530,55 +530,109 @@
 
   async function saveSubscription(plan, days) {
     if (!state.isAdmin) return status("Нет прав администратора.", true);
-    if (!window.SubscriptionAPI) return status("SubscriptionAPI не загружен. Обновите страницу без кэша.", true);
 
     const uid = state.selectedUid || state.uid;
-    if (!uid) return status("Не выбран пользователь.", true);
+    const user = state.users.find(u => u.uid === uid) || {};
     const active = plan !== "none" && days > 0;
+    const expiresAt = active ? addDays(days) : new Date(Date.now() - 86400000);
+
+    const payload = {
+      uid,
+      email: user.email || "",
+      displayName: user.displayName || user.name || "",
+      plan,
+      planId: plan,
+      tariff: plan,
+      status: active ? (plan === "trial" ? "trialing" : "active") : "inactive",
+      active,
+      subscriptionActive: active,
+      expiresAt,
+      validUntil: expiresAt,
+      paidUntil: expiresAt,
+      days,
+      aiEnabled: plan === "with_ai" || plan === "trial",
+      updatedBy: state.email,
+      updatedAt: ts(),
+      updatedAtClient: new Date().toISOString(),
+      version: VERSION
+    };
+
+    status("Сохраняю подписку...");
 
     try {
-      if (!active) {
-        status("Отключаю подписку...");
-        await window.SubscriptionAPI.cancelSubscription(uid, "admin_disable");
-        state.currentSub = { ...state.currentSub, plan: "none", planId: "", status: "inactive", active: false, days: 0 };
-        status("Подписка отключена.");
-        log("subscription-cancelled", "Подписка отключена (Cloud Function).", { uid });
-      } else {
-        const trial = plan === "trial";
-        const planId = (plan === "with_ai" || plan === "trial") ? "pro_ai" : "basic";
-        status("Сохраняю подписку...");
-        await window.SubscriptionAPI.grantSubscription(uid, planId, days, trial);
-        state.currentSub = { ...state.currentSub, plan, planId, status: trial ? "trial" : "active", active: true, days, aiEnabled: planId === "pro_ai" };
-        status(`Подписка сохранена: ${trial ? "Тест" : (planId === "pro_ai" ? "С ИИ" : "Базовая")}, ${days}д.`);
-        log("subscription-saved", "Подписка сохранена (Cloud Function).", { uid, plan, planId, days, trial });
-      }
+      const firestore = db();
+      await firestore.collection("user_subscriptions").doc(uid).set(payload, { merge: true });
+      await firestore.collection("subscriptions").doc(uid).set(payload, { merge: true });
+      await firestore.collection("users").doc(uid).set({
+        uid,
+        email: user.email || "",
+        displayName: user.displayName || user.name || "",
+        subscription: payload,
+        subscriptionActive: payload.active,
+        subscriptionStatus: payload.status,
+        subscriptionPlan: payload.plan,
+        subscriptionExpiresAt: expiresAt,
+        updatedAt: ts()
+      }, { merge: true });
+
+      state.currentSub = { ...state.currentSub, ...payload };
       updateCurrentInfo();
+      status("Подписка сохранена.");
+      log("subscription-saved", "Подписка сохранена.", { uid, plan, days });
     } catch (e) {
       state.lastError = e.message || String(e);
-      status("Ошибка подписки: " + state.lastError, true);
+      status("Ошибка сохранения подписки: " + state.lastError, true);
       log("subscription-save-error", "Ошибка сохранения подписки.", { uid, error: state.lastError });
     }
   }
 
   async function saveAi() {
     if (!state.isAdmin) return status("Нет прав администратора.", true);
-    if (!window.SubscriptionAPI) return status("SubscriptionAPI не загружен. Обновите страницу без кэша.", true);
 
     const uid = state.selectedUid || state.uid;
-    if (!uid) return status("Не выбран пользователь.", true);
-    const modeSel = $("#admin267-ai-mode")?.value || "server_api";
+    const mode = $("#admin267-ai-mode")?.value || "server_api";
     const balance = Number($("#admin267-ai-balance")?.value || 0) || 0;
-    // режим админки -> режим функции
-    const accessMode = modeSel === "client_api" ? "own_api" : (modeSel === "disabled" ? "disabled" : "admin_api");
+    const user = state.users.find(u => u.uid === uid) || {};
+
+    const payload = {
+      uid,
+      email: user.email || "",
+      displayName: user.displayName || user.name || "",
+      aiMode: mode,
+      mode,
+      aiEnabled: mode !== "disabled",
+      aiBalance: balance,
+      balance,
+      rubBalance: balance,
+      amount: balance,
+      updatedBy: state.email,
+      updatedAt: ts(),
+      updatedAtClient: new Date().toISOString(),
+      version: VERSION
+    };
 
     status("Сохраняю ИИ режим и баланс...");
+
     try {
-      await window.SubscriptionAPI.setAiAccessMode(uid, accessMode);
-      await window.SubscriptionAPI.setAiBalanceExact(uid, balance);
-      state.currentAi = { ...state.currentAi, aiMode: modeSel, mode: modeSel, aiEnabled: modeSel !== "disabled", aiBalance: balance, balance };
+      const firestore = db();
+      await firestore.collection("ai_balances").doc(uid).set(payload, { merge: true });
+      await firestore.collection("ai_wallets").doc(uid).set(payload, { merge: true });
+      await firestore.collection("token_balances").doc(uid).set(payload, { merge: true });
+      await firestore.collection("users").doc(uid).set({
+        uid,
+        email: user.email || "",
+        displayName: user.displayName || user.name || "",
+        ai: payload,
+        aiMode: mode,
+        aiEnabled: mode !== "disabled",
+        aiBalance: balance,
+        updatedAt: ts()
+      }, { merge: true });
+
+      state.currentAi = { ...state.currentAi, ...payload };
       updateCurrentInfo();
-      status("ИИ режим и баланс сохранены (ai_accounts).");
-      log("ai-saved", "ИИ сохранён через Cloud Function.", { uid, accessMode, balance });
+      status("ИИ режим и баланс сохранены.");
+      log("ai-saved", "ИИ режим и баланс сохранены.", { uid, mode, balance });
     } catch (e) {
       state.lastError = e.message || String(e);
       status("Ошибка сохранения ИИ: " + state.lastError, true);

@@ -23,18 +23,15 @@
   window.SubscriptionAPI = {
     callFunction,
     seedSubscriptionPlans() { return callFunction("seedSubscriptionPlans", {}); },
-    grantSubscription(uid, planId = "basic", days = 30, trial = false) { return callFunction("grantSubscription", { uid, planId: normalizePlanId(planId), periodDays: Number(days || 30), trial: trial === true }); },
+    grantSubscription(uid, planId = "basic", days = 30, trial = false) { return callFunction("grantSubscription", { uid, planId: normalizePlanId(planId), days: Number(days || 30), trial: trial === true }); },
     cancelSubscription(uid, reason = "admin_cancel") { return callFunction("cancelSubscription", { uid, reason }); },
-    setAiAccessMode(uid, accessMode = "disabled") { return callFunction("setAiAccessMode", { uid, accessMode }); },
-    setAiBalanceExact(uid, balanceRub = 0, reason = "admin_set_exact_balance") { return callFunction("setAiBalanceExact", { uid, balanceRub: Number(balanceRub || 0), reason }); },
-    topUpAiBalance(uid, amountRub = 0, reason = "manual_qr_topup") { return callFunction("topUpAiBalance", { uid, amountRub: Number(amountRub || 0), reason }); },
     checkUserAccess(uid) { return callFunction("checkUserAccess", uid ? { uid } : {}); },
     checkAccess(uid) { return callFunction("checkUserAccess", uid ? { uid } : {}); },
     getAccessPolicy() { return callFunction("getAccessPolicy", {}); },
     checkFeatureAccess(feature) { return callFunction("checkFeatureAccess", { feature }); },
     checkUsageLimit(limitType, currentCount = 0, addCount = 1, nextCount = null) { return callFunction("checkUsageLimit", { limitType, currentCount: Number(currentCount || 0), addCount: Number(addCount || 1), nextCount: nextCount === null ? null : Number(nextCount) }); },
-    requestSubscriptionPayment(planId = "basic", days = 30, comment = "") { return callFunction("requestSubscriptionPayment", { planId: normalizePlanId(planId), periodDays: Number(days || 30), comment }); },
-    requestPayment(planId = "basic", days = 30, comment = "") { return callFunction("requestSubscriptionPayment", { planId: normalizePlanId(planId), periodDays: Number(days || 30), comment }); },
+    requestSubscriptionPayment(planId = "basic", days = 30, comment = "") { return callFunction("requestSubscriptionPayment", { planId: normalizePlanId(planId), days: Number(days || 30), comment }); },
+    requestPayment(planId = "basic", days = 30, comment = "") { return callFunction("requestSubscriptionPayment", { planId: normalizePlanId(planId), days: Number(days || 30), comment }); },
     createYooKassaPaymentDraft(payload = {}) { return callFunction("createYooKassaPaymentDraft", payload); },
     handleYooKassaWebhookPlaceholder(payload = {}) { return callFunction("handleYooKassaWebhookPlaceholder", payload); }
   };

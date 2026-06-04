@@ -694,8 +694,7 @@ exports.grantSubscription = onCall(async (request) => {
 
   const uid = cleanText(request.data.uid);
   const planId = cleanPlanId(request.data.planId);
-  const periodDays = cleanPeriodDays(request.data.periodDays != null ? request.data.periodDays : request.data.days, 30);
-  const isTrial = request.data.trial === true;
+  const periodDays = cleanPeriodDays(request.data.periodDays, 30);
   const amountRub = Number(request.data.amountRub || 0);
   const paymentProvider = cleanText(request.data.paymentProvider, "manual_qr");
   const reason = cleanText(request.data.reason, "manual_subscription_grant");
@@ -723,7 +722,7 @@ exports.grantSubscription = onCall(async (request) => {
 
     const beforeExpiresAt = currentExpires || null;
     const afterExpiresAt = addDays(baseDate, periodDays);
-    const status = isTrial ? "trial" : "active";
+    const status = planId === "basic" && amountRub === 0 ? "trial" : "active";
 
     tx.set(subRef, {
       uid,
