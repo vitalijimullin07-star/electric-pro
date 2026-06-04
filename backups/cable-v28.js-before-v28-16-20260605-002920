@@ -103,15 +103,5 @@
     return { label: t, name: "", price: 0, found: false };
   }
 
-  function shortLabel(value, len) {
-    if (!value) return "";
-    let t = "";
-    if (String(value).indexOf("db:") === 0) { const r = resolveByValue(value); t = r.name || r.label || "кабель"; }
-    else { t = String(value).indexOf("fix:") === 0 ? String(value).slice(4) : String(value); }
-    t = t.replace(/^\s*кабель\s*/i, "").replace(/нг\(?а?\)?\s*-?\s*ls/ig, "").replace(/\bгост\b.*$/i, "").replace(/\s{2,}/g, " ").trim();
-    const L = Number(len) || 0;
-    return L > 0 ? (t + " · " + L + "м") : t;
-  }
-
-  window.EPCableV28 = { LIST, NOM_MAP, defaultValueFor, dbCables, all, resolveByValue, shortLabel };
+  window.EPCableV28 = { LIST, NOM_MAP, defaultValueFor, dbCables, all, resolveByValue };
 })();

@@ -43,17 +43,6 @@
 
   let m = def(), root = null;
 
-  function cableShort(l) {
-    if (!l || !l.cable) return "";
-    let lab = "";
-    try { lab = (window.EPCableV28 && window.EPCableV28.resolveByValue(l.cable).label) || ""; } catch (e) {}
-    if (!lab) return "";
-    lab = lab.replace(/^Кабель\s+/i, "");
-    if (lab.length > 20) lab = lab.slice(0, 19) + "…";
-    const len = Number(l.cableLen) || 0;
-    return lab + (len > 0 ? " · " + len + "м" : "");
-  }
-
   // дерево для предпросмотра однолинейки (как в конфигураторе)
   function buildTree() {
     if (!m.groups.length) return null;
@@ -63,7 +52,7 @@
     const branchA = APPAR.filter(a => !a.inline && m.apparatus[a.key]);
     const groupNodes = m.groups.map(g => {
       qd++;
-      const autom = (g.lines || []).map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name || "Линия", rating: l.nom || "", cable: cableShort(l), children: [] }; });
+      const autom = (g.lines || []).map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name || "Линия", rating: l.nom || "", children: [] }; });
       return { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА", rating: "40А/" + (g.leak || 30) + "мА", children: autom };
     });
     let rt, tail;

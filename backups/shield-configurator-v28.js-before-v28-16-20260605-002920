@@ -425,7 +425,7 @@
     const masterKM = cfg.opts.master && hasLight;
     const groupNodes = draft.groups.map(g => {
       qd++;
-      const autom = g.lines.map(l => { qf++; const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : ""; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), cable: cab, children: [] }; });
+      const autom = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
       const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: autom };
       // мастер-контактор: между УЗО/диф освещения и автоматами освещения
       if (g.key === "light" && masterKM) {
