@@ -226,9 +226,9 @@
         }
         const lines = (g.lines || []).map(line => {
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", phase: line.phase || "1", cable: line.cable || "", cableLen: Number(line.cableLen) || 0, apps: line.apps || [] }, resolveAvt(amp, line.curve));
+          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", cable: line.cable || "", cableLen: Number(line.cableLen) || 0, apps: line.apps || [] }, resolveAvt(amp, line.curve));
         });
-        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], phase: g.phase || "1", collapsed: true };
+        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], collapsed: true };
       }).filter(g => g.lines.length);
     } else {
       const pk = protKind();
@@ -431,19 +431,16 @@
     if (!draft || !draft.groups || !draft.groups.length) return null;
     let qf = 0, qd = 0;
     const amp = n => String(n).replace(/[^\d]/g, "") + "А";
-    const feedPoles = cfg.phase === "3" ? 3 : 1;
-    const effP = p => cfg.phase === "3" ? (p === "3" ? 3 : 1) : 1;
     const app = selectedApparatus();
     const hasLight = draft.groups.some(g => g.key === "light");
     const masterKM = cfg.opts.master && hasLight;
     const groupNodes = draft.groups.map(g => {
       qd++;
-      const gp = effP(g.phase);
-      const autom = g.lines.map(l => { qf++; const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : ""; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), cable: cab, poles: effP(l.phase), children: [] }; });
-      const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", poles: gp, children: autom };
+      const autom = g.lines.map(l => { qf++; const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : ""; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), cable: cab, children: [] }; });
+      const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", children: autom };
       // мастер-контактор: между УЗО/диф освещения и автоматами освещения
       if (g.key === "light" && masterKM) {
-        qdNode.children = [{ id: "KM1", type: "contactor", label: "Контактор (мастер)", rating: "", poles: gp, children: autom }];
+        qdNode.children = [{ id: "KM1", type: "contactor", label: "Контактор (мастер)", rating: "", children: autom }];
       }
       return qdNode;
     });
@@ -453,11 +450,11 @@
     let root, tail;
     if (inline.length) {
       const r = inline[0];
-      root = { id: r.des, type: r.symbol, label: r.title.split(" ").slice(0, 2).join(" "), rating: r.nom || amp(cfg.introAmp), poles: feedPoles, children: [] };
+      root = { id: r.des, type: r.symbol, label: r.title.split(" ").slice(0, 2).join(" "), rating: r.nom || amp(cfg.introAmp), children: [] };
       tail = root;
-      inline.slice(1).forEach(a => { const n = { id: a.des, type: a.symbol, label: a.title.split(" ").slice(0, 2).join(" "), rating: a.nom || "", poles: feedPoles, children: [] }; tail.children = [n]; tail = n; });
+      inline.slice(1).forEach(a => { const n = { id: a.des, type: a.symbol, label: a.title.split(" ").slice(0, 2).join(" "), rating: a.nom || "", children: [] }; tail.children = [n]; tail = n; });
     } else {
-      root = { id: "QS0", type: "switch", label: "Ввод", rating: amp(cfg.introAmp), poles: feedPoles, children: [] };
+      root = { id: "QS0", type: "switch", label: "Ввод", rating: amp(cfg.introAmp), children: [] };
       tail = root;
     }
     tail.isCrossModule = (cfg.distribution === "cross");

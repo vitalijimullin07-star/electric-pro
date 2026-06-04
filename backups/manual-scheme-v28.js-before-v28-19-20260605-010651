@@ -77,45 +77,40 @@
   // аппараты, которые можно повесить на группу или линию
   const APP_PICK = ["contactor", "uzm", "priority", "opn", "uzdp", "rubilnik", "phaseSwitch"];
   function appMeta(key) { return APPAR.find(a => a.key === key) || { key, title: key, sym: "switch" }; }
-  function appNode(key, poles) { const a = appMeta(key); return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: poles || 1, children: [] }; }
-  function chainTo(keys, tail, poles) { keys = keys || []; const ns = keys.map(k => appNode(k, poles)); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; }
-
-  function effPhase(p) { return m.input.phase === "3" ? (p === "3" ? 3 : 1) : 1; }
+  function appNode(key) { const a = appMeta(key); return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", children: [] }; }
+  function chainTo(keys, tail) { keys = keys || []; const ns = keys.map(appNode); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; }
 
   // дерево для предпросмотра однолинейки (как в конфигураторе)
   function buildTree() {
     if (!m.groups.length) return null;
     const amp = n => String(n).replace(/[^\d]/g, "") + "А";
-    const feedPoles = m.input.phase === "3" ? 3 : 1;
     let qf = 0, qd = 0;
     const inlineA = APPAR.filter(a => a.inline && m.apparatus[a.key]);
     const branchA = APPAR.filter(a => !a.inline && m.apparatus[a.key]);
     const groupNodes = m.groups.map(g => {
       qd++;
-      const gp = effPhase(g.phase);
       const autom = (g.lines || []).map(l => {
         qf++;
-        const lp = effPhase(l.phase);
-        const brk = { id: "QF" + qf, type: "mcb", label: l.name || "Линия", rating: l.nom || "", poles: lp, children: [] };
+        const brk = { id: "QF" + qf, type: "mcb", label: l.name || "Линия", rating: l.nom || "", children: [] };
         const cab = cableShort(l);
-        if ((l.apps || []).length) { const load = { id: "", type: "load", label: "", rating: "", cable: cab, children: [] }; brk.children = [chainTo(l.apps, load, lp)]; }
+        if ((l.apps || []).length) { const load = { id: "", type: "load", label: "", rating: "", cable: cab, children: [] }; brk.children = [chainTo(l.apps, load)]; }
         else { brk.cable = cab; }
         return brk;
       });
-      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА", rating: "40А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
-      return chainTo(g.apps || [], rcd, gp);
+      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА", rating: "40А/" + (g.leak || 30) + "мА", children: autom };
+      return chainTo(g.apps || [], rcd);
     });
     let rt, tail;
     if (inlineA.length) {
       const r = inlineA[0];
-      rt = { id: r.key === "vvod" ? "QF0" : "Q", type: r.sym, label: r.title.split(" ")[0], rating: r.key === "vvod" ? amp(m.input.amp) : "", poles: feedPoles, children: [] };
+      rt = { id: r.key === "vvod" ? "QF0" : "Q", type: r.sym, label: r.title.split(" ")[0], rating: r.key === "vvod" ? amp(m.input.amp) : "", children: [] };
       tail = rt;
-      inlineA.slice(1).forEach(a => { const n = { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: feedPoles, children: [] }; tail.children = [n]; tail = n; });
+      inlineA.slice(1).forEach(a => { const n = { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", children: [] }; tail.children = [n]; tail = n; });
     } else {
-      rt = { id: "Ввод", type: "switch", label: "Ввод", rating: amp(m.input.amp), poles: feedPoles, children: [] };
+      rt = { id: "Ввод", type: "switch", label: "Ввод", rating: amp(m.input.amp), children: [] };
       tail = rt;
     }
-    const extra = branchA.map(a => ({ id: "", type: a.sym, label: a.title, rating: "", poles: 1, children: [] }));
+    const extra = branchA.map(a => ({ id: "", type: a.sym, label: a.title, rating: "", children: [] }));
     tail.children = groupNodes.concat(extra);
     return rt;
   }
@@ -165,7 +160,6 @@
         <input class="ms-clen" type="number" inputmode="decimal" min="0" step="0.5" data-lclen="${gi}:${li}" value="${l.cableLen == null ? "" : esc(l.cableLen)}" placeholder="м">
       </div>
       <div class="ms-apps ms-apps-line">
-        ${m.input.phase === "3" ? `<div class="ms-seg ms-phase"><button type="button" class="${l.phase !== "3" ? "on" : ""}" data-lphase="${gi}:${li}:1">1ф</button><button type="button" class="${l.phase === "3" ? "on" : ""}" data-lphase="${gi}:${li}:3">3ф</button></div>` : ""}
         ${(l.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-lapprem="${gi}:${li}:${idx}" title="Убрать">✕</i></span>`).join("")}
         ${appAddSelect(`lappadd="${gi}:${li}"`, "+ аппарат на линию…")}
       </div>`).join("");
@@ -183,7 +177,6 @@
           <label class="ms-leak">Утечка
             <select data-gleak="${gi}">${opt("30", String(g.leak || 30), "30 мА")}${opt("10", String(g.leak || 30), "10 мА")}</select>
           </label>
-          ${m.input.phase === "3" ? `<div class="ms-seg ms-phase"><button type="button" class="${g.phase !== "3" ? "on" : ""}" data-gphase="${gi}:1">1ф</button><button type="button" class="${g.phase === "3" ? "on" : ""}" data-gphase="${gi}:3">3ф</button></div>` : ""}
         </div>
         <div class="ms-apps ms-apps-group">
           ${(g.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-gapprem="${gi}:${idx}" title="Убрать">✕</i></span>`).join("")}
@@ -268,8 +261,6 @@
       setTimeout(renderPreview, 200);
       return;
     }
-    if ((el = t.closest("[data-gphase]"))) { const [gi, ph] = el.dataset.gphase.split(":"); if (m.groups[+gi]) { m.groups[+gi].phase = ph === "3" ? "3" : "1"; save(m); render(); } return; }
-    if ((el = t.closest("[data-lphase]"))) { const [gi, li, ph] = el.dataset.lphase.split(":"); const ln = m.groups[+gi] && m.groups[+gi].lines[+li]; if (ln) { ln.phase = ph === "3" ? "3" : "1"; save(m); render(); } return; }
     if ((el = t.closest("[data-gapprem]"))) { const [gi, idx] = el.dataset.gapprem.split(":").map(Number); if (m.groups[gi] && m.groups[gi].apps) { m.groups[gi].apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-lapprem]"))) { const [gi, li, idx] = el.dataset.lapprem.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln && ln.apps) { ln.apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; zoom = d === "in" ? Math.min(2.5, zoom + 0.2) : Math.max(0.4, zoom - 0.2); applyZoom(); return; }
@@ -326,7 +317,7 @@
       .ms-leak{font:600 12px/1.4 system-ui;color:#334155;display:flex;align-items:center;gap:6px}
       .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px}
       .ms-line-name{flex:1}.ms-line-nom{width:84px}
-      .ms-line-cv{width:52px;height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 6px;font:600 13px/1 system-ui;background:#fff}.ms-line-amp{width:72px;height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 6px;font:600 13px/1 system-ui;background:#fff}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center}.ms-zoom{width:30px;height:28px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center}
+      .ms-line-cv{width:52px;height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 6px;font:600 13px/1 system-ui;background:#fff}.ms-line-amp{width:72px;height:38px;border:1px solid #cbd5e1;border-radius:8px;padding:0 6px;font:600 13px/1 system-ui;background:#fff}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center}.ms-zoom{width:30px;height:28px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center}
       .ms-del{width:34px;height:34px;border:0;border-radius:8px;background:#fee2e2;color:#dc2626;font:800 13px/1 system-ui;cursor:pointer;flex:none}
       .ms-addline{margin-top:4px;border:1px dashed #94a3b8;background:#fff;color:#475569;border-radius:9px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-addgroup{width:100%;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:10px;padding:11px;font:800 13px/1 system-ui;cursor:pointer}
