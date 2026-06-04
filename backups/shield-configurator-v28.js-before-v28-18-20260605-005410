@@ -226,9 +226,9 @@
         }
         const lines = (g.lines || []).map(line => {
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", cable: line.cable || "", cableLen: Number(line.cableLen) || 0, apps: line.apps || [] }, resolveAvt(amp, line.curve));
+          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", cable: line.cable || "", cableLen: Number(line.cableLen) || 0 }, resolveAvt(amp, line.curve));
         });
-        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], collapsed: true };
+        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, collapsed: true };
       }).filter(g => g.lines.length);
     } else {
       const pk = protKind();
@@ -309,15 +309,6 @@
     addKw(`PE-шина (пинов: ${automats + 8})`, ["шина"], 1);
     addKw(`Распределительная N-шина`, ["шина"], 1);
     if (cfg.weakShield) addKw(`Слаботочный щит ${cfg.weakSize} мод.`, ["слаботоч"], 1);
-    // аппараты, привязанные к группам/линиям в ручной схеме
-    if (cfg.manualMode) {
-      const cnt = {};
-      (cfg.manualGroups || []).forEach(g => {
-        (g.apps || []).forEach(k => cnt[k] = (cnt[k] || 0) + 1);
-        (g.lines || []).forEach(l => (l.apps || []).forEach(k => cnt[k] = (cnt[k] || 0) + 1));
-      });
-      Object.keys(cnt).forEach(k => { const a = APPARATUS.find(x => x.key === k); if (a) addKw(a.title + " (на группу/линию)", a.kws, cnt[k]); });
-    }
     // кабель по линиям (тип + метраж), суммируем по типам
     const C = window.EPCableV28;
     if (C && C.resolveByValue) {
