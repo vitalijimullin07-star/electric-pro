@@ -57,7 +57,7 @@
   <script defer src="assets/js/router.js?v=v28-2-shield-configurator-20260601-01"></script>
   <script defer src="assets/js/app-shell.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
   <link rel="stylesheet" href="assets/css/ui-fixes-v12.css?v=v24-3-3-db-import-autosave-20260525-01">
-  <link rel="stylesheet" href="modules/shield/shield-configurator-v28.css?v=v28-14-manual-scheme-20260604-01">
+  <link rel="stylesheet" href="modules/shield/shield-configurator-v28.css?v=v28-12-tpl-editor-20260603-01">
 </head>
 
 <body data-visual-mode="night" data-animation="glass" data-button-shape="soft" data-bg-style="live">
@@ -122,7 +122,7 @@
         <button data-route="customer" class="ep-clickable">👤 О заказчике</button>
         <button data-route="ai" class="ep-clickable">🤖 ИИ функции</button>
         <button data-route="database" class="ep-clickable">🗂️ База данных</button>
-        <button data-route="scheme" class="ep-clickable">📈 Однолинейка (ручная сборка)</button>
+        <button data-route="scheme" class="ep-clickable">📈 Однолинейка и визуализация щита</button>
         <button data-route="documents" class="ep-clickable">📄 Документы</button>
         <button data-route="accounting" class="ep-clickable">💰 Бухгалтерия</button>
         <button data-route="warehouse" class="ep-clickable">📦 Склад</button>
@@ -312,7 +312,7 @@
 
 
   <script defer src="assets/js/ep-currency-v28.js?v=v28-7-currency-all-20260603-01"></script>
-  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-14-manual-scheme-20260604-01"></script>
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-13-print-save-20260604-01"></script>
 
 
   <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
@@ -330,8 +330,7 @@
   <script defer src="modules/database/db-params-v28.js?v=v28-4-db-params-20260601-01"></script>
   
   <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-4-7-shield-scheme-fix-20260602-01"></script>
-  <script defer src="modules/scheme/manual-scheme-v28.js?v=v28-14-manual-scheme-20260604-01"></script>
-  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-14-manual-scheme-20260604-01"></script>
+  <script defer src="modules/shield/shield-configurator-v28.js?v=v28-13-print-save-20260604-01"></script>
 
 
   <script defer src="assets/js/admin-v26-7-subscription-panel-restore.js?v=v28-6-safety-fix-20260603-01"></script>

@@ -122,7 +122,7 @@
     const rooms = {}; ROOMS.forEach(r => rooms[r.key] = TEMPLATES.two[r.key] || 0);
     const lines = {}; LINES.forEach(l => lines[l.key] = ["apron", "dish", "washer", "fridge", "router"].includes(l.key));
     const opts = { master: true, scheme: true, glands: false, vvod: true, uzm: true, opn: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, contactor: false, rubilnik: false, meter: false, bell: false, serviceSocket: false };
-    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", weakShield: false, weakSize: "12", sizeMode: "auto", size: 24, manualMode: false, manualGroups: [], manualPrices: {}, draft: null };
+    return { template: "two", profile: "standard", rooms, lines, opts, brand: "IEK", autoBrand: "IEK", phase: "1", curve: "C", rcdType: "A", protection: "uzo_auto", wall: "Бетон", dbRule: "min", introAmp: 40, pugvSec: "6", allLinesRcd: false, difWidth: "2", distribution: "nbus", weakShield: false, weakSize: "12", sizeMode: "auto", size: 24, manualPrices: {}, draft: null };
   }
   function load() {
     try {
@@ -155,15 +155,9 @@
     const socketGroups = (r.kits + r.rooms) || 0;
     const wet = (r.baths + r.toilets) || 0, warm = r.warmFloors || 0, clim = r.climates || 0;
     const sepLines = LINES.reduce((n, l) => n + (cfg.lines[l.key] ? 1 : 0), 0);
-    let lines, heads;
-    if (cfg.manualMode && Array.isArray(cfg.manualGroups) && cfg.manualGroups.length) {
-      lines = cfg.manualGroups.reduce((n, g) => n + ((g.lines || []).length), 0);
-      heads = cfg.manualGroups.length * (Number(cfg.difWidth) || 2);
-    } else {
-      lines = lightGroups + socketGroups + wet + warm + clim + sepLines;
-      heads = 5 * (Number(cfg.difWidth) || 2);
-    }
+    const lines = lightGroups + socketGroups + wet + warm + clim + sepLines;
     const appMods = selectedApparatus().reduce((s, a) => s + a.w, 0);
+    const heads = 5 * (Number(cfg.difWidth) || 2);
     const modules = lines + heads + appMods + 2;
     const suggestedSize = SIZES.find(s => s >= modules) || 72;
     return { lines, modules, suggestedSize, sepLines };
@@ -210,41 +204,21 @@
   // Группированный черновик: 5 групп -> свой диф/УЗО + автоматы линий, всё из БД.
   function resolveDraft(plan) {
     const R = window.ShieldDbResolverV28;
-    const rule = cfg.dbRule === "max" ? "max" : "min";
-    let groups;
-    if (cfg.manualMode && Array.isArray(cfg.manualGroups) && cfg.manualGroups.length) {
-      // ручная схема: группы заданы напрямую
-      groups = cfg.manualGroups.map((g, i) => {
-        const kind = g.kind === "dif" ? "dif" : "uzo";
-        const leak = Number(g.leak) || 30;
-        let prot = { kind, amp: 40, leakMA: leak, found: false, showAlts: false };
-        if (R) {
-          const res = R.resolve({ kind, amp: 40, leakMA: leak }, { rule, preferBrand: brandPref() });
-          if (res.found) { prot.found = true; prot.name = res.item.name; prot.price = res.price; prot.count = res.candidates; prot.alts = (res.alternatives || []).slice(0, 12); }
-        }
-        const lines = (g.lines || []).map(line => {
-          const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: "", amp }, resolveAvt(amp));
-        });
-        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, collapsed: true };
-      }).filter(g => g.lines.length);
-    } else {
-      const pk = protKind();
-      groups = GROUPS.map(def => {
-        const lns = plan.filter(l => l.grp === def.key);
-        if (!lns.length) return null;
-        let prot = { kind: pk, amp: 40, leakMA: def.leak, found: false, showAlts: false };
-        if (R) {
-          const res = R.resolve({ kind: pk, amp: 40, leakMA: def.leak }, { rule, preferBrand: brandPref() });
-          if (res.found) { prot.found = true; prot.name = res.item.name; prot.price = res.price; prot.count = res.candidates; prot.alts = (res.alternatives || []).slice(0, 12); }
-        }
-        const lines = lns.map(line => {
-          const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: line.note, amp }, resolveAvt(amp));
-        });
-        return { key: def.key, title: def.title, leak: def.leak, prot, lines, collapsed: true };
-      }).filter(Boolean);
-    }
+    const pk = protKind();
+    const groups = GROUPS.map(def => {
+      const lns = plan.filter(l => l.grp === def.key);
+      if (!lns.length) return null;
+      let prot = { kind: pk, amp: 40, leakMA: def.leak, found: false, showAlts: false };
+      if (R) {
+        const res = R.resolve({ kind: pk, amp: 40, leakMA: def.leak }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: brandPref() });
+        if (res.found) { prot.found = true; prot.name = res.item.name; prot.price = res.price; prot.count = res.candidates; prot.alts = (res.alternatives || []).slice(0, 12); }
+      }
+      const lines = lns.map(line => {
+        const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
+        return Object.assign({ name: line.name, nom: line.nom, note: line.note, amp }, resolveAvt(amp));
+      });
+      return { key: def.key, title: def.title, leak: def.leak, prot, lines, collapsed: true };
+    }).filter(Boolean);
     const cons = buildConsumables(groups);
     const sizeMod = cfg.sizeMode === "auto" ? (previewCounts().suggestedSize) : cfg.size;
     const work = buildWork(groups, cons, sizeMod);
@@ -338,7 +312,7 @@
     const cells = [];
     let idx = 0, qf = 0, qd = 0;
     const add = c => { c.idx = idx++; cells.push(c); };
-    const masterKM = cfg.opts.master && draft.groups.some(g => g.key === "light");
+    const masterKM = cfg.opts.master;
     // все выбранные аппараты сверху (кроме мастер-контактора — он уйдёт в группу освещения)
     selectedApparatus().forEach(a => {
       if (a.key === "contactor" && masterKM) return;
@@ -406,8 +380,7 @@
     let qf = 0, qd = 0;
     const amp = n => String(n).replace(/[^\d]/g, "") + "А";
     const app = selectedApparatus();
-    const hasLight = draft.groups.some(g => g.key === "light");
-    const masterKM = cfg.opts.master && hasLight;
+    const masterKM = cfg.opts.master;
     const groupNodes = draft.groups.map(g => {
       qd++;
       const autom = g.lines.map(l => { qf++; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), children: [] }; });
@@ -713,7 +686,6 @@
     const size = cfg.sizeMode === "auto" ? pc.suggestedSize : cfg.size;
     root.innerHTML = `
       <div class="shv28">
-        ${cfg.manualMode ? `<div class="shv28-manual-banner">✍️ Активна <b>ручная схема</b> из конструктора (${(cfg.manualGroups || []).length} групп). Расчёт идёт по ней. <button type="button" data-manualoff>Вернуться к шаблонам</button></div>` : ""}
         <details class="shv28-foldcard" data-fold="tpl" ${openState.tpl?"open":""}>
           <summary><span class="shv28-fi">📋</span><span class="shv28-ftx"><b>Шаблоны</b><i>Тип объекта и профиль Бюджет / Стандарт / Топ</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
@@ -842,7 +814,6 @@
       const root = document.getElementById("ep-shield-v28-root");
       if (!root || !root.contains(e.target)) return;
       const t = e.target;
-      if (t.closest?.("[data-manualoff]")) { cfg.manualMode = false; cfg.draft = null; save(cfg); render(); return; }
       const tpldel = t.closest?.("[data-tpldel]");
       if (tpldel) {
         const k = tpldel.dataset.tpldel; const ct = loadCustomTpl();
@@ -861,9 +832,9 @@
         return;
       }
       const tplc = t.closest?.("[data-tplcustom]");
-      if (tplc) { const k = tplc.dataset.tplcustom; const ct = loadCustomTpl(); if (ct[k]) { applyCustomTpl(ct[k]); cfg.template = k; cfg.manualMode = false; save(cfg); render(); } return; }
+      if (tplc) { const k = tplc.dataset.tplcustom; const ct = loadCustomTpl(); if (ct[k]) { applyCustomTpl(ct[k]); cfg.template = k; save(cfg); render(); } return; }
       const tpl = t.closest?.("[data-tpl]");
-      if (tpl) { const k = tpl.dataset.tpl; cfg.template = k; cfg.manualMode = false; ROOMS.forEach(r => cfg.rooms[r.key] = (TEMPLATES[k] || {})[r.key] || 0); save(cfg); render(); return; }
+      if (tpl) { const k = tpl.dataset.tpl; cfg.template = k; ROOMS.forEach(r => cfg.rooms[r.key] = (TEMPLATES[k] || {})[r.key] || 0); save(cfg); render(); return; }
       const prof = t.closest?.("[data-prof]");
       if (prof) { cfg.profile = prof.dataset.prof; save(cfg); render(); return; }
       const inc = t.closest?.("[data-inc]");
@@ -970,26 +941,5 @@
     }, true);
   }
 
-  function bindPage() { cfg = load(); bindOnce(); render(); }
-  // приём ручной схемы из конструктора однолинейки
-  function loadManual(model) {
-    cfg = load();
-    model = model || {};
-    const inp = model.input || {};
-    cfg.phase = inp.phase === "3" ? "3" : "1";
-    cfg.introAmp = Number(inp.amp) || cfg.introAmp;
-    // аппараты: что отмечено в конструкторе
-    const ap = model.apparatus || {};
-    ["vvod", "uzm", "opn", "uzdp", "phaseSwitch", "avr", "priority", "contactor", "rubilnik", "meter", "bell", "serviceSocket"].forEach(k => {
-      if (k in ap) cfg.opts[k] = !!ap[k];
-    });
-    if (ap.master !== undefined) cfg.opts.master = !!ap.master;
-    cfg.manualGroups = Array.isArray(model.groups) ? model.groups : [];
-    cfg.manualMode = true;
-    // сразу строим черновик
-    cfg.draft = resolveDraft(buildPlan());
-    save(cfg);
-    render();
-  }
-  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)), buildPlan, loadManual };
+  function bindPage() { cfg = load(); bindOnce(); render(); }  window.ShieldConfiguratorV28 = { bindPage, render, getConfig: () => JSON.parse(JSON.stringify(cfg)), buildPlan };
 })();
