@@ -224,7 +224,7 @@
         }
         const lines = (g.lines || []).map(line => {
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, cable: line.cable || "", cableLen: Number(line.cableLen) || 0 }, resolveAvt(amp));
+          return Object.assign({ name: line.name, nom: line.nom, note: "", amp }, resolveAvt(amp));
         });
         return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, collapsed: true };
       }).filter(g => g.lines.length);
@@ -307,21 +307,6 @@
     addKw(`PE-шина (пинов: ${automats + 8})`, ["шина"], 1);
     addKw(`Распределительная N-шина`, ["шина"], 1);
     if (cfg.weakShield) addKw(`Слаботочный щит ${cfg.weakSize} мод.`, ["слаботоч"], 1);
-    // кабель по линиям (тип + метраж), суммируем по типам
-    const C = window.EPCableV28;
-    if (C && C.resolveByValue) {
-      const totals = {};
-      groups.forEach(g => (g.lines || []).forEach(l => {
-        const len = Number(l.cableLen) || 0;
-        if (l.cable && len > 0) totals[l.cable] = (totals[l.cable] || 0) + len;
-      }));
-      Object.keys(totals).forEach(val => {
-        const meters = Math.round(totals[val] * 10) / 10;
-        const info = C.resolveByValue(val, rule);
-        const lbl = /^кабель/i.test(info.label) ? info.label : ("Кабель " + info.label);
-        items.push({ label: `${lbl} (${meters} м)`, qty: meters, found: !!info.found, name: info.found ? info.name : "", price: info.found ? info.price : 0, total: info.found ? Math.round(info.price * meters * 100) / 100 : 0 });
-      });
-    }
     const total = items.reduce((s, x) => s + (x.total || 0), 0);
     return { automats, rcds, sec, items, total };
   }

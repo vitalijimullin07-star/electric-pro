@@ -80,14 +80,6 @@
 
   const opt = (val, cur, label) => `<option value="${esc(val)}"${String(cur) === String(val) ? " selected" : ""}>${esc(label == null ? val : label)}</option>`;
 
-  function cableDefault(nom) { try { return (window.EPCableV28 && window.EPCableV28.defaultValueFor(nom)) || ""; } catch (e) { return ""; } }
-  function cableOptions(sel) {
-    let html = `<option value=""${!sel ? " selected" : ""}>— кабель —</option>`;
-    const list = (window.EPCableV28 && window.EPCableV28.all && window.EPCableV28.all()) || [];
-    html += list.map(c => `<option value="${esc(c.value)}"${String(sel) === String(c.value) ? " selected" : ""}>${esc(c.label)}</option>`).join("");
-    return html;
-  }
-
   function apparatusChips() {
     return APPAR.map(a => `<button type="button" class="ms-chip ${m.apparatus[a.key] ? "on" : ""}" data-ap="${a.key}">${esc(a.title)}</button>`).join("");
   }
@@ -98,11 +90,6 @@
         <input class="ms-line-name" data-lname="${gi}:${li}" value="${esc(l.name || "")}" placeholder="Название линии (напр. Свет кухня)">
         <select class="ms-line-nom" data-lnom="${gi}:${li}">${NOMS.map(n => opt(n, l.nom || "C16")).join("")}</select>
         <button type="button" class="ms-del" data-ldel="${gi}:${li}" title="Удалить линию">✕</button>
-      </div>
-      <div class="ms-line ms-cabrow">
-        <span class="ms-cabic" title="Кабель">🔌</span>
-        <select class="ms-cab" data-lcab="${gi}:${li}">${cableOptions(l.cable)}</select>
-        <input class="ms-clen" type="number" inputmode="decimal" min="0" step="0.5" data-lclen="${gi}:${li}" value="${l.cableLen == null ? "" : esc(l.cableLen)}" placeholder="м">
       </div>`).join("");
     return `
       <div class="ms-group">
@@ -150,7 +137,7 @@
         </div>
 
         <div class="ms-card">
-          <div class="ms-sub">Предпросмотр однолинейки <button type="button" class="ms-full" data-msfull>⛶ Во весь экран</button></div>
+          <div class="ms-sub">Предпросмотр однолинейки</div>
           <div class="ms-svgbox"><svg id="ms-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
         </div>
 
@@ -170,29 +157,15 @@
     if ((el = t.closest("[data-gtitle]"))) { const i = +el.dataset.gtitle; if (m.groups[i]) m.groups[i].title = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gleak]"))) { const i = +el.dataset.gleak; if (m.groups[i]) m.groups[i].leak = Number(t.value) || 30; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-lname]"))) { const [gi, li] = el.dataset.lname.split(":").map(Number); if (m.groups[gi] && m.groups[gi].lines[li]) m.groups[gi].lines[li].name = t.value; save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-lnom]"))) { const [gi, li] = el.dataset.lnom.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.nom = t.value; if (ln.cableAuto !== false) ln.cable = cableDefault(ln.nom); } save(m); render(); return; }
-    if ((el = t.closest("[data-lcab]"))) { const [gi, li] = el.dataset.lcab.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.cable = t.value; ln.cableAuto = false; } save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-lclen]"))) { const [gi, li] = el.dataset.lclen.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) ln.cableLen = t.value; save(m); renderPreview(); return; }
+    if ((el = t.closest("[data-lnom]"))) { const [gi, li] = el.dataset.lnom.split(":").map(Number); if (m.groups[gi] && m.groups[gi].lines[li]) m.groups[gi].lines[li].nom = t.value; save(m); renderPreview(); return; }
   }
 
   function onClick(e) {
     const t = e.target;
     let el;
-    if ((el = t.closest("[data-msfull]"))) {
-      const w = root.querySelector(".ms-wrap");
-      try {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          (w.requestFullscreen || w.webkitRequestFullscreen || w.msRequestFullscreen)?.call(w);
-        } else {
-          (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
-        }
-      } catch (err) {}
-      setTimeout(renderPreview, 200);
-      return;
-    }
     if ((el = t.closest("[data-ap]"))) { const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k]; if (k === "contactor" && m.apparatus[k]) m.apparatus.master = true; if (k === "contactor" && !m.apparatus[k]) m.apparatus.master = false; save(m); render(); return; }
     if ((el = t.closest("[data-gkind]"))) { const [gi, kind] = el.dataset.gkind.split(":"); if (m.groups[+gi]) m.groups[+gi].kind = kind; save(m); render(); return; }
-    if ((el = t.closest("[data-addline]"))) { const gi = +el.dataset.addline; if (m.groups[gi]) { (m.groups[gi].lines = m.groups[gi].lines || []).push({ id: uid(), name: "", nom: "C16", cable: cableDefault("C16"), cableLen: "", cableAuto: true }); save(m); render(); } return; }
+    if ((el = t.closest("[data-addline]"))) { const gi = +el.dataset.addline; if (m.groups[gi]) { (m.groups[gi].lines = m.groups[gi].lines || []).push({ id: uid(), name: "", nom: "C16" }); save(m); render(); } return; }
     if ((el = t.closest("[data-ldel]"))) { const [gi, li] = el.dataset.ldel.split(":").map(Number); if (m.groups[gi]) { m.groups[gi].lines.splice(li, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-gdel]"))) { const gi = +el.dataset.gdel; if (confirm("Удалить группу?")) { m.groups.splice(gi, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-addgroup]"))) { m.groups.push({ id: uid(), title: "Группа " + (m.groups.length + 1), kind: "uzo", leak: 30, lines: [] }); save(m); render(); return; }
@@ -221,12 +194,7 @@
       .ms-wrap{max-width:760px;margin:0 auto;padding:8px 4px 80px;font-family:system-ui,Arial,sans-serif;color:#0f172a}
       .ms-hd{margin:4px 2px 12px}.ms-hd b{display:block;font-size:18px}.ms-hd span{color:#64748b;font-size:12px}
       .ms-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
-      .ms-sub{font:800 12px/1 system-ui;color:#475569;text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-      .ms-full{border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:8px;padding:6px 10px;font:700 11px/1 system-ui;cursor:pointer;text-transform:none;letter-spacing:0}
-      .ms-wrap:fullscreen{background:#fff;overflow:auto;padding:16px}
-      .ms-wrap:-webkit-full-screen{background:#fff;overflow:auto;padding:16px}
-      .ms-wrap:fullscreen .ms-svgbox{max-height:82vh}
-      .ms-wrap:-webkit-full-screen .ms-svgbox{max-height:82vh}
+      .ms-sub{font:800 12px/1 system-ui;color:#475569;text-transform:uppercase;letter-spacing:.03em;margin-bottom:10px}
       .ms-inrow{display:flex;gap:10px;flex-wrap:wrap}.ms-inrow label{flex:1;min-width:130px;font:600 12px/1.5 system-ui;color:#334155;display:flex;flex-direction:column;gap:4px}
       .ms-inrow select,.ms-leak select,.ms-gtitle,.ms-line-name,.ms-line-nom{height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font:600 13px/1 system-ui;background:#fff;color:#0f172a}
       .ms-chips{display:flex;flex-wrap:wrap;gap:7px}
@@ -242,7 +210,6 @@
       .ms-leak{font:600 12px/1.4 system-ui;color:#334155;display:flex;align-items:center;gap:6px}
       .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px}
       .ms-line-name{flex:1}.ms-line-nom{width:84px}
-      .ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center}
       .ms-del{width:34px;height:34px;border:0;border-radius:8px;background:#fee2e2;color:#dc2626;font:800 13px/1 system-ui;cursor:pointer;flex:none}
       .ms-addline{margin-top:4px;border:1px dashed #94a3b8;background:#fff;color:#475569;border-radius:9px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-addgroup{width:100%;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:10px;padding:11px;font:800 13px/1 system-ui;cursor:pointer}
