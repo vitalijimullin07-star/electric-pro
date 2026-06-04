@@ -32,14 +32,15 @@
 
   // автоподстановка по номиналу автомата (по сечению), правится пользователем
   const NOM_MAP = {
-    6: "ВВГнг-LS 3х1.5", 10: "ВВГнг-LS 3х1.5", 16: "ВВГнг-LS 3х2.5",
-    20: "ВВГнг-LS 3х2.5", 25: "ВВГнг-LS 3х4", 32: "ВВГнг-LS 3х6",
-    40: "ВВГнг-LS 3х10", 50: "ВВГнг-LS 3х10", 63: "ВВГнг-LS 3х16"
+    C6: "ВВГнг-LS 3х1.5", C10: "ВВГнг-LS 3х1.5", C16: "ВВГнг-LS 3х2.5",
+    C20: "ВВГнг-LS 3х2.5", C25: "ВВГнг-LS 3х4", C32: "ВВГнг-LS 3х6",
+    C40: "ВВГнг-LS 3х10", C50: "ВВГнг-LS 3х10", C63: "ВВГнг-LS 3х16"
   };
 
+  function clean(nom) { return String(nom || "").toUpperCase().replace(/\s+/g, ""); }
   function defaultValueFor(nom) {
-    const amp = parseInt(String(nom || "").replace(/[^\d]/g, ""), 10) || 16;
-    const t = NOM_MAP[amp] || "ВВГнг-LS 3х2.5";
+    const key = clean(nom).replace(/[^C0-9]/g, "");
+    const t = NOM_MAP[key] || "ВВГнг-LS 3х2.5";
     return "fix:" + t;
   }
 

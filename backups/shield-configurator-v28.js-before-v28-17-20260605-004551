@@ -74,8 +74,6 @@
   const DIFW = [{ v: "2", t: "2 модуля" }, { v: "1", t: "1 модуль" }];
   const WEAK_SIZES = [12, 24, 36, 48];
   const BRANDS = ["Любой", "IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
-  function customBrands() { try { return JSON.parse(localStorage.getItem("ep_brands_custom_v28") || "[]") || []; } catch (e) { return []; } }
-  function brandsAll() { const c = customBrands(); return BRANDS.concat(c.filter(b => BRANDS.indexOf(b) < 0)); }
   const SIZES = [12, 24, 36, 48, 60, 72];
   const PROFILES = [{ key: "budget", label: "Бюджет" }, { key: "standard", label: "Стандарт" }, { key: "top", label: "Топ" }];
   const PHASES = [{ v: "1", t: "220В / 1 фаза" }, { v: "3", t: "380В / 3 фазы" }];
@@ -201,10 +199,10 @@
     return out;
   }
 
-  function resolveAvt(amp, curve) {
+  function resolveAvt(amp) {
     const R = window.ShieldDbResolverV28;
     if (!R || !amp) return { dbFound: false };
-    const res = R.resolve({ kind: "avt", curve: curve || cfg.curve, amp }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: brandPref() });
+    const res = R.resolve({ kind: "avt", curve: cfg.curve, amp }, { rule: cfg.dbRule === "max" ? "max" : "min", preferBrand: brandPref() });
     if (res.found) return { dbFound: true, dbName: res.item.name, dbPrice: res.price, dbCount: res.candidates, alts: (res.alternatives || []).slice(0, 12), showAlts: false };
     return { dbFound: false };
   }
@@ -226,7 +224,7 @@
         }
         const lines = (g.lines || []).map(line => {
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
-          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", cable: line.cable || "", cableLen: Number(line.cableLen) || 0 }, resolveAvt(amp, line.curve));
+          return Object.assign({ name: line.name, nom: line.nom, note: "", amp, cable: line.cable || "", cableLen: Number(line.cableLen) || 0 }, resolveAvt(amp));
         });
         return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, collapsed: true };
       }).filter(g => g.lines.length);
@@ -751,8 +749,8 @@
           <summary><span class="shv28-fi">⚙️</span><span class="shv28-ftx"><b>Настройки автоматики и щита</b><i>Марка, фазы, тип защиты, монтаж и правило БД</i></span><span class="shv28-arrow">⌄</span></summary>
           <div class="shv28-foldbody">
             <div class="shv28-grid2">
-              <label>Марка корпуса щита ${selectHtml('data-set="brand"', brandsAll(), cfg.brand, x => x, x => x)}</label>
-              <label>Бренд аппаратов (подбор) ${selectHtml('data-set="autoBrand"', brandsAll(), cfg.autoBrand, x => x, x => x)}</label>
+              <label>Марка корпуса щита ${selectHtml('data-set="brand"', BRANDS, cfg.brand, x => x, x => x)}</label>
+              <label>Бренд аппаратов (подбор) ${selectHtml('data-set="autoBrand"', BRANDS, cfg.autoBrand, x => x, x => x)}</label>
               <label>Фазность ${selectHtml('data-set="phase"', PHASES, cfg.phase, o => o.v, o => o.t)}</label>
               <label>Класс аппаратов защиты ${selectHtml('data-set="curve"', CURVES, cfg.curve, x => x, x => "Класс " + x)}</label>
               <label>Тип УЗО ${selectHtml('data-set="rcdType"', RCD_TYPES, cfg.rcdType, x => x, x => x)}</label>
@@ -1001,7 +999,6 @@
       if (k in ap) cfg.opts[k] = !!ap[k];
     });
     if (ap.master !== undefined) cfg.opts.master = !!ap.master;
-    if (model.brand) { cfg.autoBrand = model.brand; cfg.brand = model.brand; }
     cfg.manualGroups = Array.isArray(model.groups) ? model.groups : [];
     cfg.manualMode = true;
     // сразу строим черновик
