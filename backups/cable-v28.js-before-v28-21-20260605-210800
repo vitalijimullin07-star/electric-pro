@@ -1,36 +1,46 @@
 /* ============================================================
-   Electric Pro — Cable helper V28 (phase-aware)
-   Справочник кабеля: фиксированный список + кабели из БД.
-   Фазозависимость: 1ф -> 3 жилы (3хS), 3ф -> 4/5 жил (5хS/4хS).
-   Автоподстановка сечения по току автомата.
+   Electric Pro — Cable helper V28
+   Общий справочник кабеля: фиксированный список + кабели из БД,
+   автоподстановка по номиналу автомата, и подбор цены по выбору.
    API: window.EPCableV28
-     defaultValueFor(nom, phase) -> "fix:<тип>"
-     all(phase)                  -> [{value,label,price}]  (БД + список, фильтр по жилам)
-     resolveByValue(value,rule)  -> {label,name,price,found}
-     shortLabel(value,len)       -> подпись для схемы
+     LIST            — фиксированный список типов
+     defaultValueFor(nom) -> "fix:<тип>"  (C10->3х1.5 и т.д.)
+     dbCables()      -> [{id,name,price}]  (из активной базы)
+     all()           -> [{value,label,price}]  (для <select>: БД + список)
+     resolveByValue(value) -> {label,name,price,found}
    ============================================================ */
 (() => {
   "use strict";
 
-  const norm = s => String(s || "").toLowerCase().replace(/ё/g, "е").replace(/,/g, ".").replace(/\s+/g, "").replace(/[х*]/g, "x");
-  function coresOf(s) { const m = norm(s).match(/(\d+)x\d/); return m ? parseInt(m[1], 10) : 0; }
-
-  // фиксированный список типов
+  // фиксированный список (тип -> ключевые слова для поиска в БД)
   const LIST = [
-    "ВВГнг-LS 3х1.5", "ВВГнг-LS 3х2.5", "ВВГнг-LS 3х4", "ВВГнг-LS 3х6", "ВВГнг-LS 3х10", "ВВГнг-LS 3х16", "ВВГнг-LS 2х2.5",
-    "ВВГнг-LS 5х1.5", "ВВГнг-LS 5х2.5", "ВВГнг-LS 5х4", "ВВГнг-LS 5х6", "ВВГнг-LS 5х10", "ВВГнг-LS 5х16",
-    "ВВГнг-LS 4х2.5", "ВВГнг-LS 4х4", "ВВГнг-LS 4х6", "ВВГнг-LS 4х10", "ВВГнг-LS 4х16",
-    "NYM 3х1.5", "NYM 3х2.5", "ПВС 3х1.5", "ПВС 3х2.5"
+    { t: "ВВГнг-LS 3х1.5", kws: ["ввг", "3", "1.5"] },
+    { t: "ВВГнг-LS 3х2.5", kws: ["ввг", "3", "2.5"] },
+    { t: "ВВГнг-LS 3х4", kws: ["ввг", "3", "4"] },
+    { t: "ВВГнг-LS 3х6", kws: ["ввг", "3", "6"] },
+    { t: "ВВГнг-LS 3х10", kws: ["ввг", "3", "10"] },
+    { t: "ВВГнг-LS 3х16", kws: ["ввг", "3", "16"] },
+    { t: "ВВГнг-LS 2х2.5", kws: ["ввг", "2", "2.5"] },
+    { t: "ВВГнг-LS 5х2.5", kws: ["ввг", "5", "2.5"] },
+    { t: "ВВГнг-LS 5х4", kws: ["ввг", "5", "4"] },
+    { t: "ВВГнг-LS 5х6", kws: ["ввг", "5", "6"] },
+    { t: "NYM 3х1.5", kws: ["nym", "3", "1.5"] },
+    { t: "NYM 3х2.5", kws: ["nym", "3", "2.5"] },
+    { t: "ПВС 3х1.5", kws: ["пвс", "3", "1.5"] },
+    { t: "ПВС 3х2.5", kws: ["пвс", "3", "2.5"] }
   ];
 
-  // сечение по току автомата (А -> мм²), правится пользователем
-  const NOM_SEC = { 6: "1.5", 10: "1.5", 16: "2.5", 20: "2.5", 25: "4", 32: "6", 40: "10", 50: "10", 63: "16" };
+  // автоподстановка по номиналу автомата (по сечению), правится пользователем
+  const NOM_MAP = {
+    6: "ВВГнг-LS 3х1.5", 10: "ВВГнг-LS 3х1.5", 16: "ВВГнг-LS 3х2.5",
+    20: "ВВГнг-LS 3х2.5", 25: "ВВГнг-LS 3х4", 32: "ВВГнг-LS 3х6",
+    40: "ВВГнг-LS 3х10", 50: "ВВГнг-LS 3х10", 63: "ВВГнг-LS 3х16"
+  };
 
-  function defaultValueFor(nom, phase) {
+  function defaultValueFor(nom) {
     const amp = parseInt(String(nom || "").replace(/[^\d]/g, ""), 10) || 16;
-    const sec = NOM_SEC[amp] || "2.5";
-    const cores = String(phase) === "3" ? 5 : 3;
-    return "fix:ВВГнг-LS " + cores + "х" + sec;
+    const t = NOM_MAP[amp] || "ВВГнг-LS 3х2.5";
+    return "fix:" + t;
   }
 
   function looksLikeCable(name) {
@@ -47,15 +57,15 @@
     } catch (e) { return []; }
   }
 
-  // phase: "1" -> 2/3 жилы, "3" -> 4/5 жил, иначе всё
-  function all(phase) {
-    const want = String(phase) === "3" ? [4, 5] : String(phase) === "1" ? [2, 3] : null;
-    const ok = cr => !want || want.indexOf(cr) >= 0;
+  function all() {
     const out = [];
-    dbCables().forEach(c => { if (ok(coresOf(c.name))) out.push({ value: "db:" + c.id, label: c.name + (c.price ? " — " + c.price + " ₽" : ""), price: c.price }); });
-    LIST.forEach(t => { if (ok(coresOf(t))) out.push({ value: "fix:" + t, label: t, price: 0 }); });
+    dbCables().forEach(c => out.push({ value: "db:" + c.id, label: c.name + (c.price ? " — " + c.price + " ₽" : ""), price: c.price }));
+    LIST.forEach(c => out.push({ value: "fix:" + c.t, label: c.t, price: 0 }));
     return out;
   }
+
+  function findFix(t) { return LIST.find(c => c.t === t); }
+  const norm = s => String(s || "").toLowerCase().replace(/ё/g, "е").replace(/,/g, ".").replace(/\s+/g, "").replace(/[х*]/g, "x");
 
   function matchDbCable(typeStr, rule) {
     const tn = norm(typeStr);
@@ -68,7 +78,9 @@
       const cn = norm(c.name);
       const cm = cn.match(/(\d+)x(\d+(?:\.\d+)?)/);
       if (!cm) return false;
-      return cm[1] === cores && parseFloat(cm[2]) === sect && (!fam || cn.indexOf(fam) >= 0);
+      const secOK = cm[1] === cores && parseFloat(cm[2]) === sect;
+      const famOK = !fam || cn.indexOf(fam) >= 0;
+      return secOK && famOK;
     });
     if (!cand.length) return null;
     cand.sort((a, b) => rule === "max" ? b.price - a.price : a.price - b.price);
@@ -100,5 +112,5 @@
     return L > 0 ? (t + " · " + L + "м") : t;
   }
 
-  window.EPCableV28 = { LIST, NOM_SEC, defaultValueFor, dbCables, all, resolveByValue, shortLabel, coresOf };
+  window.EPCableV28 = { LIST, NOM_MAP, defaultValueFor, dbCables, all, resolveByValue, shortLabel };
 })();

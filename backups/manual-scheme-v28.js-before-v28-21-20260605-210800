@@ -27,9 +27,8 @@
   ];
   const NOMS = ["C6", "C10", "C16", "C20", "C25", "C32", "C40", "C50", "C63"];
   const AMPS = [16, 25, 32, 40, 50, 63];
-  const CURVES = ["A", "B", "C", "D"];
+  const CURVES = ["B", "C", "D"];
   const AMPS_LINE = [6, 10, 16, 20, 25, 32, 40, 50, 63];
-  const AMPS_GROUP = [25, 40, 63, 80, 100];
   const BRANDS_BASE = ["Любой", "IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
   const BRAND_KEY = "ep_brands_custom_v28";
   function customBrands() { try { return JSON.parse(localStorage.getItem(BRAND_KEY) || "[]") || []; } catch (e) { return []; } }
@@ -51,8 +50,6 @@
     if (!m.brand) m.brand = "Любой";
     (m.groups || []).forEach(g => {
       if (!g.curve) g.curve = "C";
-      if (g.amp == null) g.amp = 40;
-      if (g.phaseSel == null) g.phaseSel = "1";
       (g.lines || []).forEach(l => {
         if (l.curve == null || l.amp == null) {
           const s = String(l.nom || "C16");
@@ -108,7 +105,7 @@
         else { brk.cable = cab; }
         return brk;
       });
-      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА" + (m.input.phase === "3" && g.phase !== "3" ? " · L" + (g.phaseSel || "1") : ""), rating: (g.kind === "dif" ? (g.curve || "C") + " " : "") + (g.amp || 40) + "А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
+      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА", rating: (g.kind === "dif" ? (g.curve || "C") + " " : "") + "40А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
       return chainTo(g.apps || [], rcd, gp);
     });
     let rt, tail;
@@ -163,11 +160,10 @@
 
   const opt = (val, cur, label) => `<option value="${esc(val)}"${String(cur) === String(val) ? " selected" : ""}>${esc(label == null ? val : label)}</option>`;
 
-  function phStr(p) { return m.input.phase === "3" ? (p === "3" ? "3" : "1") : "1"; }
-  function cableDefault(nom, phase) { try { return (window.EPCableV28 && window.EPCableV28.defaultValueFor(nom, phase)) || ""; } catch (e) { return ""; } }
-  function cableOptions(sel, phase) {
+  function cableDefault(nom) { try { return (window.EPCableV28 && window.EPCableV28.defaultValueFor(nom)) || ""; } catch (e) { return ""; } }
+  function cableOptions(sel) {
     let html = `<option value=""${!sel ? " selected" : ""}>— кабель —</option>`;
-    const list = (window.EPCableV28 && window.EPCableV28.all && window.EPCableV28.all(phase)) || [];
+    const list = (window.EPCableV28 && window.EPCableV28.all && window.EPCableV28.all()) || [];
     html += list.map(c => `<option value="${esc(c.value)}"${String(sel) === String(c.value) ? " selected" : ""}>${esc(c.label)}</option>`).join("");
     return html;
   }
@@ -180,28 +176,23 @@
     return `<select class="ms-app-add" data-${attr}><option value="">${label}</option>${APP_PICK.map(k => `<option value="${k}">${esc(appMeta(k).title)}</option>`).join("")}</select>`;
   }
   function groupCard(g, gi) {
-    const is3 = m.input.phase === "3";
-    const g3 = g.phase === "3";
-    const lines = (g.lines || []).map((l, li) => {
-      const lph = is3 ? (l.phase === "3" ? "3" : "1") : "1";
-      return `
+    const lines = (g.lines || []).map((l, li) => `
       <div class="ms-line">
-        <input class="ms-line-name" data-lname="${gi}:${li}" value="${esc(l.name || "")}" placeholder="Название линии">
-        <select class="ms-line-cv" data-lcurve="${gi}:${li}" title="Тип автомата">${CURVES.map(c => opt(c, l.curve || "C")).join("")}</select>
+        <input class="ms-line-name" data-lname="${gi}:${li}" value="${esc(l.name || "")}" placeholder="Название линии (напр. Свет кухня)">
+        <select class="ms-line-cv" data-lcurve="${gi}:${li}" title="Хар-ка">${CURVES.map(c => opt(c, l.curve || "C")).join("")}</select>
         <select class="ms-line-amp" data-lamp="${gi}:${li}" title="Ток, А">${AMPS_LINE.map(a => opt(String(a), String(l.amp || 16), a + "А")).join("")}</select>
-        ${is3 ? `<div class="ms-seg ms-phase"><button type="button" class="${l.phase !== "3" ? "on" : ""}" data-lphase="${gi}:${li}:1">1ф</button><button type="button" class="${l.phase === "3" ? "on" : ""}" data-lphase="${gi}:${li}:3">3ф</button></div>` : ""}
         <button type="button" class="ms-del" data-ldel="${gi}:${li}" title="Удалить линию">✕</button>
       </div>
       <div class="ms-line ms-cabrow">
         <span class="ms-cabic" title="Кабель">🔌</span>
-        <select class="ms-cab" data-lcab="${gi}:${li}">${cableOptions(l.cable, lph)}</select>
+        <select class="ms-cab" data-lcab="${gi}:${li}">${cableOptions(l.cable)}</select>
         <input class="ms-clen" type="number" inputmode="decimal" min="0" step="0.5" data-lclen="${gi}:${li}" value="${l.cableLen == null ? "" : esc(l.cableLen)}" placeholder="м">
       </div>
       <div class="ms-apps ms-apps-line">
+        ${m.input.phase === "3" ? `<div class="ms-seg ms-phase"><button type="button" class="${l.phase !== "3" ? "on" : ""}" data-lphase="${gi}:${li}:1">1ф</button><button type="button" class="${l.phase === "3" ? "on" : ""}" data-lphase="${gi}:${li}:3">3ф</button></div>` : ""}
         ${(l.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-lapprem="${gi}:${li}:${idx}" title="Убрать">✕</i></span>`).join("")}
         ${appAddSelect(`lappadd="${gi}:${li}"`, "+ аппарат на линию…")}
-      </div>`;
-    }).join("");
+      </div>`).join("");
     return `
       <div class="ms-group">
         <div class="ms-group-head">
@@ -213,13 +204,11 @@
             <button type="button" class="${g.kind !== "dif" ? "on" : ""}" data-gkind="${gi}:uzo">УЗО</button>
             <button type="button" class="${g.kind === "dif" ? "on" : ""}" data-gkind="${gi}:dif">Диф</button>
           </div>
-          <label class="ms-leak">Утечка <select data-gleak="${gi}">${opt("30", String(g.leak || 30), "30 мА")}${opt("10", String(g.leak || 30), "10 мА")}</select></label>
-          ${g.kind === "dif" ? `<label class="ms-leak">Класс <select class="ms-gcv" data-gcurve="${gi}">${CURVES.map(c => opt(c, g.curve || "C")).join("")}</select></label>` : ""}
-        </div>
-        <div class="ms-group-row">
-          <label class="ms-leak">Раб. ток <select data-gamp="${gi}">${AMPS_GROUP.map(a => opt(String(a), String(g.amp || 40), a + "А")).join("")}</select></label>
-          ${is3 && !g3 ? `<label class="ms-leak">Фаза <select data-gphasesel="${gi}">${["1", "2", "3"].map(n => opt(n, String(g.phaseSel || "1"), "L" + n)).join("")}</select></label>` : ""}
-          ${is3 ? `<div class="ms-seg ms-phase"><button type="button" class="${!g3 ? "on" : ""}" data-gphase="${gi}:1">1ф</button><button type="button" class="${g3 ? "on" : ""}" data-gphase="${gi}:3">3ф</button></div>` : ""}
+          <label class="ms-leak">Утечка
+            <select data-gleak="${gi}">${opt("30", String(g.leak || 30), "30 мА")}${opt("10", String(g.leak || 30), "10 мА")}</select>
+          </label>
+          ${g.kind === "dif" ? `<label class="ms-leak">Хар-ка <select class="ms-gcv" data-gcurve="${gi}">${CURVES.map(c => opt(c, g.curve || "C")).join("")}</select></label>` : ""}
+          ${m.input.phase === "3" ? `<div class="ms-seg ms-phase"><button type="button" class="${g.phase !== "3" ? "on" : ""}" data-gphase="${gi}:1">1ф</button><button type="button" class="${g.phase === "3" ? "on" : ""}" data-gphase="${gi}:3">3ф</button></div>` : ""}
         </div>
         <div class="ms-apps ms-apps-group">
           ${(g.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-gapprem="${gi}:${idx}" title="Убрать">✕</i></span>`).join("")}
@@ -289,14 +278,12 @@
     if ((el = t.closest("[data-gappadd]"))) { const gi = +el.dataset.gappadd; const k = t.value; if (k && m.groups[gi]) { (m.groups[gi].apps = m.groups[gi].apps || []).push(k); save(m); render(); } return; }
     if ((el = t.closest("[data-lappadd]"))) { const [gi, li] = el.dataset.lappadd.split(":").map(Number); const k = t.value; const ln = m.groups[gi] && m.groups[gi].lines[li]; if (k && ln) { (ln.apps = ln.apps || []).push(k); save(m); render(); } return; }
     if ((el = t.closest("[data-brand]"))) { m.brand = t.value; save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-input]"))) { const k = el.dataset.input; m.input[k] = t.value; if (k === "phase") { (m.groups || []).forEach(g => (g.lines || []).forEach(l => { if (l.cableAuto !== false) l.cable = cableDefault(l.nom, phStr(l.phase)); })); save(m); render(); } else { save(m); renderPreview(); } return; }
+    if ((el = t.closest("[data-input]"))) { m.input[el.dataset.input] = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gtitle]"))) { const i = +el.dataset.gtitle; if (m.groups[i]) m.groups[i].title = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gleak]"))) { const i = +el.dataset.gleak; if (m.groups[i]) m.groups[i].leak = Number(t.value) || 30; save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-gamp]"))) { const i = +el.dataset.gamp; if (m.groups[i]) m.groups[i].amp = Number(t.value) || 40; save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-gphasesel]"))) { const i = +el.dataset.gphasesel; if (m.groups[i]) m.groups[i].phaseSel = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-lname]"))) { const [gi, li] = el.dataset.lname.split(":").map(Number); if (m.groups[gi] && m.groups[gi].lines[li]) m.groups[gi].lines[li].name = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-lcurve]"))) { const [gi, li] = el.dataset.lcurve.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.curve = t.value; ln.nom = (ln.curve || "C") + (ln.amp || 16); } save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-lamp]"))) { const [gi, li] = el.dataset.lamp.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.amp = Number(t.value) || 16; ln.nom = (ln.curve || "C") + ln.amp; if (ln.cableAuto !== false) ln.cable = cableDefault(ln.nom, phStr(ln.phase)); } save(m); render(); return; }
+    if ((el = t.closest("[data-lamp]"))) { const [gi, li] = el.dataset.lamp.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.amp = Number(t.value) || 16; ln.nom = (ln.curve || "C") + ln.amp; if (ln.cableAuto !== false) ln.cable = cableDefault(ln.nom); } save(m); render(); return; }
     if ((el = t.closest("[data-lcab]"))) { const [gi, li] = el.dataset.lcab.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) { ln.cable = t.value; ln.cableAuto = false; } save(m); renderPreview(); return; }
     if ((el = t.closest("[data-lclen]"))) { const [gi, li] = el.dataset.lclen.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln) ln.cableLen = t.value; save(m); renderPreview(); return; }
   }
@@ -314,7 +301,7 @@
       return;
     }
     if ((el = t.closest("[data-gphase]"))) { const [gi, ph] = el.dataset.gphase.split(":"); if (m.groups[+gi]) { m.groups[+gi].phase = ph === "3" ? "3" : "1"; save(m); render(); } return; }
-    if ((el = t.closest("[data-lphase]"))) { const [gi, li, ph] = el.dataset.lphase.split(":"); const ln = m.groups[+gi] && m.groups[+gi].lines[+li]; if (ln) { ln.phase = ph === "3" ? "3" : "1"; if (ln.cableAuto !== false) ln.cable = cableDefault(ln.nom, phStr(ln.phase)); save(m); render(); } return; }
+    if ((el = t.closest("[data-lphase]"))) { const [gi, li, ph] = el.dataset.lphase.split(":"); const ln = m.groups[+gi] && m.groups[+gi].lines[+li]; if (ln) { ln.phase = ph === "3" ? "3" : "1"; save(m); render(); } return; }
     if ((el = t.closest("[data-gapprem]"))) { const [gi, idx] = el.dataset.gapprem.split(":").map(Number); if (m.groups[gi] && m.groups[gi].apps) { m.groups[gi].apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-lapprem]"))) { const [gi, li, idx] = el.dataset.lapprem.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln && ln.apps) { ln.apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-fsclose]"))) { try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {} return; }
@@ -322,7 +309,7 @@
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
     if ((el = t.closest("[data-ap]"))) { const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k]; if (k === "contactor" && m.apparatus[k]) m.apparatus.master = true; if (k === "contactor" && !m.apparatus[k]) m.apparatus.master = false; save(m); render(); return; }
     if ((el = t.closest("[data-gkind]"))) { const [gi, kind] = el.dataset.gkind.split(":"); if (m.groups[+gi]) m.groups[+gi].kind = kind; save(m); render(); return; }
-    if ((el = t.closest("[data-addline]"))) { const gi = +el.dataset.addline; if (m.groups[gi]) { (m.groups[gi].lines = m.groups[gi].lines || []).push({ id: uid(), name: "", curve: "C", amp: 16, nom: "C16", phase: "1", cable: cableDefault("C16", "1"), cableLen: "", cableAuto: true, apps: [] }); save(m); render(); } return; }
+    if ((el = t.closest("[data-addline]"))) { const gi = +el.dataset.addline; if (m.groups[gi]) { (m.groups[gi].lines = m.groups[gi].lines || []).push({ id: uid(), name: "", curve: "C", amp: 16, nom: "C16", cable: cableDefault("C16"), cableLen: "", cableAuto: true, apps: [] }); save(m); render(); } return; }
     if ((el = t.closest("[data-ldel]"))) { const [gi, li] = el.dataset.ldel.split(":").map(Number); if (m.groups[gi]) { m.groups[gi].lines.splice(li, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-gdel]"))) { const gi = +el.dataset.gdel; if (confirm("Удалить группу?")) { m.groups.splice(gi, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-addgroup]"))) { m.groups.push({ id: uid(), title: "Группа " + (m.groups.length + 1), kind: "uzo", leak: 30, apps: [], lines: [] }); save(m); render(); return; }
@@ -373,7 +360,7 @@
       .ms-seg button{border:0;background:#fff;color:#475569;padding:8px 14px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-seg button.on{background:#6366f1;color:#fff}
       .ms-leak{font:600 12px/1.4 system-ui;color:#334155;display:flex;align-items:center;gap:6px}
-      .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;row-gap:6px}
+      .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px}
       .ms-line-name{flex:1}.ms-line-nom{width:84px}
       .ms-line-cv,.ms-line-amp{height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 6px center;padding:0 18px 0 8px;text-align:center;text-align-last:center}
       .ms-line-cv{width:58px;height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center;padding:0 16px 0 8px;text-align:center;text-align-last:center}.ms-line-amp{width:78px}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center}.ms-zoom{width:34px;height:30px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center;color:#0f172a}
