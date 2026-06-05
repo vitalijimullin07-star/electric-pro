@@ -69,7 +69,7 @@
   function load() { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (m && m.input && Array.isArray(m.groups)) return migrate(m); } catch (e) {} return def(); }
   function save(m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) {} }
 
-  let m = def(), root = null, scale = 1, panX = 0, panY = 0, view = "gost";
+  let m = def(), root = null, scale = 1, panX = 0, panY = 0;
 
   function cableShort(l) {
     if (!l || !l.cable) return "";
@@ -158,7 +158,7 @@
     if (!svg) return;
     const tree = buildTree();
     if (!tree || !window.ShieldSchemeSVG) { svg.innerHTML = ""; svg.setAttribute("width", "300"); svg.setAttribute("height", "60"); fitReset(); return; }
-    try { if (view === "gost" && window.ShieldSchemeSVG.renderGost) window.ShieldSchemeSVG.renderGost(svg, tree); else window.ShieldSchemeSVG.render(svg, tree); } catch (e) { svg.innerHTML = ""; }
+    try { window.ShieldSchemeSVG.render(svg, tree); } catch (e) { svg.innerHTML = ""; }
     bindPan(document.getElementById("ms-svgbox"));
     applyPan();
   }
@@ -263,7 +263,7 @@
         </div>
 
         <div class="ms-card">
-          <div class="ms-sub">Предпросмотр однолинейки <span class="ms-prev-tools"><span class="ms-seg ms-viewseg"><button type="button" class="${view === "gost" ? "on" : ""}" data-view="gost">ГОСТ</button><button type="button" class="${view === "tree" ? "on" : ""}" data-view="tree">Дерево</button></span><button type="button" class="ms-full" data-msfull>⛶ Открыть схему</button></span></div>
+          <div class="ms-sub">Предпросмотр однолинейки <span class="ms-prev-tools"><button type="button" class="ms-full" data-msfull>⛶ Открыть схему</button></span></div>
           <div class="ms-svgbox" id="ms-svgbox">
             <div class="ms-fs-bar">
               <button type="button" class="ms-zoom" data-zoom="out" title="Меньше">−</button>
@@ -322,7 +322,6 @@
     if ((el = t.closest("[data-gapprem]"))) { const [gi, idx] = el.dataset.gapprem.split(":").map(Number); if (m.groups[gi] && m.groups[gi].apps) { m.groups[gi].apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-lapprem]"))) { const [gi, li, idx] = el.dataset.lapprem.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln && ln.apps) { ln.apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-fsclose]"))) { try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {} return; }
-    if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
     if ((el = t.closest("[data-ap]"))) { const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k]; if (k === "contactor" && m.apparatus[k]) m.apparatus.master = true; if (k === "contactor" && !m.apparatus[k]) m.apparatus.master = false; save(m); render(); return; }
@@ -381,7 +380,7 @@
       .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;row-gap:6px}
       .ms-line-name{flex:1}.ms-line-nom{width:84px}
       .ms-line-cv,.ms-line-amp{height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 6px center;padding:0 18px 0 8px;text-align:center;text-align-last:center}
-      .ms-line-cv{width:58px;height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center;padding:0 16px 0 8px;text-align:center;text-align-last:center}.ms-line-amp{width:78px}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-viewseg{transform:scale(.92)}.ms-viewseg button{padding:6px 10px;font:800 11px/1 system-ui}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.ms-zoom{width:34px;height:30px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center;color:#0f172a}
+      .ms-line-cv{width:58px;height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center;padding:0 16px 0 8px;text-align:center;text-align-last:center}.ms-line-amp{width:78px}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center}.ms-zoom{width:34px;height:30px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center;color:#0f172a}
       .ms-del{width:34px;height:34px;border:0;border-radius:8px;background:#fee2e2;color:#dc2626;font:800 13px/1 system-ui;cursor:pointer;flex:none}
       .ms-addline{margin-top:4px;border:1px dashed #94a3b8;background:#fff;color:#475569;border-radius:9px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-addgroup{width:100%;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:10px;padding:11px;font:800 13px/1 system-ui;cursor:pointer}
