@@ -312,7 +312,7 @@
 
 
   <script defer src="assets/js/ep-currency-v28.js?v=v28-7-currency-all-20260603-01"></script>
-  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-26-cable-lower-20260605-01"></script>
+  <script defer src="assets/js/database-v26-surgical-monolith.js?v=v28-25-gost-view-20260605-01"></script>
 
 
   <script defer src="assets/js/database-v26-4-2-modal-css-lock.js?v=v26-4-2-1-modal-css-installer-fix-20260528-01"></script>
@@ -330,7 +330,7 @@
   <script defer src="modules/shield/cable-v28.js?v=v28-21-compact-20260605-02"></script>
   <script defer src="modules/database/db-params-v28.js?v=v28-4-db-params-20260601-01"></script>
   
-  <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-26-cable-lower-20260605-01"></script>
+  <script defer src="modules/shield/shield-scheme-svg-v28.js?v=v28-25-gost-view-20260605-01"></script>
   <script defer src="modules/scheme/manual-scheme-v28.js?v=v28-25-gost-view-20260605-01"></script>
   <script defer src="modules/shield/shield-configurator-v28.js?v=v28-22-rcd-type-20260605-01"></script>
 

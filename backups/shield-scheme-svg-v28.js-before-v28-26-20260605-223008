@@ -220,14 +220,11 @@
         g.lines.forEach((li, i) => {
           const lx = item.lineXs[i];
           const lParts = [{ type: li.dev.type, id: li.dev.id, label: "", rating: li.rating, poles: li.poles }].concat(li.apps.map(a => ({ type: a.type, label: a.label, poles: a.poles })));
-          const devBottom = chain(lParts, lx, SUBBUS_Y);
-          const LOADGAP = 96;
-          ln(lx, devBottom, lx, devBottom + LOADGAP);
-          const ly = devBottom + LOADGAP;
-          out.push(loadSvg(loadKind(li.name), lx, ly));
-          if (li.name) out.push(`<text x="${lx}" y="${ly + 64}" font-size="10.5" text-anchor="middle" fill="#111" ${HALO}>${esc(li.name)}</text>`);
-          if (li.cable) out.push(`<text transform="translate(${lx - 7},${ly - 10}) rotate(-90)" font-size="10" fill="#0a7d33" ${HALO}>${esc(li.cable)}</text>`);
-          const by = ly + 80;
+          const loadTop = chain(lParts, lx, SUBBUS_Y);
+          out.push(loadSvg(loadKind(li.name), lx, loadTop));
+          if (li.name) out.push(`<text x="${lx}" y="${loadTop + 64}" font-size="10.5" text-anchor="middle" fill="#111" ${HALO}>${esc(li.name)}</text>`);
+          if (li.cable) out.push(`<text transform="translate(${lx - 7},${loadTop - 4}) rotate(-90)" font-size="10" fill="#0a7d33" ${HALO}>${esc(li.cable)}</text>`);
+          const by = loadTop + 80;
           if (by > maxY) maxY = by;
         });
       } else if (subTop > maxY) maxY = subTop;
