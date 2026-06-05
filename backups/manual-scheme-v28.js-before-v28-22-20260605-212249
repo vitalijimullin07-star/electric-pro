@@ -28,7 +28,6 @@
   const NOMS = ["C6", "C10", "C16", "C20", "C25", "C32", "C40", "C50", "C63"];
   const AMPS = [16, 25, 32, 40, 50, 63];
   const CURVES = ["A", "B", "C", "D"];
-  const RCD_TYPES = ["AC", "A", "B"];
   const AMPS_LINE = [6, 10, 16, 20, 25, 32, 40, 50, 63];
   const AMPS_GROUP = [25, 40, 63, 80, 100];
   const BRANDS_BASE = ["Любой", "IEK", "ABB", "Schneider", "EKF", "Legrand", "Tekfor"];
@@ -52,7 +51,6 @@
     if (!m.brand) m.brand = "Любой";
     (m.groups || []).forEach(g => {
       if (!g.curve) g.curve = "C";
-      if (!g.rcdType) g.rcdType = "A";
       if (g.amp == null) g.amp = 40;
       if (g.phaseSel == null) g.phaseSel = "1";
       (g.lines || []).forEach(l => {
@@ -110,7 +108,7 @@
         else { brk.cable = cab; }
         return brk;
       });
-      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА" + (m.input.phase === "3" && g.phase !== "3" ? " · L" + (g.phaseSel || "1") : ""), rating: (g.rcdType || "A") + " " + (g.kind === "dif" ? (g.curve || "C") + " " : "") + (g.amp || 40) + "А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
+      const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА" + (m.input.phase === "3" && g.phase !== "3" ? " · L" + (g.phaseSel || "1") : ""), rating: (g.kind === "dif" ? (g.curve || "C") + " " : "") + (g.amp || 40) + "А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
       return chainTo(g.apps || [], rcd, gp);
     });
     let rt, tail;
@@ -215,13 +213,12 @@
             <button type="button" class="${g.kind !== "dif" ? "on" : ""}" data-gkind="${gi}:uzo">УЗО</button>
             <button type="button" class="${g.kind === "dif" ? "on" : ""}" data-gkind="${gi}:dif">Диф</button>
           </div>
-          <select class="ms-gsel" data-gleak="${gi}" title="Ток утечки">${opt("30", String(g.leak || 30), "30 мА")}${opt("10", String(g.leak || 30), "10 мА")}</select>
-          <select class="ms-gsel" data-grtype="${gi}" title="Тип по току утечки (AC/A/B)">${RCD_TYPES.map(tp => opt(tp, g.rcdType || "A", "тип " + tp)).join("")}</select>
-          ${g.kind === "dif" ? `<select class="ms-gsel ms-gcv" data-gcurve="${gi}" title="Класс по рабочему току">${CURVES.map(c => opt(c, g.curve || "C", "кл. " + c)).join("")}</select>` : ""}
+          <label class="ms-leak">Утечка <select data-gleak="${gi}">${opt("30", String(g.leak || 30), "30 мА")}${opt("10", String(g.leak || 30), "10 мА")}</select></label>
+          ${g.kind === "dif" ? `<label class="ms-leak">Класс <select class="ms-gcv" data-gcurve="${gi}">${CURVES.map(c => opt(c, g.curve || "C")).join("")}</select></label>` : ""}
         </div>
         <div class="ms-group-row">
-          <select class="ms-gsel" data-gamp="${gi}" title="Рабочий ток">${AMPS_GROUP.map(a => opt(String(a), String(g.amp || 40), a + "А")).join("")}</select>
-          ${is3 && !g3 ? `<select class="ms-gsel" data-gphasesel="${gi}" title="Фаза подключения">${["1", "2", "3"].map(n => opt(n, String(g.phaseSel || "1"), "L" + n)).join("")}</select>` : ""}
+          <label class="ms-leak">Раб. ток <select data-gamp="${gi}">${AMPS_GROUP.map(a => opt(String(a), String(g.amp || 40), a + "А")).join("")}</select></label>
+          ${is3 && !g3 ? `<label class="ms-leak">Фаза <select data-gphasesel="${gi}">${["1", "2", "3"].map(n => opt(n, String(g.phaseSel || "1"), "L" + n)).join("")}</select></label>` : ""}
           ${is3 ? `<div class="ms-seg ms-phase"><button type="button" class="${!g3 ? "on" : ""}" data-gphase="${gi}:1">1ф</button><button type="button" class="${g3 ? "on" : ""}" data-gphase="${gi}:3">3ф</button></div>` : ""}
         </div>
         <div class="ms-apps ms-apps-group">
@@ -295,7 +292,6 @@
     if ((el = t.closest("[data-input]"))) { const k = el.dataset.input; m.input[k] = t.value; if (k === "phase") { (m.groups || []).forEach(g => (g.lines || []).forEach(l => { if (l.cableAuto !== false) l.cable = cableDefault(l.nom, phStr(l.phase)); })); save(m); render(); } else { save(m); renderPreview(); } return; }
     if ((el = t.closest("[data-gtitle]"))) { const i = +el.dataset.gtitle; if (m.groups[i]) m.groups[i].title = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gleak]"))) { const i = +el.dataset.gleak; if (m.groups[i]) m.groups[i].leak = Number(t.value) || 30; save(m); renderPreview(); return; }
-    if ((el = t.closest("[data-grtype]"))) { const i = +el.dataset.grtype; if (m.groups[i]) m.groups[i].rcdType = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gamp]"))) { const i = +el.dataset.gamp; if (m.groups[i]) m.groups[i].amp = Number(t.value) || 40; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gphasesel]"))) { const i = +el.dataset.gphasesel; if (m.groups[i]) m.groups[i].phaseSel = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-lname]"))) { const [gi, li] = el.dataset.lname.split(":").map(Number); if (m.groups[gi] && m.groups[gi].lines[li]) m.groups[gi].lines[li].name = t.value; save(m); renderPreview(); return; }
@@ -365,7 +361,7 @@
       .ms-svgbox:fullscreen .ms-fs-bar,.ms-svgbox:-webkit-full-screen .ms-fs-bar{display:flex;position:fixed;top:10px;right:10px;gap:8px;z-index:5}
       .ms-svgbox:fullscreen .ms-fs-hint,.ms-svgbox:-webkit-full-screen .ms-fs-hint{display:block;position:fixed;bottom:12px;left:0;right:0;text-align:center;color:#64748b;font:600 12px/1 system-ui}
       .ms-inrow{display:flex;gap:10px;flex-wrap:wrap}.ms-inrow label{flex:1;min-width:130px;font:600 12px/1.5 system-ui;color:#334155;display:flex;flex-direction:column;gap:4px}
-      .ms-inrow select,.ms-gsel{height:38px;border:1px solid #94a3b8;border-radius:9px;padding:0 8px;font:700 13px/1 system-ui;background:#fff;color:#0f172a}.ms-leak select,.ms-gtitle,.ms-line-name,.ms-line-nom{height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font:600 13px/1 system-ui;background:#fff;color:#0f172a}
+      .ms-inrow select,.ms-leak select,.ms-gtitle,.ms-line-name,.ms-line-nom{height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font:600 13px/1 system-ui;background:#fff;color:#0f172a}
       .ms-chips{display:flex;flex-wrap:wrap;gap:7px}
       .ms-chip{border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:999px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-chip.on{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
