@@ -219,17 +219,16 @@
       groups = cfg.manualGroups.map((g, i) => {
         const kind = g.kind === "dif" ? "dif" : "uzo";
         const leak = Number(g.leak) || 30;
-        const gcurve = g.curve || "C";
-        let prot = { kind, amp: 40, leakMA: leak, curve: kind === "dif" ? gcurve : "", found: false, showAlts: false };
+        let prot = { kind, amp: 40, leakMA: leak, found: false, showAlts: false };
         if (R) {
-          const res = R.resolve(kind === "dif" ? { kind, amp: 40, leakMA: leak, curve: gcurve } : { kind, amp: 40, leakMA: leak }, { rule, preferBrand: brandPref() });
+          const res = R.resolve({ kind, amp: 40, leakMA: leak }, { rule, preferBrand: brandPref() });
           if (res.found) { prot.found = true; prot.name = res.item.name; prot.price = res.price; prot.count = res.candidates; prot.alts = (res.alternatives || []).slice(0, 12); }
         }
         const lines = (g.lines || []).map(line => {
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
           return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", phase: line.phase || "1", cable: line.cable || "", cableLen: Number(line.cableLen) || 0, apps: line.apps || [] }, resolveAvt(amp, line.curve));
         });
-        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], phase: g.phase || "1", curve: gcurve, collapsed: true };
+        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], phase: g.phase || "1", collapsed: true };
       }).filter(g => g.lines.length);
     } else {
       const pk = protKind();
@@ -441,7 +440,7 @@
       qd++;
       const gp = effP(g.phase);
       const autom = g.lines.map(l => { qf++; const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : ""; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), cable: cab, poles: effP(l.phase), children: [] }; });
-      const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: (g.prot.kind === "dif" && g.curve ? g.curve + " " : "") + "40А/" + g.leak + "мА", poles: gp, children: autom };
+      const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: "40А/" + g.leak + "мА", poles: gp, children: autom };
       // мастер-контактор: между УЗО/диф освещения и автоматами освещения
       if (g.key === "light" && masterKM) {
         qdNode.children = [{ id: "KM1", type: "contactor", label: "Контактор (мастер)", rating: "", poles: gp, children: autom }];
