@@ -5,6 +5,7 @@
   let currentUser = null;
   let authReady = false;
   let isRestoring = false;
+  let restoreTimeout = null;
 
   function showLogin() {
     document.getElementById("appShell")?.classList.add("hidden");
@@ -50,12 +51,35 @@
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
-      await db.collection("sync_versions").doc("global").set({
-        serverDbVersion: 0,
-        logicVersion: 0,
-        templatesVersion: 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      const syncRef = db.collection("sync_versions").doc("global");
+      const syncSnap = await syncRef.get();
+
+      if (!syncSnap.exists) {
+        await syncRef.set({
+          serverDbVersion: 0,
+          logicVersion: 0,
+          templatesVersion: 0,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        window.Diagnostics?.ok?.({
+          file: FILE,
+          module: "Auth",
+          functionName: "seedAdminMeta()",
+          place: "sync_versions",
+          code: "sync-versions-created",
+          message: "sync_versions инициализирована первый раз."
+        });
+      } else {
+        window.Diagnostics?.ok?.({
+          file: FILE,
+          module: "Auth",
+          functionName: "seedAdminMeta()",
+          place: "sync_versions",
+          code: "sync-versions-exists",
+          message: "sync_versions уже существует, не перезаписываем."
+        });
+      }
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -81,7 +105,32 @@
       if (isRestoring) {
         return;
       }
+
+      if (window.__authRestoreLock) {
+        return;
+      }
+
       isRestoring = true;
+      window.__authRestoreLock = true;
+
+      restoreTimeout = setTimeout(() => {
+        if (isRestoring) {
+          isRestoring = false;
+          window.__authRestoreLock = false;
+          clearTimeout(restoreTimeout);
+
+          window.Diagnostics?.error?.({
+            file: FILE,
+            module: "Auth",
+            functionName: "loadProfileOrCreate()",
+            place: "Firestore timeout",
+            code: "firestore-timeout",
+            message: "Firestore операция заняла > 10 сек. Вход отменён."
+          });
+
+          showLogin();
+        }
+      }, 10000);
 
       if (!window.ServerAPI?.isReady?.()) {
         await window.ServerAPI.initFirebase();
@@ -130,7 +179,9 @@
             profile: adminProfile
           });
 
+          clearTimeout(restoreTimeout);
           isRestoring = false;
+          window.__authRestoreLock = false;
           return;
         }
 
@@ -138,7 +189,9 @@
           alert("Пользователь не зарегистрирован. Нажми «Регистрация».");
           await firebase.auth().signOut();
           showLogin();
+          clearTimeout(restoreTimeout);
           isRestoring = false;
+          window.__authRestoreLock = false;
           return;
         }
 
@@ -170,7 +223,9 @@
         alert("Регистрация отправлена. Доступ ожидает одобрения администратора.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
         isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
@@ -195,14 +250,11 @@
         profile.status = "approved";
         profile.name = updatePayload.name;
         profile.email = updatePayload.email;
-        profile.lastLoginAt = new Date();
       } else {
         await ref.set({
           lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        profile.lastLoginAt = new Date();
-        profile.updatedAt = new Date();
       }
 
       const isAdmin =
@@ -223,7 +275,9 @@
         alert("Доступ заблокирован.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
         isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
@@ -231,7 +285,9 @@
         alert("Пользователь найден, но доступ ещё не одобрен администратором.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
         isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
@@ -257,7 +313,9 @@
         firebaseText: "онлайн"
       });
 
+      clearTimeout(restoreTimeout);
       isRestoring = false;
+      window.__authRestoreLock = false;
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -270,7 +328,9 @@
 
       window.AppShell?.openDiagnostics?.();
       showLogin();
+      clearTimeout(restoreTimeout);
       isRestoring = false;
+      window.__authRestoreLock = false;
     }
   }
 
@@ -358,6 +418,10 @@
       }
 
       currentUser = null;
+      isRestoring = false;
+      window.__authRestoreLock = false;
+      clearTimeout(restoreTimeout);
+
       showLogin();
 
       window.Diagnostics?.wait?.({
@@ -382,6 +446,8 @@
   }
 
   function init() {
+    window.__authRestoreLock = window.__authRestoreLock || false;
+
     document.getElementById("googleLoginBtn")?.addEventListener("click", () => googleFlow("login"));
     document.getElementById("registerGoogleBtn")?.addEventListener("click", () => googleFlow("register"));
 
