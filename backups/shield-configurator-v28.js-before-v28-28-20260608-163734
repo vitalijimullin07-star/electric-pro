@@ -231,7 +231,7 @@
           const amp = Number(String(line.nom).replace(/[^\d]/g, "")) || null;
           return Object.assign({ name: line.name, nom: line.nom, note: "", amp, curve: line.curve || "C", phase: line.phase || "1", cable: line.cable || "", cableLen: Number(line.cableLen) || 0, apps: line.apps || [] }, resolveAvt(amp, line.curve));
         });
-        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], appsAfter: g.appsAfter || [], phase: g.phase || "1", phaseSel: g.phaseSel || "1", amp: gamp, curve: gcurve, rcdType: grtype, collapsed: true };
+        return { key: g.key || ("m" + i), title: g.title || ("Группа " + (i + 1)), leak, prot, lines, apps: g.apps || [], phase: g.phase || "1", phaseSel: g.phaseSel || "1", amp: gamp, curve: gcurve, rcdType: grtype, collapsed: true };
       }).filter(g => g.lines.length);
     } else {
       const pk = protKind();
@@ -317,7 +317,6 @@
       const cnt = {};
       (cfg.manualGroups || []).forEach(g => {
         (g.apps || []).forEach(k => cnt[k] = (cnt[k] || 0) + 1);
-        (g.appsAfter || []).forEach(k => cnt[k] = (cnt[k] || 0) + 1);
         (g.lines || []).forEach(l => (l.apps || []).forEach(k => cnt[k] = (cnt[k] || 0) + 1));
       });
       Object.keys(cnt).forEach(k => { const a = APPARATUS.find(x => x.key === k); if (a) addKw(a.title + " (на группу/линию)", a.kws, cnt[k]); });

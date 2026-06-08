@@ -63,8 +63,6 @@
     }
     (m.groups || []).forEach(g => {
       if (!g.curve) g.curve = "C";
-      if (!Array.isArray(g.apps)) g.apps = [];
-      if (!Array.isArray(g.appsAfter)) g.appsAfter = [];
       if (!g.rcdType) g.rcdType = "A";
       if (g.amp == null) g.amp = 40;
       if (g.phaseSel == null) g.phaseSel = "1";
@@ -97,14 +95,9 @@
 
   // аппараты, которые можно повесить на группу или линию
   const APP_PICK = ["contactor", "uzm", "priority", "opn", "uzdp", "rubilnik", "phaseSwitch"];
-  function locFromRef(ref) { const p = String(ref).split(":"); const g = m.groups[+p[0]]; if (!g) return { arr: null, idx: -1 }; if (p[1] === "b") return { arr: g.apps, idx: +p[2] }; if (p[1] === "a") return { arr: g.appsAfter, idx: +p[2] }; const ln = g.lines && g.lines[+p[1]]; return { arr: ln ? ln.apps : null, idx: +p[2] }; }
   function appMeta(key) { return APPAR.find(a => a.key === key) || { key, title: key, sym: "switch" }; }
-  function appChip(key, ref, idx, total) {
-    return `<span class="ms-app-chip"><i class="ms-chmv${idx === 0 ? " ms-chdis" : ""}" data-apmv="${ref}:-1" title="Левее">◀</i><span class="ms-chnm">${esc(appMeta(key).title)}</span><i class="ms-chmv${idx >= total - 1 ? " ms-chdis" : ""}" data-apmv="${ref}:1" title="Правее">▶</i><i class="ms-chx" data-aprm="${ref}" title="Убрать">✕</i></span>`;
-  }
-  function appNode(key, poles, role) { const a = appMeta(key); return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: poles || 1, role: role || null, children: [] }; }
+  function appNode(key, poles) { const a = appMeta(key); return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: poles || 1, children: [] }; }
   function chainTo(keys, tail, poles) { keys = keys || []; const ns = keys.map(k => appNode(k, poles)); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; }
-  function chainAfter(device, keys, tail, poles) { keys = keys || []; if (!keys.length) { device.children = tail; return; } const ns = keys.map(k => appNode(k, poles, "gapp")); for (let i = 0; i < ns.length; i++) ns[i].children = i + 1 < ns.length ? [ns[i + 1]] : tail; device.children = [ns[0]]; }
 
   function effPhase(p) { return m.input.phase === "3" ? (p === "3" ? 3 : 1) : 1; }
 
@@ -130,7 +123,6 @@
         return brk;
       });
       const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА" + (m.input.phase === "3" && g.phase !== "3" ? " · L" + (g.phaseSel || "1") : ""), rating: (g.rcdType || "A") + " " + (g.kind === "dif" ? (g.curve || "C") + " " : "") + (g.amp || 40) + "А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
-      chainAfter(rcd, g.appsAfter || [], autom, gp);
       return chainTo(g.apps || [], rcd, gp);
     });
     let rt, tail;
@@ -230,7 +222,7 @@
         <input class="ms-clen" type="number" inputmode="decimal" min="0" step="0.5" data-lclen="${gi}:${li}" value="${l.cableLen == null ? "" : esc(l.cableLen)}" placeholder="м">
       </div>
       <div class="ms-apps ms-apps-line">
-        ${(l.apps || []).map((k, idx) => appChip(k, `${gi}:${li}:${idx}`, idx, (l.apps || []).length, true)).join("")}
+        ${(l.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-lapprem="${gi}:${li}:${idx}" title="Убрать">✕</i></span>`).join("")}
         ${appAddSelect(`lappadd="${gi}:${li}"`, "+ аппарат на линию…")}
       </div>`;
     }).join("");
@@ -255,12 +247,8 @@
           ${is3 ? `<div class="ms-seg ms-phase"><button type="button" class="${!g3 ? "on" : ""}" data-gphase="${gi}:1">1ф</button><button type="button" class="${g3 ? "on" : ""}" data-gphase="${gi}:3">3ф</button></div>` : ""}
         </div>
         <div class="ms-apps ms-apps-group">
-          <span class="ms-apps-lbl">До УЗО:</span>
-          ${(g.apps || []).map((k, idx) => appChip(k, `${gi}:b:${idx}`, idx, (g.apps || []).length)).join("") || `<span class="ms-apps-none">—</span>`}
-          ${appAddSelect(`gappadd="${gi}"`, "+ до УЗО…")}
-          <span class="ms-apps-lbl">После УЗО:</span>
-          ${(g.appsAfter || []).map((k, idx) => appChip(k, `${gi}:a:${idx}`, idx, (g.appsAfter || []).length)).join("") || `<span class="ms-apps-none">—</span>`}
-          ${appAddSelect(`gappadda="${gi}"`, "+ после УЗО…")}
+          ${(g.apps || []).map((k, idx) => `<span class="ms-app-chip">${esc(appMeta(k).title)}<i data-gapprem="${gi}:${idx}" title="Убрать">✕</i></span>`).join("")}
+          ${appAddSelect(`gappadd="${gi}"`, "+ аппарат на группу…")}
         </div>
         <div class="ms-lines">${lines || `<div class="ms-empty">Линий нет — добавь ниже.</div>`}</div>
         <button type="button" class="ms-addline" data-addline="${gi}">+ линия</button>
@@ -330,7 +318,6 @@
     let el;
     if ((el = t.closest("[data-gcurve]"))) { const gi = +el.dataset.gcurve; if (m.groups[gi]) m.groups[gi].curve = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gappadd]"))) { const gi = +el.dataset.gappadd; const k = t.value; if (k && m.groups[gi]) { (m.groups[gi].apps = m.groups[gi].apps || []).push(k); save(m); render(); } return; }
-    if ((el = t.closest("[data-gappadda]"))) { const gi = +el.dataset.gappadda; const k = t.value; if (k && m.groups[gi]) { (m.groups[gi].appsAfter = m.groups[gi].appsAfter || []).push(k); save(m); render(); } return; }
     if ((el = t.closest("[data-lappadd]"))) { const [gi, li] = el.dataset.lappadd.split(":").map(Number); const k = t.value; const ln = m.groups[gi] && m.groups[gi].lines[li]; if (k && ln) { (ln.apps = ln.apps || []).push(k); save(m); render(); } return; }
     if ((el = t.closest("[data-incab]"))) { m.input.cable = t.value; save(m); render(); return; }
     if ((el = t.closest("[data-inclen]"))) { m.input.cableLen = t.value; save(m); renderPreview(); return; }
@@ -362,8 +349,8 @@
     }
     if ((el = t.closest("[data-gphase]"))) { const [gi, ph] = el.dataset.gphase.split(":"); if (m.groups[+gi]) { m.groups[+gi].phase = ph === "3" ? "3" : "1"; save(m); render(); } return; }
     if ((el = t.closest("[data-lphase]"))) { const [gi, li, ph] = el.dataset.lphase.split(":"); const ln = m.groups[+gi] && m.groups[+gi].lines[+li]; if (ln) { ln.phase = ph === "3" ? "3" : "1"; if (ln.cableAuto !== false) ln.cable = cableDefault(ln.nom, phStr(ln.phase)); save(m); render(); } return; }
-    if ((el = t.closest("[data-apmv]"))) { const parts = el.dataset.apmv.split(":"); const dir = +parts.pop(); const loc = locFromRef(parts.join(":")); if (loc.arr) { const j = loc.idx + dir; if (j >= 0 && j < loc.arr.length) { const x0 = loc.arr[loc.idx]; loc.arr[loc.idx] = loc.arr[j]; loc.arr[j] = x0; save(m); render(); } } return; }
-    if ((el = t.closest("[data-aprm]"))) { const loc = locFromRef(el.dataset.aprm); if (loc.arr && loc.idx >= 0 && loc.idx < loc.arr.length) { loc.arr.splice(loc.idx, 1); save(m); render(); } return; }
+    if ((el = t.closest("[data-gapprem]"))) { const [gi, idx] = el.dataset.gapprem.split(":").map(Number); if (m.groups[gi] && m.groups[gi].apps) { m.groups[gi].apps.splice(idx, 1); save(m); render(); } return; }
+    if ((el = t.closest("[data-lapprem]"))) { const [gi, li, idx] = el.dataset.lapprem.split(":").map(Number); const ln = m.groups[gi] && m.groups[gi].lines[li]; if (ln && ln.apps) { ln.apps.splice(idx, 1); save(m); render(); } return; }
     if ((el = t.closest("[data-fsclose]"))) { try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {} return; }
     if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
@@ -431,7 +418,7 @@
       .ms-line{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;row-gap:6px}
       .ms-line-name{flex:1}.ms-line-nom{width:84px}
       .ms-line-cv,.ms-line-amp{height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 6px center;padding:0 18px 0 8px;text-align:center;text-align-last:center}
-      .ms-line-cv{width:58px;height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center;padding:0 16px 0 8px;text-align:center;text-align-last:center}.ms-line-amp{width:78px}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-apps-lbl{font:700 10.5px/1 system-ui;color:#64748b;margin-right:2px}.ms-apps-none{color:#cbd5e1;font:700 11px/1 system-ui}.ms-app-chip{display:inline-flex;align-items:center;gap:3px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:3px 6px;font:700 11px/1 system-ui}.ms-chnm{padding:0 1px}.ms-chmv{font-style:normal;cursor:pointer;color:#9a3412;background:#fed7aa;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:8px}.ms-chmv.ms-chdis{opacity:.3;pointer-events:none}.ms-chx{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-viewseg{transform:scale(.92)}.ms-viewseg button{padding:6px 10px;font:800 11px/1 system-ui}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.ms-zoom{width:34px;height:30px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center;color:#0f172a}
+      .ms-line-cv{width:58px;height:38px;border:1.5px solid #64748b;border-radius:8px;font:800 13px/1 system-ui;color:#0f172a;background:#fff;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center;padding:0 16px 0 8px;text-align:center;text-align-last:center}.ms-line-amp{width:78px}.ms-addbrand{flex:none;align-self:flex-end;height:38px;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:9px;padding:0 12px;font:700 12px/1 system-ui;cursor:pointer}.ms-apps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 4px;padding-left:2px}.ms-apps-line{padding-left:8px}.ms-app-chip{display:inline-flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:999px;padding:5px 9px;font:700 11px/1 system-ui}.ms-app-chip i{font-style:normal;cursor:pointer;color:#dc2626;background:rgba(220,38,38,.12);border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px}.ms-phase{transform:scale(.9)}.ms-phase button{padding:7px 10px;font:700 11px/1 system-ui}.ms-app-add{height:32px;border:1px dashed #fb923c;background:#fff;color:#9a3412;border-radius:8px;padding:0 8px;font:700 11px/1 system-ui;cursor:pointer}.ms-viewseg{transform:scale(.92)}.ms-viewseg button{padding:6px 10px;font:800 11px/1 system-ui}.ms-prev-tools{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.ms-zoom{width:34px;height:30px;border:1px solid #0ea5e9;background:#e0f2fe;color:#0369a1;border-radius:7px;font:800 15px/1 system-ui;cursor:pointer}.ms-cabrow{padding-left:6px}.ms-cabic{flex:none;font-size:14px;opacity:.6}.ms-cab{flex:1;min-width:0;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;background:#fff;color:#0f172a}.ms-clen{width:64px;height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font:600 12px/1 system-ui;text-align:center;color:#0f172a}
       .ms-del{width:34px;height:34px;border:0;border-radius:8px;background:#fee2e2;color:#dc2626;font:800 13px/1 system-ui;cursor:pointer;flex:none}
       .ms-addline{margin-top:4px;border:1px dashed #94a3b8;background:#fff;color:#475569;border-radius:9px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-addgroup{width:100%;border:1px dashed #6366f1;background:#eef2ff;color:#4338ca;border-radius:10px;padding:11px;font:800 13px/1 system-ui;cursor:pointer}

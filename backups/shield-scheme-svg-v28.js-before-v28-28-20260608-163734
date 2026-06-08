@@ -139,20 +139,19 @@
     }
     const feeders = (n && n.children) ? n.children : [];
     function resolveGroup(f) {
-      let before = [], g = f, k = 0;
-      while (g && g.type !== "rcd" && g.type !== "rcbo" && k++ < 12) { before.push(g); g = (g.children && g.children.length === 1) ? g.children[0] : null; }
-      if (!g) return { before: [], device: null, after: [], lines: [f] };
-      let after = [], node = g, c = (g.children && g.children.length === 1) ? g.children[0] : null, k2 = 0;
-      while (c && c.role === "gapp" && k2++ < 12) { after.push(c); node = c; c = (c.children && c.children.length === 1) ? c.children[0] : null; }
-      let lines = node.children || [];
-      return { before, device: g, after, lines };
+      let apps = [], g = f, k = 0;
+      while (g && g.type !== "rcd" && g.type !== "rcbo" && k++ < 12) { apps.push(g); g = (g.children && g.children.length === 1) ? g.children[0] : null; }
+      if (!g) return { apps: [], device: null, lines: [f] };
+      let lines = g.children || [];
+      if (lines.length === 1 && lines[0].type === "contactor") { apps.push(lines[0]); lines = lines[0].children || []; }
+      return { apps, device: g, lines };
     }
     function resolveLine(b) {
       let apps = [], cable = b.cable || "", c = (b.children && b.children.length === 1) ? b.children[0] : null, k = 0;
       while (c && k++ < 12) { if (c.type === "load" || !c.children || !c.children.length) { if (c.cable) cable = c.cable; break; } apps.push(c); c = (c.children && c.children.length === 1) ? c.children[0] : null; }
       return { dev: b, name: b.label || "", rating: b.rating || "", poles: b.poles, cable, apps };
     }
-    const groups = feeders.map(f => { const r = resolveGroup(f); return { apps: r.before, device: r.device, after: r.after, lines: r.lines.map(resolveLine) }; });
+    const groups = feeders.map(f => { const g = resolveGroup(f); return { apps: g.apps, device: g.device, lines: g.lines.map(resolveLine) }; });
 
     function loadKind(name) {
       const s = String(name || "").toLowerCase();
@@ -212,7 +211,7 @@
     let maxY = BUS_Y + 200;
     L.forEach(item => {
       const g = item.g;
-      const gParts = g.apps.concat(g.device ? [g.device] : []).concat(g.after || []);
+      const gParts = g.apps.concat(g.device ? [g.device] : []);
       let subTop = BUS_Y;
       if (gParts.length) subTop = chain(gParts, item.feedX, BUS_Y);
       const SUBBUS_Y = subTop + 8;
