@@ -182,7 +182,6 @@
         if (p.label) out.push(`<text x="${x + 26}" y="${y + 38}" font-size="10.5" fill="#444" ${HALO}>${esc(p.label)}</text>`);
         if (p.rating) out.push(`<text x="${x + 26}" y="${y + 54}" font-size="12" font-weight="bold" fill="#0056b3" ${HALO}>${esc(p.rating)}</text>`);
         y += SYMH;
-        if (p.segCable) { const G = 58; ln(x, y, x, y + G); out.push(`<text transform="translate(${x - 7},${y + G - 5}) rotate(-90)" font-size="10" fill="#0a7d33" ${HALO}>${esc(p.segCable)}</text>`); y += G; }
       });
       return y;
     }
@@ -202,7 +201,7 @@
     const busTop = chain(vvod, vvodX, TOPY);
     const BUS_Y = busTop + 8;
     ln(vvodX, busTop, vvodX, BUS_Y);
-    if (tree.busbarCable) out.push(`<text x="76" y="${BUS_Y + 44}" font-size="10" fill="#0a7d33" ${HALO}>обвязка: ${esc(tree.busbarCable)}</text>`);
+    if (tree.feedCable) out.push(`<text transform="translate(${vvodX - 7},${busTop - 8}) rotate(-90)" font-size="10" fill="#0a7d33" ${HALO}>${esc(tree.feedCable)}</text>`);
     const phase3 = (vvod[0] && vvod[0].poles === 3);
     ln(72, BUS_Y, totalW - 28, BUS_Y, "#111", 3);
     ln(72, BUS_Y + 16, totalW - 28, BUS_Y + 16, "#16a34a", 3);
