@@ -4,6 +4,7 @@
 
   let currentUser = null;
   let authReady = false;
+  let isRestoring = false;
 
   function showLogin() {
     document.getElementById("appShell")?.classList.add("hidden");
@@ -26,9 +27,14 @@
     document.getElementById("sideMasterName").textContent = name;
     document.getElementById("sideMasterRole").textContent = currentUser.role || "master";
 
-    window.Router?.load("main", { replace: true });
-    window.SyncAPI?.start?.();
-    setTimeout(() => window.EP_UPDATE_ADMIN_BUTTON?.(), 150);
+    requestAnimationFrame(() => {
+      window.Router?.load("main", { replace: true });
+    });
+
+    requestAnimationFrame(() => {
+      window.SyncAPI?.start?.();
+      setTimeout(() => window.EP_UPDATE_ADMIN_BUTTON?.(), 150);
+    });
   }
 
   function isAdminEmail(user) {
@@ -62,8 +68,21 @@
     }
   }
 
+  async function seedAdminMetaDeferred(db, uid) {
+    if (window.RequestIdleCallback && typeof requestIdleCallback === "function") {
+      requestIdleCallback(() => seedAdminMeta(db), { timeout: 8000 });
+    } else {
+      setTimeout(() => seedAdminMeta(db), 2000);
+    }
+  }
+
   async function loadProfileOrCreate(user, mode = "login") {
     try {
+      if (isRestoring) {
+        return;
+      }
+      isRestoring = true;
+
       if (!window.ServerAPI?.isReady?.()) {
         await window.ServerAPI.initFirebase();
       }
@@ -91,7 +110,7 @@
           };
 
           await ref.set(adminProfile);
-          await seedAdminMeta(db);
+          seedAdminMetaDeferred(db, user.uid);
 
           window.Diagnostics?.ok?.({
             file: FILE,
@@ -111,6 +130,7 @@
             profile: adminProfile
           });
 
+          isRestoring = false;
           return;
         }
 
@@ -118,6 +138,7 @@
           alert("Пользователь не зарегистрирован. Нажми «Регистрация».");
           await firebase.auth().signOut();
           showLogin();
+          isRestoring = false;
           return;
         }
 
@@ -149,13 +170,14 @@
         alert("Регистрация отправлена. Доступ ожидает одобрения администратора.");
         await firebase.auth().signOut();
         showLogin();
+        isRestoring = false;
         return;
       }
 
       const profile = snap.data() || {};
 
       if (adminByEmail && profile.role !== "admin") {
-        await ref.set({
+        const updatePayload = {
           uid: user.uid,
           email: user.email || ADMIN_EMAIL,
           name: profile.name || user.displayName || "Виталий Имуллин",
@@ -165,35 +187,43 @@
           status: "approved",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+        await ref.set(updatePayload, { merge: true });
+        profile.role = "admin";
+        profile.isAdmin = true;
+        profile.isApproved = true;
+        profile.status = "approved";
+        profile.name = updatePayload.name;
+        profile.email = updatePayload.email;
+        profile.lastLoginAt = new Date();
       } else {
         await ref.set({
           lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+        profile.lastLoginAt = new Date();
+        profile.updatedAt = new Date();
       }
 
-      const freshSnap = await ref.get();
-      const fresh = freshSnap.data() || profile;
-
       const isAdmin =
-        fresh.role === "admin" ||
-        fresh.isAdmin === true ||
+        profile.role === "admin" ||
+        profile.isAdmin === true ||
         adminByEmail;
 
       const blocked =
-        fresh.status === "blocked" ||
-        fresh.blocked === true;
+        profile.status === "blocked" ||
+        profile.blocked === true;
 
       const approved =
         isAdmin ||
-        fresh.isApproved === true ||
-        fresh.status === "approved";
+        profile.isApproved === true ||
+        profile.status === "approved";
 
       if (blocked) {
         alert("Доступ заблокирован.");
         await firebase.auth().signOut();
         showLogin();
+        isRestoring = false;
         return;
       }
 
@@ -201,19 +231,20 @@
         alert("Пользователь найден, но доступ ещё не одобрен администратором.");
         await firebase.auth().signOut();
         showLogin();
+        isRestoring = false;
         return;
       }
 
       if (isAdmin) {
-        await seedAdminMeta(db);
+        seedAdminMetaDeferred(db, user.uid);
       }
 
       showApp({
         uid: user.uid,
         email: user.email || "",
-        displayName: fresh.name || user.displayName || "Мастер",
-        role: isAdmin ? "admin" : (fresh.role || "master"),
-        profile: fresh
+        displayName: profile.name || user.displayName || "Мастер",
+        role: isAdmin ? "admin" : (profile.role || "master"),
+        profile: profile
       });
 
       window.Diagnostics?.ok?.({
@@ -225,6 +256,8 @@
         message: isAdmin ? "Администратор вошёл." : "Мастер вошёл и одобрен.",
         firebaseText: "онлайн"
       });
+
+      isRestoring = false;
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -237,6 +270,7 @@
 
       window.AppShell?.openDiagnostics?.();
       showLogin();
+      isRestoring = false;
     }
   }
 
