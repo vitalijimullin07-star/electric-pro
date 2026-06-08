@@ -42,25 +42,14 @@
 
   function def() {
     return {
-      input: { phase: "1", amp: 40, cable: "", cableLen: "" },
+      input: { phase: "1", amp: 40 },
       brand: "Любой",
       apparatus: { vvod: true, meter: false, opn: false, uzm: false, rubilnik: false, contactor: false, bell: false, serviceSocket: false, uzdp: false, phaseSwitch: false, avr: false, priority: false, master: false },
-      apparatusOrder: ["vvod"],
       groups: []
     };
   }
   function migrate(m) {
     if (!m.brand) m.brand = "Любой";
-    if (!m.input) m.input = { phase: "1", amp: 40 };
-    if (m.input.cable == null) m.input.cable = "";
-    if (m.input.cableLen == null) m.input.cableLen = "";
-    if (!Array.isArray(m.apparatusOrder)) {
-      m.apparatusOrder = APPAR.map(a => a.key).filter(k => m.apparatus && m.apparatus[k]);
-      if (!m.apparatusOrder.length && m.apparatus && m.apparatus.vvod) m.apparatusOrder = ["vvod"];
-    } else {
-      m.apparatusOrder = m.apparatusOrder.filter(k => m.apparatus && m.apparatus[k]);
-      APPAR.forEach(a => { if (m.apparatus[a.key] && m.apparatusOrder.indexOf(a.key) < 0) m.apparatusOrder.push(a.key); });
-    }
     (m.groups || []).forEach(g => {
       if (!g.curve) g.curve = "C";
       if (!g.rcdType) g.rcdType = "A";
@@ -107,9 +96,8 @@
     const amp = n => String(n).replace(/[^\d]/g, "") + "А";
     const feedPoles = m.input.phase === "3" ? 3 : 1;
     let qf = 0, qd = 0;
-    const ordered = (m.apparatusOrder || []).map(k => APPAR.find(a => a.key === k)).filter(a => a && m.apparatus[a.key]);
-    const inlineA = ordered.filter(a => a.inline);
-    const branchA = ordered.filter(a => !a.inline);
+    const inlineA = APPAR.filter(a => a.inline && m.apparatus[a.key]);
+    const branchA = APPAR.filter(a => !a.inline && m.apparatus[a.key]);
     const groupNodes = m.groups.map(g => {
       qd++;
       const gp = effPhase(g.phase);
@@ -137,7 +125,6 @@
     }
     const extra = branchA.map(a => ({ id: "", type: a.sym, label: a.title, rating: "", poles: 1, children: [] }));
     tail.children = groupNodes.concat(extra);
-    rt.feedCable = cableShort({ cable: m.input.cable, cableLen: m.input.cableLen });
     return rt;
   }
 
@@ -189,15 +176,6 @@
 
   function apparatusChips() {
     return APPAR.map(a => `<button type="button" class="ms-chip ${m.apparatus[a.key] ? "on" : ""}" data-ap="${a.key}">${esc(a.title)}</button>`).join("");
-  }
-  function selectedApparatusRow() {
-    const keys = (m.apparatusOrder || []).filter(k => m.apparatus[k]);
-    if (!keys.length) return "";
-    const chips = keys.map((k, i) => {
-      const a = APPAR.find(x => x.key === k); if (!a) return "";
-      return `<span class="ms-seqchip"><button type="button" class="ms-seqmove" data-apmove="${i}:-1"${i === 0 ? " disabled" : ""} title="Левее">◀</button><span class="ms-seqname">${i + 1}. ${esc(a.title)}</span><button type="button" class="ms-seqmove" data-apmove="${i}:1"${i === keys.length - 1 ? " disabled" : ""} title="Правее">▶</button><button type="button" class="ms-seqx" data-ap="${k}" title="Убрать">✕</button></span>`;
-    }).join("");
-    return `<div class="ms-seqrow"><div class="ms-seqhint">Порядок на схеме (от ввода вниз) — ◀▶ переставить, ✕ убрать:</div><div class="ms-seqchips">${chips}</div></div>`;
   }
 
   function appAddSelect(attr, label) {
@@ -271,16 +249,10 @@
             <label style="flex:2">Бренд аппаратов <select data-brand>${brandsAll().map(b => opt(b, m.brand || "Любой")).join("")}</select></label>
             <button type="button" class="ms-addbrand" data-addbrand title="Добавить бренд">+ бренд</button>
           </div>
-          <div class="ms-inrow ms-cabrow" style="margin-top:8px">
-            <span class="ms-cabic" title="Вводной кабель">🔌</span>
-            <select class="ms-cab" data-incab>${cableOptions(m.input.cable)}</select>
-            <input class="ms-clen" type="number" inputmode="decimal" min="0" step="0.5" data-inclen value="${m.input.cableLen == null ? "" : esc(m.input.cableLen)}" placeholder="м">
-          </div>
         </div>
 
         <div class="ms-card">
           <div class="ms-sub">Аппараты (нажми, чтобы включить)</div>
-          ${selectedApparatusRow()}
           <div class="ms-chips">${apparatusChips()}</div>
         </div>
 
@@ -319,8 +291,6 @@
     if ((el = t.closest("[data-gcurve]"))) { const gi = +el.dataset.gcurve; if (m.groups[gi]) m.groups[gi].curve = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-gappadd]"))) { const gi = +el.dataset.gappadd; const k = t.value; if (k && m.groups[gi]) { (m.groups[gi].apps = m.groups[gi].apps || []).push(k); save(m); render(); } return; }
     if ((el = t.closest("[data-lappadd]"))) { const [gi, li] = el.dataset.lappadd.split(":").map(Number); const k = t.value; const ln = m.groups[gi] && m.groups[gi].lines[li]; if (k && ln) { (ln.apps = ln.apps || []).push(k); save(m); render(); } return; }
-    if ((el = t.closest("[data-incab]"))) { m.input.cable = t.value; save(m); render(); return; }
-    if ((el = t.closest("[data-inclen]"))) { m.input.cableLen = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-brand]"))) { m.brand = t.value; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-input]"))) { const k = el.dataset.input; m.input[k] = t.value; if (k === "phase") { (m.groups || []).forEach(g => (g.lines || []).forEach(l => { if (l.cableAuto !== false) l.cable = cableDefault(l.nom, phStr(l.phase)); })); save(m); render(); } else { save(m); renderPreview(); } return; }
     if ((el = t.closest("[data-gtitle]"))) { const i = +el.dataset.gtitle; if (m.groups[i]) m.groups[i].title = t.value; save(m); renderPreview(); return; }
@@ -355,14 +325,7 @@
     if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
-    if ((el = t.closest("[data-ap]"))) {
-      const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k];
-      if (m.apparatus[k]) { if (m.apparatusOrder.indexOf(k) < 0) m.apparatusOrder.push(k); }
-      else { m.apparatusOrder = m.apparatusOrder.filter(x => x !== k); }
-      if (k === "contactor") m.apparatus.master = !!m.apparatus[k];
-      save(m); render(); return;
-    }
-    if ((el = t.closest("[data-apmove]"))) { const [i, d] = el.dataset.apmove.split(":").map(Number); const o = m.apparatusOrder, j = i + d; if (j >= 0 && j < o.length) { const x0 = o[i]; o[i] = o[j]; o[j] = x0; save(m); render(); } return; }
+    if ((el = t.closest("[data-ap]"))) { const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k]; if (k === "contactor" && m.apparatus[k]) m.apparatus.master = true; if (k === "contactor" && !m.apparatus[k]) m.apparatus.master = false; save(m); render(); return; }
     if ((el = t.closest("[data-gkind]"))) { const [gi, kind] = el.dataset.gkind.split(":"); if (m.groups[+gi]) m.groups[+gi].kind = kind; save(m); render(); return; }
     if ((el = t.closest("[data-addline]"))) { const gi = +el.dataset.addline; if (m.groups[gi]) { (m.groups[gi].lines = m.groups[gi].lines || []).push({ id: uid(), name: "", curve: "C", amp: 16, nom: "C16", phase: "1", cable: cableDefault("C16", "1"), cableLen: "", cableAuto: true, apps: [] }); save(m); render(); } return; }
     if ((el = t.closest("[data-ldel]"))) { const [gi, li] = el.dataset.ldel.split(":").map(Number); if (m.groups[gi]) { m.groups[gi].lines.splice(li, 1); save(m); render(); } return; }
@@ -404,7 +367,7 @@
       .ms-svgbox:fullscreen .ms-fs-hint,.ms-svgbox:-webkit-full-screen .ms-fs-hint{display:block;position:fixed;bottom:12px;left:0;right:0;text-align:center;color:#64748b;font:600 12px/1 system-ui}
       .ms-inrow{display:flex;gap:10px;flex-wrap:wrap}.ms-inrow label{flex:1 1 96px;min-width:96px;font:600 11px/1.3 system-ui;color:#334155;display:flex;flex-direction:column;gap:3px}
       .ms-inrow select{width:100%;height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 26px 0 11px;font:600 13px/1 system-ui;background:#fff;color:#0f172a;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 9px center}.ms-gsel{flex:0 1 auto;width:auto;min-width:54px;max-width:104px;height:32px;border:1px solid #94a3b8;border-radius:8px;padding:0 18px 0 7px;font:700 12px/1 system-ui;background:#fff;color:#0f172a;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%230f172a' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 5px center}.ms-group-row .ms-seg{flex:0 0 auto}.ms-leak select,.ms-gtitle,.ms-line-name,.ms-line-nom{height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font:600 13px/1 system-ui;background:#fff;color:#0f172a}
-      .ms-seqrow{margin:0 0 10px}.ms-seqhint{font:600 11px/1.3 system-ui;color:#64748b;margin-bottom:6px}.ms-seqchips{display:flex;flex-wrap:wrap;gap:6px}.ms-seqchip{display:inline-flex;align-items:center;gap:4px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;padding:3px 4px 3px 6px}.ms-seqname{font:700 11.5px/1 system-ui;color:#1e293b}.ms-seqmove{border:0;background:#c7d2fe;color:#1e293b;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1}.ms-seqmove:disabled{opacity:.35}.ms-seqx{border:0;background:#fecaca;color:#7f1d1d;border-radius:6px;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:1}.ms-chips{display:flex;flex-wrap:wrap;gap:7px}
+      .ms-chips{display:flex;flex-wrap:wrap;gap:7px}
       .ms-chip{border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:999px;padding:8px 12px;font:700 12px/1 system-ui;cursor:pointer}
       .ms-chip.on{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
       .ms-group{border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;background:#f8fafc}

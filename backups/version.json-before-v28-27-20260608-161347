@@ -1,0 +1,1 @@
+{"version":"V28.26-cable-lower","updatedAt":"2026-06-05T15:30:00.000Z","note":"V28.26 GOST view tweak: added a wire segment between each line's breaker (and any line apparatus) and its load symbol, and moved the rotated cable label down into that segment, so the cable sits lower on the line instead of hugging the breaker."}
