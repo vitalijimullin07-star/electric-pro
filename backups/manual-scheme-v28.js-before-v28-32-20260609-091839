@@ -103,16 +103,6 @@
   const APP_PICK = ["contactor", "uzm", "priority", "opn", "uzdp", "rubilnik", "phaseSwitch"];
   function locFromRef(ref) { const p = String(ref).split(":"); const g = m.groups[+p[0]]; if (!g) return { arr: null, idx: -1 }; if (p[1] === "b") return { arr: g.apps, idx: +p[2] }; if (p[1] === "a") return { arr: g.appsAfter, idx: +p[2] }; const ln = g.lines && g.lines[+p[1]]; return { arr: ln ? ln.apps : null, idx: +p[2] }; }
   function listFromDragRef(ref) { if (ref === "ap") return m.apparatusOrder; const p = String(ref).split(":"); if (p[0] === "g") { const g = m.groups[+p[1]]; return g ? (p[2] === "b" ? g.apps : g.appsAfter) : null; } if (p[0] === "l") { const g = m.groups[+p[1]]; const ln = g && g.lines[+p[2]]; return ln ? ln.apps : null; } return null; }
-  function reorderInput(key, dir) {
-    const full = m.apparatusOrder || [];
-    const isInline = k => { const a = APPAR.find(x => x.key === k); return !!(a && a.inline && m.apparatus[k]); };
-    const inlineKeys = full.filter(isInline);
-    const i = inlineKeys.indexOf(key); if (i < 0) return;
-    const j = dir === "up" ? i - 1 : i + 1; if (j < 0 || j >= inlineKeys.length) return;
-    const pa = full.indexOf(inlineKeys[i]), pb = full.indexOf(inlineKeys[j]); if (pa < 0 || pb < 0) return;
-    const t2 = full[pa]; full[pa] = full[pb]; full[pb] = t2;
-    save(m); renderPreview();
-  }
   function appMeta(key) { return APPAR.find(a => a.key === key) || { key, title: key, sym: "switch" }; }
   function appChip(key, ref, idx, total, dragRef) {
     return `<span class="ms-app-chip" data-drag="${dragRef}" data-dragkey="${key}"><i class="ms-chgrip" data-draghandle title="Перетащить">⠿</i><i class="ms-chmv${idx === 0 ? " ms-chdis" : ""}" data-apmv="${ref}:-1" title="Левее">◀</i><span class="ms-chnm">${esc(appMeta(key).title)}</span><i class="ms-chmv${idx >= total - 1 ? " ms-chdis" : ""}" data-apmv="${ref}:1" title="Правее">▶</i><i class="ms-chx" data-aprm="${ref}" title="Убрать">✕</i></span>`;
@@ -151,7 +141,7 @@
     let rt, tail;
     if (inlineA.length) {
       const seg = m.input.segCables || {};
-      const nodes = inlineA.map(a => ({ id: a.key === "vvod" ? "QF0" : "", type: a.sym, label: a.title.split(" ")[0], rating: a.key === "vvod" ? amp(m.input.amp) : "", poles: feedPoles, key: a.key, children: [] }));
+      const nodes = inlineA.map(a => ({ id: a.key === "vvod" ? "QF0" : "", type: a.sym, label: a.title.split(" ")[0], rating: a.key === "vvod" ? amp(m.input.amp) : "", poles: feedPoles, children: [] }));
       for (let i = 0; i < nodes.length - 1; i++) { nodes[i].children = [nodes[i + 1]]; const c = seg[inlineA[i].key]; if (c) nodes[i].segCable = cableShort({ cable: c, cableLen: "" }); }
       rt = nodes[0]; tail = nodes[nodes.length - 1];
     } else {
@@ -182,7 +172,6 @@
       if (!isFs()) return;
       if (e.touches.length === 2) { mode = "pinch"; startDist = D(e.touches); startScale = scale; e.preventDefault(); }
       else if (e.touches.length === 1) {
-        if (e.target && e.target.closest && e.target.closest("[data-reorder]")) return;
         if (moveMode) { const blk = e.target.closest && e.target.closest("[data-blk]"); if (blk) { mode = "drag"; dragEl = blk; const o = offOf(blk); dox = o.x; doy = o.y; dcur = { x: dox, y: doy }; sx = e.touches[0].clientX; sy = e.touches[0].clientY; e.preventDefault(); return; } }
         mode = "pan"; sx = e.touches[0].clientX; sy = e.touches[0].clientY; sPanX = panX; sPanY = panY;
       }
@@ -399,7 +388,6 @@
     if ((el = t.closest("[data-fsclose]"))) { try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {} return; }
     if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
-    if ((el = t.closest("[data-reorder]"))) { reorderInput(el.getAttribute("data-rkey"), el.getAttribute("data-reorder")); return; }
     if ((el = t.closest("[data-msmove]"))) { moveMode = !moveMode; el.classList.toggle("on", moveMode); const hint = document.querySelector(".ms-fs-hint"); if (hint) hint.textContent = moveMode ? "✥ Режим перемещения: тяни элемент. Два пальца — масштаб." : "Два пальца — масштаб, один — двигать всё. ✥ — двигать элемент."; return; }
     if ((el = t.closest("[data-msreset]"))) { m.layout = { offsets: {} }; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
