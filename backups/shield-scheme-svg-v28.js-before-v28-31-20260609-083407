@@ -123,12 +123,9 @@
   function renderGost(svgEl, tree) {
     if (!svgEl || !tree) return;
     const HALO = 'paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round"';
-    let out = [], wires = [];
+    const out = [], wires = [];
     const COLW = 134, TOPY = 28, SYMH = 100;
-    const off = tree.offsets || {};
     const ln = (x1, y1, x2, y2, c = "#111", w = 2, d = "") => wires.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"${d ? ` stroke-dasharray="${d}"` : ""}/>`);
-    function blkOpen() { out = []; wires = []; }
-    function blkClose(id, extra) { const o = off[id]; const tr = (o && (o.x || o.y)) ? ` transform="translate(${o.x || 0},${o.y || 0})"` : ""; const s = `<g class="ep-blk" data-blk="${id}"${tr}>${wires.join("")}${out.join("")}${extra || ""}</g>`; out = []; wires = []; return s; }
 
     // ---- разбор дерева в шинную структуру ----
     const vvod = [];
@@ -202,29 +199,20 @@
     const totalW = Math.max(x + 92, 520);
     const vvodX = Math.round(totalW / 2);
 
-    // ВВОД (блок)
-    blkOpen();
     const busTop = chain(vvod, vvodX, TOPY);
     const BUS_Y = busTop + 8;
     ln(vvodX, busTop, vvodX, BUS_Y);
-    const vvodBlock = blkClose("vvod");
-
-    // ШИНА + подписи (корень, не перетаскивается)
+    if (tree.busbarCable) out.push(`<text x="76" y="${BUS_Y + 44}" font-size="10" fill="#0a7d33" ${HALO}>обвязка: ${esc(tree.busbarCable)}</text>`);
     const phase3 = (vvod[0] && vvod[0].poles === 3);
-    blkOpen();
     ln(72, BUS_Y, totalW - 28, BUS_Y, "#111", 3);
     ln(72, BUS_Y + 16, totalW - 28, BUS_Y + 16, "#16a34a", 3);
     out.push(`<text x="76" y="${BUS_Y - 6}" font-size="11" font-weight="bold" fill="#111">${phase3 ? "L1 L2 L3" : "L"}</text>`);
     out.push(`<text x="76" y="${BUS_Y + 30}" font-size="11" font-weight="bold" fill="#16a34a">PEN</text>`);
     out.push(`<text x="${totalW - 150}" y="${BUS_Y - 6}" font-size="10" fill="#666">~${phase3 ? "380" : "220"} В</text>`);
-    if (tree.busbarCable) out.push(`<text x="76" y="${BUS_Y + 44}" font-size="10" fill="#0a7d33" ${HALO}>обвязка: ${esc(tree.busbarCable)}</text>`);
-    const busBlock = wires.join("") + out.join(""); out = []; wires = [];
 
     let maxY = BUS_Y + 200;
-    const groupBlocks = [];
-    L.forEach((item, gi) => {
+    L.forEach(item => {
       const g = item.g;
-      blkOpen();
       const gParts = g.apps.concat(g.device ? [g.device] : []).concat(g.after || []);
       let subTop = BUS_Y;
       if (gParts.length) subTop = chain(gParts, item.feedX, BUS_Y);
@@ -234,8 +222,6 @@
         if (item.lineXs.length > 1) ln(item.lineXs[0], SUBBUS_Y, item.lineXs[item.lineXs.length - 1], SUBBUS_Y, "#111", 3);
         g.lines.forEach((li, i) => {
           const lx = item.lineXs[i];
-          const savedW = wires, savedO = out;
-          blkOpen();
           const lParts = [{ type: li.dev.type, id: li.dev.id, label: "", rating: li.rating, poles: li.poles }].concat(li.apps.map(a => ({ type: a.type, label: a.label, poles: a.poles })));
           const devBottom = chain(lParts, lx, SUBBUS_Y);
           const LOADGAP = 96;
@@ -244,13 +230,10 @@
           out.push(loadSvg(loadKind(li.name), lx, ly));
           if (li.name) out.push(`<text x="${lx}" y="${ly + 64}" font-size="10.5" text-anchor="middle" fill="#111" ${HALO}>${esc(li.name)}</text>`);
           if (li.cable) out.push(`<text transform="translate(${lx - 7},${ly - 10}) rotate(-90)" font-size="10" fill="#0a7d33" ${HALO}>${esc(li.cable)}</text>`);
-          const by = ly + 80; if (by > maxY) maxY = by;
-          const lineStr = blkClose("l:" + gi + ":" + i);
-          wires = savedW; out = savedO;
-          out.push(lineStr);
+          const by = ly + 80;
+          if (by > maxY) maxY = by;
         });
       } else if (subTop > maxY) maxY = subTop;
-      groupBlocks.push(blkClose("g:" + gi));
     });
 
     const H = maxY + 56, W = totalW;
@@ -260,7 +243,7 @@
 
     svgEl.setAttribute("width", W);
     svgEl.setAttribute("height", H);
-    svgEl.innerHTML = frame + busBlock + vvodBlock + groupBlocks.join("") + tb;
+    svgEl.innerHTML = wires.join("") + out.join("") + frame + tb;
   }
 
   window.ShieldSchemeSVG = { render, renderGost };
