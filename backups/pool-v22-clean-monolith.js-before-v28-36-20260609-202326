@@ -1033,7 +1033,7 @@
 
     if (window.Router && typeof window.Router.load === "function") {
       try {
-        window.Router.load("main");
+        window.Router.load("home");
         return true;
       } catch (e) {}
     }
@@ -1105,7 +1105,7 @@
 
     if (window.Router && typeof window.Router.load === "function") {
       try {
-        window.Router.load("main");
+        window.Router.load("home");
       } catch (e) {}
     }
 
