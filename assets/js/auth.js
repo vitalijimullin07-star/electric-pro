@@ -4,6 +4,8 @@
 
   let currentUser = null;
   let authReady = false;
+  let isRestoring = false;
+  let restoreTimeout = null;
 
   function showLogin() {
     document.getElementById("appShell")?.classList.add("hidden");
@@ -26,9 +28,14 @@
     document.getElementById("sideMasterName").textContent = name;
     document.getElementById("sideMasterRole").textContent = currentUser.role || "master";
 
-    window.Router?.load("main", { replace: true });
-    window.SyncAPI?.start?.();
-    setTimeout(() => window.EP_UPDATE_ADMIN_BUTTON?.(), 150);
+    requestAnimationFrame(() => {
+      window.Router?.load("main", { replace: true });
+    });
+
+    requestAnimationFrame(() => {
+      window.SyncAPI?.start?.();
+      setTimeout(() => window.EP_UPDATE_ADMIN_BUTTON?.(), 150);
+    });
   }
 
   function isAdminEmail(user) {
@@ -44,12 +51,35 @@
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
-      await db.collection("sync_versions").doc("global").set({
-        serverDbVersion: 0,
-        logicVersion: 0,
-        templatesVersion: 0,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      const syncRef = db.collection("sync_versions").doc("global");
+      const syncSnap = await syncRef.get();
+
+      if (!syncSnap.exists) {
+        await syncRef.set({
+          serverDbVersion: 0,
+          logicVersion: 0,
+          templatesVersion: 0,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        window.Diagnostics?.ok?.({
+          file: FILE,
+          module: "Auth",
+          functionName: "seedAdminMeta()",
+          place: "sync_versions",
+          code: "sync-versions-created",
+          message: "sync_versions инициализирована первый раз."
+        });
+      } else {
+        window.Diagnostics?.ok?.({
+          file: FILE,
+          module: "Auth",
+          functionName: "seedAdminMeta()",
+          place: "sync_versions",
+          code: "sync-versions-exists",
+          message: "sync_versions уже существует, не перезаписываем."
+        });
+      }
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -62,8 +92,46 @@
     }
   }
 
+  async function seedAdminMetaDeferred(db, uid) {
+    if (window.RequestIdleCallback && typeof requestIdleCallback === "function") {
+      requestIdleCallback(() => seedAdminMeta(db), { timeout: 8000 });
+    } else {
+      setTimeout(() => seedAdminMeta(db), 2000);
+    }
+  }
+
   async function loadProfileOrCreate(user, mode = "login") {
     try {
+      if (isRestoring) {
+        return;
+      }
+
+      if (window.__authRestoreLock) {
+        return;
+      }
+
+      isRestoring = true;
+      window.__authRestoreLock = true;
+
+      restoreTimeout = setTimeout(() => {
+        if (isRestoring) {
+          isRestoring = false;
+          window.__authRestoreLock = false;
+          clearTimeout(restoreTimeout);
+
+          window.Diagnostics?.error?.({
+            file: FILE,
+            module: "Auth",
+            functionName: "loadProfileOrCreate()",
+            place: "Firestore timeout",
+            code: "firestore-timeout",
+            message: "Firestore операция заняла > 10 сек. Вход отменён."
+          });
+
+          showLogin();
+        }
+      }, 10000);
+
       if (!window.ServerAPI?.isReady?.()) {
         await window.ServerAPI.initFirebase();
       }
@@ -91,7 +159,7 @@
           };
 
           await ref.set(adminProfile);
-          await seedAdminMeta(db);
+          seedAdminMetaDeferred(db, user.uid);
 
           window.Diagnostics?.ok?.({
             file: FILE,
@@ -111,6 +179,9 @@
             profile: adminProfile
           });
 
+          clearTimeout(restoreTimeout);
+          isRestoring = false;
+          window.__authRestoreLock = false;
           return;
         }
 
@@ -118,6 +189,9 @@
           alert("Пользователь не зарегистрирован. Нажми «Регистрация».");
           await firebase.auth().signOut();
           showLogin();
+          clearTimeout(restoreTimeout);
+          isRestoring = false;
+          window.__authRestoreLock = false;
           return;
         }
 
@@ -149,13 +223,16 @@
         alert("Регистрация отправлена. Доступ ожидает одобрения администратора.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
+        isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
       const profile = snap.data() || {};
 
       if (adminByEmail && profile.role !== "admin") {
-        await ref.set({
+        const updatePayload = {
           uid: user.uid,
           email: user.email || ADMIN_EMAIL,
           name: profile.name || user.displayName || "Виталий Имуллин",
@@ -165,7 +242,14 @@
           status: "approved",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+        await ref.set(updatePayload, { merge: true });
+        profile.role = "admin";
+        profile.isAdmin = true;
+        profile.isApproved = true;
+        profile.status = "approved";
+        profile.name = updatePayload.name;
+        profile.email = updatePayload.email;
       } else {
         await ref.set({
           lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -173,27 +257,27 @@
         }, { merge: true });
       }
 
-      const freshSnap = await ref.get();
-      const fresh = freshSnap.data() || profile;
-
       const isAdmin =
-        fresh.role === "admin" ||
-        fresh.isAdmin === true ||
+        profile.role === "admin" ||
+        profile.isAdmin === true ||
         adminByEmail;
 
       const blocked =
-        fresh.status === "blocked" ||
-        fresh.blocked === true;
+        profile.status === "blocked" ||
+        profile.blocked === true;
 
       const approved =
         isAdmin ||
-        fresh.isApproved === true ||
-        fresh.status === "approved";
+        profile.isApproved === true ||
+        profile.status === "approved";
 
       if (blocked) {
         alert("Доступ заблокирован.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
+        isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
@@ -201,19 +285,22 @@
         alert("Пользователь найден, но доступ ещё не одобрен администратором.");
         await firebase.auth().signOut();
         showLogin();
+        clearTimeout(restoreTimeout);
+        isRestoring = false;
+        window.__authRestoreLock = false;
         return;
       }
 
       if (isAdmin) {
-        await seedAdminMeta(db);
+        seedAdminMetaDeferred(db, user.uid);
       }
 
       showApp({
         uid: user.uid,
         email: user.email || "",
-        displayName: fresh.name || user.displayName || "Мастер",
-        role: isAdmin ? "admin" : (fresh.role || "master"),
-        profile: fresh
+        displayName: profile.name || user.displayName || "Мастер",
+        role: isAdmin ? "admin" : (profile.role || "master"),
+        profile: profile
       });
 
       window.Diagnostics?.ok?.({
@@ -225,6 +312,10 @@
         message: isAdmin ? "Администратор вошёл." : "Мастер вошёл и одобрен.",
         firebaseText: "онлайн"
       });
+
+      clearTimeout(restoreTimeout);
+      isRestoring = false;
+      window.__authRestoreLock = false;
     } catch (error) {
       window.Diagnostics?.error?.({
         file: FILE,
@@ -237,6 +328,9 @@
 
       window.AppShell?.openDiagnostics?.();
       showLogin();
+      clearTimeout(restoreTimeout);
+      isRestoring = false;
+      window.__authRestoreLock = false;
     }
   }
 
@@ -324,6 +418,10 @@
       }
 
       currentUser = null;
+      isRestoring = false;
+      window.__authRestoreLock = false;
+      clearTimeout(restoreTimeout);
+
       showLogin();
 
       window.Diagnostics?.wait?.({
@@ -348,6 +446,8 @@
   }
 
   function init() {
+    window.__authRestoreLock = window.__authRestoreLock || false;
+
     document.getElementById("googleLoginBtn")?.addEventListener("click", () => googleFlow("login"));
     document.getElementById("registerGoogleBtn")?.addEventListener("click", () => googleFlow("register"));
 

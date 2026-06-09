@@ -1,7 +1,8 @@
 (function(){
   const FILE="assets/js/auth-v21-19-auto-restore.js";
-  const VERSION="V21.19";
+  const VERSION="V21.19-V28.31-PerfSafe";
   let listenerSet=false;
+  let restoreExecuted=false;
   let __authV2119LastRestoreLog=0;
   let __authV2119LastPersistenceLog=0;
 
@@ -125,16 +126,14 @@
   }
 
   function restore(user,source){
-    if(!user) return false;
+    if(!user || restoreExecuted) return false;
+    restoreExecuted=true;
     remember(user);
     updateUserText(user);
     hideLogin();
     showApp();
     const opened=callMain(user);
-    setTimeout(()=>{hideLogin();showApp();updateUserText(user);},150);
-    setTimeout(()=>{hideLogin();showApp();updateUserText(user);},700);
-    setTimeout(()=>{hideLogin();showApp();updateUserText(user);},1600);
-    {const now=Date.now();if(now-__authV2119LastRestoreLog>4000){__authV2119LastRestoreLog=now;diag("ok","auth-restored","Вход восстановлен после обновления страницы.",{uid:user.uid||"",email:user.email||"",source,opened});}}
+    {const now=Date.now();if(now-__authV2119LastRestoreLog>4000){__authV2119LastRestoreLog=now;diag("ok","auth-restored","Вход восстановлен (источник: "+source+", функция: "+opened+")");}}
     return true;
   }
 
@@ -172,22 +171,8 @@
     bindListener();
     tryNow();
 
-    let ticks=0;
-    const timer=setInterval(()=>{
-      ticks++;
-      setLocalPersistence();
-      bindListener();
-      const user=getUser();
-      if(user) restore(user,"guard");
-      if(ticks>24) clearInterval(timer);
-    },500);
-
-    document.addEventListener("click",()=>{
-      setTimeout(()=>{ const user=getUser(); if(user) restore(user,"after-click"); },1200);
-    },true);
-
     window.AuthV2119AutoRestore={version:VERSION,restore,getUser,setLocalPersistence};
-    diag("ok","auth-v21-19-ready","Auth V21.19 auto restore ready.");
+    diag("ok","auth-v21-19-ready","Auth V21.19 (V28.31 PerfSafe) ready - no loops, no click listener.");
   }
 
   window.addEventListener("DOMContentLoaded",init);
