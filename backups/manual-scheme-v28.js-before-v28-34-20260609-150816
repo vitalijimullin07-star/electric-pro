@@ -104,19 +104,6 @@
   function locFromRef(ref) { const p = String(ref).split(":"); const g = m.groups[+p[0]]; if (!g) return { arr: null, idx: -1 }; if (p[1] === "b") return { arr: g.apps, idx: +p[2] }; if (p[1] === "a") return { arr: g.appsAfter, idx: +p[2] }; const ln = g.lines && g.lines[+p[1]]; return { arr: ln ? ln.apps : null, idx: +p[2] }; }
   function listFromDragRef(ref) { if (ref === "ap") return m.apparatusOrder; const p = String(ref).split(":"); if (p[0] === "g") { const g = m.groups[+p[1]]; return g ? (p[2] === "b" ? g.apps : g.appsAfter) : null; } if (p[0] === "l") { const g = m.groups[+p[1]]; const ln = g && g.lines[+p[2]]; return ln ? ln.apps : null; } return null; }
   function reSync() { if (isFs()) renderPreview(); else render(); }
-  function vreorder(ref, dir) {
-    const p = String(ref).split(":");
-    if (p[0] === "ap") return reorderInput(p[1], dir);
-    let arr = null, idx = -1;
-    const g = m.groups[+p[1]];
-    if (p[0] === "gb") { arr = g && g.apps; idx = +p[2]; }
-    else if (p[0] === "ga") { arr = g && g.appsAfter; idx = +p[2]; }
-    else if (p[0] === "la") { const ln = g && g.lines && g.lines[+p[2]]; arr = ln && ln.apps; idx = +p[3]; }
-    if (!arr || idx < 0) return;
-    const j = dir === "up" ? idx - 1 : idx + 1; if (j < 0 || j >= arr.length) return;
-    const t2 = arr[idx]; arr[idx] = arr[j]; arr[j] = t2;
-    save(m); reSync();
-  }
   function reorderInput(key, dir) {
     const full = m.apparatusOrder || [];
     const isInline = k => { const a = APPAR.find(x => x.key === k); return !!(a && a.inline && m.apparatus[k]); };
@@ -145,9 +132,8 @@
     return `<span class="ms-app-chip" data-drag="${dragRef}" data-dragkey="${key}"><i class="ms-chgrip" data-draghandle title="Перетащить">⠿</i><i class="ms-chmv${idx === 0 ? " ms-chdis" : ""}" data-apmv="${ref}:-1" title="Левее">◀</i><span class="ms-chnm">${esc(appMeta(key).title)}</span><i class="ms-chmv${idx >= total - 1 ? " ms-chdis" : ""}" data-apmv="${ref}:1" title="Правее">▶</i><i class="ms-chx" data-aprm="${ref}" title="Убрать">✕</i></span>`;
   }
   function appNode(key, poles, role) { const a = appMeta(key); return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: poles || 1, role: role || null, children: [] }; }
-  function tagReorder(n, refPrefix, i, total) { if (refPrefix) { n.reorder = refPrefix + ":" + i; n.canUp = i > 0; n.canDown = i < total - 1; } return n; }
-  function chainTo(keys, tail, poles, refPrefix) { keys = keys || []; const ns = keys.map((k, i) => tagReorder(appNode(k, poles), refPrefix, i, keys.length)); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; }
-  function chainAfter(device, keys, tail, poles, refPrefix) { keys = keys || []; if (!keys.length) { device.children = tail; return; } const ns = keys.map((k, i) => tagReorder(appNode(k, poles, "gapp"), refPrefix, i, keys.length)); for (let i = 0; i < ns.length; i++) ns[i].children = i + 1 < ns.length ? [ns[i + 1]] : tail; device.children = [ns[0]]; }
+  function chainTo(keys, tail, poles) { keys = keys || []; const ns = keys.map(k => appNode(k, poles)); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; }
+  function chainAfter(device, keys, tail, poles) { keys = keys || []; if (!keys.length) { device.children = tail; return; } const ns = keys.map(k => appNode(k, poles, "gapp")); for (let i = 0; i < ns.length; i++) ns[i].children = i + 1 < ns.length ? [ns[i + 1]] : tail; device.children = [ns[0]]; }
 
   function effPhase(p) { return m.input.phase === "3" ? (p === "3" ? 3 : 1) : 1; }
 
@@ -160,26 +146,26 @@
     const ordered = (m.apparatusOrder || []).map(k => APPAR.find(a => a.key === k)).filter(a => a && m.apparatus[a.key]);
     const inlineA = ordered.filter(a => a.inline);
     const branchA = ordered.filter(a => !a.inline);
-    const groupNodes = m.groups.map((g, gi) => {
+    const groupNodes = m.groups.map(g => {
       qd++;
       const gp = effPhase(g.phase);
-      const autom = (g.lines || []).map((l, li) => {
+      const autom = (g.lines || []).map(l => {
         qf++;
         const lp = effPhase(l.phase);
         const brk = { id: "QF" + qf, type: "mcb", label: l.name || "Линия", rating: l.nom || "", poles: lp, children: [] };
         const cab = cableShort(l);
-        if ((l.apps || []).length) { const load = { id: "", type: "load", label: "", rating: "", cable: cab, children: [] }; brk.children = [chainTo(l.apps, load, lp, "la:" + gi + ":" + li)]; }
+        if ((l.apps || []).length) { const load = { id: "", type: "load", label: "", rating: "", cable: cab, children: [] }; brk.children = [chainTo(l.apps, load, lp)]; }
         else { brk.cable = cab; }
         return brk;
       });
       const rcd = { id: "QD" + qd, type: g.kind === "dif" ? "rcbo" : "rcd", label: (g.title || "Группа") + " " + (g.leak || 30) + "мА" + (m.input.phase === "3" && g.phase !== "3" ? " · L" + (g.phaseSel || "1") : ""), rating: (g.rcdType || "A") + " " + (g.kind === "dif" ? (g.curve || "C") + " " : "") + (g.amp || 40) + "А/" + (g.leak || 30) + "мА", poles: gp, children: autom };
-      chainAfter(rcd, g.appsAfter || [], autom, gp, "ga:" + gi);
-      return chainTo(g.apps || [], rcd, gp, "gb:" + gi);
+      chainAfter(rcd, g.appsAfter || [], autom, gp);
+      return chainTo(g.apps || [], rcd, gp);
     });
     let rt, tail;
     if (inlineA.length) {
       const seg = m.input.segCables || {};
-      const nodes = inlineA.map((a, i) => ({ id: a.key === "vvod" ? "QF0" : "", type: a.sym, label: a.title.split(" ")[0], rating: a.key === "vvod" ? amp(m.input.amp) : "", poles: feedPoles, reorder: "ap:" + a.key, canUp: i > 0, canDown: i < inlineA.length - 1, children: [] }));
+      const nodes = inlineA.map(a => ({ id: a.key === "vvod" ? "QF0" : "", type: a.sym, label: a.title.split(" ")[0], rating: a.key === "vvod" ? amp(m.input.amp) : "", poles: feedPoles, key: a.key, children: [] }));
       for (let i = 0; i < nodes.length - 1; i++) { nodes[i].children = [nodes[i + 1]]; const c = seg[inlineA[i].key]; if (c) nodes[i].segCable = cableShort({ cable: c, cableLen: "" }); }
       rt = nodes[0]; tail = nodes[nodes.length - 1];
     } else {
@@ -209,7 +195,7 @@
       if (!isFs()) return;
       if (e.touches.length === 2) { mode = "pinch"; startDist = D(e.touches); startScale = scale; e.preventDefault(); }
       else if (e.touches.length === 1) {
-        if (e.target && e.target.closest && e.target.closest("[data-vreorder],[data-greorder],[data-lreorder]")) return;
+        if (e.target && e.target.closest && e.target.closest("[data-reorder],[data-greorder],[data-lreorder]")) return;
         mode = "pan"; sx = e.touches[0].clientX; sy = e.touches[0].clientY; sPanX = panX; sPanY = panY;
       }
     }, { passive: false });
@@ -422,7 +408,7 @@
     if ((el = t.closest("[data-fsclose]"))) { try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {} return; }
     if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
-    if ((el = t.closest("[data-vreorder]"))) { vreorder(el.getAttribute("data-vref"), el.getAttribute("data-vreorder")); return; }
+    if ((el = t.closest("[data-reorder]"))) { reorderInput(el.getAttribute("data-rkey"), el.getAttribute("data-reorder")); return; }
     if ((el = t.closest("[data-greorder]"))) { reorderGroup(+el.getAttribute("data-gi"), el.getAttribute("data-greorder")); return; }
     if ((el = t.closest("[data-lreorder]"))) { reorderLine(+el.getAttribute("data-gi"), +el.getAttribute("data-li"), el.getAttribute("data-lreorder")); return; }
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
