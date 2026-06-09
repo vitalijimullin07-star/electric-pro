@@ -86,7 +86,7 @@
   function load() { try { const m = JSON.parse(localStorage.getItem(KEY) || "null"); if (m && m.input && Array.isArray(m.groups)) return migrate(m); } catch (e) {} return def(); }
   function save(m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) {} }
 
-  let m = def(), root = null, scale = 1, panX = 0, panY = 0, view = "gost";
+  let m = def(), root = null, scale = 1, panX = 0, panY = 0, view = "gost", moveMode = false;
 
   function cableShort(l) {
     if (!l || !l.cable) return "";
@@ -103,7 +103,6 @@
   const APP_PICK = ["contactor", "uzm", "priority", "opn", "uzdp", "rubilnik", "phaseSwitch"];
   function locFromRef(ref) { const p = String(ref).split(":"); const g = m.groups[+p[0]]; if (!g) return { arr: null, idx: -1 }; if (p[1] === "b") return { arr: g.apps, idx: +p[2] }; if (p[1] === "a") return { arr: g.appsAfter, idx: +p[2] }; const ln = g.lines && g.lines[+p[1]]; return { arr: ln ? ln.apps : null, idx: +p[2] }; }
   function listFromDragRef(ref) { if (ref === "ap") return m.apparatusOrder; const p = String(ref).split(":"); if (p[0] === "g") { const g = m.groups[+p[1]]; return g ? (p[2] === "b" ? g.apps : g.appsAfter) : null; } if (p[0] === "l") { const g = m.groups[+p[1]]; const ln = g && g.lines[+p[2]]; return ln ? ln.apps : null; } return null; }
-  function reSync() { if (isFs()) renderPreview(); else render(); }
   function reorderInput(key, dir) {
     const full = m.apparatusOrder || [];
     const isInline = k => { const a = APPAR.find(x => x.key === k); return !!(a && a.inline && m.apparatus[k]); };
@@ -112,20 +111,7 @@
     const j = dir === "up" ? i - 1 : i + 1; if (j < 0 || j >= inlineKeys.length) return;
     const pa = full.indexOf(inlineKeys[i]), pb = full.indexOf(inlineKeys[j]); if (pa < 0 || pb < 0) return;
     const t2 = full[pa]; full[pa] = full[pb]; full[pb] = t2;
-    save(m); reSync();
-  }
-  function reorderGroup(gi, dir) {
-    const j = dir === "left" ? gi - 1 : gi + 1;
-    if (gi < 0 || gi >= m.groups.length || j < 0 || j >= m.groups.length) return;
-    const t2 = m.groups[gi]; m.groups[gi] = m.groups[j]; m.groups[j] = t2;
-    save(m); reSync();
-  }
-  function reorderLine(gi, li, dir) {
-    const g = m.groups[gi]; if (!g || !g.lines) return;
-    const j = dir === "left" ? li - 1 : li + 1;
-    if (li < 0 || li >= g.lines.length || j < 0 || j >= g.lines.length) return;
-    const t2 = g.lines[li]; g.lines[li] = g.lines[j]; g.lines[j] = t2;
-    save(m); reSync();
+    save(m); renderPreview();
   }
   function appMeta(key) { return APPAR.find(a => a.key === key) || { key, title: key, sym: "switch" }; }
   function appChip(key, ref, idx, total, dragRef) {
@@ -175,7 +161,7 @@
     const extra = branchA.map(a => ({ id: "", type: a.sym, label: a.title, rating: "", poles: 1, children: [] }));
     tail.children = groupNodes.concat(extra);
     rt.busbarCable = cableShort({ cable: m.input.cable, cableLen: m.input.cableLen });
-    rt.offsets = {};
+    rt.offsets = (m.layout && m.layout.offsets) || {};
     return rt;
   }
 
@@ -189,22 +175,25 @@
   function bindPan(box) {
     if (!box || box.dataset.panBound) return;
     box.dataset.panBound = "1";
-    let mode = null, startDist = 0, startScale = 1, sx = 0, sy = 0, sPanX = 0, sPanY = 0;
+    let mode = null, startDist = 0, startScale = 1, sx = 0, sy = 0, sPanX = 0, sPanY = 0, dragEl = null, dox = 0, doy = 0, dcur = null;
     const D = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    const offOf = el => { const id = el.getAttribute("data-blk"); const o = (m.layout && m.layout.offsets && m.layout.offsets[id]) || {}; return { x: o.x || 0, y: o.y || 0 }; };
     box.addEventListener("touchstart", e => {
       if (!isFs()) return;
       if (e.touches.length === 2) { mode = "pinch"; startDist = D(e.touches); startScale = scale; e.preventDefault(); }
       else if (e.touches.length === 1) {
-        if (e.target && e.target.closest && e.target.closest("[data-reorder],[data-greorder],[data-lreorder]")) return;
+        if (e.target && e.target.closest && e.target.closest("[data-reorder]")) return;
+        if (moveMode) { const blk = e.target.closest && e.target.closest("[data-blk]"); if (blk) { mode = "drag"; dragEl = blk; const o = offOf(blk); dox = o.x; doy = o.y; dcur = { x: dox, y: doy }; sx = e.touches[0].clientX; sy = e.touches[0].clientY; e.preventDefault(); return; } }
         mode = "pan"; sx = e.touches[0].clientX; sy = e.touches[0].clientY; sPanX = panX; sPanY = panY;
       }
     }, { passive: false });
     box.addEventListener("touchmove", e => {
       if (!isFs() || !mode) return;
       if (mode === "pinch" && e.touches.length === 2) { let ns = startScale * (D(e.touches) / (startDist || 1)); scale = Math.max(0.3, Math.min(5, ns)); applyPan(); e.preventDefault(); }
+      else if (mode === "drag" && dragEl) { const nx = dox + (e.touches[0].clientX - sx) / scale, ny = doy + (e.touches[0].clientY - sy) / scale; dcur = { x: nx, y: ny }; dragEl.setAttribute("transform", `translate(${nx},${ny})`); e.preventDefault(); }
       else if (mode === "pan" && e.touches.length >= 1) { panX = sPanX + (e.touches[0].clientX - sx); panY = sPanY + (e.touches[0].clientY - sy); applyPan(); e.preventDefault(); }
     }, { passive: false });
-    box.addEventListener("touchend", e => { if (e.touches.length === 0) mode = null; });
+    box.addEventListener("touchend", e => { if (e.touches.length === 0) { if (mode === "drag" && dragEl && dcur) { const id = dragEl.getAttribute("data-blk"); m.layout = m.layout || { offsets: {} }; m.layout.offsets = m.layout.offsets || {}; m.layout.offsets[id] = { x: Math.round(dcur.x), y: Math.round(dcur.y) }; save(m); } mode = null; dragEl = null; dcur = null; } });
   }
 
   function renderPreview() {
@@ -349,10 +338,12 @@
               <button type="button" class="ms-zoom" data-zoom="out" title="Меньше">−</button>
               <button type="button" class="ms-zoom" data-zoom="in" title="Больше">+</button>
               <button type="button" class="ms-zoom" data-zoom="reset" title="Сброс вида">⤢</button>
+              <button type="button" class="ms-zoom ms-movebtn${moveMode ? " on" : ""}" data-msmove title="Двигать элементы">✥</button>
+              <button type="button" class="ms-zoom" data-msreset title="Вернуть расстановку">⟲</button>
               <button type="button" class="ms-fsclose" data-fsclose title="Закрыть">✕</button>
             </div>
             <div class="ms-svg-pan" id="ms-svg-pan"><svg id="ms-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
-            <div class="ms-fs-hint">▲▼ у ввода и ◀▶ у групп/линий — менять порядок. Два пальца — масштаб, один — двигать всё.</div>
+            <div class="ms-fs-hint">${moveMode ? "✥ Режим перемещения: тяни элемент. Два пальца — масштаб." : "Два пальца — масштаб, один — двигать всё. ✥ — двигать элемент."}</div>
           </div>
         </div>
 
@@ -409,8 +400,8 @@
     if ((el = t.closest("[data-view]"))) { view = el.dataset.view === "tree" ? "tree" : "gost"; render(); return; }
     if ((el = t.closest("[data-zoom]"))) { const d = el.dataset.zoom; if (d === "reset") fitReset(); else { scale = d === "in" ? Math.min(5, scale + 0.25) : Math.max(0.3, scale - 0.25); applyPan(); } return; }
     if ((el = t.closest("[data-reorder]"))) { reorderInput(el.getAttribute("data-rkey"), el.getAttribute("data-reorder")); return; }
-    if ((el = t.closest("[data-greorder]"))) { reorderGroup(+el.getAttribute("data-gi"), el.getAttribute("data-greorder")); return; }
-    if ((el = t.closest("[data-lreorder]"))) { reorderLine(+el.getAttribute("data-gi"), +el.getAttribute("data-li"), el.getAttribute("data-lreorder")); return; }
+    if ((el = t.closest("[data-msmove]"))) { moveMode = !moveMode; el.classList.toggle("on", moveMode); const hint = document.querySelector(".ms-fs-hint"); if (hint) hint.textContent = moveMode ? "✥ Режим перемещения: тяни элемент. Два пальца — масштаб." : "Два пальца — масштаб, один — двигать всё. ✥ — двигать элемент."; return; }
+    if ((el = t.closest("[data-msreset]"))) { m.layout = { offsets: {} }; save(m); renderPreview(); return; }
     if ((el = t.closest("[data-addbrand]"))) { const name = (prompt("Название бренда:", "") || "").trim(); if (name) { addCustomBrand(name); m.brand = name; save(m); render(); } return; }
     if ((el = t.closest("[data-ap]"))) {
       const k = el.dataset.ap; m.apparatus[k] = !m.apparatus[k];
@@ -533,9 +524,6 @@
       root.addEventListener("pointermove", dragMove);
       root.addEventListener("pointerup", dragEnd);
       root.addEventListener("pointercancel", dragEnd);
-      const onFsChange = () => { if (!isFs()) render(); };
-      document.addEventListener("fullscreenchange", onFsChange);
-      document.addEventListener("webkitfullscreenchange", onFsChange);
       root.dataset.msBound = "1";
     }
     render();

@@ -224,21 +224,14 @@
     if (tree.busbarCable) out.push(`<text x="76" y="${BUS_Y + 44}" font-size="10" fill="#0a7d33" ${HALO}>обвязка: ${esc(tree.busbarCable)}</text>`);
     const busBlock = wires.join("") + out.join(""); out = []; wires = [];
 
-    function grbtn(dir, gi, bx, by) { const s = dir === "left" ? "◀" : "▶"; return `<g class="ep-rbtn" data-greorder="${dir}" data-gi="${gi}" opacity="0.4" style="cursor:pointer"><rect x="${bx}" y="${by}" width="22" height="17" rx="3.5" fill="#0f172a"/><text x="${bx + 11}" y="${by + 13}" font-size="12" fill="#fff" text-anchor="middle">${s}</text></g>`; }
-    function lrbtn(dir, gi, li, bx, by) { const s = dir === "left" ? "◀" : "▶"; return `<g class="ep-rbtn" data-lreorder="${dir}" data-gi="${gi}" data-li="${li}" opacity="0.4" style="cursor:pointer"><rect x="${bx}" y="${by}" width="22" height="17" rx="3.5" fill="#0f172a"/><text x="${bx + 11}" y="${by + 13}" font-size="12" fill="#fff" text-anchor="middle">${s}</text></g>`; }
-
     let maxY = BUS_Y + 200;
     const groupBlocks = [];
     L.forEach((item, gi) => {
       const g = item.g;
       blkOpen();
-      const GAP_G = 30, gTop = BUS_Y + GAP_G;
-      ln(item.feedX, BUS_Y, item.feedX, gTop);
-      if (gi > 0) out.push(grbtn("left", gi, item.feedX - 57, BUS_Y + 7));
-      if (gi < L.length - 1) out.push(grbtn("right", gi, item.feedX + 35, BUS_Y + 7));
       const gParts = g.apps.concat(g.device ? [g.device] : []).concat(g.after || []);
-      let subTop = gTop;
-      if (gParts.length) subTop = chain(gParts, item.feedX, gTop);
+      let subTop = BUS_Y;
+      if (gParts.length) subTop = chain(gParts, item.feedX, BUS_Y);
       const SUBBUS_Y = subTop + 8;
       if (g.lines.length) {
         ln(item.feedX, subTop, item.feedX, SUBBUS_Y);
@@ -247,12 +240,8 @@
           const lx = item.lineXs[i];
           const savedW = wires, savedO = out;
           blkOpen();
-          const GAP_L = 24, lTop = SUBBUS_Y + GAP_L;
-          ln(lx, SUBBUS_Y, lx, lTop);
-          if (i > 0) out.push(lrbtn("left", gi, i, lx - 53, SUBBUS_Y + 4));
-          if (i < g.lines.length - 1) out.push(lrbtn("right", gi, i, lx + 31, SUBBUS_Y + 4));
           const lParts = [{ type: li.dev.type, id: li.dev.id, label: "", rating: li.rating, poles: li.poles }].concat(li.apps.map(a => ({ type: a.type, label: a.label, poles: a.poles })));
-          const devBottom = chain(lParts, lx, lTop);
+          const devBottom = chain(lParts, lx, SUBBUS_Y);
           const LOADGAP = 96;
           ln(lx, devBottom, lx, devBottom + LOADGAP);
           const ly = devBottom + LOADGAP;
