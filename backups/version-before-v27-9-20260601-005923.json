@@ -1,5 +1,0 @@
-{
-  "version": "V27.9",
-  "updatedAt": "2026-06-01T03:00:00.000Z",
-  "note": "V27.9 File-manager picker: rebuilt Work/Materials folder navigation as a clean file manager - one solid panel, divider rows, chevrons, nested subfolders with indentation. Fixes overlapping/cramped folders from V27.7."
-}

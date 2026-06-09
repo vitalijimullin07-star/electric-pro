@@ -1,1 +1,0 @@
-{"version":"V28.4-5","updatedAt":"2026-06-02T14:00:00.000Z","note":"V28.4-5 Shield single-line scheme now uses the SVG engine adapted from user's scheme.html (real UGO symbols, bus, terminals, cross-module). Scheme tree is auto-built from the configured shield (input -> relay/SPD/meter -> groups RCD/diff -> breaker lines with QF/QD designations)."}

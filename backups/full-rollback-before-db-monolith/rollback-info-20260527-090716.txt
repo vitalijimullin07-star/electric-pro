@@ -1,7 +1,0 @@
-Rollback time: 20260527-090716
-Backup branch: backup-broken-v25-before-rollback-20260527-090716
-Rollback target: 54d55fe
-Target:
-54d55fe Improve database import and autosave V24.3.3
-
-This commit restores the whole tracked project tree to the last stable point before database monolith.

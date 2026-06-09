@@ -1,5 +1,0 @@
-{
-  "version": "v27-3-active-base-lock-20260528-01",
-  "updatedAt": "2026-05-29T00:24:18.801911",
-  "note": "V27.3: active DB base lock. V26 key epdb26_active_base is priority; DB server selection is mirrored to V27 picker."
-}

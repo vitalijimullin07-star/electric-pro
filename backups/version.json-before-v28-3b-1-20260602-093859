@@ -1,1 +1,0 @@
-{"version":"V28.5.1","updatedAt":"2026-06-01T10:00:00.000Z","note":"V28.5.1 Shield UX: collapsible settings keep open state when changing a parameter (no more auto-collapse); draft lines are tappable to replace the matched breaker with another matching item from the DB (alternatives list)."}

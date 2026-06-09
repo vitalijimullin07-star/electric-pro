@@ -1,1 +1,0 @@
-{"version":"V28.4-7","updatedAt":"2026-06-02T15:00:00.000Z","note":"V28.4-7 Shield scheme fix: symbols drawn inline (no <use>/<symbol>) with explicit fill=none/stroke attributes, so RCD toroid and release rectangles no longer render as solid black. GOST-style contact UGO retained (MCB, RCD, RCBO, switch, contactor, voltage relay, meter, SPD)."}

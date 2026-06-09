@@ -1,5 +1,0 @@
-{
-  "version": "V26.17.1",
-  "updatedAt": "2026-05-28T23:30:40.096795",
-  "note": "Fix active DB source for Main Materials/Work picker and remove false Material click from preliminary estimate."
-}

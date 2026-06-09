@@ -1,5 +1,0 @@
-{
-  "version": "v26-10-db-cloud-sync-20260528-01",
-  "updatedAt": "2026-05-28T21:21:18.005401",
-  "note": "DB cloud sync fix: local changes upload correctly; newer remote DB after local clear is accepted on second devices."
-}
