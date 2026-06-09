@@ -123,7 +123,6 @@
   function renderGost(svgEl, tree) {
     if (!svgEl || !tree) return;
     const HALO = 'paint-order="stroke" stroke="#fff" stroke-width="3" stroke-linejoin="round"';
-    const interactive = !!tree.interactive;
     let out = [], wires = [];
     const COLW = 134, TOPY = 28, SYMH = 100;
     const off = tree.offsets || {};
@@ -185,7 +184,7 @@
         if (p.id) out.push(`<text x="${x + 26}" y="${y + 16}" font-size="11" font-weight="bold" fill="#111" ${HALO}>${esc(p.id)}</text>`);
         if (p.label) out.push(`<text x="${x + 26}" y="${y + 38}" font-size="10.5" fill="#444" ${HALO}>${esc(p.label)}</text>`);
         if (p.rating) out.push(`<text x="${x + 26}" y="${y + 54}" font-size="12" font-weight="bold" fill="#0056b3" ${HALO}>${esc(p.rating)}</text>`);
-        if (interactive && p.reorder) {
+        if (p.reorder) {
           if (p.canUp) out.push(`<g class="ep-rbtn" data-vreorder="up" data-vref="${esc(p.reorder)}" opacity="0.4" style="cursor:pointer"><rect x="${x - 53}" y="${y + 18}" width="22" height="17" rx="3.5" fill="#0f172a"/><text x="${x - 42}" y="${y + 31}" font-size="12" fill="#fff" text-anchor="middle">▲</text></g>`);
           if (p.canDown) out.push(`<g class="ep-rbtn" data-vreorder="down" data-vref="${esc(p.reorder)}" opacity="0.4" style="cursor:pointer"><rect x="${x - 53}" y="${y + 39}" width="22" height="17" rx="3.5" fill="#0f172a"/><text x="${x - 42}" y="${y + 52}" font-size="12" fill="#fff" text-anchor="middle">▼</text></g>`);
         }
@@ -235,8 +234,8 @@
       blkOpen();
       const GAP_G = 30, gTop = BUS_Y + GAP_G;
       ln(item.feedX, BUS_Y, item.feedX, gTop);
-      if (interactive && gi > 0) out.push(grbtn("left", gi, item.feedX - 57, BUS_Y + 7));
-      if (interactive && gi < L.length - 1) out.push(grbtn("right", gi, item.feedX + 35, BUS_Y + 7));
+      if (gi > 0) out.push(grbtn("left", gi, item.feedX - 57, BUS_Y + 7));
+      if (gi < L.length - 1) out.push(grbtn("right", gi, item.feedX + 35, BUS_Y + 7));
       const gParts = g.apps.concat(g.device ? [g.device] : []).concat(g.after || []);
       let subTop = gTop;
       if (gParts.length) subTop = chain(gParts, item.feedX, gTop);
@@ -250,8 +249,8 @@
           blkOpen();
           const GAP_L = 24, lTop = SUBBUS_Y + GAP_L;
           ln(lx, SUBBUS_Y, lx, lTop);
-          if (interactive && i > 0) out.push(lrbtn("left", gi, i, lx - 53, SUBBUS_Y + 4));
-          if (interactive && i < g.lines.length - 1) out.push(lrbtn("right", gi, i, lx + 31, SUBBUS_Y + 4));
+          if (i > 0) out.push(lrbtn("left", gi, i, lx - 53, SUBBUS_Y + 4));
+          if (i < g.lines.length - 1) out.push(lrbtn("right", gi, i, lx + 31, SUBBUS_Y + 4));
           const lParts = [{ type: li.dev.type, id: li.dev.id, label: "", rating: li.rating, poles: li.poles }].concat(li.apps.map(a => ({ type: a.type, label: a.label, poles: a.poles, reorder: a.reorder, canUp: a.canUp, canDown: a.canDown })));
           const devBottom = chain(lParts, lx, lTop);
           const LOADGAP = 96;

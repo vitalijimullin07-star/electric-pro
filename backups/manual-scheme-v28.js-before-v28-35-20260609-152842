@@ -190,7 +190,6 @@
     tail.children = groupNodes.concat(extra);
     rt.busbarCable = cableShort({ cable: m.input.cable, cableLen: m.input.cableLen });
     rt.offsets = {};
-    rt.interactive = true;
     return rt;
   }
 

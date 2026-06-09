@@ -440,30 +440,16 @@
     const app = selectedApparatus();
     const hasLight = draft.groups.some(g => g.key === "light");
     const masterKM = cfg.opts.master && hasLight;
-    const APPSYM = {}; APPARATUS.forEach(a => APPSYM[a.key] = { sym: a.symbol, title: a.title });
-    const appNodeC = (key, poles, role) => { const a = APPSYM[key] || { sym: "default", title: key }; return { id: "", type: a.sym, label: a.title.split(" ")[0], rating: "", poles: poles || 1, role: role || null, children: [] }; };
-    const chainToC = (keys, tail, poles) => { keys = keys || []; const ns = keys.map(k => appNodeC(k, poles)); for (let i = 0; i < ns.length; i++) ns[i].children = [i + 1 < ns.length ? ns[i + 1] : tail]; return ns.length ? ns[0] : tail; };
-    const chainAfterC = (device, keys, tail, poles) => { keys = keys || []; if (!keys.length) { device.children = tail; return; } const ns = keys.map(k => appNodeC(k, poles, "gapp")); for (let i = 0; i < ns.length; i++) ns[i].children = i + 1 < ns.length ? [ns[i + 1]] : tail; device.children = [ns[0]]; };
     const groupNodes = draft.groups.map(g => {
       qd++;
       const gp = effP(g.phase);
-      const autom = g.lines.map(l => {
-        qf++;
-        const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : "";
-        const lp = effP(l.phase);
-        const brk = { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), poles: lp, children: [] };
-        if ((l.apps || []).length) { const load = { id: "", type: "load", label: "", rating: "", cable: cab, children: [] }; brk.children = [chainToC(l.apps, load, lp)]; }
-        else { brk.cable = cab; }
-        return brk;
-      });
+      const autom = g.lines.map(l => { qf++; const cab = (l.cable && window.EPCableV28) ? (() => { let s = window.EPCableV28.resolveByValue(l.cable).label.replace(/^Кабель\s+/i, ""); if (s.length > 20) s = s.slice(0, 19) + "…"; const ln = Number(l.cableLen) || 0; return s + (ln > 0 ? " · " + ln + "м" : ""); })() : ""; return { id: "QF" + qf, type: "mcb", label: l.name, rating: amp(l.nom), cable: cab, poles: effP(l.phase), children: [] }; });
       const qdNode = { id: "QD" + qd, type: g.prot.kind === "dif" ? "rcbo" : "rcd", label: g.title + " " + g.leak + "мА", rating: (g.rcdType || "A") + " " + (g.prot.kind === "dif" && g.curve ? g.curve + " " : "") + (g.amp || 40) + "А/" + g.leak + "мА", poles: gp, children: autom };
       // мастер-контактор: между УЗО/диф освещения и автоматами освещения
       if (g.key === "light" && masterKM) {
         qdNode.children = [{ id: "KM1", type: "contactor", label: "Контактор (мастер)", rating: "", poles: gp, children: autom }];
-      } else {
-        chainAfterC(qdNode, g.appsAfter || [], autom, gp);
       }
-      return chainToC(g.apps || [], qdNode, gp);
+      return qdNode;
     });
     // верхняя цепочка ввода (мастер-контактор сюда НЕ входит — он в ветке освещения)
     const inline = app.filter(a => a.place === "inline" && !(a.key === "contactor" && masterKM));
@@ -876,7 +862,7 @@
     if (railOpen && railView === "scheme" && window.ShieldSchemeSVG) {
       const svgEl = document.getElementById("shv28-scheme-svg");
       const tree = buildSchemeTree(cfg.draft);
-      if (svgEl && tree) (window.ShieldSchemeSVG.renderGost || window.ShieldSchemeSVG.render)(svgEl, tree);
+      if (svgEl && tree) window.ShieldSchemeSVG.render(svgEl, tree);
     }
   }
 
