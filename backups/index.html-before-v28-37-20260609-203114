@@ -54,7 +54,7 @@
 
 
 
-  <script defer src="assets/js/router.js?v=v28-37-route-normalize-20260609-01"></script>
+  <script defer src="assets/js/router.js?v=v28-2-shield-configurator-20260601-01"></script>
   <script defer src="assets/js/app-shell.js?v=v24-3-3-db-import-autosave-20260525-01"></script>
   <link rel="stylesheet" href="assets/css/ui-fixes-v12.css?v=v24-3-3-db-import-autosave-20260525-01">
   <link rel="stylesheet" href="modules/shield/shield-configurator-v28.css?v=v28-14-manual-scheme-20260604-01">
