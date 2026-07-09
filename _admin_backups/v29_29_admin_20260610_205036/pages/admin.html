@@ -1,0 +1,34 @@
+<section class="page admin-page" id="adminV15Page">
+  <div class="page-head">
+    <h1>Админ-панель</h1>
+    <p>Подписки, базы мастеров, бухгалтерия, журналы, черновики и PDF.</p>
+  </div>
+
+  <div class="admin-v15-home card">
+    <div class="admin-v15-grid">
+      <button class="btn btn-primary ep-clickable is-selected" data-admin-v15-section="subscription">Управление подпиской</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="serverdb">Просмотр баз данных</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="personaldb">Просмотр личных баз</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="accounting">Просмотр бухгалтерии</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="logs">Журнал событий после входа</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="drafts">Черновики</button>
+      <button class="btn btn-ghost ep-clickable" data-admin-v15-section="pdf">Сохранённые печати / PDF</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="admin-v15-head-row">
+      <div>
+        <h3 id="adminV15SectionTitle">Управление подпиской</h3>
+        <p id="adminV15SectionHint">Выбери мастера и настрой подписку, срок, API и баланс.</p>
+      </div>
+      <button id="adminV15RefreshBtn" class="btn btn-primary ep-clickable">Обновить</button>
+    </div>
+    <div class="admin-v15-master-row">
+      <select id="adminV15MasterSelect"><option value="">Загрузка мастеров...</option></select>
+    </div>
+    <div id="adminV15Content" class="admin-v15-content">
+      <div class="admin-empty">Выбери мастера.</div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,125 @@
+/* Electric Pro — POOL UI V29 (черновой визуал) */
+.pv29 { padding: 10px 12px 90px; color: var(--text, #0f172a); font: 400 14px/1.45 system-ui, -apple-system, sans-serif; }
+.pv29-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
+.pv29-head h2 { margin: 0; font: 800 19px/1.2 system-ui; }
+.pv29-ver { font: 600 10px/1 system-ui; color: var(--muted, #94a3b8); }
+
+.pv29-card { background: rgba(var(--card-bg-rgb, 255,255,255), .9); border: 1px solid rgba(120,130,150,.18); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+.pv29-card > summary { font: 700 14px/1.2 system-ui; cursor: pointer; list-style: none; padding: 2px 0; }
+.pv29-card > summary::-webkit-details-marker { display: none; }
+.pv29-card > summary::before { content: "▸ "; color: var(--accent, #7c3aed); }
+.pv29-card[open] > summary::before { content: "▾ "; }
+
+.pv29-hint { color: var(--muted, #94a3b8); font-size: 13px; padding: 6px 2px; }
+.pv29-lab { font: 600 12px/1 system-ui; color: var(--muted, #94a3b8); display: block; margin: 6px 0 4px; }
+
+/* настройки */
+.pv29-set { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.pv29-field { display: flex; flex-direction: column; gap: 5px; }
+.pv29-field > span { font: 600 12px/1 system-ui; color: var(--muted, #94a3b8); }
+.pv29-field input { border: 1px solid rgba(120,130,150,.35); border-radius: 9px; padding: 9px 11px; font: 600 14px/1 system-ui; background: rgba(var(--card-bg-rgb,255,255,255),.6); color: var(--text,#0f172a); }
+
+/* сегменты-кнопки */
+.pv29-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv29-seg button, .pv29-mats button, .pv29-heights button { border: 1px solid rgba(120,130,150,.35); background: rgba(var(--card-bg-rgb,255,255,255),.5); color: var(--text,#0f172a); border-radius: 9px; padding: 8px 12px; font: 600 13px/1 system-ui; cursor: pointer; }
+.pv29-seg button.on, .pv29-mats button.on, .pv29-heights button.on { background: var(--accent, #7c3aed); color: #fff; border-color: var(--accent, #7c3aed); }
+.pv29-row2 { margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pv29-heights { align-items: center; }
+.pv29-hcustom { width: 70px; border: 1px solid rgba(120,130,150,.35); border-radius: 9px; padding: 8px; font: 600 13px/1 system-ui; background: rgba(var(--card-bg-rgb,255,255,255),.6); color: var(--text,#0f172a); }
+
+/* счётчики */
+.pv29-counters { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0; }
+.pv29-counter { border: 1px solid rgba(120,130,150,.22); border-radius: 11px; padding: 8px; background: rgba(var(--card-bg-rgb,255,255,255),.4); }
+.pv29-counter-top { display: flex; justify-content: space-between; align-items: center; font: 600 13px/1.1 system-ui; }
+.pv29-counter-top b { font: 800 16px/1 system-ui; color: var(--accent, #7c3aed); }
+.pv29-counter-btns { display: flex; gap: 6px; margin-top: 7px; }
+.pv29-counter-btns button { flex: 1; border: 0; border-radius: 8px; padding: 7px; font: 800 16px/1 system-ui; cursor: pointer; background: rgba(120,130,150,.16); color: var(--text,#0f172a); }
+.pv29-keys { display: flex; gap: 5px; margin-top: 6px; }
+.pv29-keys button { flex: 1; border: 1px solid rgba(120,130,150,.3); border-radius: 7px; padding: 5px; font: 600 11px/1 system-ui; background: transparent; color: var(--text,#0f172a); cursor: pointer; }
+.pv29-keys button.on { background: var(--accent,#7c3aed); color: #fff; border-color: var(--accent,#7c3aed); }
+
+/* отдельные линии */
+.pv29-ded { margin: 6px 0; }
+.pv29-dedbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv29-dedbtn { border: 1px dashed rgba(124,58,237,.5); background: rgba(124,58,237,.06); color: var(--accent,#7c3aed); border-radius: 9px; padding: 7px 10px; font: 600 12px/1 system-ui; cursor: pointer; }
+
+.pv29-add { width: 100%; margin-top: 10px; border: 0; border-radius: 11px; padding: 12px; font: 800 14px/1 system-ui; cursor: pointer; background: var(--accent, #7c3aed); color: #fff; }
+
+/* блоки */
+.pv29-blockshead, .pv29-drafthead { font: 700 13px/1.2 system-ui; margin: 2px 0 8px; color: var(--muted,#94a3b8); text-transform: uppercase; letter-spacing: .03em; }
+.pv29-drafthead { margin-top: 12px; }
+.pv29-block { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(120,130,150,.14); font-size: 13px; }
+.pv29-block:last-child { border-bottom: 0; }
+.pv29-del { border: 0; background: rgba(220,60,60,.12); color: #dc3c3c; border-radius: 7px; width: 26px; height: 26px; font: 700 13px/1 system-ui; cursor: pointer; flex: none; }
+
+/* итоги по материалам */
+.pv29-matrow { display: flex; flex-direction: column; gap: 2px; padding: 7px 4px; border-bottom: 1px dashed rgba(120,130,150,.14); }
+.pv29-matrow b { font: 700 13px/1 system-ui; }
+.pv29-matrow span { font: 500 12px/1.3 system-ui; color: var(--muted,#94a3b8); }
+
+/* черновик-строки */
+.pv29-draftrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px; border-bottom: 1px solid rgba(120,130,150,.12); }
+.pv29-draftname { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pv29-draftname span { font: 600 13px/1.25 system-ui; }
+.pv29-draftname small { font: 500 11px/1 system-ui; color: var(--muted,#94a3b8); margin-top: 2px; }
+.pv29-priced { flex: none; text-align: right; white-space: nowrap; }
+.pv29-priced b { display: block; font: 800 13px/1.1 system-ui; white-space: nowrap; }
+.pv29-priced small { font: 500 10px/1 system-ui; color: var(--muted,#94a3b8); }
+.pv29-dbbtn { flex: none; border: 1px solid rgba(120,130,150,.35); background: transparent; color: var(--text,#0f172a); border-radius: 8px; padding: 6px 9px; font: 600 12px/1 system-ui; cursor: pointer; margin-left: 4px; white-space: nowrap; }
+.pv29-dbbtn.pv29-fill { background: rgba(124,58,237,.1); color: var(--accent,#7c3aed); border-color: rgba(124,58,237,.4); }
+
+.pv29-total { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(120,130,150,.2); font: 600 14px/1 system-ui; }
+.pv29-total b { font: 800 16px/1 system-ui; }
+.pv29-actions { display: flex; gap: 8px; margin-top: 10px; }
+.pv29-est { flex: 1; border: 0; border-radius: 11px; padding: 12px; font: 800 14px/1 system-ui; cursor: pointer; background: #16a34a; color: #fff; }
+.pv29-clear { border: 1px solid rgba(120,130,150,.35); background: transparent; color: var(--muted,#94a3b8); border-radius: 11px; padding: 12px 14px; font: 600 13px/1 system-ui; cursor: pointer; }
+
+/* редактор шаблонов */
+.pv29-tpls { margin-top: 12px; }
+.pv29-tplhead { font: 600 12px/1.2 system-ui; color: var(--muted,#94a3b8); margin-bottom: 8px; }
+.pv29-tpl { margin-bottom: 10px; }
+.pv29-tpltitle { font: 700 12px/1 system-ui; margin-bottom: 5px; }
+.pv29-tplpins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.pv29-pin { display: flex; flex-direction: column; gap: 2px; }
+.pv29-pin span { font: 500 10px/1 system-ui; color: var(--muted,#94a3b8); }
+.pv29-pin input { border: 1px solid rgba(120,130,150,.3); border-radius: 7px; padding: 6px; font: 600 12px/1 system-ui; text-align: center; background: rgba(var(--card-bg-rgb,255,255,255),.6); color: var(--text,#0f172a); }
+
+/* модалка цены */
+.pv29-dbmodal { position: fixed; inset: 0; z-index: 10000; background: rgba(8,12,22,.62); display: flex; align-items: flex-end; justify-content: center; }
+.pv29-dbcard { width: 100%; max-width: 560px; background: #fff; border-radius: 16px 16px 0 0; padding: 14px; max-height: 82vh; overflow: auto; box-shadow: 0 -8px 30px rgba(0,0,0,.3); }
+.pv29-dbtop { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.pv29-dbtop b { font: 800 14px/1.3 system-ui; color: #0f172a; }
+.pv29-dbtop button { border: 0; background: #f1f5f9; border-radius: 8px; width: 30px; height: 30px; font: 700 14px/1 system-ui; cursor: pointer; color: #475569; }
+.pv29-dbmanual { display: flex; gap: 8px; margin-bottom: 10px; }
+.pv29-dbprice { flex: 1; min-width: 0; border: 1px solid #cbd5e1; border-radius: 9px; padding: 9px 11px; font: 700 14px/1 system-ui; }
+.pv29-dbsave { border: 0; background: #7c3aed; color: #fff; border-radius: 9px; padding: 9px 12px; font: 800 12px/1.2 system-ui; cursor: pointer; white-space: nowrap; }
+.pv29-dbor { font: 700 11px/1 system-ui; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; margin: 6px 0; }
+.pv29-dbsearch { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 9px; padding: 9px 11px; font: 600 13px/1 system-ui; margin-bottom: 8px; }
+.pv29-dbitem { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1px solid #e2e8f0; background: #fff; border-radius: 9px; padding: 9px 11px; margin-bottom: 6px; font: 600 13px/1.2 system-ui; cursor: pointer; color: #0f172a; }
+.pv29-dbempty { color: #94a3b8; font: 500 13px/1.3 system-ui; padding: 10px; text-align: center; }
+
+/* toast */
+.pv29-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px; font: 600 13px/1 system-ui; opacity: 0; pointer-events: none; transition: .2s; z-index: 10001; }
+.pv29-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* визуализация блока рамкой */
+.pv29-frameview { margin: 10px 0; }
+.pv29-frame { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border: 2px solid var(--accent, #7c3aed); border-radius: 12px; background: rgba(124,58,237,.05); min-height: 56px; align-content: flex-start; }
+.pv29-cell { position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: rgba(var(--card-bg-rgb,255,255,255),.9); border: 1px solid rgba(120,130,150,.3); border-radius: 9px; }
+.pv29-cell i { position: absolute; bottom: -2px; right: -2px; font: 700 9px/1 system-ui; font-style: normal; background: var(--accent,#7c3aed); color: #fff; border-radius: 6px; padding: 1px 3px; }
+.pv29-cell-empty { color: var(--muted,#94a3b8); border-style: dashed; font-size: 20px; }
+.pv29-frame-cap { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+.pv29-frame-meta { font: 600 11px/1 system-ui; color: var(--muted,#94a3b8); }
+.pv29-posts { margin-left: auto; font: 700 11px/1 system-ui; color: var(--accent,#7c3aed); }
+.pv29-posts.over { color: #dc3c3c; }
+
+/* блок в списке с рамкой */
+.pv29-blockitem { padding: 8px 4px; border-bottom: 1px solid rgba(120,130,150,.14); }
+.pv29-blockitem:last-child { border-bottom: 0; }
+.pv29-blocktop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.pv29-blockitem .pv29-frameview { margin: 6px 0 0; }
+.pv29-blockitem .pv29-frame { min-height: 0; padding: 6px; border-width: 1px; }
+.pv29-blockitem .pv29-cell { width: 38px; height: 38px; font-size: 18px; }
+
+/* редактор: подпись типа коннектора в заголовке */
+.pv29-card > summary small { color: var(--muted,#94a3b8); font-weight: 600; }

@@ -1,26 +1,75 @@
-<section class="page">
+<section class="main-dashboard page">
+  <div class="ep-top-status-line" id="epTopStatusLine" data-status="pro" data-ai="admin_api" data-subscription-status>
+    <div class="ep-top-status-left" data-subscription-summary>С ИИ · 491д</div>
+    <div class="ep-top-status-right" data-ai-status>ИИ вкл.</div>
+  </div>
+
   <div class="page-head">
     <h1>Главный экран</h1>
     <p>Быстрый рабочий пульт мастера. Визуальная архитектура готова.</p>
   </div>
 
   <div class="grid grid-3">
-    <div class="card tile module-shield ep-clickable" onclick="Router.load('shield')"><div class="tile-icon">🛡️</div><h3>Конфигуратор щита</h3><p>Автоматика, корпус, расходка, работы.</p></div>
-    <div class="card tile module-pool ep-clickable" onclick="Router.load('pool')"><div class="tile-icon">🔌</div><h3>Пул розеток/штроб</h3><p>Розетки, выключатели, трассы, коробки.</p></div>
-    <div class="card tile module-picker ep-clickable" data-ep27-pick="material" data-ep27-db-picker="material"><div class="tile-icon">🗂️</div><h3>Материалы</h3><p>Материалы из активной базы.</p></div>
-    <div class="card tile module-picker ep-clickable" data-ep27-pick="work" data-ep27-db-picker="work"><div class="tile-icon">🧰</div><h3>Работа</h3><p>Работы из активной базы.</p></div>
-    <div class="card tile module-estimate ep-clickable" onclick="Router.load('estimate')"><div class="tile-icon">📋</div><h3>Смета</h3><p>Суммирование, экспорт, черновики.</p></div>
-    <div class="card tile module-documents ep-clickable" onclick="Router.load('estimate')"><div class="tile-icon">📦</div><h3>Детализация материалов</h3><p>Список для закупки и поставщика.</p></div>
+    <button class="card tile module-shield ep-clickable" type="button" data-route="shield">
+      <div class="tile-icon" data-icon="shield">🛡️</div>
+      <h3>Конфигуратор щита</h3>
+      <p>Автоматика, корпус, расходка, работы.</p>
+    </button>
+
+    <button class="card tile module-pool ep-clickable" type="button" data-route="pool">
+      <div class="tile-icon" data-icon="pool">🔌</div>
+      <h3>Пул розеток/штроб</h3>
+      <p>Розетки, выключатели, трассы, коробки.</p>
+    </button>
+
+    <button class="card tile module-picker ep-clickable" type="button" data-route="materials" data-ep27-pick="material" data-ep27-db-picker="material">
+      <div class="tile-icon" data-icon="materials">🗂️</div>
+      <h3>Материалы</h3>
+      <p>Материалы из активной базы.</p>
+    </button>
+
+    <button class="card tile module-picker ep-clickable" type="button" data-route="work" data-ep27-pick="work" data-ep27-db-picker="work">
+      <div class="tile-icon" data-icon="work">🧰</div>
+      <h3>Работа</h3>
+      <p>Работы из активной базы.</p>
+    </button>
+
+    <button class="card tile module-estimate ep-clickable" type="button" data-route="estimate">
+      <div class="tile-icon" data-icon="estimate">📋</div>
+      <h3>Смета</h3>
+      <p>Суммирование, экспорт, черновики.</p>
+    </button>
+
+    <button class="card tile module-documents ep-clickable" type="button" data-route="details">
+      <div class="tile-icon" data-icon="details">📦</div>
+      <h3>Детализация материалов</h3>
+      <p>Список для закупки и поставщика.</p>
+    </button>
   </div>
 
-  <div class="card" style="margin-top:14px;">
+  <div class="card estimate-card">
     <h3>Предварительная смета</h3>
-    <p class="badge">Пока пусто</p>
-    <p style="color:var(--muted);">После подключения модулей здесь будет живой список позиций.</p>
-    <div class="grid grid-3">
-      <button class="btn btn-primary ep-clickable">Пересчёт трасс</button>
-      <button class="btn btn-ghost ep-clickable">Очистить</button>
-      <button class="btn btn-primary ep-clickable">Сохранить в черновик</button>
+        <p class="badge" data-est-badge>Пока пусто</p>
+    <p>Сюда падают материалы и работы из щита, пула, материалов и работы. Собери, сохрани в базу или перенеси в основную.</p>
+    <!-- действия — над списком -->
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-primary ep-clickable" type="button" data-consum-quick style="flex:1">🧮 Рассчитать расходку</button>
+      <button class="btn btn-ghost ep-clickable" type="button" data-route="consumables" style="flex:none">⚙ Настроить</button>
+    </div>
+    <button class="btn btn-ghost ep-clickable" type="button" data-est-genworks style="width:100%;margin-top:8px">🧰 Добавить работы по материалам</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <button class="btn btn-primary ep-clickable" type="button" data-est-tomain>➕ В основную смету</button>
+      <button class="btn btn-primary ep-clickable" type="button" data-est-savebase>💾 Сохранить в базу</button>
+    </div>
+    <button class="btn btn-ghost ep-clickable" type="button" data-est-clear style="width:100%;margin-top:8px">Очистить</button>
+    <!-- список позиций -->
+    <div class="ep-est-list" data-est-list style="margin-top:14px"></div>
+    <h3 style="margin-top:18px">Основная смета</h3>
+    <p class="badge" data-estmain-badge>Пока пусто</p>
+    <p>Готовая смета: из неё идут «Поставщику», «Смета работ», документы, склад и затраты.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btn-primary ep-clickable" type="button" data-est-open>Открыть смету</button>
+      <button class="btn btn-ghost ep-clickable" type="button" data-estmain-clear>Очистить основную</button>
     </div>
   </div>
 </section>

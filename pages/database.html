@@ -1,10 +1,10 @@
 <section class="page">
   <div class="page-head">
     <h1>База данных</h1>
-    <p>Моя база / база сервера через Database API.</p>
+    <p>Позиции для сметы. Переключай «БД сервера / Моя БД» — расчёт идёт из активной базы.</p>
   </div>
-  <div class="card">
-    <span class="badge">Каркас готов</span>
-    <p style="color:var(--muted);">Логика будет подключаться через прослойки, без прямого обращения модуля к Firebase.</p>
+  <button class="btn btn-primary ep-clickable" type="button" data-route="clients" style="width:100%;margin-bottom:12px">👥 Клиенты и сохранённые сметы</button>
+  <div id="ep-db-root" class="ep-db-root">
+    <div class="card"><p class="badge">Загрузка базы…</p></div>
   </div>
 </section>

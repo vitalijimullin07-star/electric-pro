@@ -1,0 +1,6 @@
+_stage_backups/
+*.tmp
+
+firebase-debug.log
+*-debug.log
+node_modules/

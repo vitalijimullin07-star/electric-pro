@@ -1,0 +1,299 @@
+/* V29.8 Main Dimensions Core
+   Габариты главного экрана приведены к основному проекту Electric Pro.
+   Без patch/fix/restore файлов. */
+
+.main-dashboard,
+.main-dashboard * {
+  box-sizing: border-box;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.main-dashboard {
+  padding: 6px 8px 22px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* Информационная панель подписки/ИИ — размеры как в основном проекте */
+.ep-top-status-line {
+  height: 8mm;
+  min-height: 8mm;
+  max-height: 8mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  margin: 0 10px 6px;
+  border-radius: 0 0 16px 16px;
+  background: rgba(241, 245, 249, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 0;
+  color: #0f172a;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.ep-top-status-left,
+.ep-top-status-right {
+  min-width: 0;
+  height: 5mm;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(226, 232, 240, 0.92);
+}
+
+.ep-top-status-left {
+  justify-content: flex-start;
+}
+
+.ep-top-status-line[data-status="pro"] .ep-top-status-left {
+  background: rgba(34, 197, 94, 0.20);
+  color: #064e3b;
+}
+
+.ep-top-status-line[data-status="basic"] .ep-top-status-left {
+  background: rgba(59, 130, 246, 0.17);
+  color: #1e3a8a;
+}
+
+.ep-top-status-line[data-status="trial"] .ep-top-status-left {
+  background: rgba(245, 158, 11, 0.22);
+  color: #78350f;
+}
+
+.ep-top-status-line[data-status="none"] .ep-top-status-left {
+  background: rgba(239, 68, 68, 0.13);
+  color: #7f1d1d;
+}
+
+.ep-top-status-line[data-ai="own_api"] .ep-top-status-right {
+  background: rgba(168, 85, 247, 0.16);
+  color: #581c87;
+}
+
+.ep-top-status-line[data-ai="admin_api"] .ep-top-status-right {
+  background: rgba(34, 197, 94, 0.18);
+  color: #064e3b;
+}
+
+.ep-top-status-line[data-ai="disabled"] .ep-top-status-right {
+  background: rgba(239, 68, 68, 0.13);
+  color: #7f1d1d;
+}
+
+/* Заголовок страницы — размеры как в основном проекте */
+.page-head {
+  margin: 4px 2px 8px;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.12;
+  letter-spacing: -0.5px;
+  font-weight: 950;
+  color: #f8fafc;
+}
+
+.page-head p {
+  margin: 3px 0 0;
+  color: rgba(248, 250, 252, 0.62);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+/* Сетка и карточки — размеры как в основном проекте */
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.grid-3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 820px) {
+  .grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.main-dashboard .card,
+.main-dashboard .tile {
+  position: relative;
+  overflow: hidden;
+  color: #f8fafc;
+}
+
+.main-dashboard .tile {
+  min-height: 92px;
+  padding: 11px;
+  border-radius: 18px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 88% 12%, rgba(34, 197, 94, 0.08), transparent 30%),
+    linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.026)),
+    rgba(7, 20, 43, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 12px 28px rgba(0,0,0,0.16);
+  text-align: left;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.main-dashboard .tile:active {
+  transform: scale(0.975);
+}
+
+.main-dashboard .tile:hover {
+  transform: translateY(-2px);
+  background:
+    radial-gradient(circle at 88% 12%, rgba(34, 197, 94, 0.11), transparent 30%),
+    linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.036)),
+    rgba(7, 20, 43, 0.62);
+}
+
+.main-dashboard .tile-icon {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 5px;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--module-accent, #22c55e) 70%, transparent));
+}
+
+.main-dashboard .tile h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  line-height: 1.12;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.main-dashboard .tile p {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.62);
+  font-size: 12px;
+  line-height: 1.22;
+  font-weight: 650;
+}
+
+.module-shield { --module-accent: #38bdf8; }
+.module-pool { --module-accent: #fb923c; }
+.module-picker { --module-accent: #facc15; }
+.module-estimate { --module-accent: #c084fc; }
+.module-documents { --module-accent: #60a5fa; }
+.module-accounting { --module-accent: #34d399; }
+
+.main-dashboard .tile[class*="module-"] {
+  border-color: color-mix(in srgb, var(--module-accent) 35%, rgba(255,255,255,0.12));
+}
+
+/* Предварительная смета — компактнее, как в основной сборке */
+.main-dashboard .estimate-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background:
+    radial-gradient(circle at 92% 12%, rgba(34,197,94,0.13), transparent 28%),
+    linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.030)),
+    rgba(7, 20, 43, 0.58);
+  color: #f8fafc;
+}
+
+.main-dashboard .estimate-card h3 {
+  margin: 0 0 8px;
+  font-size: 21px;
+  line-height: 1.12;
+  letter-spacing: -0.5px;
+  font-weight: 950;
+}
+
+.main-dashboard .badge {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(34, 197, 94, 0.24);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #d1fae5;
+  font-weight: 800;
+}
+
+.main-dashboard .estimate-card p:not(.badge) {
+  color: rgba(248, 250, 252, 0.62);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.main-dashboard .btn {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 11px 14px;
+  color: #f8fafc;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.main-dashboard .btn-primary {
+  background: rgba(34,197,94,0.82);
+  color: #052e16;
+}
+
+.main-dashboard .btn-ghost {
+  background: rgba(255,255,255,0.07);
+}
+
+@media (max-width: 430px) {
+  .main-dashboard {
+    padding: 5px 8px 18px;
+  }
+
+  .ep-top-status-line {
+    height: 7mm;
+    min-height: 7mm;
+    max-height: 7mm;
+    margin: 0 8px 5px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .ep-top-status-left,
+  .ep-top-status-right {
+    height: 4.6mm;
+    font-size: 9px;
+    padding: 0 7px;
+  }
+
+  .ep-top-status-right {
+    max-width: 33vw;
+  }
+}
+
+@media (max-width: 390px) {
+  .main-dashboard .tile {
+    min-height: 86px;
+    padding: 10px;
+  }
+
+  .main-dashboard .tile h3 {
+    font-size: 16px;
+  }
+
+  .main-dashboard .tile p {
+    font-size: 11.5px;
+  }
+}
