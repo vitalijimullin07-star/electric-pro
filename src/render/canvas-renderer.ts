@@ -1,0 +1,536 @@
+import { boxOfPoints, type Box } from '@core/math/geom';
+import { shapeOutline, type Shape } from '@core/math/shape';
+import type { Vec2 } from '@core/math/vec';
+import { computeConnectivity } from '@core/model/connectivity';
+import { runDrc } from '@core/model/drc';
+import { LAYERS, boardCopperLayers } from '@core/model/layers';
+import { placementOf } from '@core/model/placement';
+import { boardPolygon } from '@core/model/project';
+import type { CopperLayer, ItemRef, LayerId, Project } from '@core/model/types';
+import { getWorld, type World } from '@core/model/world';
+import { graphicPrims, type LayerPrims, type Prim } from '@core/render/flatten';
+import { textStrokes } from '@core/render/stroke-font';
+import type { EditorState, Pending, ViewState } from '@editor/store';
+
+/*
+ * Отрисовка платы на Canvas 2D. Вид сверху: нижняя медь под верхней,
+ * неактивный медный слой приглушён. Всё считается в мм и масштабируется
+ * матрицей холста, поэтому толщины линий соответствуют реальным.
+ */
+
+export const COLORS = {
+  bg: '#12161b',
+  boardFill: '#1b3a2a',
+  boardEdge: '#e8c44a',
+  grid: 'rgba(255,255,255,0.10)',
+  gridMajor: 'rgba(255,255,255,0.18)',
+  padTop: '#e8b061',
+  padBottom: '#6fa8f5',
+  padTht: '#d9c27a',
+  hole: '#0d1014',
+  via: '#c9c9c9',
+  wire: '#7fe0ff',
+  rats: '#9fd8c0',
+  selection: '#5fe0ff',
+  hover: 'rgba(255,255,255,0.65)',
+  drcError: '#ff4f3a',
+  drcWarn: '#ffb020',
+  netHighlight: '#ffffff',
+  ruleArea: '#ff8a3d',
+  zone: '#7be08a',
+  pending: '#ffffff',
+  measure: '#ffd166',
+};
+
+const pathCache = new WeakMap<Shape, Path2D>();
+function shapePath(s: Shape): Path2D {
+  let p = pathCache.get(s);
+  if (p) return p;
+  p = new Path2D();
+  if (s.pts.length === 1) p.arc(s.pts[0].x, s.pts[0].y, s.r, 0, Math.PI * 2);
+  else {
+    const o = shapeOutline(s, 0.08);
+    p.moveTo(o[0].x, o[0].y);
+    for (let i = 1; i < o.length; i++) p.lineTo(o[i].x, o[i].y);
+    p.closePath();
+  }
+  pathCache.set(s, p);
+  return p;
+}
+
+export interface RenderInput {
+  project: Project;
+  view: ViewState;
+  width: number;
+  height: number;
+  dpr: number;
+  activeLayer: CopperLayer;
+  layerVisible: Record<LayerId, boolean>;
+  show: EditorState['show'];
+  grid: number;
+  selection: ItemRef[];
+  hover: ItemRef | null;
+  highlightNet: string | null;
+  pending: Pending | null;
+  measure: { a: Vec2; b: Vec2 } | null;
+  /** Перетаскиваемые компоненты и т. п. рисуются как есть — они уже в проекте. */
+  dragging?: boolean;
+}
+
+export function worldToScreen(v: ViewState, p: Vec2): Vec2 {
+  return { x: (p.x - v.x) * v.scale, y: (p.y - v.y) * v.scale };
+}
+export function screenToWorld(v: ViewState, p: Vec2): Vec2 {
+  return { x: v.x + p.x / v.scale, y: v.y + p.y / v.scale };
+}
+
+function visibleBox(v: ViewState, w: number, h: number): Box {
+  return { minX: v.x, minY: v.y, maxX: v.x + w / v.scale, maxY: v.y + h / v.scale };
+}
+const inView = (b: Box, s: Box) => b.minX <= s.maxX && b.maxX >= s.minX && b.minY <= s.maxY && b.maxY >= s.minY;
+
+function strokePrim(ctx: CanvasRenderingContext2D, pr: Prim, color: string, minWidth: number): void {
+  if (pr.kind === 'flash') {
+    ctx.fillStyle = color;
+    ctx.fill(shapePath(pr.shape));
+    return;
+  }
+  if (pr.kind === 'region') {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    pr.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+  if (pr.pts.length < 2) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(pr.width, minWidth);
+  ctx.beginPath();
+  pr.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+  if (pr.closed) ctx.closePath();
+  ctx.stroke();
+}
+
+const graphicsCache = new WeakMap<Project, { prims: LayerPrims; refs: boolean; values: boolean; fab: boolean }>();
+function componentGraphics(p: Project, w: World, refs: boolean, values: boolean, fab: boolean): LayerPrims {
+  const hit = graphicsCache.get(p);
+  if (hit && hit.refs === refs && hit.values === values && hit.fab === fab) return hit.prims;
+  const out: LayerPrims = {};
+  for (const wc of w.components) {
+    if (!wc.footprint) continue;
+    const pl = placementOf(wc.component);
+    for (const g of wc.footprint.graphics) {
+      if (!fab && (g.layer.endsWith('Fab') || g.layer.endsWith('Courtyard'))) continue;
+      graphicPrims(g, pl, wc.component, out, { hideRef: !refs, hideValue: !values });
+    }
+  }
+  for (const d of Object.values(p.drawings)) graphicPrims(d, null, null, out);
+  graphicsCache.set(p, { prims: out, refs, values, fab });
+  return out;
+}
+
+export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): void {
+  const { project: p, view: v, width, height, dpr } = inp;
+  const w = getWorld(p);
+  const copper = boardCopperLayers(p.board.copperLayers);
+  const vis = (l: LayerId) => inp.layerVisible[l];
+  const px = 1 / v.scale; // один пиксель в мм
+  const vb = visibleBox(v, width, height);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, width, height);
+  ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, -v.x * v.scale * dpr, -v.y * v.scale * dpr);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Плата.
+  const outline = boardPolygon(p.board);
+  ctx.beginPath();
+  outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+  ctx.closePath();
+  for (const cut of p.board.cutouts) {
+    cut.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+  }
+  ctx.fillStyle = p.board.maskColor ?? COLORS.boardFill;
+  ctx.fill('evenodd');
+
+  // Сетка.
+  if (inp.show.grid && inp.grid * v.scale >= 5) {
+    const bb = boxOfPoints(outline);
+    const g = inp.grid;
+    const x0 = Math.max(bb.minX, Math.floor(vb.minX / g) * g);
+    const x1 = Math.min(bb.maxX, vb.maxX);
+    const y0 = Math.max(bb.minY, Math.floor(vb.minY / g) * g);
+    const y1 = Math.min(bb.maxY, vb.maxY);
+    const dots = inp.grid * v.scale < 12;
+    ctx.fillStyle = COLORS.grid;
+    ctx.strokeStyle = COLORS.grid;
+    ctx.lineWidth = px;
+    if (dots) {
+      const r = px * 0.8;
+      for (let x = x0; x <= x1; x += g) for (let y = y0; y <= y1; y += g) ctx.fillRect(x - r / 2, y - r / 2, r, r);
+    } else {
+      ctx.beginPath();
+      for (let x = x0; x <= x1; x += g) {
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y1);
+      }
+      for (let y = y0; y <= y1; y += g) {
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+      }
+      ctx.stroke();
+    }
+  }
+  // Начало координат.
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = px;
+  ctx.beginPath();
+  ctx.moveTo(-3, 0);
+  ctx.lineTo(3, 0);
+  ctx.moveTo(0, -3);
+  ctx.lineTo(0, 3);
+  ctx.stroke();
+
+  const conn = computeConnectivity(p);
+  const selKeys = new Set(inp.selection.map((r) => r.kind + ':' + r.id));
+  const hoverKey = inp.hover ? inp.hover.kind + ':' + inp.hover.id : null;
+  const hlNet = inp.highlightNet;
+
+  // Области правил и полигоны (контуры).
+  for (const ra of Object.values(p.ruleAreas)) {
+    ctx.strokeStyle = COLORS.ruleArea;
+    ctx.lineWidth = px * (selKeys.has('ruleArea:' + ra.id) ? 2.5 : 1.2);
+    ctx.setLineDash([1, 0.6]);
+    ctx.beginPath();
+    ra.outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,138,61,0.07)';
+    ctx.fill();
+  }
+  for (const z of Object.values(p.zones)) {
+    if (!vis(z.layer)) continue;
+    ctx.strokeStyle = LAYERS[z.layer].color;
+    ctx.lineWidth = px * 1.5;
+    ctx.setLineDash([0.8, 0.5]);
+    ctx.beginPath();
+    z.outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = z.layer === 'F.Cu' ? 'rgba(224,71,76,0.10)' : 'rgba(61,123,224,0.10)';
+    ctx.fill();
+  }
+
+  // Медь: сначала неактивный слой, потом активный.
+  const order: CopperLayer[] = copper.filter((l) => l !== inp.activeLayer).concat(copper.includes(inp.activeLayer) ? [inp.activeLayer] : []);
+  const gfx = componentGraphics(p, w, inp.show.refs, inp.show.values, inp.show.fab);
+  for (const layer of order) {
+    if (!vis(layer)) continue;
+    const active = layer === inp.activeLayer;
+    ctx.globalAlpha = active ? 1 : 0.55;
+    const col = LAYERS[layer].color;
+    // Дорожки.
+    for (const t of Object.values(p.tracks)) {
+      if (t.layer !== layer || t.points.length < 2) continue;
+      const segs = w.segmentsByTrack.get(t.id) ?? [];
+      if (!segs.some((s) => inView(s.shape.box, vb))) continue;
+      const net = conn.itemNet.get(t.id);
+      const isHl = hlNet && net === hlNet;
+      const isSel = selKeys.has('track:' + t.id);
+      if (isSel || isHl || hoverKey === 'track:' + t.id) {
+        ctx.strokeStyle = isSel ? COLORS.selection : isHl ? COLORS.netHighlight : COLORS.hover;
+        ctx.lineWidth = t.width + px * 4;
+        ctx.globalAlpha = 0.45;
+        strokePoly(ctx, t.points);
+        ctx.globalAlpha = active ? 1 : 0.55;
+      }
+      ctx.strokeStyle = net === 'short' ? COLORS.drcError : col;
+      ctx.lineWidth = Math.max(t.width, px);
+      strokePoly(ctx, t.points);
+    }
+    // Площадки этого слоя.
+    if (inp.show.pads)
+      for (const wp of w.pads) {
+        if (!wp.layers.includes(layer) || !inView(wp.shape.box, vb)) continue;
+        if (wp.pad.type === 'tht' && layer !== order[order.length - 1] && vis(order[order.length - 1])) continue; // сквозная рисуется один раз, поверх
+        const isHl = hlNet && wp.net === hlNet;
+        if (isHl) {
+          ctx.fillStyle = COLORS.netHighlight;
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath();
+          ctx.arc(wp.center.x, wp.center.y, Math.max(wp.pad.size.x, wp.pad.size.y) / 2 + px * 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = active ? 1 : 0.55;
+        }
+        ctx.fillStyle = wp.pad.type === 'tht' ? COLORS.padTht : layer === 'F.Cu' ? COLORS.padTop : COLORS.padBottom;
+        ctx.fill(shapePath(wp.shape));
+      }
+  }
+  ctx.globalAlpha = 1;
+
+  // Отверстия и переходные.
+  for (const wp of w.pads) {
+    if (!wp.drill || !inView(wp.shape.box, vb)) continue;
+    if (wp.pad.type === 'npth') {
+      ctx.fillStyle = COLORS.bg;
+      ctx.beginPath();
+      ctx.arc(wp.center.x, wp.center.y, wp.drill / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = px;
+      ctx.stroke();
+    } else if (inp.show.pads) {
+      ctx.fillStyle = COLORS.hole;
+      ctx.beginPath();
+      ctx.arc(wp.center.x, wp.center.y, wp.drill / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  for (const wv of w.vias) {
+    if (!inView(wv.shape.box, vb)) continue;
+    const v2 = wv.via;
+    const net = conn.itemNet.get(v2.id);
+    const isSel = selKeys.has('via:' + v2.id);
+    if (isSel || (hlNet && net === hlNet) || hoverKey === 'via:' + v2.id) {
+      ctx.fillStyle = isSel ? COLORS.selection : COLORS.netHighlight;
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath();
+      ctx.arc(v2.at.x, v2.at.y, v2.diameter / 2 + px * 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = net === 'short' ? COLORS.drcError : COLORS.via;
+    ctx.beginPath();
+    ctx.arc(v2.at.x, v2.at.y, v2.diameter / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.hole;
+    ctx.beginPath();
+    ctx.arc(v2.at.x, v2.at.y, v2.drill / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Графика: шелкография, сборочные слои, габариты, контур.
+  const layerOrder: LayerId[] = ['B.Courtyard', 'B.Fab', 'B.Silk', 'F.Courtyard', 'F.Fab', 'F.Silk', 'Edge.Cuts'];
+  for (const l of layerOrder) {
+    if (!vis(l)) continue;
+    if (l.endsWith('Courtyard') && !inp.show.courtyard) continue;
+    if (l.endsWith('Fab') && !inp.show.fab) continue;
+    const list = gfx[l];
+    if (!list) continue;
+    const col = LAYERS[l].color;
+    ctx.globalAlpha = l.startsWith('B.') ? 0.6 : 1;
+    for (const pr of list) strokePrim(ctx, pr, col, px * 0.8);
+    ctx.globalAlpha = 1;
+  }
+  // Подписи областей правил.
+  for (const ra of Object.values(p.ruleAreas)) {
+    if (!ra.showLabel) continue;
+    const top = Math.min(...ra.outline.map((q) => q.y));
+    const left = Math.min(...ra.outline.map((q) => q.x));
+    ctx.strokeStyle = COLORS.ruleArea;
+    ctx.lineWidth = 0.18;
+    for (const s of textStrokes({ text: ra.name, at: { x: left + 1.5, y: top + 1.6 }, size: 1.2, align: 'left' })) strokePoly(ctx, s);
+  }
+  // Контур платы.
+  if (vis('Edge.Cuts')) {
+    ctx.strokeStyle = COLORS.boardEdge;
+    ctx.lineWidth = Math.max(0.15, px * 1.5);
+    ctx.beginPath();
+    outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    for (const cut of p.board.cutouts) {
+      cut.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath();
+    }
+    ctx.stroke();
+  }
+
+  // Перемычки проводом.
+  for (const wr of w.wires) {
+    const isSel = selKeys.has('wire:' + wr.id);
+    const net = conn.itemNet.get(wr.id);
+    ctx.strokeStyle = isSel ? COLORS.selection : hlNet && net === hlNet ? COLORS.netHighlight : hoverKey === 'wire:' + wr.id ? COLORS.hover : COLORS.wire;
+    ctx.lineWidth = Math.max(0.5, px * 2);
+    ctx.setLineDash([1.2, 0.8]);
+    ctx.beginPath();
+    ctx.moveTo(wr.a.x, wr.a.y);
+    ctx.lineTo(wr.b.x, wr.b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = ctx.strokeStyle;
+    for (const q of [wr.a, wr.b]) {
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, Math.max(0.4, px * 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Воздушные линии.
+  if (inp.show.ratsnest) {
+    ctx.lineWidth = px;
+    for (const r of conn.ratsnest) {
+      const hl = hlNet === r.netId;
+      if (hlNet && !hl) continue;
+      ctx.strokeStyle = hl ? COLORS.netHighlight : COLORS.rats;
+      ctx.globalAlpha = hl ? 0.95 : 0.6;
+      ctx.setLineDash(hl ? [] : [0.6, 0.4]);
+      ctx.beginPath();
+      ctx.moveTo(r.a.x, r.a.y);
+      ctx.lineTo(r.b.x, r.b.y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  // Выделение и наведение: компоненты, графика, области.
+  const drawOutline = (pts: Vec2[], color: string, wpx: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = px * wpx;
+    ctx.setLineDash([px * 6, px * 4]);
+    ctx.beginPath();
+    pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  for (const wc of w.components) {
+    const k = 'component:' + wc.component.id;
+    if (selKeys.has(k)) drawOutline(wc.outline, COLORS.selection, 1.6);
+    else if (hoverKey === k) drawOutline(wc.outline, COLORS.hover, 1.2);
+  }
+  for (const d of Object.values(p.drawings)) {
+    const k = 'drawing:' + d.id;
+    if (!selKeys.has(k) && hoverKey !== k) continue;
+    const tmp: LayerPrims = {};
+    graphicPrims(d, null, null, tmp);
+    ctx.globalAlpha = 0.6;
+    for (const pr of tmp[d.layer] ?? []) strokePrim(ctx, pr, selKeys.has(k) ? COLORS.selection : COLORS.hover, px * 3);
+    ctx.globalAlpha = 1;
+  }
+  for (const z of Object.values(p.zones)) if (selKeys.has('zone:' + z.id)) drawOutline(z.outline, COLORS.selection, 2);
+  // Вершины выделенной дорожки или контура.
+  if (inp.selection.length === 1) {
+    const s = inp.selection[0];
+    const pts = s.kind === 'track' ? p.tracks[s.id]?.points : s.kind === 'ruleArea' ? p.ruleAreas[s.id]?.outline : s.kind === 'zone' ? p.zones[s.id]?.outline : null;
+    if (pts) {
+      ctx.fillStyle = COLORS.bg;
+      ctx.strokeStyle = COLORS.selection;
+      ctx.lineWidth = px;
+      const r = px * 3.5;
+      for (const q of pts) {
+        ctx.beginPath();
+        ctx.rect(q.x - r, q.y - r, 2 * r, 2 * r);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Ошибки проверки.
+  if (inp.show.drc) {
+    const rep = runDrc(p);
+    for (const m of rep.markers) {
+      const col = m.severity === 'error' ? COLORS.drcError : COLORS.drcWarn;
+      const r = px * 7;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = px * 1.6;
+      ctx.beginPath();
+      ctx.arc(m.at.x, m.at.y, r, 0, Math.PI * 2);
+      ctx.moveTo(m.at.x - r * 0.5, m.at.y - r * 0.5);
+      ctx.lineTo(m.at.x + r * 0.5, m.at.y + r * 0.5);
+      ctx.moveTo(m.at.x + r * 0.5, m.at.y - r * 0.5);
+      ctx.lineTo(m.at.x - r * 0.5, m.at.y + r * 0.5);
+      ctx.stroke();
+    }
+  }
+
+  // Незавершённое действие: дорожка, многоугольник, рамка.
+  const pd = inp.pending;
+  if (pd) {
+    const pts = pd.cursor ? [...pd.points, pd.cursor] : pd.points;
+    if (pd.kind === 'route' && pts.length >= 1) {
+      ctx.strokeStyle = pd.layer ? LAYERS[pd.layer].color : COLORS.pending;
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = Math.max(pd.width ?? 0.25, px);
+      strokePoly(ctx, pts);
+      ctx.globalAlpha = 1;
+    } else if (pd.kind === 'box' && pd.start && pd.cursor) {
+      ctx.strokeStyle = COLORS.selection;
+      ctx.lineWidth = px;
+      ctx.setLineDash([px * 4, px * 3]);
+      ctx.strokeRect(Math.min(pd.start.x, pd.cursor.x), Math.min(pd.start.y, pd.cursor.y), Math.abs(pd.cursor.x - pd.start.x), Math.abs(pd.cursor.y - pd.start.y));
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(95,224,255,0.08)';
+      ctx.fillRect(Math.min(pd.start.x, pd.cursor.x), Math.min(pd.start.y, pd.cursor.y), Math.abs(pd.cursor.x - pd.start.x), Math.abs(pd.cursor.y - pd.start.y));
+    } else if (pts.length >= 1) {
+      ctx.strokeStyle = COLORS.pending;
+      ctx.lineWidth = px * 1.5;
+      ctx.setLineDash([px * 5, px * 3]);
+      strokePoly(ctx, pts);
+      if (pd.kind === 'poly' && pts.length > 2) {
+        ctx.beginPath();
+        ctx.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        ctx.lineTo(pts[0].x, pts[0].y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    for (const q of pd.points) {
+      ctx.fillStyle = COLORS.pending;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, px * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  if (inp.measure) {
+    const { a, b } = inp.measure;
+    ctx.strokeStyle = COLORS.measure;
+    ctx.lineWidth = px * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    for (const q of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, px * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const label = `${d.toFixed(2).replace('.', ',')} мм  (Δx ${Math.abs(b.x - a.x).toFixed(2)}, Δy ${Math.abs(b.y - a.y).toFixed(2)})`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sp = worldToScreen(v, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    ctx.font = '12px system-ui, sans-serif';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(sp.x - tw / 2 - 5, sp.y - 20, tw + 10, 18);
+    ctx.fillStyle = COLORS.measure;
+    ctx.fillText(label, sp.x - tw / 2, sp.y - 7);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function strokePoly(ctx: CanvasRenderingContext2D, pts: Vec2[]): void {
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
+/** Вписать плату в холст. */
+export function fitView(p: Project, width: number, height: number, margin = 24): ViewState {
+  const bb = boxOfPoints(p.board.outline);
+  const bw = bb.maxX - bb.minX || 1;
+  const bh = bb.maxY - bb.minY || 1;
+  const scale = Math.max(0.5, Math.min((width - 2 * margin) / bw, (height - 2 * margin) / bh));
+  return { scale, x: bb.minX - (width / scale - bw) / 2, y: bb.minY - (height / scale - bh) / 2 };
+}
+
+
