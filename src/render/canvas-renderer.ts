@@ -454,7 +454,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   // Незавершённое действие: дорожка, многоугольник, рамка.
   const pd = inp.pending;
   if (pd) {
-    const pts = pd.cursor ? [...pd.points, pd.cursor] : pd.points;
+    const pts = pd.preview && pd.preview.length ? [...pd.points, ...pd.preview] : pd.cursor ? [...pd.points, pd.cursor] : pd.points;
     if (pd.kind === 'route' && pts.length >= 1) {
       ctx.strokeStyle = pd.layer ? LAYERS[pd.layer].color : COLORS.pending;
       ctx.globalAlpha = 0.85;

@@ -1,20 +1,8 @@
-/* Сохранение и открытие файлов: File System Access API, если есть, иначе скачивание и <input type=file>. */
+/* Сохранение и открытие файлов: скачивание и <input type=file>. Работает на компьютере и телефоне. */
 
 export async function saveTextFile(name: string, data: string | Uint8Array, mime = 'application/octet-stream'): Promise<boolean> {
+  // Обычное скачивание: работает везде, включая телефоны, и не требует разрешений.
   const blob = new Blob([data as BlobPart], { type: mime });
-  const w = window as unknown as { showSaveFilePicker?: (o: unknown) => Promise<{ createWritable(): Promise<{ write(b: Blob): Promise<void>; close(): Promise<void> }> }> };
-  if (w.showSaveFilePicker) {
-    try {
-      const ext = name.slice(name.lastIndexOf('.'));
-      const h = await w.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Файл', accept: { [mime]: [ext] } }] });
-      const ws = await h.createWritable();
-      await ws.write(blob);
-      await ws.close();
-      return true;
-    } catch (e) {
-      if ((e as { name?: string }).name === 'AbortError') return false;
-    }
-  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name;

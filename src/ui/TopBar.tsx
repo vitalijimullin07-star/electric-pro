@@ -99,6 +99,7 @@ export function TopBar() {
       items: [
         { label: 'Новый проект…', kbd: '', action: () => s.openDialog('new') },
         { label: 'Открыть файл проекта…', kbd: 'Ctrl+O', action: () => void openProject() },
+        { label: 'Недавние проекты…', action: () => s.openDialog('open') },
         { label: 'Сохранить проект', kbd: 'Ctrl+S', action: () => void saveProject() },
         'sep',
         { label: 'Экспорт: Gerber, SVG, BOM…', action: () => s.openDialog('export') },

@@ -17,7 +17,6 @@ export function NewProjectDialog() {
   const [homemade, setHomemade] = useState(false);
 
   const create = () => {
-    if (s.dirty && !confirm('Текущий проект не сохранён в файл (в браузере он останется в истории до следующего изменения). Продолжить?')) return;
     let p;
     if (tpl === 'custom') p = createProject({ name, width: w, height: h, cornerRadius: r, copperLayers: layers, homemade });
     else if (tpl.startsWith('ex:')) p = EXAMPLES.find((e) => e.id === tpl.slice(3))!.create();
@@ -25,6 +24,7 @@ export function NewProjectDialog() {
     if (tpl !== 'custom' && !tpl.startsWith('ex:') && name.trim() && name !== 'Новая плата') p.meta.name = name.trim();
     s.replaceProject(p);
     s.closeDialog();
+    s.setMessage(`Создан проект «${p.meta.name}». Прежний проект остался в «Файл → Недавние проекты».`);
   };
 
   const groups = ['Пустые', 'Форм-факторы'] as const;

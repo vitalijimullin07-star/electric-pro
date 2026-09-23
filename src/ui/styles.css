@@ -759,4 +759,7 @@ table.grid select {
   .stage .zoombar {
     bottom: 10px;
   }
+  .stage .hud {
+    right: 56px;
+  }
 }

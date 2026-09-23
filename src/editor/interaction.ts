@@ -163,7 +163,9 @@ export class CanvasController {
       // Наведение и предпросмотр.
       if (s.pending) {
         const cur = this.pendingCursor(wp);
-        s.patch({ pending: { ...s.pending, cursor: cur } });
+        const last = s.pending.points[s.pending.points.length - 1];
+        const preview = s.pending.kind === 'route' && last ? this.cornerPoints(last, cur) : undefined;
+        s.patch({ pending: { ...s.pending, cursor: cur, preview } });
       }
       if (s.tool === 'select' || s.tool === 'route' || s.tool === 'wire') {
         const h = this.hits(wp, s.tool !== 'select')[0] ?? null;

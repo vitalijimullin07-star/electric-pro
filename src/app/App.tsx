@@ -9,6 +9,7 @@ import { NewProjectDialog } from '@ui/dialogs/NewProjectDialog';
 import { ExportDialog } from '@ui/dialogs/ExportDialog';
 import { BoardDialog } from '@ui/dialogs/BoardDialog';
 import { ComponentDialog } from '@ui/dialogs/ComponentDialog';
+import { OpenDialog } from '@ui/dialogs/OpenDialog';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 
 export function App() {
@@ -33,6 +34,7 @@ export function App() {
       <StatusBar />
       {dialog === 'new' && <NewProjectDialog />}
       {dialog === 'export' && <ExportDialog />}
+      {dialog === 'open' && <OpenDialog />}
       {(dialog === 'board' || dialog === 'rules') && <BoardDialog />}
       {dialog === 'component' && typeof dialogData === 'string' && <ComponentDialog id={dialogData} />}
       {dialog === 'net' && typeof dialogData === 'string' && <NetDialog id={dialogData} />}

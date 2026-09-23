@@ -18,6 +18,14 @@ export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'li
 
 export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | null;
 
+export interface RecentEntry {
+  key: string;
+  name: string;
+  modified: string;
+  size: string;
+  project: Project;
+}
+
 export interface ViewState {
   /** Мировая точка в левом верхнем углу холста. */
   x: number;
@@ -35,6 +43,8 @@ export interface Pending {
   net?: string | null;
   /** Для рамки выделения — начальная точка. */
   start?: Vec2;
+  /** Точки предпросмотра от последней вершины к курсору (изгиб 45°). */
+  preview?: Vec2[];
 }
 
 export interface RouteProgress {
@@ -100,6 +110,44 @@ export interface EditorState {
 
 export const AUTOSAVE_KEY = 'plata2:autosave';
 export const SETTINGS_KEY = 'plata2:settings';
+export const RECENT_KEY = 'plata2:recent';
+const RECENT_LIMIT = 6;
+
+export function loadRecent(): RecentEntry[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (raw) return JSON.parse(raw) as RecentEntry[];
+  } catch {
+    /* пусто */
+  }
+  return [];
+}
+
+/** Кладёт проект в список недавних (в браузере), чтобы новый проект не стёр прежний. */
+export function pushRecent(p: Project): void {
+  if (typeof localStorage === 'undefined') return;
+  const key = p.meta.created + '|' + p.meta.name;
+  const xs = p.board.outline.map((q) => q.x);
+  const ys = p.board.outline.map((q) => q.y);
+  const entry: RecentEntry = { key, name: p.meta.name, modified: p.meta.modified, size: `${(Math.max(...xs) - Math.min(...xs)).toFixed(0)}×${(Math.max(...ys) - Math.min(...ys)).toFixed(0)} мм`, project: p };
+  const list = [entry, ...loadRecent().filter((r) => r.key !== key)].slice(0, RECENT_LIMIT);
+  for (let n = list.length; n > 0; n--) {
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, n)));
+      return;
+    } catch {
+      /* не влезло — пробуем меньше */
+    }
+  }
+}
+
+export function removeRecent(key: string): void {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(loadRecent().filter((r) => r.key !== key)));
+  } catch {
+    /* пусто */
+  }
+}
 
 const allVisible = (): Record<LayerId, boolean> => Object.fromEntries(LAYER_ORDER.map((l) => [l, true])) as Record<LayerId, boolean>;
 
@@ -206,6 +254,8 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ project: next, past: [...s.past, s.project], future: s.future.slice(1), selection: [], pending: null, dirty: true, message: 'Повторено.' });
     },
     replaceProject(p, fileName = null) {
+      const cur = get().project;
+      if (cur !== p && (Object.keys(cur.components).length || Object.keys(cur.tracks).length || Object.keys(cur.drawings).length)) pushRecent(cur);
       set({
         project: p,
         past: [],
