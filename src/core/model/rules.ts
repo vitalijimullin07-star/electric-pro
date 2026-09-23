@@ -26,7 +26,7 @@ export const HOMEMADE_RULES: DesignRules = {
   minDrill: 0.6,
   minAnnularRing: 0.3,
   edgeClearance: 1.0,
-  holeToHole: 0.5,
+  holeToHole: 0.3,
   classClearances: [],
   maskMargin: 0.1,
   tentVias: false,
