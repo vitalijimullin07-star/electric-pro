@@ -1,8 +1,0 @@
-/* V29.2 keeps the original theme variables from base.css. */
-body[data-palette="green"] { --accent:#22c55e; --button-bg:#22c55e; --bg-c:#0f766e; }
-body[data-palette="blue"] { --accent:#3b82f6; --button-bg:#3b82f6; --bg-c:#1d4ed8; }
-body[data-palette="purple"] { --accent:#a855f7; --button-bg:#a855f7; --bg-c:#6d28d9; }
-body[data-palette="orange"] { --accent:#f97316; --button-bg:#f97316; --bg-c:#c2410c; }
-body[data-palette="red"] { --accent:#ef4444; --button-bg:#ef4444; --bg-c:#991b1b; }
-body[data-density="compact"] { --space:6px; --radius:16px; --topbar-h:30px; }
-body[data-density="comfortable"] { --space:10px; --radius:24px; --topbar-h:36px; }
