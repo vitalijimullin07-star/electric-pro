@@ -354,13 +354,30 @@ export const TOOL_HINTS: Record<ToolId, string> = {
 
 /** Сохранение проекта и настроек в браузере (с задержкой, чтобы не тормозить). */
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let warnedFull = false;
+function saveNow(): void {
+  saveTimer = null;
+  const s = useEditor.getState();
+  const ok = safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
+  safeStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: s.grid, units: s.units, snap: s.snap }));
+  // Место в браузере кончилось (или хранилище запрещено) — предупреждаем один раз, чтобы сохранили файлом.
+  if (!ok && safeStorage.available() && !warnedFull) {
+    warnedFull = true;
+    s.setMessage('Не удалось сохранить проект в браузере: мало места. Сохраните его файлом — Ctrl+S.');
+  }
+}
 export function setupAutosave(): void {
   useEditor.subscribe((s, prev) => {
     if (s.project === prev.project && s.grid === prev.grid && s.units === prev.units && s.snap === prev.snap) return;
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
-      safeStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: s.grid, units: s.units, snap: s.snap }));
-    }, 600);
+    saveTimer = setTimeout(saveNow, 600);
   });
+  // Закрывают вкладку сразу после правки — сохраняем, не дожидаясь задержки.
+  const flush = () => {
+    if (!saveTimer) return;
+    clearTimeout(saveTimer);
+    saveNow();
+  };
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush());
 }

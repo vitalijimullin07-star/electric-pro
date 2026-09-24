@@ -780,6 +780,14 @@ async function openPage(viewport, touch = false) {
     await page.waitForTimeout(400);
     const p = await h.project();
     expect(p.meta.name === 'QA плата', 'после перезагрузки ' + p.meta.name);
+    // Правка прямо перед закрытием вкладки тоже не теряется (сохранение при уходе со страницы).
+    const n0 = Object.keys(p.vias).length;
+    await page.keyboard.press('v');
+    await h.clickAt(30, 2);
+    await page.reload();
+    await page.waitForSelector('.stage canvas');
+    await page.waitForTimeout(400);
+    expect(Object.keys((await h.project()).vias).length === n0 + 1, 'правка перед перезагрузкой потерялась');
   });
 
   await step('шаблоны: каждый создаётся без ошибок', async () => {
