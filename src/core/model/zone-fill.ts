@@ -121,11 +121,17 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey): ZoneFill[]
     }
     for (const poly of gfxPolys[z.layer]) grid.polygon(poly, false, baseClr + margin);
 
+    // Свои площадки — через термобарьер (кольцо-зазор и четыре спицы), если не выбрано сплошное подключение.
+    const thermal = (z.padConnection ?? 'thermal') === 'thermal';
+    const gap = Math.max(z.thermalGap ?? z.clearance, p.rules.minClearance);
+    const spoke = Math.max(z.thermalWidth ?? 0.5, z.minWidth * 1.2, p.rules.minTrackWidth);
     const joins: CuObj[] = [];
     for (const o of cu[z.layer]) {
       const own = z.net !== null && (o.net === z.net || (o.net === null && !o.pad && o.key !== null));
-      if (own) joins.push(o);
-      else grid.shape(o.shape, clrTo(o.net) + margin);
+      if (own) {
+        joins.push(o);
+        if (thermal && o.pad && o.net === z.net) grid.thermal(o.shape, gap + margin, spoke);
+      } else grid.shape(o.shape, clrTo(o.net) + margin);
     }
 
     grid.border();
@@ -264,6 +270,38 @@ class Grid {
             : kind === 2
               ? Math.max(segDist(q.x, q.y, a.x, a.y, b.x, b.y) - rr, -clearance)
               : distPointShape(q, s) - clearance;
+        if (v < f[idx]) f[idx] = v;
+      }
+  }
+
+  /**
+   * Термобарьер: вокруг фигуры кольцо шириной gap без меди, кроме четырёх спиц ширины w
+   * по осям через центр площадки. Поле здесь — max(расстояние до площадки − gap, w/2 − расстояние до спиц).
+   */
+  thermal(s: Shape, gap: number, w: number): void {
+    const { nx, h, x0, y0, f } = this;
+    const band = gap + this.extra;
+    const r = this.range(s.box.minX - band, s.box.minY - band, s.box.maxX + band, s.box.maxY + band);
+    if (!r) return;
+    const cx = (s.box.minX + s.box.maxX) / 2;
+    const cy = (s.box.minY + s.box.maxY) / 2;
+    const lx = (s.box.maxX - s.box.minX) / 2 + gap + 2 * h;
+    const ly = (s.box.maxY - s.box.minY) / 2 + gap + 2 * h;
+    const hw = w / 2;
+    const q = { x: 0, y: 0 };
+    for (let j = r[2]; j <= r[3]; j++)
+      for (let i = r[0]; i <= r[1]; i++) {
+        const idx = j * nx + i;
+        if (f[idx] <= -gap) continue;
+        q.x = x0 + i * h;
+        q.y = y0 + j * h;
+        const a = distPointShape(q, s) - gap;
+        if (a >= f[idx]) continue;
+        const dxs = Math.max(0, Math.abs(q.x - cx) - lx);
+        const dys = Math.max(0, Math.abs(q.y - cy) - ly);
+        const dH = Math.hypot(dxs, q.y - cy);
+        const dV = Math.hypot(q.x - cx, dys);
+        const v = Math.max(a, hw - Math.min(dH, dV));
         if (v < f[idx]) f[idx] = v;
       }
   }

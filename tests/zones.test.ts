@@ -93,6 +93,35 @@ describe('полигоны меди', () => {
     for (const l of zf.loops) for (const pt of l) expect(pt.x).toBeLessThan(25);
   });
 
+  test('термобарьер: кольцо вокруг своей площадки и четыре спицы; сплошное подключение — без кольца', () => {
+    const make = (padConnection?: 'thermal' | 'solid') => {
+      const p = createProject({ width: 40, height: 30 });
+      const fp = libraryFootprint('R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal')!;
+      const r1 = addComponent(p, fp, { x: 12, y: 10 });
+      const r2 = addComponent(p, fp, { x: 12, y: 20 });
+      const gnd = ensureNet(p, 'GND').id;
+      connectPad(p, r1.id, '1', gnd);
+      connectPad(p, r2.id, '1', gnd);
+      addZone(p, { layer: 'F.Cu', net: gnd, outline: rectOutline(40, 30), clearance: 0.3, minWidth: 0.25, priority: 0, padConnection, thermalGap: 0.5, thermalWidth: 0.5 });
+      const q = structuredClone(p);
+      const pad = getWorld(q).pads.find((x) => x.component.id === r1.id && x.pad.number === '1')!;
+      const c = computeConnectivity(q);
+      return { c, pad, gnd, loops: c.zoneFills[0].loops };
+    };
+    const t = make();
+    const R = (t.pad.shape.box.maxX - t.pad.shape.box.minX) / 2;
+    const ring = R + 0.25;
+    const { x, y } = t.pad.center;
+    // По диагонали — зазор, по оси вверх — спица.
+    expect(inFill(t.loops, { x: x + ring * Math.SQRT1_2, y: y - ring * Math.SQRT1_2 })).toBe(false);
+    expect(inFill(t.loops, { x, y: y - ring })).toBe(true);
+    // Дальше кольца заливка сплошная, и земля соединена через спицы.
+    expect(inFill(t.loops, { x: x + (R + 1) * Math.SQRT1_2, y: y - (R + 1) * Math.SQRT1_2 })).toBe(true);
+    expect(t.c.nets.get(t.gnd)!.complete).toBe(true);
+    const solid = make('solid');
+    expect(inFill(solid.loops, { x: x + ring * Math.SQRT1_2, y: y - ring * Math.SQRT1_2 })).toBe(true);
+  });
+
   test('перешейки уже минимальной ширины не заливаются', () => {
     const sliver = (minWidth: number) => {
       const { p, gnd, a } = twoResistors();

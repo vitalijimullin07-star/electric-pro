@@ -410,7 +410,7 @@ function ZoneProps({ id }: { id: string }) {
     <div>
       <h3>Полигон меди</h3>
       <p className="hint">
-        Заливка обходит чужие цепи с зазором и край платы, своя цепь соединяется сплошной медью. Острова без своих площадок убираются.
+        Заливка обходит чужие цепи с зазором и край платы. Свои площадки подключаются спицами (или сплошь), дорожки и переходные — сплошь. Острова без своих площадок убираются.
         {fill && fill.step > 0 && (
           <>
             {' '}
@@ -439,6 +439,19 @@ function ZoneProps({ id }: { id: string }) {
         </select>
         <label>Зазор, {U}</label>
         <LenInput value={z.clearance} min={0.05} onChange={(v) => upd((x) => void (x.clearance = v))} />
+        <label>Площадки цепи</label>
+        <select className="sel" value={z.padConnection ?? 'thermal'} onChange={(e) => upd((x) => void (x.padConnection = e.target.value === 'solid' ? 'solid' : undefined))}>
+          <option value="thermal">термобарьер (спицы) — легко паять</option>
+          <option value="solid">сплошная медь</option>
+        </select>
+        {(z.padConnection ?? 'thermal') === 'thermal' && (
+          <>
+            <label>Зазор спиц, {U}</label>
+            <LenInput value={z.thermalGap ?? z.clearance} min={0.1} onChange={(v) => upd((x) => void (x.thermalGap = v))} />
+            <label>Ширина спиц, {U}</label>
+            <LenInput value={z.thermalWidth ?? 0.5} min={0.15} onChange={(v) => upd((x) => void (x.thermalWidth = v))} />
+          </>
+        )}
         <label>Приоритет</label>
         <input
           className="inp"

@@ -163,6 +163,12 @@ export interface Zone {
   clearance: number;
   minWidth: number;
   priority: number;
+  /** Площадки своей цепи: термобарьер со спицами (по умолчанию, удобно паять) или сплошная медь. */
+  padConnection?: 'thermal' | 'solid';
+  /** Зазор термобарьера вокруг площадки, мм (по умолчанию — зазор полигона). */
+  thermalGap?: number;
+  /** Ширина спицы термобарьера, мм (по умолчанию 0,5). */
+  thermalWidth?: number;
 }
 
 /**
