@@ -18,6 +18,8 @@ export interface Hit {
   vertex?: number;
   layer?: LayerId;
   distance: number;
+  /** Попали внутрь полигона, а не в его край: щелчок выделяет, протяжка — рамка. */
+  inside?: boolean;
 }
 
 export interface HitOptions {
@@ -91,7 +93,7 @@ export function hitTest(p: Project, pt: Vec2, o: HitOptions): Hit[] {
     if (!cuVisible(z.layer)) continue;
     const de = distToPolygonEdge(pt, z.outline);
     if (de <= o.tol) hits.push({ ref: { kind: 'zone', id: z.id }, distance: 0.8 + de, vertex: vertexNear(z.outline, pt, o.tol) });
-    else if (pointInPolygon(pt, z.outline)) hits.push({ ref: { kind: 'zone', id: z.id }, distance: 2 });
+    else if (pointInPolygon(pt, z.outline)) hits.push({ ref: { kind: 'zone', id: z.id }, distance: 2, inside: true });
   }
   for (const ra of Object.values(p.ruleAreas)) {
     const de = distToPolygonEdge(pt, ra.outline);

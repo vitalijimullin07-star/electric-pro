@@ -1,8 +1,9 @@
 import { normAngle, type Vec2 } from '@core/math/vec';
+import { newId, nextRef } from '@core/ids';
 import { addComponent, addTrack, addVia, addWire, changeFootprint as changeFp, pruneFootprints, removeComponent } from '@core/model/edit';
 import { otherCopper } from '@core/model/layers';
 import { netClassOf } from '@core/model/rules';
-import type { FootprintDef, ItemRef, Project, Side } from '@core/model/types';
+import type { Component, Drawing, FootprintDef, ItemRef, Project, RuleArea, Side, Track, Via, Wire, Zone } from '@core/model/types';
 import { computeConnectivity } from '@core/model/connectivity';
 import { snapTo } from '@core/units';
 import { useEditor } from './store';
@@ -275,4 +276,117 @@ export function renameNetChecked(id: string, name: string): boolean {
   }
   s.commit((d) => void (d.nets[id] && (d.nets[id].name = n)));
   return true;
+}
+
+/* ---------------- буфер обмена ---------------- */
+
+interface Clip {
+  components: Component[];
+  footprints: FootprintDef[];
+  tracks: Track[];
+  vias: Via[];
+  wires: Wire[];
+  drawings: Drawing[];
+  zones: Zone[];
+  ruleAreas: RuleArea[];
+  center: Vec2;
+  /** Сколько раз вставляли — каждая следующая копия без курсора сдвигается дальше. */
+  pastes: number;
+}
+let clip: Clip | null = null;
+
+export const hasClipboard = (): boolean => clip !== null;
+
+/** Копирует выделенное в буфер редактора. */
+export function copySelection(): number {
+  const s = S();
+  const p = s.project;
+  const c: Clip = { components: [], footprints: [], tracks: [], vias: [], wires: [], drawings: [], zones: [], ruleAreas: [], center: { x: 0, y: 0 }, pastes: 0 };
+  for (const r of s.selection) {
+    if (r.kind === 'component' && p.components[r.id]) {
+      const comp = p.components[r.id];
+      c.components.push(structuredClone(comp));
+      const fp = p.footprints[comp.footprint];
+      if (fp && !c.footprints.some((f) => f.id === fp.id)) c.footprints.push(fp);
+    } else if (r.kind === 'track' && p.tracks[r.id]) c.tracks.push(structuredClone(p.tracks[r.id]));
+    else if (r.kind === 'via' && p.vias[r.id]) c.vias.push(structuredClone(p.vias[r.id]));
+    else if (r.kind === 'wire' && p.wires[r.id]) c.wires.push(structuredClone(p.wires[r.id]));
+    else if (r.kind === 'drawing' && p.drawings[r.id]) c.drawings.push(structuredClone(p.drawings[r.id]));
+    else if (r.kind === 'zone' && p.zones[r.id]) c.zones.push(structuredClone(p.zones[r.id]));
+    else if (r.kind === 'ruleArea' && p.ruleAreas[r.id]) c.ruleAreas.push(structuredClone(p.ruleAreas[r.id]));
+  }
+  const n = c.components.length + c.tracks.length + c.vias.length + c.wires.length + c.drawings.length + c.zones.length + c.ruleAreas.length;
+  if (!n) {
+    s.setMessage('Нечего копировать: сначала выделите объекты.');
+    return 0;
+  }
+  c.center = selectionCenter(p, s.selection) ?? { x: 0, y: 0 };
+  clip = c;
+  s.setMessage(`Скопировано объектов: ${n}. Ctrl+V — вставить под курсор.`);
+  return n;
+}
+
+export function cutSelection(): void {
+  if (copySelection()) {
+    const n = S().selection.length;
+    deleteSelection();
+    S().setMessage(`Вырезано объектов: ${n}. Ctrl+V — вставить под курсор.`);
+  }
+}
+
+/**
+ * Вставляет копию буфера: центр копии — в точку at (курсор), без неё — со сдвигом от оригинала.
+ * Компоненты получают свободные обозначения, цепи выводов сохраняются.
+ */
+export function pasteClipboard(at?: Vec2 | null): void {
+  const s = S();
+  if (!clip) {
+    s.setMessage('Буфер пуст: выделите объекты и нажмите Ctrl+C.');
+    return;
+  }
+  const c = clip;
+  c.pastes++;
+  const step = Math.max(s.grid, 1.27) * 2;
+  const target = at ? snapPoint(at) : { x: c.center.x + step * c.pastes, y: c.center.y + step * c.pastes };
+  const off = snapPoint({ x: target.x - c.center.x, y: target.y - c.center.y });
+  const refs: ItemRef[] = [];
+  s.commit((d) => {
+    for (const fp of c.footprints) if (!d.footprints[fp.id]) d.footprints[fp.id] = fp;
+    const used = Object.values(d.components).map((x) => x.ref);
+    for (const src of c.components) {
+      const prefix = /^[A-Za-z_]+/.exec(src.ref)?.[0] ?? d.footprints[src.footprint]?.refPrefix ?? 'X';
+      const ref = nextRef(prefix, used);
+      used.push(ref);
+      const comp: Component = { ...structuredClone(src), id: newId('c'), ref, locked: undefined, padNets: Object.fromEntries(Object.entries(src.padNets).filter(([, n]) => d.nets[n])) };
+      d.components[comp.id] = comp;
+      refs.push({ kind: 'component', id: comp.id });
+    }
+    const put = <T extends { id: string }>(list: T[], coll: Record<string, T>, prefix: string, kind: ItemRef['kind']) => {
+      for (const src of list) {
+        const x = { ...structuredClone(src), id: newId(prefix) } as T & { locked?: boolean };
+        delete x.locked;
+        coll[x.id] = x;
+        refs.push({ kind, id: x.id });
+      }
+    };
+    put(c.tracks, d.tracks, 't', 'track');
+    put(c.vias, d.vias, 'v', 'via');
+    put(c.wires, d.wires, 'w', 'wire');
+    put(c.drawings, d.drawings, 'g', 'drawing');
+    put(
+      c.zones.map((z) => ({ ...z, net: z.net && d.nets[z.net] ? z.net : null })),
+      d.zones,
+      'z',
+      'zone',
+    );
+    put(c.ruleAreas, d.ruleAreas, 'a', 'ruleArea');
+    moveItems(d, refs, (q) => ({ x: +(q.x + off.x).toFixed(4), y: +(q.y + off.y).toFixed(4) }));
+  });
+  s.select(refs);
+  s.setMessage(`Вставлено объектов: ${refs.length}. Перетащите на место; R — повернуть.`);
+}
+
+/** Ctrl+D: копия выделенного рядом с оригиналом. */
+export function duplicateSelection(): void {
+  if (copySelection()) pasteClipboard(null);
 }

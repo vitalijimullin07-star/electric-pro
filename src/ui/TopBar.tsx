@@ -5,7 +5,7 @@ import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/projec
 import { importLegacyVacuumProject } from '@core/examples';
 import { openTextFile, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
-import { deleteSelection, flipSelection, rotateSelection, selectAll } from '@editor/commands';
+import { copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
 import { askConfirm } from './dialogs/AskDialog';
@@ -152,6 +152,11 @@ export function TopBar() {
       items: [
         { label: 'Отменить', kbd: 'Ctrl+Z', action: s.undo, disabled: !s.past.length },
         { label: 'Повторить', kbd: 'Ctrl+Y', action: s.redo, disabled: !s.future.length },
+        'sep',
+        { label: 'Вырезать', kbd: 'Ctrl+X', action: cutSelection, disabled: !s.selection.length },
+        { label: 'Копировать', kbd: 'Ctrl+C', action: copySelection, disabled: !s.selection.length },
+        { label: 'Вставить', kbd: 'Ctrl+V', action: () => pasteClipboard(null), disabled: !hasClipboard() },
+        { label: 'Дублировать', kbd: 'Ctrl+D', action: duplicateSelection, disabled: !s.selection.length },
         'sep',
         { label: 'Выделить всё', kbd: 'Ctrl+A', action: selectAll },
         { label: 'Удалить выделенное', kbd: 'Del', action: deleteSelection, disabled: !s.selection.length },

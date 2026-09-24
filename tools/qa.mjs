@@ -322,6 +322,36 @@ async function openPage(viewport, touch = false) {
     expect(/Разведено 0 из 2/.test(await h.chips()), await h.chips());
   });
 
+  await step('Ctrl+C / Ctrl+V под курсор, Ctrl+D, меню «Вставить», отмена', async () => {
+    await page.keyboard.press('s');
+    const p0 = await h.project();
+    const r2 = Object.values(p0.components).find((c) => c.ref === 'R2');
+    await h.clickAt(r2.at.x, r2.at.y);
+    await page.keyboard.press('Control+c');
+    expect(/Скопировано объектов: 1/.test(await h.msg()), 'копирование: ' + (await h.msg()));
+    const t = await h.toScreen(30, 34);
+    await page.mouse.move(t.x, t.y);
+    await page.keyboard.press('Control+v');
+    let p = await h.project();
+    const r3 = Object.values(p.components).find((c) => c.ref === 'R3');
+    expect(r3 && r3.footprint === r2.footprint && JSON.stringify(r3.padNets) === JSON.stringify(r2.padNets), 'вставка: ' + JSON.stringify(r3));
+    expect(Math.abs(r3.at.x - 30) < 0.7 && Math.abs(r3.at.y - 34) < 0.7, 'вставка не под курсор: ' + JSON.stringify(r3.at));
+    const sel = (await page.evaluate(() => window.__plata.state())).selection;
+    expect(sel.length === 1 && sel[0].id === r3.id, 'вставленное не выделено');
+    await page.keyboard.press('Control+d');
+    p = await h.project();
+    const r4 = Object.values(p.components).find((c) => c.ref === 'R4');
+    expect(r4 && (r4.at.x !== r3.at.x || r4.at.y !== r3.at.y), 'дубликат: ' + JSON.stringify(r4?.at));
+    await h.hit(page.getByRole('button', { name: 'Правка', exact: true }));
+    expect(await page.locator('.menu-drop button', { hasText: 'Вставить' }).isEnabled(), 'пункт «Вставить» выключен');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    const refs = Object.values((await h.project()).components).map((c) => c.ref).sort().join(',');
+    expect(refs === 'R1,R2,U1', 'после отмены: ' + refs);
+    await page.keyboard.press('Escape');
+  });
+
   await step('ручная дорожка от вывода к выводу с изгибом', async () => {
     const p = await h.project();
     const w = await page.evaluate(() => window.__plata.pads());
@@ -460,6 +490,22 @@ async function openPage(viewport, touch = false) {
     const fills = await page.evaluate(() => window.__plata.fills());
     expect(fills.length === 1 && fills[0].loops > 0 && fills[0].islands >= 1, 'заливка: ' + JSON.stringify(fills) + ' ' + JSON.stringify(await page.evaluate(() => { const s = window.__plata.state(); return [s.tool, s.pending, s.message]; })));
     expect((await page.evaluate(() => window.__plata.netComplete('GND'))) === true, 'GND не соединена заливкой');
+    // Протяжка внутри полигона — рамка, а не перенос полигона; щелчок — выделение полигона.
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('s');
+    const zBefore = JSON.stringify(Object.values((await h.project()).zones)[0].outline);
+    const a = await h.toScreen(44, 24);
+    const b = await h.toScreen(50, 28);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    expect(JSON.stringify(Object.values((await h.project()).zones)[0].outline) === zBefore, 'протяжка внутри сдвинула полигон');
+    expect(/Выделено|ничего нет/.test(await h.msg()), 'нет рамки: ' + (await h.msg()));
+    await h.clickAt(47, 26);
+    const sel = (await page.evaluate(() => window.__plata.state())).selection;
+    expect(sel.length === 1 && sel[0].kind === 'zone', 'щелчок внутри не выделил полигон: ' + JSON.stringify(sel));
     await page.keyboard.press('Control+z');
     expect(Object.keys((await h.project()).zones).length === 0, 'отмена полигона');
     await page.keyboard.press('Escape');

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { stableProject, useEditor } from '@editor/store';
 import { CanvasController } from '@editor/interaction';
 import { fitView, renderScene, screenToWorld } from '@render/canvas-renderer';
-import { deleteSelection, flipSelection, netOfSelection, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
+import { copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
 import { libraryFootprint } from '@core/library';
 import { drcSummary } from '@core/model/drc';
@@ -157,6 +157,14 @@ export function CanvasView() {
       if (mod && k === 'a') {
         e.preventDefault();
         selectAll();
+        return;
+      }
+      if (mod && (k === 'c' || k === 'x' || k === 'v' || k === 'd') && !e.shiftKey) {
+        e.preventDefault();
+        if (k === 'c') copySelection();
+        else if (k === 'x') cutSelection();
+        else if (k === 'v') pasteClipboard(ctrl.pointerWorld);
+        else duplicateSelection();
         return;
       }
       if (mod && k === 's') {

@@ -153,7 +153,7 @@ export interface Wire {
   b: Vec2;
 }
 
-/** Полигон заливки медью (заливка считается позже, в этой версии хранится только контур). */
+/** Полигон заливки медью: заливку считает src/core/model/zone-fill.ts. */
 export interface Zone {
   id: Id;
   name?: string;

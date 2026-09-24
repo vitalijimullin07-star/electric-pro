@@ -42,6 +42,8 @@ export class CanvasController {
   private placeRotation = 0;
   private placeSide: 'top' | 'bottom' = 'top';
   private diagonalFirst = true;
+  /** Точка платы под курсором (для вставки под курсор); null — курсор вне холста. */
+  pointerWorld: Vec2 | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
 
@@ -119,6 +121,12 @@ export class CanvasController {
       const hits = this.hits(wp);
       const hit = hits[0] ?? null;
       const selKeys = new Set(s.selection.map((r) => r.kind + ':' + r.id));
+      if (hit?.inside) {
+        // Внутри полигона, но не на его краю: щелчок выделит полигон, протяжка — рамка (или вид пальцем).
+        this.drag = e.pointerType === 'touch' ? { ...base, hit } : { ...base, kind: 'box', hit };
+        if (!e.shiftKey) s.patch({ selection: [], highlightNet: null });
+        return;
+      }
       if (hit) {
         const key = hit.ref.kind + ':' + hit.ref.id;
         // Вершина выделенной дорожки/контура.
@@ -163,6 +171,7 @@ export class CanvasController {
       return;
     }
     const wp = this.worldPt(e);
+    this.pointerWorld = wp;
     if (!this.drag) {
       // Наведение и предпросмотр.
       if (s.pending) {
@@ -276,9 +285,14 @@ export class CanvasController {
     if (d.kind === 'box') {
       s.patch({ pending: null });
       if (d.moved) this.boxSelect(d.startWorld, wp, e.shiftKey);
+      else if (d.hit) this.selectInside(d.hit, e.shiftKey);
       return;
     }
     if (d.moved) return; // это было перетаскивание вида
+    if (s.tool === 'select' && d.hit) {
+      this.selectInside(d.hit, false);
+      return;
+    }
     if (e.button === 2 || e.button === 1) return;
     if (s.tool === 'pan') return;
     this.click(wp, e);
@@ -301,6 +315,15 @@ export class CanvasController {
       if (h?.ref.kind === 'component') s.openDialog('component', h.ref.id);
       else if (h?.ref.kind === 'drawing' && s.project.drawings[h.ref.id]?.kind === 'text') s.openDialog('text', h.ref.id);
     }
+  }
+
+  /** Щелчок внутри полигона без протяжки: выделить его. */
+  private selectInside(hit: Hit, add: boolean): void {
+    const s = this.S;
+    s.select([hit.ref], add);
+    if (s.panelTab === 'library' || s.panelTab === 'layers') s.patch({ panelTab: 'props' });
+    const z = hit.ref.kind === 'zone' ? s.project.zones[hit.ref.id] : null;
+    if (z) s.setMessage(`Полигон ${z.net ? (s.project.nets[z.net]?.name ?? '') : 'без цепи'}. Двигать — за край, вершины — за углы; свойства справа.`);
   }
 
   private checkDoubleTap(wp: Vec2, hit: Hit): void {
@@ -579,6 +602,7 @@ export class CanvasController {
   }
   hideGhost(): void {
     this.ghostAt = null;
+    this.pointerWorld = null;
     if (this.S.ghost) this.S.patch({ ghost: null });
   }
 
