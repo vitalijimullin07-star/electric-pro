@@ -6,7 +6,7 @@ import { deleteSelection, flipSelection, netOfSelection, rotateSelection, select
 import { Icon } from './icons';
 import { libraryFootprint } from '@core/library';
 import { drcSummary } from '@core/model/drc';
-import { GRID_STEPS } from '@core/units';
+import { GRID_STEPS, UNIT_LABEL, fmt, fromMm } from '@core/units';
 
 /* Холст платы: отрисовка по requestAnimationFrame, события мыши/касаний, клавиатура. */
 
@@ -21,6 +21,7 @@ export function CanvasView() {
   const grid = useEditor((s) => s.grid);
   const show = useEditor((s) => s.show);
   const panelOpen = useEditor((s) => s.panelOpen);
+  const units = useEditor((s) => s.units);
   const summary = drcSummary(project);
 
   // Отрисовка: подписываемся на store и рисуем в следующем кадре.
@@ -57,6 +58,8 @@ export function CanvasView() {
         highlightNet: s.highlightNet,
         pending: s.pending,
         measure: s.measure,
+        ghost: s.ghost,
+        units: s.units,
       });
     };
     const schedule = () => {
@@ -105,6 +108,8 @@ export function CanvasView() {
     const onCancel = (e: PointerEvent) => ctrl.onPointerCancel(e);
     const onDbl = (e: MouseEvent) => ctrl.onDoubleClick(e);
     const onCtx = (e: MouseEvent) => e.preventDefault();
+    const onLeave = () => ctrl.hideGhost();
+    canvas.addEventListener('pointerleave', onLeave);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
@@ -120,6 +125,7 @@ export function CanvasView() {
       canvas.removeEventListener('pointercancel', onCancel);
       canvas.removeEventListener('dblclick', onDbl);
       canvas.removeEventListener('contextmenu', onCtx);
+      canvas.removeEventListener('pointerleave', onLeave);
     };
   }, []);
 
@@ -192,6 +198,7 @@ export function CanvasView() {
           rotateSelection(e.shiftKey ? -90 : 90);
           return;
         case 'f':
+          if (ctrl.flipPlacing()) return;
           flipSelection();
           return;
         case 'v':
@@ -314,7 +321,7 @@ export function CanvasView() {
       </div>
       {cursor && tool !== 'select' && tool !== 'pan' && (
         <div className="ghost" style={{ left: 10, bottom: 10 }}>
-          {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} мм
+          {fmt(fromMm(cursor.x, units), units === 'mm' ? 2 : units === 'mil' ? 0 : 3)}, {fmt(fromMm(cursor.y, units), units === 'mm' ? 2 : units === 'mil' ? 0 : 3)} {UNIT_LABEL[units]}
         </div>
       )}
     </div>

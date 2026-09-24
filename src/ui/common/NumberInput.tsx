@@ -1,18 +1,34 @@
 import { useEffect, useState } from 'react';
-import { fmt, parseLen } from '@core/units';
+import { fmt, fmtLen, fromMm, parseLen, UNIT_LABEL, type DisplayUnit } from '@core/units';
+import { useEditor } from '@editor/store';
 
-/** Поле длины в мм: принимает запятую, единицы mil и in, применяет по Enter или потере фокуса. */
+/** Единицы отображения из строки состояния: подпись и форматирование длины. */
+export function useUnits(): { unit: DisplayUnit; label: string; len: (mm: number, digits?: number) => string } {
+  const unit = useEditor((s) => s.units);
+  return { unit, label: UNIT_LABEL[unit], len: (mm, digits) => fmtLen(mm, unit, digits) };
+}
+
+const digitsFor = (u: DisplayUnit) => (u === 'mm' ? 3 : u === 'mil' ? 1 : 4);
+
+/**
+ * Поле длины. Значение хранится в мм, показывается и вводится в выбранных единицах;
+ * можно явно дописать единицы: «0,5 мм», «20 mil», «0,1 in». Применяется по Enter или потере фокуса.
+ */
 export function LenInput({ value, onChange, min, className = 'inp', disabled, placeholder }: { value: number; onChange: (v: number) => void; min?: number; className?: string; disabled?: boolean; placeholder?: string }) {
-  const [text, setText] = useState(fmt(value, 3));
-  useEffect(() => setText(fmt(value, 3)), [value]);
+  const unit = useEditor((s) => s.units);
+  const show = (v: number) => fmt(fromMm(v, unit), digitsFor(unit));
+  const [text, setText] = useState(show(value));
+  useEffect(() => setText(show(value)), [value, unit]); // eslint-disable-line react-hooks/exhaustive-deps
   const apply = () => {
-    const v = parseLen(text);
-    if (v === null || (min !== undefined && v < min)) {
-      setText(fmt(value, 3));
+    // Текст не трогали — значение не меняем (иначе округление показа молча портило бы его).
+    if (text === show(value)) return;
+    const v = parseLen(text, unit);
+    if (v === null || (min !== undefined && v < min - 1e-9)) {
+      setText(show(value));
       return;
     }
     if (Math.abs(v - value) > 1e-9) onChange(+v.toFixed(4));
-    else setText(fmt(value, 3));
+    else setText(show(value));
   };
   return (
     <input
@@ -25,7 +41,7 @@ export function LenInput({ value, onChange, min, className = 'inp', disabled, pl
       onBlur={apply}
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-        if (e.key === 'Escape') setText(fmt(value, 3));
+        if (e.key === 'Escape') setText(show(value));
         e.stopPropagation();
       }}
     />
@@ -42,7 +58,11 @@ export function TextInput({ value, onChange, className = 'inp', placeholder, lis
       placeholder={placeholder}
       list={list}
       onChange={(e) => setText(e.target.value)}
-      onBlur={() => text !== value && onChange(text)}
+      onBlur={() => {
+        // Если значение не приняли (например, занятое обозначение), поле возвращается к прежнему.
+        if (text !== value) onChange(text);
+        setText(value);
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         e.stopPropagation();

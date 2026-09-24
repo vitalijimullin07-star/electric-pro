@@ -88,6 +88,8 @@ export interface EditorState {
   view: ViewState;
   routeWidth: number | 'auto';
   placeFootprint: string | null;
+  /** Призрак устанавливаемого корпуса под курсором. */
+  ghost: { footprint: string; at: Vec2; rotation: number; side: 'top' | 'bottom' } | null;
   drawLayer: LayerId;
   drawWidth: number;
   textSize: number;
@@ -200,6 +202,7 @@ export const useEditor = create<EditorState>((set, get) => {
     view: { x: -5, y: -5, scale: 4 },
     routeWidth: 'auto',
     placeFootprint: null,
+    ghost: null,
     drawLayer: 'F.Silk',
     drawWidth: 0.15,
     textSize: 1.2,
@@ -283,7 +286,7 @@ export const useEditor = create<EditorState>((set, get) => {
     },
     setTool(t) {
       const s = get();
-      set({ tool: t, prevTool: s.tool === t ? s.prevTool : s.tool, pending: null, measure: t === 'measure' ? s.measure : null, placeFootprint: t === 'place' ? s.placeFootprint : null, message: TOOL_HINTS[t] });
+      set({ tool: t, prevTool: s.tool === t ? s.prevTool : s.tool, pending: null, measure: t === 'measure' ? s.measure : null, placeFootprint: t === 'place' ? s.placeFootprint : null, ghost: null, message: TOOL_HINTS[t] });
     },
     select(items, add = false) {
       const s = get();

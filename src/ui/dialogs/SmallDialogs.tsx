@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
-import { TextInput, LenInput } from '../common/NumberInput';
-import { addDrawing, renameNet } from '@core/model/edit';
+import { TextInput, LenInput, useUnits } from '../common/NumberInput';
+import { addDrawing } from '@core/model/edit';
+import { renameNetChecked } from '@editor/commands';
 import type { Vec2 } from '@core/math/vec';
 import { startAutoroute } from '@core/router/client';
 import { autoGrid } from '@core/router/autoroute';
@@ -21,7 +22,7 @@ export function NetDialog({ id }: { id: string }) {
     <Dialog title={`Цепь ${n.name}`} size="narrow">
       <div className="field">
         <label>Имя</label>
-        <TextInput value={n.name} onChange={(v) => v.trim() && s.commit((d) => renameNet(d, id, v.trim()))} />
+        <TextInput value={n.name} onChange={(v) => renameNetChecked(id, v)} />
         <label>Описание</label>
         <TextInput value={n.description ?? ''} onChange={(v) => s.commit((d) => void (d.nets[id] && (d.nets[id].description = v || undefined)))} />
         <label>Класс</label>
@@ -45,6 +46,7 @@ export function TextDialog({ data }: { data: unknown }) {
   const [text, setText] = useState(existing?.kind === 'text' ? existing.text : '');
   const [size, setSize] = useState(existing?.kind === 'text' ? existing.size : s.textSize);
   const [layer, setLayer] = useState<LayerId>(existing?.layer ?? (s.drawLayer.endsWith('Cu') ? 'F.Silk' : s.drawLayer));
+  const { label: U } = useUnits();
   useEffect(() => {
     setTimeout(() => (document.getElementById('text-dialog-input') as HTMLInputElement | null)?.focus(), 30);
   }, []);
@@ -90,7 +92,7 @@ export function TextDialog({ data }: { data: unknown }) {
             e.stopPropagation();
           }}
         />
-        <label>Высота, мм</label>
+        <label>Высота, {U}</label>
         <LenInput value={size} min={0.3} onChange={setSize} />
         <label>Слой</label>
         <select className="sel" value={layer} onChange={(e) => setLayer(e.target.value as LayerId)}>

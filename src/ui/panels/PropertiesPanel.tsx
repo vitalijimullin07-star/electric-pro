@@ -1,10 +1,10 @@
 import { useEditor } from '@editor/store';
 import { LAYERS, boardCopperLayers } from '@core/model/layers';
 import type { CopperLayer, LayerId } from '@core/model/types';
-import { LenInput, TextInput } from '../common/NumberInput';
+import { LenInput, TextInput, useUnits } from '../common/NumberInput';
 import { FootprintPreview } from '../common/FootprintPreview';
 import { computeConnectivity } from '@core/model/connectivity';
-import { deleteSelection, flipSelection, rotateSelection } from '@editor/commands';
+import { deleteSelection, flipSelection, renameComponent, rotateSelection } from '@editor/commands';
 import { boardBox, rectSize } from '@core/model/project';
 import { polygonLength } from '@core/math/geom';
 
@@ -52,9 +52,10 @@ function BoardProps() {
   const p = s.project;
   const bb = boardBox(p.board);
   const rs = rectSize(p.board.outline);
+  const { len } = useUnits();
   const counts = { comps: Object.keys(p.components).length, tracks: Object.keys(p.tracks).length, vias: Object.keys(p.vias).length, wires: Object.keys(p.wires).length, nets: Object.keys(p.nets).length };
   const conn = computeConnectivity(p);
-  const len = Object.values(p.tracks).reduce((a, t) => a + polygonLength(t.points), 0);
+  const total = Object.values(p.tracks).reduce((a, t) => a + polygonLength(t.points), 0);
   return (
     <div>
       <h3>Плата</h3>
@@ -63,12 +64,13 @@ function BoardProps() {
         <TextInput value={p.meta.name} onChange={(v) => s.commit((d) => void (d.meta.name = v || 'Плата'))} />
         <label>Размер</label>
         <span>
-          {(bb.maxX - bb.minX).toFixed(2)} × {(bb.maxY - bb.minY).toFixed(2)} мм{rs ? '' : ' (контур не прямоугольный)'}
+          {len(bb.maxX - bb.minX, 2)} × {len(bb.maxY - bb.minY, 2)}
+          {rs ? '' : ' (контур не прямоугольный)'}
         </span>
         <label>Слоёв меди</label>
         <span>{p.board.copperLayers === 1 ? '1 — нижняя' : '2 — верхняя и нижняя'}</span>
         <label>Скругление</label>
-        <span>{p.board.cornerRadius} мм</span>
+        <span>{len(p.board.cornerRadius)}</span>
       </div>
       <div className="row">
         <button className="btn" onClick={() => s.openDialog('board')}>
@@ -77,7 +79,7 @@ function BoardProps() {
       </div>
       <h4>Состав</h4>
       <p className="hint">
-        Компонентов {counts.comps}, цепей {counts.nets} (разведено {conn.total - conn.unrouted} из {conn.total}), дорожек {counts.tracks} общей длиной {len.toFixed(0)} мм, переходных {counts.vias}, перемычек {counts.wires}.
+        Компонентов {counts.comps}, цепей {counts.nets} (разведено {conn.total - conn.unrouted} из {conn.total}), дорожек {counts.tracks} общей длиной {len(total, 0)}, переходных {counts.vias}, перемычек {counts.wires}.
       </p>
       {p.meta.description && <p className="hint">{p.meta.description}</p>}
       <p className="hint">Нажмите на объект платы, чтобы увидеть его свойства.</p>
@@ -106,7 +108,7 @@ function ComponentProps({ id }: { id: string }) {
       {fp && <FootprintPreview fp={fp} />}
       <div className="field">
         <label>Обозначение</label>
-        <TextInput value={c.ref} onChange={(v) => upd((x) => void (x.ref = v.trim() || x.ref))} />
+        <TextInput value={c.ref} onChange={(v) => renameComponent(id, v)} />
         <label>Номинал</label>
         <TextInput value={c.value} onChange={(v) => upd((x) => void (x.value = v))} />
         <label>Корпус</label>
@@ -166,6 +168,7 @@ function TrackProps({ id }: { id: string }) {
   const s = useEditor();
   const p = s.project;
   const t = p.tracks[id];
+  const { len } = useUnits();
   if (!t) return null;
   const conn = computeConnectivity(p);
   const net = conn.itemNet.get(id);
@@ -192,7 +195,7 @@ function TrackProps({ id }: { id: string }) {
         <label>Ширина</label>
         <LenInput value={t.width} min={0.05} onChange={(v) => upd((x) => void (x.width = v))} />
         <label>Длина</label>
-        <span>{polygonLength(t.points).toFixed(2)} мм</span>
+        <span>{len(polygonLength(t.points), 2)}</span>
         <label>Точек</label>
         <span>{t.points.length}</span>
       </div>
@@ -246,6 +249,7 @@ function WireProps({ id }: { id: string }) {
   const s = useEditor();
   const p = s.project;
   const w = p.wires[id];
+  const { len } = useUnits();
   if (!w) return null;
   const conn = computeConnectivity(p);
   const net = conn.itemNet.get(id);
@@ -256,7 +260,7 @@ function WireProps({ id }: { id: string }) {
         <label>Цепь</label>
         <span>{net === 'short' ? <span className="tag err">замыкание</span> : net ? p.nets[net]?.name : 'без цепи'}</span>
         <label>Длина</label>
-        <span>{Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y).toFixed(1)} мм</span>
+        <span>{len(Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y), 1)}</span>
       </div>
       <p className="hint">Перемычка паяется со стороны деталей в площадки на её концах.</p>
       <div className="row">

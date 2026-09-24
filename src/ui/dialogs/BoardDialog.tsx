@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
 import { askText } from './AskDialog';
-import { LenInput, TextInput } from '../common/NumberInput';
+import { LenInput, TextInput, useUnits } from '../common/NumberInput';
 import { rectOutline, rectSize } from '@core/model/project';
 import { MAINS_CLASS, MAINS_CLEARANCE, RULE_PRESETS, defaultNetClasses } from '@core/model/rules';
 import type { DesignRules, NetClass } from '@core/model/types';
@@ -24,6 +24,7 @@ export function BoardDialog() {
   const p = s.project;
   const rs = rectSize(p.board.outline);
   const [tab, setTab] = useState<'board' | 'rules' | 'classes'>('board');
+  const { label: U } = useUnits();
 
   const setRule = (k: keyof DesignRules, v: number) => s.commit((d) => void ((d.rules as unknown as Record<string, number>)[k] = v));
   const setClass = (name: string, fn: (c: NetClass) => void) => s.commit((d) => void (d.netClasses[name] && fn(d.netClasses[name])));
@@ -51,14 +52,14 @@ export function BoardDialog() {
             <TextInput value={p.meta.name} onChange={(v) => s.commit((d) => void (d.meta.name = v || 'Плата'))} />
             <label>Описание</label>
             <TextInput value={p.meta.description ?? ''} onChange={(v) => s.commit((d) => void (d.meta.description = v || undefined))} />
-            <label>Ширина, мм</label>
+            <label>Ширина, {U}</label>
             <LenInput
               value={rs ? rs.w : 0}
               min={5}
               disabled={!rs}
               onChange={(v) => s.commit((d) => void (d.board.outline = rectOutline(v, rs!.h, rs!.x, rs!.y)))}
             />
-            <label>Высота, мм</label>
+            <label>Высота, {U}</label>
             <LenInput
               value={rs ? rs.h : 0}
               min={5}
@@ -67,7 +68,7 @@ export function BoardDialog() {
             />
             <label>Скругление углов</label>
             <LenInput value={p.board.cornerRadius} min={0} onChange={(v) => s.commit((d) => void (d.board.cornerRadius = v))} />
-            <label>Толщина, мм</label>
+            <label>Толщина, {U}</label>
             <LenInput value={p.board.thickness} min={0.2} onChange={(v) => s.commit((d) => void (d.board.thickness = v))} />
             <label>Слоёв меди</label>
             <select
@@ -80,6 +81,14 @@ export function BoardDialog() {
                   if (n === 1) for (const t of Object.values(d.tracks)) t.layer = 'B.Cu';
                 });
                 s.patch({ activeLayer: n === 1 ? 'B.Cu' : s.activeLayer });
+                if (n === 1) {
+                  // Планарные детали сверху на односторонней плате не достанут до меди.
+                  const top = Object.values(useEditor.getState().project.components).filter((c) => {
+                    const f = useEditor.getState().project.footprints[c.footprint];
+                    return c.side === 'top' && f && f.pads.some((pd) => pd.type === 'smd');
+                  });
+                  s.setMessage(top.length ? `Плата стала односторонней. Планарные детали сверху (${top.map((c) => c.ref).slice(0, 8).join(', ')}${top.length > 8 ? '…' : ''}) не достанут до меди: выделите их и нажмите F, чтобы перенести вниз.` : 'Плата стала односторонней: все дорожки на нижнем слое.');
+                }
               }}
             >
               <option value={2}>2 — двусторонняя</option>
@@ -113,7 +122,9 @@ export function BoardDialog() {
           <div className="field">
             {RULE_FIELDS.map((f) => (
               <span key={f.k} style={{ display: 'contents' }}>
-                <label>{f.label}, мм</label>
+                <label>
+                  {f.label}, {U}
+                </label>
                 <LenInput value={p.rules[f.k] as number} min={0} onChange={(v) => setRule(f.k, v)} />
               </span>
             ))}
@@ -127,7 +138,7 @@ export function BoardDialog() {
               <tr>
                 <th>Класс A</th>
                 <th>Класс B</th>
-                <th>Зазор, мм</th>
+                <th>Зазор, {U}</th>
                 <th></th>
               </tr>
             </thead>

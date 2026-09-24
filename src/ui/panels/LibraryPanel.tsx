@@ -72,16 +72,7 @@ export function LibraryPanel() {
       )}
       {chosen && (
         <div style={{ margin: '8px 0 10px' }}>
-          <FootprintPreview fp={chosen} />
-          <div style={{ marginTop: 6 }}>
-            <b>{chosen.name}</b> <span className="hint">{chosen.description}</span>
-          </div>
-          <div className="hint">
-            {chosen.category}
-            {chosen.group ? ` → ${chosen.group}` : ''} · {chosen.pads.filter((p) => p.type !== 'npth').length} выв. · {chosen.source ?? ''} ·{' '}
-            {chosen.verified ? <span className="tag ok">размеры сверены</span> : <span className="tag warn">размеры типовые — проверить</span>}
-          </div>
-          <div className="row">
+          <div className="row" style={{ marginTop: 0 }}>
             <button
               className="btn primary"
               onClick={() => {
@@ -92,6 +83,14 @@ export function LibraryPanel() {
             >
               Поставить на плату
             </button>
+            <b>{chosen.name}</b>
+          </div>
+          <FootprintPreview fp={chosen} />
+          <div className="hint">{chosen.description}</div>
+          <div className="hint">
+            {chosen.category}
+            {chosen.group ? ` → ${chosen.group}` : ''} · {chosen.pads.filter((p) => p.type !== 'npth').length} выв. · {chosen.source ?? ''} ·{' '}
+            {chosen.verified ? <span className="tag ok">размеры сверены</span> : <span className="tag warn">размеры типовые — проверить</span>}
           </div>
         </div>
       )}

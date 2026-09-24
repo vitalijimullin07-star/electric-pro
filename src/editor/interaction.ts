@@ -1,4 +1,5 @@
 import { dist, type Vec2 } from '@core/math/vec';
+import { fmtLen } from '@core/units';
 import { netAtPoint } from '@core/model/connectivity';
 import { boardCopperLayers } from '@core/model/layers';
 import { addDrawing, addRuleArea, addZone } from '@core/model/edit';
@@ -134,10 +135,13 @@ export class CanvasController {
           return;
         }
         if (!selKeys.has(key)) s.select([hit.ref]);
+        // Выбрали объект — показываем его свойства (если панель открыта на библиотеке или слоях).
+        if (s.panelTab === 'library' || s.panelTab === 'layers') s.patch({ panelTab: 'props' });
         this.drag = { ...base, kind: 'move', items: selKeys.has(key) ? s.selection : [hit.ref], hit };
         this.showHitInfo(hit);
       } else {
-        this.drag = { ...base, kind: 'box' };
+        // Пальцем по пустому месту двигаем плату, мышью — рамка выделения.
+        this.drag = e.pointerType === 'touch' ? base : { ...base, kind: 'box' };
         if (!e.shiftKey) s.patch({ selection: [], highlightNet: null });
       }
       return;
@@ -349,7 +353,7 @@ export class CanvasController {
         else {
           s.patch({ pending: null, measure: { a: s.pending.points[0], b: q } });
           const d = dist(s.pending.points[0], q);
-          s.setMessage(`Расстояние ${d.toFixed(3).replace('.', ',')} мм.`);
+          s.setMessage(`Расстояние ${fmtLen(d, s.units)} (Δx ${fmtLen(Math.abs(q.x - s.pending.points[0].x), s.units)}, Δy ${fmtLen(Math.abs(q.y - s.pending.points[0].y), s.units)}).`);
         }
         return;
       }
@@ -393,8 +397,20 @@ export class CanvasController {
   private clickRoute(wp: Vec2, isDouble: boolean): void {
     const s = this.S;
     const layers = boardCopperLayers(s.project.board.copperLayers);
-    const layer: CopperLayer = layers.includes(s.activeLayer) ? s.activeLayer : layers[0];
-    const hits = this.hits(wp, true).filter((h) => !h.layer || h.layer === layer || h.pad?.layers.includes(layer) || h.ref.kind === 'via');
+    let layer: CopperLayer = s.pending?.kind === 'route' && s.pending.layer ? s.pending.layer : layers.includes(s.activeLayer) ? s.activeLayer : layers[0];
+    const all = this.hits(wp, true);
+    if (!s.pending || s.pending.kind !== 'route') {
+      // Начало на площадке только другого слоя (SMD снизу или сверху) — переходим на её слой.
+      const padHit = all.find((x) => x.pad && x.pad.layers.length);
+      if (padHit?.pad && !padHit.pad.layers.includes(layer)) {
+        const l = padHit.pad.layers.find((x) => layers.includes(x));
+        if (l) {
+          layer = l;
+          s.patch({ activeLayer: l });
+        }
+      }
+    }
+    const hits = all.filter((h) => !h.layer || h.layer === layer || h.pad?.layers.includes(layer) || h.ref.kind === 'via');
     const h = hits[0];
     if (!s.pending || s.pending.kind !== 'route') {
       // Начало: площадка, переходное или дорожка на активном слое; иначе — свободная точка.
@@ -412,7 +428,14 @@ export class CanvasController {
       } else start = snapPoint(wp);
       const width = routeWidthFor(net);
       s.patch({ pending: { kind: 'route', points: [start], cursor: start, layer, width, net }, highlightNet: net, selection: [] });
-      s.setMessage(net ? `Цепь ${s.project.nets[net]?.name ?? ''}: ведите к подсвеченной площадке. V — переходное, / — тип изгиба.` : 'Дорожка без цепи. Ведите к площадке.');
+      const layerName = layer === 'F.Cu' ? 'верхней' : 'нижней';
+      s.setMessage(net ? `Цепь ${s.project.nets[net]?.name ?? ''}, слой ${layerName} меди: ведите к подсвеченной площадке. V — переходное, / — тип изгиба.` : `Дорожка без цепи по ${layerName} меди. Ведите к площадке.`);
+      return;
+    }
+    // Щелчок по площадке, которой нет на слое дорожки: подсказываем, а не ставим изгиб поверх неё.
+    const foreignPad = all.find((x) => x.pad && !x.pad.layers.includes(layer));
+    if (!h && foreignPad?.pad) {
+      s.setMessage(`${foreignPad.pad.component.ref}: площадка на ${layer === 'F.Cu' ? 'нижнем' : 'верхнем'} слое. Поставьте переходное (V) рядом и продолжайте.`);
       return;
     }
     const pd = s.pending;
@@ -505,8 +528,7 @@ export class CanvasController {
     }
     const fp = libraryFootprint(s.placeFootprint) ?? s.project.footprints[s.placeFootprint];
     if (!fp) return;
-    const smd = fp.pads.every((pd) => pd.type !== 'tht');
-    const side = s.project.board.copperLayers === 1 && smd ? 'bottom' : this.placeSide;
+    const side = this.placeSideFor(fp);
     const id = placeComponent(fp, snapPoint(wp), this.placeRotation, side);
     this.S.select([{ kind: 'component', id }]);
     this.S.setMessage(`Поставлен ${this.S.project.components[id]?.ref}. Ещё щелчок — ещё один, Esc — закончить.`);
@@ -515,11 +537,46 @@ export class CanvasController {
   rotatePlacing(): boolean {
     if (this.S.tool !== 'place') return false;
     this.placeRotation = (this.placeRotation + 90) % 360;
+    this.refreshGhost();
     return true;
   }
 
-  private updateGhost(_wp: Vec2): void {
-    /* призрак корпуса рисует React-слой поверх холста по положению курсора */
+  /** F при установке: следующий компонент — на другую сторону. */
+  flipPlacing(): boolean {
+    if (this.S.tool !== 'place') return false;
+    this.placeSide = this.placeSide === 'top' ? 'bottom' : 'top';
+    this.refreshGhost();
+    this.S.setMessage(this.placeSide === 'top' ? 'Ставим на верхнюю сторону.' : 'Ставим на нижнюю сторону.');
+    return true;
+  }
+
+  private placeSideFor(fp: { pads: { type: string }[] }): 'top' | 'bottom' {
+    const smd = fp.pads.every((pd) => pd.type !== 'tht');
+    // На односторонней плате медь снизу: планарные детали паяются только туда.
+    return this.S.project.board.copperLayers === 1 && smd ? 'bottom' : this.placeSide;
+  }
+
+  private ghostAt: Vec2 | null = null;
+  private updateGhost(wp: Vec2): void {
+    this.ghostAt = snapPoint(wp);
+    this.refreshGhost();
+  }
+  private refreshGhost(): void {
+    const s = this.S;
+    if (s.tool !== 'place' || !s.placeFootprint || !this.ghostAt) {
+      if (s.ghost) s.patch({ ghost: null });
+      return;
+    }
+    const fp = libraryFootprint(s.placeFootprint) ?? s.project.footprints[s.placeFootprint];
+    if (!fp) return;
+    const g = s.ghost;
+    const side = this.placeSideFor(fp);
+    if (g && g.footprint === fp.id && g.at.x === this.ghostAt.x && g.at.y === this.ghostAt.y && g.rotation === this.placeRotation && g.side === side) return;
+    s.patch({ ghost: { footprint: fp.id, at: this.ghostAt, rotation: this.placeRotation, side } });
+  }
+  hideGhost(): void {
+    this.ghostAt = null;
+    if (this.S.ghost) this.S.patch({ ghost: null });
   }
 
   private clickTwoPoint(wp: Vec2): void {

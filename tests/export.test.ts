@@ -102,3 +102,13 @@ describe('экспорт', () => {
     }
   });
 });
+
+describe('имена файлов', () => {
+  test('латиница без пробелов, кириллица транслитерируется', async () => {
+    const { safeName } = await import('../src/core/io/gerber');
+    expect(safeName('Плата контроллера пылесоса')).toBe('Plata_kontrollera_pylesosa');
+    expect(safeName('  ESP32 — блок №2 (v1.0) ')).toBe('ESP32_blok_No2_v1_0');
+    expect(safeName('Щёткин Ёж')).toBe('Schetkin_Ezh');
+    expect(safeName('***')).toBe('plata');
+  });
+});

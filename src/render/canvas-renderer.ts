@@ -4,13 +4,15 @@ import type { Vec2 } from '@core/math/vec';
 import { computeConnectivity } from '@core/model/connectivity';
 import { runDrc } from '@core/model/drc';
 import { LAYERS, boardCopperLayers } from '@core/model/layers';
-import { placementOf } from '@core/model/placement';
+import { padLocalShape, placementOf, shapeToWorld } from '@core/model/placement';
+import { libraryFootprint } from '@core/library';
 import { boardPolygon } from '@core/model/project';
 import type { CopperLayer, ItemRef, LayerId, Project } from '@core/model/types';
 import { getWorld, type World } from '@core/model/world';
 import { graphicPrims, type LayerPrims, type Prim } from '@core/render/flatten';
 import { textStrokes } from '@core/render/stroke-font';
 import type { EditorState, Pending, ViewState } from '@editor/store';
+import { fmtLen, type DisplayUnit } from '@core/units';
 
 /*
  * Отрисовка платы на Canvas 2D. Вид сверху: нижняя медь под верхней,
@@ -73,6 +75,8 @@ export interface RenderInput {
   highlightNet: string | null;
   pending: Pending | null;
   measure: { a: Vec2; b: Vec2 } | null;
+  units?: DisplayUnit;
+  ghost?: EditorState['ghost'];
   /** Перетаскиваемые компоненты и т. п. рисуются как есть — они уже в проекте. */
   dragging?: boolean;
 }
@@ -489,6 +493,22 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.fill();
     }
   }
+  // Призрак устанавливаемого корпуса.
+  if (inp.ghost) {
+    const fp = libraryFootprint(inp.ghost.footprint) ?? p.footprints[inp.ghost.footprint];
+    if (fp) {
+      const pl = { at: inp.ghost.at, rotation: inp.ghost.rotation, side: inp.ghost.side };
+      ctx.globalAlpha = 0.55;
+      for (const pad of fp.pads) {
+        ctx.fillStyle = pad.type === 'npth' ? COLORS.hole : pad.type === 'tht' ? COLORS.padTht : inp.ghost.side === 'top' ? COLORS.padTop : COLORS.padBottom;
+        ctx.fill(shapePath(shapeToWorld(pl, padLocalShape(pad))));
+      }
+      const tmp: LayerPrims = {};
+      for (const g of fp.graphics) if (!g.layer.endsWith('Fab')) graphicPrims(g, pl, null, tmp);
+      for (const [l, list] of Object.entries(tmp)) for (const pr of list ?? []) strokePrim(ctx, pr, l.endsWith('Courtyard') ? COLORS.selection : LAYERS[l as LayerId].color, px);
+      ctx.globalAlpha = 1;
+    }
+  }
   if (inp.measure) {
     const { a, b } = inp.measure;
     ctx.strokeStyle = COLORS.measure;
@@ -503,7 +523,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.stroke();
     }
     const d = Math.hypot(b.x - a.x, b.y - a.y);
-    const label = `${d.toFixed(2).replace('.', ',')} мм  (Δx ${Math.abs(b.x - a.x).toFixed(2)}, Δy ${Math.abs(b.y - a.y).toFixed(2)})`;
+    const u = inp.units ?? 'mm';
+    const label = `${fmtLen(d, u)}  (Δx ${fmtLen(Math.abs(b.x - a.x), u)}, Δy ${fmtLen(Math.abs(b.y - a.y), u)})`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sp = worldToScreen(v, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     ctx.font = '12px system-ui, sans-serif';

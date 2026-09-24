@@ -4,7 +4,7 @@ import { Dialog } from './Dialog';
 import { TextInput } from '../common/NumberInput';
 import { FootprintPreview } from '../common/FootprintPreview';
 import { compatibleFootprints, libraryFootprints, searchFootprints } from '@core/library';
-import { changeFootprint } from '@editor/commands';
+import { changeFootprint, renameComponent } from '@editor/commands';
 import { ensureNet, connectPad } from '@core/model/edit';
 
 /* Свойства компонента: обозначение, номинал, корпус (замена), выводы → цепи. */
@@ -47,7 +47,7 @@ export function ComponentDialog({ id }: { id: string }) {
           <FootprintPreview fp={fp} />
           <div className="field" style={{ marginTop: 8 }}>
             <label>Обозначение</label>
-            <TextInput value={c.ref} onChange={(v) => upd((x) => void (x.ref = v.trim() || x.ref))} />
+            <TextInput value={c.ref} onChange={(v) => renameComponent(id, v)} />
             <label>Номинал</label>
             <TextInput value={c.value} onChange={(v) => upd((x) => void (x.value = v))} />
             <label>Описание</label>

@@ -99,19 +99,18 @@ a {
 .menu.open > button {
   background: var(--panel-2);
 }
-.menu .drop {
-  position: absolute;
-  top: 100%;
-  left: 0;
+.menu-drop {
+  position: fixed;
   min-width: 250px;
+  overflow-y: auto;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 4px;
-  z-index: 30;
+  z-index: 200;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
-.menu .drop button {
+.menu-drop button {
   display: flex;
   width: 100%;
   justify-content: space-between;
@@ -119,26 +118,28 @@ a {
   text-align: left;
   background: transparent;
   border: 0;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
   color: var(--ink);
+  min-height: 34px;
 }
-.menu .drop button:hover {
+.menu-drop button:hover,
+.menu-drop button:focus-visible {
   background: var(--accent);
   color: var(--accent-ink);
 }
-.menu .drop button:disabled {
+.menu-drop button:disabled {
   opacity: 0.4;
   pointer-events: none;
 }
-.menu .drop kbd {
+.menu-drop kbd {
   color: var(--mute);
   font: 11px ui-monospace, monospace;
 }
-.menu .drop button:hover kbd {
+.menu-drop button:hover kbd {
   color: inherit;
 }
-.menu .drop hr {
+.menu-drop hr {
   border: 0;
   border-top: 1px solid var(--line);
   margin: 4px 0;

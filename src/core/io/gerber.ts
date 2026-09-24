@@ -154,10 +154,28 @@ export function exportGerbers(p: Project, o: GerberOptions = {}): GerberFile[] {
   return files;
 }
 
+const TRANSLIT: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  і: 'i', ї: 'yi', є: 'ye', ґ: 'g', ў: 'u',
+};
+
+/**
+ * Имя файла только из латиницы, цифр, «_» и «-»: браузеры теряют имя с кириллицей при
+ * скачивании (файл сохраняется как «download»), а заводы не любят такие имена в архиве Gerber.
+ */
 export function safeName(s: string): string {
-  const t = s
-    .trim()
-    .replace(/[^\p{L}\p{N}_-]+/gu, '_')
+  const t = [...s.trim()]
+    .map((ch) => {
+      const lo = ch.toLowerCase();
+      const tr = TRANSLIT[lo];
+      if (tr === undefined) return ch;
+      return ch !== lo && tr ? tr[0].toUpperCase() + tr.slice(1) : tr;
+    })
+    .join('')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '_')
+    .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
   return t || 'plata';
 }

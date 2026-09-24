@@ -242,3 +242,32 @@ export function netOfSelection(): string | null {
   }
   return null;
 }
+
+/** Новое обозначение компонента: пустое и уже занятое не принимаем. */
+export function renameComponent(id: string, ref: string): boolean {
+  const s = S();
+  const r = ref.trim();
+  const c = s.project.components[id];
+  if (!c || !r || r === c.ref) return false;
+  const other = Object.values(s.project.components).find((x) => x.id !== id && x.ref.toLowerCase() === r.toLowerCase());
+  if (other) {
+    s.setMessage(`Обозначение ${r} уже занято: так называется другой компонент.`);
+    return false;
+  }
+  s.commit((d) => void (d.components[id] && (d.components[id].ref = r)));
+  return true;
+}
+
+/** Новое имя цепи: пустое и уже занятое не принимаем. */
+export function renameNetChecked(id: string, name: string): boolean {
+  const s = S();
+  const n = name.trim();
+  const net = s.project.nets[id];
+  if (!net || !n || n === net.name) return false;
+  if (Object.values(s.project.nets).some((x) => x.id !== id && x.name === n)) {
+    s.setMessage(`Цепь ${n} уже есть. Чтобы объединить цепи, назначьте выводам одно имя в свойствах компонента.`);
+    return false;
+  }
+  s.commit((d) => void (d.nets[id] && (d.nets[id].name = n)));
+  return true;
+}

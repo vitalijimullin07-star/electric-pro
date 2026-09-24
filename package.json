@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test",
-    "e2e": "node tools/e2e.mjs"
+    "e2e": "node tools/e2e.mjs",
+    "qa": "node tools/qa.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -4,7 +4,7 @@ import { TEMPLATES } from '@core/library/templates';
 import { EXAMPLES } from '@core/examples';
 import { createProject } from '@core/model/project';
 import { Dialog } from './Dialog';
-import { LenInput } from '../common/NumberInput';
+import { LenInput, useUnits } from '../common/NumberInput';
 
 export function NewProjectDialog() {
   const s = useEditor();
@@ -15,6 +15,7 @@ export function NewProjectDialog() {
   const [r, setR] = useState(2);
   const [layers, setLayers] = useState<1 | 2>(2);
   const [homemade, setHomemade] = useState(false);
+  const { label: U } = useUnits();
 
   const create = () => {
     let p;
@@ -80,9 +81,9 @@ export function NewProjectDialog() {
             <input className="inp" value={name} onChange={(e) => setName(e.target.value)} />
             {tpl === 'custom' && (
               <>
-                <label>Ширина, мм</label>
+                <label>Ширина, {U}</label>
                 <LenInput value={w} min={5} onChange={setW} />
-                <label>Высота, мм</label>
+                <label>Высота, {U}</label>
                 <LenInput value={h} min={5} onChange={setH} />
                 <label>Скругление углов</label>
                 <LenInput value={r} min={0} onChange={setR} />

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor } from '@editor/store';
 import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/project-file';
 import { importLegacyVacuumProject } from '@core/examples';
@@ -13,35 +14,40 @@ import { askConfirm } from './dialogs/AskDialog';
 
 type Item = { label: string; kbd?: string; action?: () => void; disabled?: boolean } | 'sep';
 
-function Menu({ label, items, open, onOpen }: { label: string; items: Item[]; open: boolean; onOpen: (v: boolean) => void }) {
-  return (
-    <div className={`menu${open ? ' open' : ''}`}>
-      <button onClick={() => onOpen(!open)} onMouseEnter={() => open || undefined}>
-        {label}
-      </button>
-      {open && (
-        <div className="drop" role="menu">
-          {items.map((it, i) =>
-            it === 'sep' ? (
-              <hr key={i} />
-            ) : (
-              <button
-                key={i}
-                role="menuitem"
-                disabled={it.disabled}
-                onClick={() => {
-                  onOpen(false);
-                  it.action?.();
-                }}
-              >
-                <span>{it.label}</span>
-                {it.kbd && <kbd>{it.kbd}</kbd>}
-              </button>
-            ),
-          )}
-        </div>
+/*
+ * Выпадающий список рисуется в портале поверх всего окна (position: fixed): строка меню
+ * прокручивается по горизонтали на телефоне и обрезала бы всё, что ниже её высоты.
+ */
+function MenuDrop({ items, anchor, onClose, dropRef }: { items: Item[]; anchor: DOMRect; onClose: () => void; dropRef: React.RefObject<HTMLDivElement | null> }) {
+  const [pos, setPos] = useState({ left: anchor.left, top: anchor.bottom, maxHeight: window.innerHeight - anchor.bottom - 8 });
+  useLayoutEffect(() => {
+    const el = dropRef.current;
+    const w = el?.offsetWidth ?? 250;
+    const left = Math.max(4, Math.min(anchor.left, window.innerWidth - w - 4));
+    setPos({ left, top: anchor.bottom, maxHeight: window.innerHeight - anchor.bottom - 8 });
+  }, [anchor, dropRef]);
+  return createPortal(
+    <div className="menu-drop" role="menu" ref={dropRef} style={{ left: pos.left, top: pos.top, maxHeight: pos.maxHeight }}>
+      {items.map((it, i) =>
+        it === 'sep' ? (
+          <hr key={i} />
+        ) : (
+          <button
+            key={i}
+            role="menuitem"
+            disabled={it.disabled}
+            onClick={() => {
+              onClose();
+              it.action?.();
+            }}
+          >
+            <span>{it.label}</span>
+            {it.kbd && <kbd>{it.kbd}</kbd>}
+          </button>
+        ),
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -73,26 +79,54 @@ export async function openProject(): Promise<void> {
 }
 
 export function TopBar() {
-  const [open, setOpen] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<{ id: string; anchor: DOMRect } | null>(null);
+  const ref = useRef<HTMLElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
   const s = useEditor();
   const p = s.project;
 
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(null);
-    };
-    document.addEventListener('pointerdown', onDoc);
     const onSave = () => void saveProject();
     const onOpen = () => void openProject();
     window.addEventListener('plata:save', onSave);
     window.addEventListener('plata:open', onOpen);
     return () => {
-      document.removeEventListener('pointerdown', onDoc);
       window.removeEventListener('plata:save', onSave);
       window.removeEventListener('plata:open', onOpen);
     };
   }, []);
+
+  // Пока меню открыто: щелчок мимо, Esc, прокрутка строки меню или изменение окна его закрывают.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(null);
+    const onDoc = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || dropRef.current?.contains(t)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        close();
+      }
+    };
+    const bar = ref.current;
+    document.addEventListener('pointerdown', onDoc, true);
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('blur', close);
+    bar?.addEventListener('scroll', close);
+    return () => {
+      document.removeEventListener('pointerdown', onDoc, true);
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('blur', close);
+      bar?.removeEventListener('scroll', close);
+    };
+  }, [open]);
+
+  const openMenu = (id: string, btn: HTMLElement) => setOpen({ id, anchor: btn.getBoundingClientRect() });
 
   const toggle = (k: keyof typeof s.show) => s.patch({ show: { ...s.show, [k]: !s.show[k] } });
   const mark = (v: boolean) => (v ? '✓ ' : ' ');
@@ -197,8 +231,24 @@ export function TopBar() {
         Plata
       </span>
       {menus.map((m) => (
-        <Menu key={m.id} label={m.label} items={m.items} open={open === m.id} onOpen={(v) => setOpen(v ? m.id : null)} />
+        <div key={m.id} className={`menu${open?.id === m.id ? ' open' : ''}`}>
+          <button
+            aria-haspopup="menu"
+            aria-expanded={open?.id === m.id}
+            onClick={(e) => (open?.id === m.id ? setOpen(null) : openMenu(m.id, e.currentTarget))}
+            onPointerEnter={(e) => {
+              // Как в обычных программах: если одно меню открыто, наведение открывает соседнее.
+              if (open && open.id !== m.id && e.pointerType === 'mouse') openMenu(m.id, e.currentTarget);
+            }}
+          >
+            {m.label}
+          </button>
+        </div>
       ))}
+      {open && (() => {
+        const m = menus.find((x) => x.id === open.id);
+        return m ? <MenuDrop items={m.items} anchor={open.anchor} onClose={() => setOpen(null)} dropRef={dropRef} /> : null;
+      })()}
       <span className="title" title={p.meta.description ?? ''}>
         <b>{p.meta.name}</b>
         {s.dirty ? ' •' : ''} · {p.board.copperLayers === 1 ? 'односторонняя' : 'двусторонняя'}
