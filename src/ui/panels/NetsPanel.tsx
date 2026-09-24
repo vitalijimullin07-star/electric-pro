@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useEditor } from '@editor/store';
+import { stableProject, useEditor } from '@editor/store';
 import { computeConnectivity } from '@core/model/connectivity';
 import { ensureNet, removeNet } from '@core/model/edit';
 import { getWorld, padLabel } from '@core/model/world';
@@ -7,7 +7,7 @@ import { askConfirm } from '../dialogs/AskDialog';
 
 export function NetsPanel() {
   const s = useEditor();
-  const p = s.project;
+  const p = stableProject(s);
   const conn = computeConnectivity(p);
   const [q, setQ] = useState('');
   const [newName, setNewName] = useState('');

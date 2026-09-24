@@ -68,13 +68,16 @@ export function rotateSelection(deg: number): void {
   if (!s.selection.length) return;
   const c = selectionCenter(s.project, s.selection);
   if (!c) return;
-  const single = s.selection.length === 1;
+  // Один компонент, надпись или переходное вращаются на месте; дорожка, линия, контур — вокруг своего центра.
+  const r0 = s.selection[0];
+  const d0 = r0.kind === 'drawing' ? s.project.drawings[r0.id] : null;
+  const single = s.selection.length === 1 && (r0.kind === 'component' || r0.kind === 'via' || d0?.kind === 'text' || d0?.kind === 'circle');
   const rot = (q: Vec2): Vec2 => {
     if (single) return q;
     const r = (deg * Math.PI) / 180;
     const dx = q.x - c.x;
     const dy = q.y - c.y;
-    return { x: c.x + dx * Math.cos(r) + dy * Math.sin(r), y: c.y - dx * Math.sin(r) + dy * Math.cos(r) };
+    return { x: +(c.x + dx * Math.cos(r) + dy * Math.sin(r)).toFixed(4), y: +(c.y - dx * Math.sin(r) + dy * Math.cos(r)).toFixed(4) };
   };
   s.commit((d) => moveItems(d, s.selection, rot, (a) => normAngle(a + deg)));
 }
@@ -159,6 +162,8 @@ export function selectAll(): void {
     ...Object.keys(p.vias).map((id) => ({ kind: 'via', id }) as ItemRef),
     ...Object.keys(p.wires).map((id) => ({ kind: 'wire', id }) as ItemRef),
     ...Object.keys(p.drawings).map((id) => ({ kind: 'drawing', id }) as ItemRef),
+    ...Object.keys(p.zones).map((id) => ({ kind: 'zone', id }) as ItemRef),
+    ...Object.keys(p.ruleAreas).map((id) => ({ kind: 'ruleArea', id }) as ItemRef),
   ];
   s.select(sel);
 }

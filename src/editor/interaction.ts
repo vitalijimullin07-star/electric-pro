@@ -184,6 +184,9 @@ export class CanvasController {
     const dy = sp.y - d.start.y;
     if (!d.moved && Math.hypot(dx, dy) > (d.touch ? 8 : 4)) {
       d.moved = true;
+      if (d.kind === 'move' && d.items?.every((r) => r.kind === 'component' && s.project.components[r.id]?.locked)) {
+        s.setMessage('Компонент закреплён: снимите «закрепить» в свойствах, чтобы двигать.');
+      }
       if (d.kind === 'move' || d.kind === 'vertex' || d.kind === 'segment') s.beginTransaction();
       if (d.kind === 'box') s.patch({ pending: { kind: 'box', points: [], cursor: wp, start: d.startWorld } });
     }
@@ -623,19 +626,27 @@ export class CanvasController {
   private finishPoly(poly: Vec2[]): void {
     const s = this.S;
     const tool: ToolId = s.tool;
+    let zoneNet: string | null = null;
+    let zoneId: string | null = null;
     s.commit((d) => {
       if (tool === 'poly') addDrawing(d, { kind: 'poly', layer: s.drawLayer, pts: poly, width: s.drawWidth, closed: true });
       else if (tool === 'zone') {
         const cls = d.netClasses.Default ?? Object.values(d.netClasses)[0];
-        addZone(d, { layer: s.activeLayer, net: null, outline: poly, clearance: cls.clearance, minWidth: cls.trackWidth, priority: 0 });
+        const layers = boardCopperLayers(d.board.copperLayers);
+        const layer = layers.includes(s.activeLayer) ? s.activeLayer : layers[0];
+        // Обычно полигоном заливают землю: если такая цепь есть, сразу назначаем её.
+        const gnd = Object.values(d.nets).find((n) => /^(gnd|agnd|dgnd|pgnd|земля|0v|vss)$/i.test(n.name));
+        zoneNet = gnd?.name ?? null;
+        zoneId = addZone(d, { layer, net: gnd?.id ?? null, outline: poly, clearance: Math.max(cls.clearance, 0.3), minWidth: cls.trackWidth, priority: 0 }).id;
       } else if (tool === 'keepout') addRuleArea(d, { name: 'Область', outline: poly, keepoutTracks: true, keepoutVias: true, showLabel: true });
       else if (tool === 'outline') {
         d.board.outline = poly;
         d.board.cornerRadius = 0;
       }
     });
-    s.patch({ pending: null });
-    if (tool === 'zone') s.setMessage('Полигон добавлен. Назначьте ему цепь в свойствах; заливка считается при экспорте в будущих версиях.');
+    s.patch(zoneId ? { pending: null, selection: [{ kind: 'zone', id: zoneId }], panelTab: 'props' } : { pending: null });
+    if (tool === 'zone')
+      s.setMessage(zoneNet ? `Полигон залит цепью ${zoneNet}: обходит чужие цепи с зазором. Цепь, зазор и приоритет — в свойствах.` : 'Полигон добавлен. Назначьте ему цепь в свойствах — без цепи заливка ни к чему не подключена.');
     else if (tool === 'keepout') s.setMessage('Область добавлена: задайте имя и ограничения в свойствах.');
     else if (tool === 'outline') s.setMessage('Контур платы заменён.');
   }
@@ -673,6 +684,8 @@ export class CanvasController {
       const pts = d.kind === 'line' || d.kind === 'rect' ? [d.a, d.b] : d.kind === 'poly' ? d.pts : d.kind === 'text' ? [d.at] : [d.c];
       if (s.layerVisible[d.layer] && pts.every(inside)) sel.push({ kind: 'drawing', id: d.id });
     }
+    for (const z of Object.values(p.zones)) if (s.layerVisible[z.layer] && z.outline.every(inside)) sel.push({ kind: 'zone', id: z.id });
+    for (const ra of Object.values(p.ruleAreas)) if (ra.outline.every(inside)) sel.push({ kind: 'ruleArea', id: ra.id });
     s.select(sel, add);
     s.setMessage(sel.length ? `Выделено объектов: ${sel.length}.` : 'В рамке ничего нет.');
   }

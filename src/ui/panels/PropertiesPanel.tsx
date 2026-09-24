@@ -1,4 +1,4 @@
-import { useEditor } from '@editor/store';
+import { stableProject, useEditor } from '@editor/store';
 import { LAYERS, boardCopperLayers } from '@core/model/layers';
 import type { CopperLayer, LayerId } from '@core/model/types';
 import { LenInput, TextInput, useUnits } from '../common/NumberInput';
@@ -54,7 +54,7 @@ function BoardProps() {
   const rs = rectSize(p.board.outline);
   const { len } = useUnits();
   const counts = { comps: Object.keys(p.components).length, tracks: Object.keys(p.tracks).length, vias: Object.keys(p.vias).length, wires: Object.keys(p.wires).length, nets: Object.keys(p.nets).length };
-  const conn = computeConnectivity(p);
+  const conn = computeConnectivity(stableProject(s));
   const total = Object.values(p.tracks).reduce((a, t) => a + polygonLength(t.points), 0);
   return (
     <div>
@@ -170,7 +170,7 @@ function TrackProps({ id }: { id: string }) {
   const t = p.tracks[id];
   const { len } = useUnits();
   if (!t) return null;
-  const conn = computeConnectivity(p);
+  const conn = computeConnectivity(stableProject(s));
   const net = conn.itemNet.get(id);
   const copper = boardCopperLayers(p.board.copperLayers);
   const upd = (fn: (x: typeof t) => void) =>
@@ -214,7 +214,7 @@ function ViaProps({ id }: { id: string }) {
   const p = s.project;
   const v = p.vias[id];
   if (!v) return null;
-  const conn = computeConnectivity(p);
+  const conn = computeConnectivity(stableProject(s));
   const net = conn.itemNet.get(id);
   const upd = (fn: (x: typeof v) => void) =>
     s.commit((d) => {
@@ -251,7 +251,7 @@ function WireProps({ id }: { id: string }) {
   const w = p.wires[id];
   const { len } = useUnits();
   if (!w) return null;
-  const conn = computeConnectivity(p);
+  const conn = computeConnectivity(stableProject(s));
   const net = conn.itemNet.get(id);
   return (
     <div>
@@ -398,7 +398,9 @@ function ZoneProps({ id }: { id: string }) {
   const s = useEditor();
   const p = s.project;
   const z = p.zones[id];
+  const { label: U } = useUnits();
   if (!z) return null;
+  const fill = computeConnectivity(stableProject(s)).zoneFills.find((f) => f.zone.id === id);
   const upd = (fn: (x: typeof z) => void) =>
     s.commit((d) => {
       const x = d.zones[id];
@@ -407,7 +409,16 @@ function ZoneProps({ id }: { id: string }) {
   return (
     <div>
       <h3>Полигон меди</h3>
-      <p className="hint">Заливка полигона с вырезами под чужие цепи появится в следующих версиях; сейчас полигон хранится как контур и на экспорт не выводится.</p>
+      <p className="hint">
+        Заливка обходит чужие цепи с зазором и край платы, своя цепь соединяется сплошной медью. Острова без своих площадок убираются.
+        {fill && fill.step > 0 && (
+          <>
+            {' '}
+            Островов: {fill.islands.length}
+            {fill.removed ? `, убрано: ${fill.removed}` : ''}.
+          </>
+        )}
+      </p>
       <div className="field">
         <label>Цепь</label>
         <select className="sel" value={z.net ?? ''} onChange={(e) => upd((x) => void (x.net = e.target.value || null))}>
@@ -426,8 +437,19 @@ function ZoneProps({ id }: { id: string }) {
             </option>
           ))}
         </select>
-        <label>Зазор</label>
+        <label>Зазор, {U}</label>
         <LenInput value={z.clearance} min={0.05} onChange={(v) => upd((x) => void (x.clearance = v))} />
+        <label>Приоритет</label>
+        <input
+          className="inp"
+          type="number"
+          min={0}
+          max={99}
+          value={z.priority}
+          onChange={(e) => upd((x) => void (x.priority = Math.max(0, Math.min(99, Math.round(+e.target.value || 0)))))}
+          onKeyDown={(e) => e.stopPropagation()}
+          title="Где полигоны разных цепей перекрываются, первым заливается тот, у кого приоритет выше"
+        />
       </div>
       <div className="row">
         <button className="btn danger" onClick={deleteSelection}>

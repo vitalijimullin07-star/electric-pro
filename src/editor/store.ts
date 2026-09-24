@@ -181,6 +181,12 @@ function loadSettings(): Partial<EditorState> {
 
 const HISTORY_LIMIT = 100;
 
+/**
+ * Проект для проверки правил и сводок: во время перетаскивания — состояние до его начала,
+ * чтобы не пересчитывать DRC на каждом кадре. Пересчёт — при отпускании.
+ */
+export const stableProject = (s: Pick<EditorState, 'transaction' | 'past' | 'project'>): Project => (s.transaction && s.past.length ? s.past[s.past.length - 1] : s.project);
+
 export const useEditor = create<EditorState>((set, get) => {
   const initial = typeof window !== 'undefined' ? loadInitialProject() : { project: createProject(), fileName: null };
   const settings = typeof window !== 'undefined' ? loadSettings() : {};

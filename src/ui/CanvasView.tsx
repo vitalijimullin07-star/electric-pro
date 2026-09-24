@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useEditor } from '@editor/store';
+import { stableProject, useEditor } from '@editor/store';
 import { CanvasController } from '@editor/interaction';
 import { fitView, renderScene, screenToWorld } from '@render/canvas-renderer';
 import { deleteSelection, flipSelection, netOfSelection, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
@@ -22,7 +22,8 @@ export function CanvasView() {
   const show = useEditor((s) => s.show);
   const panelOpen = useEditor((s) => s.panelOpen);
   const units = useEditor((s) => s.units);
-  const summary = drcSummary(project);
+  const stable = useEditor(stableProject);
+  const summary = drcSummary(stable);
 
   // Отрисовка: подписываемся на store и рисуем в следующем кадре.
   useEffect(() => {
@@ -45,6 +46,7 @@ export function CanvasView() {
       }
       renderScene(ctx, {
         project: s.project,
+        base: s.transaction ? stableProject(s) : undefined,
         view: s.view,
         width: w,
         height: h,

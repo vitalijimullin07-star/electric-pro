@@ -82,6 +82,11 @@ class GerberWriter {
     this.body.push(`${this.xy(c)}D03*`);
   }
 
+  /** Полярность: clear — стирает уже нарисованное (вырезы в заливке полигона). */
+  polarity(clear: boolean): void {
+    this.body.push(clear ? '%LPC*%' : '%LPD*%');
+  }
+
   region(pts: Vec2[]): void {
     if (pts.length < 3) return;
     this.body.push('G36*');
@@ -108,7 +113,14 @@ function writeLayer(prims: LayerPrims, layer: LayerId, ox: number, oy: number): 
   for (const pr of list) {
     if (pr.kind === 'path') w.path(pr.pts, pr.width, lineFn, pr.closed);
     else if (pr.kind === 'region') w.region(pr.pts);
-    else {
+    else if (pr.kind === 'fill') {
+      // Контуры от большего к меньшему: внешний рисуем, вырез стираем; вложенный остров снова рисуем.
+      pr.loops.forEach((loop, i) => {
+        if (pr.holes[i]) w.polarity(true);
+        w.region(loop);
+        if (pr.holes[i]) w.polarity(false);
+      });
+    } else {
       const s = pr.shape;
       const fn = isCopper ? (s.pts.length === 1 && s.r > 0 ? 'ComponentPad' : PAD_FN[layer as 'F.Cu']) : 'Material';
       if (s.pts.length === 1) w.flashCircle(s.pts[0], s.r * 2, fn);
@@ -224,6 +236,7 @@ export function primsBox(prims: Prim[]) {
   const pts: Vec2[] = [];
   for (const pr of prims) {
     if (pr.kind === 'flash') pts.push({ x: pr.shape.box.minX, y: pr.shape.box.minY }, { x: pr.shape.box.maxX, y: pr.shape.box.maxY });
+    else if (pr.kind === 'fill') for (const l of pr.loops) pts.push(...l);
     else pts.push(...pr.pts);
   }
   return boxOfPoints(pts);

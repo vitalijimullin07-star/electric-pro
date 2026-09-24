@@ -18,6 +18,7 @@ function primSvg(pr: Prim, color: string): string {
     return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(pr.width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
   if (pr.kind === 'region') return `<polygon points="${pr.pts.map((q) => `${f(q.x)},${f(q.y)}`).join(' ')}" fill="${color}" stroke="none"/>`;
+  if (pr.kind === 'fill') return `<path d="${pr.loops.map((l) => l.map((q, i) => `${i ? 'L' : 'M'}${f(q.x)} ${f(q.y)}`).join('') + 'Z').join('')}" fill="${color}" fill-rule="evenodd" stroke="none"/>`;
   const s = pr.shape;
   if (s.pts.length === 1) return `<circle cx="${f(s.pts[0].x)}" cy="${f(s.pts[0].y)}" r="${f(s.r)}" fill="${color}"/>`;
   return `<polygon points="${flashOutline(s)

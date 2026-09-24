@@ -8,6 +8,7 @@
 - Слои названы как в KiCad (`F.Cu`, `B.Cu`, `F.Silk`, `Edge.Cuts`…), см. `src/core/model/layers.ts`.
 - Корпуса в библиотеке (`src/core/library`) — параметрические генераторы. Новый корпус: функция в `generators/*.ts`, добавить в `all*()`, размеры из даташита, `verified: true` только если сверено. Тест `tests/library.test.ts` проверит площадки, габарит и уникальность.
 - После изменений: `npm run check` (типы + тесты). Если трогали автотрассировку или связность — `npm test -- tests/router.test.ts` обязательно (плата пылесоса должна разводиться без ошибок).
+- Заливка полигонов — `src/core/model/zone-fill.ts` (поле расстояний на сетке + marching squares), считается внутри `computeConnectivity` и достаётся через `getZoneFills`. Во время перетаскивания DRC и заливка берутся из состояния до его начала (`stableProject` в store) — не вызывайте `runDrc(s.project)` из компонентов, которые перерисовываются на каждом кадре.
 - Меняя формат проекта, добавьте миграцию в `src/core/io/project-file.ts` (`migrateProject`).
 - Пример платы пылесоса переносится из старого формата в `src/core/io/legacy-plata.ts`; данные — `src/core/examples/vacuum-controller`.
 - Сайт https://vitalijimullin07-star.github.io/electric-pro/ — GitHub Pages из корня ветки `main`. Корневой `index.html` и `router.worker-*.js` — собранный редактор (генерирует `npm run build`), исходная страница — `app.html`. После любых изменений кода: `npm run build` и закоммитить обновлённый `index.html`, иначе CI упадёт.

@@ -1,11 +1,11 @@
-import { useEditor } from '@editor/store';
+import { stableProject, useEditor } from '@editor/store';
 import { runDrc, type DrcMarker } from '@core/model/drc';
 import { computeConnectivity } from '@core/model/connectivity';
 
 export function DrcPanel() {
   const s = useEditor();
-  const rep = runDrc(s.project);
-  const conn = computeConnectivity(s.project);
+  const rep = runDrc(stableProject(s));
+  const conn = computeConnectivity(stableProject(s));
   const goTo = (m: DrcMarker) => {
     const stage = document.querySelector('.stage') as HTMLElement | null;
     const w = stage?.clientWidth ?? 800;

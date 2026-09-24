@@ -32,7 +32,8 @@ export type DrcCode =
   | 'courtyard'
   | 'dangling'
   | 'no-footprint'
-  | 'no-net-pad';
+  | 'no-net-pad'
+  | 'zone';
 
 export interface DrcMarker {
   id: string;
@@ -284,6 +285,16 @@ export function runDrc(p: Project): DrcReport {
   for (const d of conn.dangling) {
     const at = d.kind === 'track' ? p.tracks[d.id]?.points[0] : d.kind === 'via' ? p.vias[d.id]?.at : p.wires[d.id]?.a;
     if (at) add('dangling', 'warning', at, d.kind === 'track' ? 'Дорожка ни к чему не подключена' : d.kind === 'via' ? 'Переходное ни к чему не подключено' : 'Конец перемычки не попадает на площадку', [d]);
+  }
+
+  // 9. Полигоны: без цепи или без единой своей площадки заливка бесполезна.
+  for (const zf of conn.zoneFills) {
+    const z = zf.zone;
+    const ref: ItemRef[] = [{ kind: 'zone', id: z.id }];
+    const at = z.outline[0];
+    if (!at || !layers.includes(z.layer)) continue;
+    if (!z.net) add('zone', 'warning', at, 'Полигон без цепи: заливка ни к чему не подключена. Назначьте цепь (обычно GND) в свойствах.', ref);
+    else if (!zf.islands.length) add('zone', 'warning', at, `Полигон ${netName(z.net)} пуст: внутри нет площадок этой цепи.`, ref);
   }
 
   markers.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1));

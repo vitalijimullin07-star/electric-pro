@@ -1,4 +1,4 @@
-import { useEditor } from '@editor/store';
+import { stableProject, useEditor } from '@editor/store';
 import { PropertiesPanel } from './PropertiesPanel';
 import { LayersPanel } from './LayersPanel';
 import { NetsPanel } from './NetsPanel';
@@ -17,7 +17,7 @@ const TABS: { id: 'props' | 'layers' | 'nets' | 'library' | 'drc'; label: string
 export function RightPanel() {
   const tab = useEditor((s) => s.panelTab);
   const open = useEditor((s) => s.panelOpen);
-  const project = useEditor((s) => s.project);
+  const project = useEditor(stableProject);
   const errors = runDrc(project).errors;
   return (
     <aside className={`panel${open ? ' open' : ''}`} style={open ? undefined : { display: window.innerWidth >= 900 ? 'none' : undefined }}>

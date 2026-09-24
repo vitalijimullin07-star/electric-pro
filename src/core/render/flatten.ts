@@ -1,85 +1,20 @@
-import { arcPoints, circlePoints } from '../math/geom';
 import { type Shape, shapeOutline } from '../math/shape';
-import { rotate, type Vec2 } from '../math/vec';
+import type { Vec2 } from '../math/vec';
 import { sideLayer } from '../model/layers';
-import { dirToWorld, padLocalShape, placementOf, shapeToWorld, toWorld, type Placement } from '../model/placement';
+import { padLocalShape, placementOf, shapeToWorld } from '../model/placement';
 import { boardPolygon } from '../model/project';
-import type { Component, Graphic, LayerId, Project } from '../model/types';
+import type { LayerId, Project } from '../model/types';
 import { getWorld } from '../model/world';
+import { getZoneFills } from '../model/connectivity';
+import { graphicPrims, push, type LayerPrims } from './graphic';
 import { textStrokes } from './stroke-font';
+
+export { graphicPrims, type LayerPrims, type Prim } from './graphic';
 
 /*
  * Разворачивает проект в примитивы по слоям в координатах платы.
  * Этим пользуются экспорт в Gerber и SVG и отрисовка графики на экране.
  */
-
-export type Prim =
-  | { kind: 'path'; pts: Vec2[]; width: number; closed?: boolean }
-  | { kind: 'region'; pts: Vec2[] }
-  | { kind: 'flash'; shape: Shape };
-
-export type LayerPrims = Partial<Record<LayerId, Prim[]>>;
-
-function push(out: LayerPrims, layer: LayerId, prim: Prim): void {
-  (out[layer] ??= []).push(prim);
-}
-
-function substitute(text: string, c: Component | null): string {
-  if (!c) return text;
-  return text.replace(/\$\{REF\}/g, c.ref).replace(/\$\{VALUE\}/g, c.value || '');
-}
-
-/** Примитивы одного графического элемента корпуса или платы. */
-export function graphicPrims(g: Graphic, pl: Placement | null, comp: Component | null, out: LayerPrims, o: { hideRef?: boolean; hideValue?: boolean } = {}): void {
-  const layer = pl ? sideLayer(g.layer, pl.side) : g.layer;
-  const T = (p: Vec2): Vec2 => (pl ? toWorld(pl, p) : p);
-  switch (g.kind) {
-    case 'line':
-      push(out, layer, { kind: 'path', pts: [T(g.a), T(g.b)], width: g.width });
-      return;
-    case 'rect': {
-      const pts = [g.a, { x: g.b.x, y: g.a.y }, g.b, { x: g.a.x, y: g.b.y }].map(T);
-      push(out, layer, g.fill ? { kind: 'region', pts } : { kind: 'path', pts, width: g.width, closed: true });
-      return;
-    }
-    case 'circle': {
-      const pts = circlePoints(g.c, g.r, Math.max(24, Math.ceil(g.r * 24))).map(T);
-      push(out, layer, g.fill ? { kind: 'region', pts } : { kind: 'path', pts, width: g.width, closed: true });
-      return;
-    }
-    case 'arc': {
-      // Дуга задана против часовой на экране; при установке снизу направление меняется само через T.
-      const pts = arcPoints(g.c, g.r, g.start, g.sweep, 0.15).map(T);
-      push(out, layer, { kind: 'path', pts, width: g.width });
-      return;
-    }
-    case 'poly': {
-      const pts = g.pts.map(T);
-      push(out, layer, g.fill ? { kind: 'region', pts } : { kind: 'path', pts, width: g.width, closed: g.closed ?? true });
-      return;
-    }
-    case 'text': {
-      if (comp && g.text.includes('${REF}') && (o.hideRef || comp.hideRef)) return;
-      if (comp && g.text.includes('${VALUE}') && (o.hideValue || comp.hideValue)) return;
-      const text = substitute(g.text, comp);
-      if (!text.trim()) return;
-      const at = T(g.at);
-      let rotation = g.rotation ?? 0;
-      let mirror = false;
-      if (pl) {
-        const d = dirToWorld(pl, rotate({ x: 1, y: 0 }, rotation));
-        rotation = (Math.atan2(-d.y, d.x) * 180) / Math.PI;
-        mirror = pl.side === 'bottom';
-      }
-      // Надписи читаемыми: не вверх ногами.
-      let r = ((rotation % 360) + 360) % 360;
-      if (r > 90 && r < 270) r = (r + 180) % 360;
-      const width = g.thickness ?? Math.max(0.1, g.size * 0.15);
-      for (const s of textStrokes({ text, at, size: g.size, rotation: r, align: g.align ?? 'center', mirror })) push(out, layer, { kind: 'path', pts: s, width });
-      return;
-    }
-  }
-}
 
 export interface FlattenOptions {
   /** Показывать позиционные обозначения и номиналы. */
@@ -96,6 +31,9 @@ export function flattenProject(p: Project, o: FlattenOptions = {}): LayerPrims {
   const out: LayerPrims = {};
   const w = getWorld(p);
   const maskMargin = o.maskMargin ?? p.rules.maskMargin;
+
+  // Заливка полигонов — первой: медь, выводимая следом, ложится поверх вырезов.
+  for (const zf of getZoneFills(p)) if (zf.loops.length) push(out, zf.zone.layer, { kind: 'fill', loops: zf.loops, holes: zf.holes });
 
   for (const wc of w.components) {
     const c = wc.component;

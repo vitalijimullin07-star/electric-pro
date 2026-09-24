@@ -60,8 +60,25 @@ function shapePath(s: Shape): Path2D {
   return p;
 }
 
+const loopsCache = new WeakMap<Vec2[][], Path2D>();
+/** Контуры заливки одним путём (закрашивать по правилу чётности). */
+function loopsPath(loops: Vec2[][]): Path2D {
+  let p = loopsCache.get(loops);
+  if (p) return p;
+  p = new Path2D();
+  for (const l of loops) {
+    p.moveTo(l[0].x, l[0].y);
+    for (let i = 1; i < l.length; i++) p.lineTo(l[i].x, l[i].y);
+    p.closePath();
+  }
+  loopsCache.set(loops, p);
+  return p;
+}
+
 export interface RenderInput {
   project: Project;
+  /** Состояние до перетаскивания: из него берутся заливка полигонов и отметки проверки, пока тянем. */
+  base?: Project;
   view: ViewState;
   width: number;
   height: number;
@@ -105,6 +122,11 @@ function strokePrim(ctx: CanvasRenderingContext2D, pr: Prim, color: string, minW
     pr.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
     ctx.closePath();
     ctx.fill();
+    return;
+  }
+  if (pr.kind === 'fill') {
+    ctx.fillStyle = color;
+    ctx.fill(loopsPath(pr.loops), 'evenodd');
     return;
   }
   if (pr.pts.length < 2) return;
@@ -199,7 +221,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   ctx.lineTo(0, 3);
   ctx.stroke();
 
-  const conn = computeConnectivity(p);
+  const conn = computeConnectivity(p, { zonesFrom: inp.base });
   const selKeys = new Set(inp.selection.map((r) => r.kind + ':' + r.id));
   const hoverKey = inp.hover ? inp.hover.kind + ':' + inp.hover.id : null;
   const hlNet = inp.highlightNet;
@@ -227,8 +249,6 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     ctx.closePath();
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = z.layer === 'F.Cu' ? 'rgba(224,71,76,0.10)' : 'rgba(61,123,224,0.10)';
-    ctx.fill();
   }
 
   // Медь: сначала неактивный слой, потом активный.
@@ -239,6 +259,15 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     const active = layer === inp.activeLayer;
     ctx.globalAlpha = active ? 1 : 0.55;
     const col = LAYERS[layer].color;
+    // Заливка полигонов — под дорожками, чуть светлее меди.
+    for (const zf of conn.zoneFills) {
+      if (zf.zone.layer !== layer || !zf.loops.length) continue;
+      const lit = selKeys.has('zone:' + zf.zone.id) || (hlNet && zf.zone.net === hlNet);
+      ctx.globalAlpha = (active ? 0.5 : 0.3) + (lit ? 0.2 : 0);
+      ctx.fillStyle = col;
+      ctx.fill(loopsPath(zf.loops), 'evenodd');
+    }
+    ctx.globalAlpha = active ? 1 : 0.55;
     // Дорожки.
     for (const t of Object.values(p.tracks)) {
       if (t.layer !== layer || t.points.length < 2) continue;
@@ -439,7 +468,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
 
   // Ошибки проверки.
   if (inp.show.drc) {
-    const rep = runDrc(p);
+    const rep = runDrc(inp.base ?? p);
     for (const m of rep.markers) {
       const col = m.severity === 'error' ? COLORS.drcError : COLORS.drcWarn;
       const r = px * 7;

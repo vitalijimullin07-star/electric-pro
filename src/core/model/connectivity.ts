@@ -6,6 +6,7 @@ import { SpatialHash } from '../math/spatial-hash';
 import { boardCopperLayers } from './layers';
 import type { CopperLayer, Id, ItemRef, Project } from './types';
 import { getWorld, type World, type WorldPad, type WorldSegment, type WorldVia } from './world';
+import { fillZones, type ZoneFill } from './zone-fill';
 
 /*
  * Связность: какие площадки, дорожки, переходные и перемычки соединены физически.
@@ -52,6 +53,8 @@ export interface Connectivity {
   dangling: ItemRef[];
   unrouted: number;
   total: number;
+  /** Заливка полигонов (считается вместе со связностью: острова соединяют свою цепь). */
+  zoneFills: ZoneFill[];
 }
 
 class UnionFind {
@@ -86,10 +89,21 @@ class UnionFind {
 type Node = { key: string; ref: ItemRef | null; kind: 'pad' | 'seg' | 'via'; pad?: WorldPad; seg?: WorldSegment; via?: WorldVia };
 
 const cache = new WeakMap<Project, Connectivity>();
+/** Связность с заливкой, взятой у другого состояния (во время перетаскивания). */
+const staleCache = new WeakMap<Project, Connectivity>();
 
-export function computeConnectivity(p: Project): Connectivity {
+/**
+ * Связность проекта. zonesFrom — взять заливку полигонов у этого состояния, а не считать заново:
+ * так редактор перетаскивает объекты без пересчёта заливки на каждом кадре (как KiCad до перезаливки).
+ */
+export function computeConnectivity(p: Project, o: { zonesFrom?: Project } = {}): Connectivity {
   const hit = cache.get(p);
   if (hit) return hit;
+  const zonesFrom = o.zonesFrom && o.zonesFrom !== p && Object.keys(p.zones).length ? o.zonesFrom : undefined;
+  if (zonesFrom) {
+    const stale = staleCache.get(p);
+    if (stale) return stale;
+  }
   const world = getWorld(p);
   const uf = new UnionFind();
   const layers = boardCopperLayers(p.board.copperLayers);
@@ -158,24 +172,42 @@ export function computeConnectivity(p: Project): Connectivity {
   }
 
   // Какие цепи попали в каждый корень.
-  const rootNets = new Map<string, Set<Id>>();
-  const rootPads = new Map<string, WorldPad[]>();
-  for (const wp of world.pads) {
-    const n = padNodes.get(wp.key);
-    if (!n) continue;
-    const r = uf.find(n.key);
-    if (!rootPads.has(r)) rootPads.set(r, []);
-    rootPads.get(r)!.push(wp);
-    if (wp.net) {
-      if (!rootNets.has(r)) rootNets.set(r, new Set());
-      rootNets.get(r)!.add(wp.net);
+  let rootNets = new Map<string, Set<Id>>();
+  let rootPads = new Map<string, WorldPad[]>();
+  const collectRoots = () => {
+    rootNets = new Map();
+    rootPads = new Map();
+    for (const wp of world.pads) {
+      const n = padNodes.get(wp.key);
+      if (!n) continue;
+      const r = uf.find(n.key);
+      if (!rootPads.has(r)) rootPads.set(r, []);
+      rootPads.get(r)!.push(wp);
+      if (wp.net) {
+        if (!rootNets.has(r)) rootNets.set(r, new Set());
+        rootNets.get(r)!.add(wp.net);
+      }
     }
-  }
+  };
+  collectRoots();
   const netOfRoot = (r: string): Id | null | 'short' => {
     const s = rootNets.get(r);
     if (!s || s.size === 0) return null;
     return s.size === 1 ? [...s][0] : 'short';
   };
+
+  // Полигоны: заливка обходит чужие цепи, её острова соединяют всё своё, чего касаются.
+  const zoneFills = zonesFrom
+    ? computeConnectivity(zonesFrom).zoneFills.filter((zf) => p.zones[zf.zone.id])
+    : fillZones(p, world, (key) => netOfRoot(uf.find(key)));
+  if (zoneFills.some((z) => z.islands.length)) {
+    for (const zf of zoneFills)
+      zf.islands.forEach((keys, i) => {
+        const node = 'Z' + zf.zone.id + '#' + i;
+        for (const k of keys) uf.union(node, k);
+      });
+    collectRoots();
+  }
 
   const itemNet = new Map<Id, Id | null | 'short'>();
   const dangling: ItemRef[] = [];
@@ -270,8 +302,8 @@ export function computeConnectivity(p: Project): Connectivity {
     }
   }
 
-  const res: Connectivity = { world, itemNet, nets, shorts, ratsnest, dangling, unrouted, total };
-  cache.set(p, res);
+  const res: Connectivity = { world, itemNet, nets, shorts, ratsnest, dangling, unrouted, total, zoneFills };
+  (zonesFrom ? staleCache : cache).set(p, res);
   return res;
 }
 
@@ -290,3 +322,6 @@ export function netAtPoint(p: Project, pt: Vec2, layer: CopperLayer | null): Id 
   }
   return null;
 }
+
+/** Заливка полигонов проекта (кешируется вместе со связностью). */
+export const getZoneFills = (p: Project): ZoneFill[] => computeConnectivity(p).zoneFills;

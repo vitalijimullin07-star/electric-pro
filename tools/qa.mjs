@@ -414,6 +414,26 @@ async function openPage(viewport, touch = false) {
     expect(kinds === 'circle,line,poly,rect,text', 'графика: ' + kinds);
   });
 
+  await step('поворот одиночной линии вокруг её центра, отмена', async () => {
+    await page.keyboard.press('s');
+    await h.clickAt(10, 3);
+    const st = await page.evaluate(() => window.__plata.state());
+    expect(st.selection.length === 1 && st.selection[0].kind === 'drawing', 'линия не выделилась: ' + JSON.stringify(st.selection));
+    const id = st.selection[0].id;
+    const d0 = (await h.project()).drawings[id];
+    const cx = (d0.a.x + d0.b.x) / 2;
+    const cy = (d0.a.y + d0.b.y) / 2;
+    const L = Math.hypot(d0.b.x - d0.a.x, d0.b.y - d0.a.y);
+    await page.keyboard.press('r');
+    const d = (await h.project()).drawings[id];
+    const ok = Math.abs(d.a.x - cx) < 1e-6 && Math.abs(d.b.x - cx) < 1e-6 && Math.abs((d.a.y + d.b.y) / 2 - cy) < 1e-6 && Math.abs(Math.abs(d.a.y - d.b.y) - L) < 1e-6;
+    expect(ok, 'линия не повернулась вокруг центра: ' + JSON.stringify([d0.a, d0.b, d.a, d.b]));
+    await page.keyboard.press('Control+z');
+    const d2 = (await h.project()).drawings[id];
+    expect(d2.a.y === d0.a.y && d2.b.x === d0.b.x, 'отмена поворота');
+    await page.keyboard.press('Escape');
+  });
+
   await step('область правил и полигон: рисуются, свойства открываются', async () => {
     await h.hit('.toolbar .tbtn[aria-label^="Область правил"]');
     for (const [x, y] of [[40, 32], [58, 32], [58, 38]]) await h.clickAt(x, y);
@@ -423,6 +443,25 @@ async function openPage(viewport, touch = false) {
     await h.clickAt(12, 8, { wait: 250 });
     const p = await h.project();
     expect(Object.keys(p.ruleAreas).length === 1 && Object.keys(p.zones).length === 1, `областей ${Object.keys(p.ruleAreas).length}, полигонов ${Object.keys(p.zones).length}`);
+    // Новый полигон сразу получает цепь GND, выделен, свойства открыты.
+    const gnd = Object.values(p.nets).find((n) => n.name === 'GND');
+    const z = Object.values(p.zones)[0];
+    expect(z.net === gnd?.id, 'цепь полигона ' + z.net);
+    const st = await page.evaluate(() => window.__plata.state());
+    expect(st.selection.length === 1 && st.selection[0].kind === 'zone' && st.panelTab === 'props', 'полигон не выделен: ' + JSON.stringify(st.selection) + ' ' + st.panelTab);
+    expect(await page.locator('.panel h3', { hasText: 'Полигон меди' }).isVisible(), 'нет свойств полигона');
+    expect((await page.evaluate(() => window.__plata.drc())).some((m) => /Полигон GND пуст/.test(m)), 'нет предупреждения о пустом полигоне');
+    // Полигон на всю плату соединяет землю заливкой.
+    await page.keyboard.press('Delete');
+    expect(Object.keys((await h.project()).zones).length === 0, 'полигон не удалился');
+    // Правый нижний угол платы закрыт кнопками масштаба — обходим его, как обошёл бы человек.
+    for (const [x, y] of [[0.5, 0.5], [59.5, 0.5], [59.5, 30], [45, 39.5], [0.5, 39.5]]) await h.clickAt(x, y);
+    await h.clickAt(0.5, 39.5, { wait: 250 });
+    const fills = await page.evaluate(() => window.__plata.fills());
+    expect(fills.length === 1 && fills[0].loops > 0 && fills[0].islands >= 1, 'заливка: ' + JSON.stringify(fills) + ' ' + JSON.stringify(await page.evaluate(() => { const s = window.__plata.state(); return [s.tool, s.pending, s.message]; })));
+    expect((await page.evaluate(() => window.__plata.netComplete('GND'))) === true, 'GND не соединена заливкой');
+    await page.keyboard.press('Control+z');
+    expect(Object.keys((await h.project()).zones).length === 0, 'отмена полигона');
     await page.keyboard.press('Escape');
   });
 
