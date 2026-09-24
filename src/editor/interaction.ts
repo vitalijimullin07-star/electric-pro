@@ -9,7 +9,7 @@ import { hitTest, type Hit } from '@render/hit-test';
 import { screenToWorld } from '@render/canvas-renderer';
 import { finishTrack, moveItems, placeComponent, placeVia, placeWire, routeWidthFor, snapPoint, viaSizeFor } from './commands';
 import { useEditor, type ToolId } from './store';
-import { boxOfPoints } from '@core/math/geom';
+import { boxOfPoints, closestOnSegment } from '@core/math/geom';
 import { getWorld } from '@core/model/world';
 
 /*
@@ -449,8 +449,8 @@ export class CanvasController {
         start = s.project.vias[h.ref.id].at;
         net = netAtPoint(s.project, start, layer);
       } else if (h?.ref.kind === 'track') {
-        start = snapPoint(wp);
-        net = netAtPoint(s.project, wp, layer);
+        start = this.pointOnTrack(h, wp);
+        net = netAtPoint(s.project, start, layer);
       } else start = snapPoint(wp);
       const width = routeWidthFor(net);
       s.patch({ pending: { kind: 'route', points: [start], cursor: start, layer, width, net }, highlightNet: net, selection: [] });
@@ -475,7 +475,7 @@ export class CanvasController {
       target = s.project.vias[h.ref.id].at;
       finish = true;
     } else if (h?.ref.kind === 'track' && h.ref.id) {
-      target = snapPoint(wp);
+      target = this.pointOnTrack(h, wp);
       finish = true;
     } else target = snapPoint(wp);
     if (dist(target, last) < 1e-6) {
@@ -496,6 +496,20 @@ export class CanvasController {
       return;
     }
     s.patch({ pending: { ...pd, points: pts, cursor: target } });
+  }
+
+  /**
+   * Точка на оси дорожки под курсором: узел сетки, спроецированный на отрезок.
+   * Иначе при крупной сетке или дорожке не по сетке новая дорожка её не касалась бы.
+   */
+  private pointOnTrack(h: Hit, wp: Vec2): Vec2 {
+    const t = this.S.project.tracks[h.ref.id];
+    const i = h.segment ?? 0;
+    if (!t || i + 1 >= t.points.length) return snapPoint(wp);
+    const a = t.points[i];
+    const b = t.points[i + 1];
+    const q = closestOnSegment(snapPoint(wp), a, b).q;
+    return { x: +q.x.toFixed(4), y: +q.y.toFixed(4) };
   }
 
   /** V во время трассировки: переходное и переход на другой слой. */

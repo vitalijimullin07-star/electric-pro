@@ -405,6 +405,31 @@ async function openPage(viewport, touch = false) {
     expect(Object.keys((await h.project()).tracks).length === n0, 'лишняя дорожка');
   });
 
+  await step('дорожка от середины косого участка другой дорожки начинается точно на её оси', async () => {
+    await page.keyboard.press('w');
+    await h.clickAt(3, 28);
+    await h.clickAt(12, 34.35);
+    await h.clickAt(12, 34.35, { wait: 250 });
+    let p = await h.project();
+    const first = Object.values(p.tracks).find((t) => t.points.length >= 3 && Math.abs(t.points[0].x - 3.175) < 0.01);
+    expect(first, 'первая дорожка не проведена: ' + (await h.msg()));
+    await page.waitForTimeout(400);
+    await h.clickAt(6.2, 31.0);
+    await h.clickAt(6.35, 38.1);
+    await h.clickAt(6.35, 38.1, { wait: 250 });
+    p = await h.project();
+    const second = Object.values(p.tracks).find((t) => t.id !== first.id && Math.abs(t.points[t.points.length - 1].y - 38.1) < 0.01);
+    expect(second, 'вторая дорожка не проведена: ' + (await h.msg()));
+    const [a, b] = first.points;
+    const q = second.points[0];
+    const cross = Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
+    expect(cross < 1e-3, 'начало не на оси: ' + cross.toFixed(4) + ' ' + JSON.stringify(q));
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+  });
+
   await step('переходное, перемычка, линия, прямоугольник, окружность, многоугольник, надпись, линейка', async () => {
     const p0 = await h.project();
     await page.keyboard.press('v');
