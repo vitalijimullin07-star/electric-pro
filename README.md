@@ -42,16 +42,19 @@
 
 ## Как открыть
 
-**Локально**
+**В браузере:** https://vitalijimullin07-star.github.io/electric-pro/ — GitHub Pages публикует корень ветки `main`, где лежит собранный редактор (`index.html`).
+
+**Одним файлом:** `npm run build` собирает `dist/plata.html` — его можно открыть двойным щелчком без интернета.
+
+**Для разработки:**
 
 ```
 npm install
-npm run dev          # http://localhost:5173
-npm run build        # сборка в dist/
-npm run preview      # посмотреть сборку
+npm run dev          # откроется http://localhost:5173/app.html
+npm run build        # сборка: dist/ и корневой index.html для сайта
 ```
 
-**GitHub Pages.** В репозитории: Settings → Pages → Source → GitHub Actions. Рабочий процесс `.github/workflows/ci.yml` при каждом push в `main` проверяет типы, прогоняет тесты, собирает и публикует `dist/`. Пути в сборке относительные, поэтому она открывается и из подпапки, и просто с диска через любой статический сервер.
+После изменений кода запустите `npm run build` и закоммитьте обновлённый `index.html` — CI проверяет, что сайт собран из текущих исходников.
 
 ## Как пользоваться
 

@@ -10,3 +10,4 @@
 - После изменений: `npm run check` (типы + тесты). Если трогали автотрассировку или связность — `npm test -- tests/router.test.ts` обязательно (плата пылесоса должна разводиться без ошибок).
 - Меняя формат проекта, добавьте миграцию в `src/core/io/project-file.ts` (`migrateProject`).
 - Пример платы пылесоса переносится из старого формата в `src/core/io/legacy-plata.ts`; данные — `src/core/examples/vacuum-controller`.
+- Сайт https://vitalijimullin07-star.github.io/electric-pro/ — GitHub Pages из корня ветки `main`. Корневой `index.html` и `router.worker-*.js` — собранный редактор (генерирует `npm run build`), исходная страница — `app.html`. После любых изменений кода: `npm run build` и закоммитить обновлённый `index.html`, иначе CI упадёт.

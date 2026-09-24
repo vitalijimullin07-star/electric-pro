@@ -16,9 +16,12 @@ export default defineConfig({
       '@ui': dir('./src/ui'),
     },
   },
+  // Исходная страница — app.html: корень репозитория занимает собранный index.html для GitHub Pages.
+  server: { open: '/app.html' },
   build: {
     target: 'es2022',
     sourcemap: true,
+    rollupOptions: { input: fileURLToPath(new URL('./app.html', import.meta.url)) },
   },
   test: {
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],

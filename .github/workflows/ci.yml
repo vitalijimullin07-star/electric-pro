@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   test:
@@ -26,19 +24,6 @@ jobs:
         with:
           name: plata-dist
           path: dist
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: dist
-
-  deploy:
-    # Публикация на GitHub Pages: включите в Settings → Pages источник «GitHub Actions».
-    if: github.ref == 'refs/heads/main'
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Сайт на GitHub Pages публикуется из корня ветки main: собранный index.html должен быть закоммичен.
+      - name: Собранный index.html совпадает с исходниками
+        run: git diff --exit-code --stat -- index.html 'router.worker-*.js' || (echo 'Запустите npm run build и закоммитьте index.html' && exit 1)
