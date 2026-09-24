@@ -42,7 +42,7 @@ export function ComponentDialog({ id }: { id: string }) {
 
   return (
     <Dialog title={`${c.ref} — ${c.description ?? fp.description ?? fp.name}`} size="wide">
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16 }}>
+      <div className="two-col">
         <div>
           <FootprintPreview fp={fp} />
           <div className="field" style={{ marginTop: 8 }}>

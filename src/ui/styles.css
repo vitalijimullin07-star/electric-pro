@@ -350,6 +350,17 @@ a {
 .field.wide {
   grid-template-columns: 1fr;
 }
+/* Две колонки окна (корпус и выводы); на узком экране — одна под другой. */
+.two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .two-col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .inp,
 .sel {
   width: 100%;
@@ -540,11 +551,15 @@ textarea:focus {
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
   display: grid;
+  /* Клетка по размеру экрана: иначе длинное содержимое раздувает её, и окно уезжает за край. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   z-index: 100;
   padding: 12px;
 }
 .modal {
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -660,6 +675,13 @@ table.grid select {
   width: 100%;
   aspect-ratio: 4 / 3;
   display: block;
+  overflow: hidden;
+}
+/* Рисунок вписывается в рамку 4:3, а не растягивает её по высоте (длинные модули, разъёмы). */
+.fp-preview svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .progress {
   height: 8px;
@@ -675,8 +697,9 @@ table.grid select {
 }
 .kbd-grid {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: fit-content(45%) 1fr;
   gap: 6px 14px;
+  align-items: start;
 }
 .kbd-grid kbd {
   font: 12px ui-monospace, monospace;
@@ -684,7 +707,16 @@ table.grid select {
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 1px 6px;
-  white-space: nowrap;
+  justify-self: start;
+}
+@media (max-width: 520px) {
+  .kbd-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .kbd-grid kbd {
+    margin-top: 8px;
+  }
 }
 .panel-toggle {
   display: none;

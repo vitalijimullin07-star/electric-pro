@@ -210,7 +210,7 @@ export function collectHoles(p: Project): Hole[] {
 
 function excellonFile(holes: Hole[], ox: number, oy: number, plated: boolean): string {
   const tools = [...new Set(holes.map((h) => +h.d.toFixed(3)))].sort((a, b) => a - b);
-  const lines: string[] = ['M48', `; DRILL file {Plata} date ${new Date().toISOString()}`, '; FORMAT={-:-/ absolute / metric / decimal}', `; #@! TF.FileFunction,${plated ? 'Plated' : 'NonPlated'},1,2,PTH`, 'FMAT,2', 'METRIC'];
+  const lines: string[] = ['M48', `; DRILL file {Plata} date ${new Date().toISOString()}`, '; FORMAT={-:-/ absolute / metric / decimal}', `; #@! TF.FileFunction,${plated ? 'Plated,1,2,PTH' : 'NonPlated,1,2,NPTH'}`, 'FMAT,2', 'METRIC'];
   tools.forEach((t, i) => lines.push(`T${i + 1}C${t.toFixed(3)}`));
   lines.push('%', 'G90', 'G05');
   tools.forEach((t, i) => {

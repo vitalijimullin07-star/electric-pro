@@ -842,6 +842,30 @@ async function openPage(viewport, touch = false) {
       expect(box && box.x >= 0 && box.x + box.width <= 391, 'кнопка за экраном: ' + (await b.getAttribute('aria-label')));
     }
   });
+  await step('телефон: каждое окно помещается на экран и закрывается касанием', async () => {
+    const vp = page.viewportSize();
+    const list = [
+      ['Файл', 'Экспорт'],
+      ['Файл', 'Настройки платы'],
+      ['Файл', 'Новый проект'],
+      ['Файл', 'Недавние проекты'],
+      ['Трассировка', 'Автотрассировка'],
+      ['Справка', 'Горячие клавиши'],
+      ['Справка', 'О программе'],
+    ];
+    for (const [top, item] of list) {
+      await h.menu(top, item);
+      await page.waitForTimeout(200);
+      const g = await page.evaluate(() => {
+        const b = document.querySelector('.modal')?.getBoundingClientRect();
+        return b ? { top: b.top, bottom: b.bottom, left: b.left, right: b.right, docW: document.documentElement.scrollWidth } : null;
+      });
+      expect(g && g.top >= 0 && g.left >= 0 && g.bottom <= vp.height + 1 && g.right <= vp.width + 1 && g.docW <= vp.width, `${item}: окно за экраном ${JSON.stringify(g)}`);
+      await h.hit('.modal header button');
+      expect(!(await page.$('.modal')), `${item}: окно не закрылось`);
+    }
+  });
+
   await page.screenshot({ path: `${out}/mobile.png` });
   await page.context().close();
 }
