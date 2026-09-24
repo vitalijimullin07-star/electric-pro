@@ -7,6 +7,7 @@ import { safeName } from '@core/io/gerber';
 import { deleteSelection, flipSelection, rotateSelection, selectAll } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
+import { askConfirm } from './dialogs/AskDialog';
 
 /* Верхняя строка меню в духе EasyEDA: Файл, Правка, Вид, Плата, Трассировка, Экспорт, Справка. */
 
@@ -47,8 +48,12 @@ function Menu({ label, items, open, onOpen }: { label: string; items: Item[]; op
 export async function saveProject(): Promise<void> {
   const s = useEditor.getState();
   const name = s.fileName ?? safeName(s.project.meta.name) + PROJECT_EXT;
-  const ok = await saveTextFile(name, serializeProject(s.project, true), 'application/json');
-  if (ok) useEditor.setState({ dirty: false, fileName: name, message: `Сохранено: ${name}` });
+  try {
+    const ok = await saveTextFile(name, serializeProject(s.project, true), 'application/json');
+    useEditor.setState(ok ? { dirty: false, fileName: name, message: `Сохранено: ${name}` } : { message: 'Сохранение отменено.' });
+  } catch (e) {
+    useEditor.setState({ message: `Не удалось сохранить: ${(e as Error).message}` });
+  }
 }
 
 export async function openProject(): Promise<void> {
@@ -164,9 +169,8 @@ export function TopBar() {
         { label: 'Перемычка проводом', kbd: 'J', action: () => s.setTool('wire') },
         'sep',
         { label: 'Автотрассировка…', action: () => s.openDialog('autoroute') },
-        { label: 'Стереть все дорожки', action: () => {
-          if (confirm('Стереть все дорожки, переходные и перемычки? Отменить можно через Ctrl+Z.')) s.commit((d) => clearRouting(d));
-        } },
+        { label: 'Стереть все дорожки', action: () =>
+          askConfirm({ title: 'Стереть все дорожки', message: 'Стереть все дорожки, переходные и перемычки? Вернуть можно через Ctrl+Z.', okLabel: 'Стереть', danger: true, onOk: () => s.commit((d) => clearRouting(d)) }) },
         'sep',
         { label: 'Проверка правил (DRC)', action: () => s.patch({ panelTab: 'drc', panelOpen: true }) },
       ],

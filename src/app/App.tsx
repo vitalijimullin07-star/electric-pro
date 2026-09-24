@@ -10,6 +10,8 @@ import { ExportDialog } from '@ui/dialogs/ExportDialog';
 import { BoardDialog } from '@ui/dialogs/BoardDialog';
 import { ComponentDialog } from '@ui/dialogs/ComponentDialog';
 import { OpenDialog } from '@ui/dialogs/OpenDialog';
+import { AskDialog } from '@ui/dialogs/AskDialog';
+import type { AskData } from '@editor/store';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 
 export function App() {
@@ -42,6 +44,7 @@ export function App() {
       {dialog === 'autoroute' && <AutorouteDialog />}
       {dialog === 'shortcuts' && <ShortcutsDialog />}
       {dialog === 'about' && <AboutDialog />}
+      {(dialog === 'confirm' || dialog === 'prompt') && dialogData ? <AskDialog data={dialogData as AskData} withInput={dialog === 'prompt'} /> : null}
     </div>
   );
 }

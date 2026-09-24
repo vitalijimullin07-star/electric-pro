@@ -3,6 +3,7 @@ import { useEditor } from '@editor/store';
 import { computeConnectivity } from '@core/model/connectivity';
 import { ensureNet, removeNet } from '@core/model/edit';
 import { getWorld, padLabel } from '@core/model/world';
+import { askConfirm } from '../dialogs/AskDialog';
 
 export function NetsPanel() {
   const s = useEditor();
@@ -82,9 +83,16 @@ export function NetsPanel() {
             className="btn sm danger"
             onClick={() => {
               const id = s.highlightNet!;
-              if (!confirm(`Удалить цепь ${p.nets[id].name}? Выводы останутся без цепи.`)) return;
-              s.commit((d) => removeNet(d, id));
-              s.patch({ highlightNet: null });
+              askConfirm({
+                title: 'Удалить цепь',
+                message: `Удалить цепь ${p.nets[id].name}? Выводы останутся без цепи.`,
+                okLabel: 'Удалить',
+                danger: true,
+                onOk: () => {
+                  s.commit((d) => removeNet(d, id));
+                  s.patch({ highlightNet: null });
+                },
+              });
             }}
           >
             Удалить цепь

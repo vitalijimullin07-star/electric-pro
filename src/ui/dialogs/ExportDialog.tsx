@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
-import { saveTextFile, copyText } from '../files';
+import { saveTextFile, copyText, isHostedPage } from '../files';
 import { fabricationZip, homemadeZip } from '@core/io/package';
 import { exportGerbers, safeName } from '@core/io/gerber';
 import { exportAssemblySvg, exportCopperSvg } from '@core/io/svg-export';
@@ -21,11 +21,12 @@ export function ExportDialog() {
   const conn = computeConnectivity(p);
   const copper = boardCopperLayers(p.board.copperLayers);
 
+  const hosted = isHostedPage();
   const run = async (label: string, fn: () => Promise<unknown> | unknown) => {
     setBusy(label);
     try {
-      await fn();
-      s.setMessage(`${label}: готово.`);
+      const r = await fn();
+      s.setMessage(r === false ? `${label}: сохранение отменено.` : `${label}: готово.`);
     } catch (e) {
       s.setMessage(`${label}: ошибка — ${(e as Error).message}`);
     } finally {
@@ -47,15 +48,17 @@ export function ExportDialog() {
       <div className="row">
         <button className="btn primary" disabled={!!busy} onClick={() => run('Архив Gerber', async () => {
           const z = fabricationZip(p);
-          await saveTextFile(z.name, z.data, 'application/zip');
+          return saveTextFile(z.name, z.data, 'application/zip');
         })}>
           Скачать архив Gerber + сверловка
         </button>
-        <button className="btn" disabled={!!busy} onClick={() => run('Gerber по файлам', async () => {
-          for (const f of exportGerbers(p)) await saveTextFile(f.name, f.content, 'text/plain');
-        })}>
-          Отдельными файлами
-        </button>
+        {!hosted && (
+          <button className="btn" disabled={!!busy} onClick={() => run('Gerber по файлам', async () => {
+            for (const f of exportGerbers(p)) if (!(await saveTextFile(f.name, f.content, 'text/plain'))) return false;
+          })}>
+            Отдельными файлами
+          </button>
+        )}
       </div>
       <h4>Дома: ЛУТ или фоторезист</h4>
       <p className="hint">
@@ -77,7 +80,7 @@ export function ExportDialog() {
         </button>
         <button className="btn" disabled={!!busy} onClick={() => run('Комплект для дома', async () => {
           const z = homemadeZip(p);
-          await saveTextFile(z.name, z.data, 'application/zip');
+          return saveTextFile(z.name, z.data, 'application/zip');
         })}>
           Весь комплект архивом
         </button>

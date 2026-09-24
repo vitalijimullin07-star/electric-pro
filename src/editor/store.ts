@@ -8,6 +8,7 @@ import type { DisplayUnit } from '@core/units';
 import { touch } from '@core/model/edit';
 import { EXAMPLES } from '@core/examples';
 import { migrateProject } from '@core/io/project-file';
+import { safeStorage } from './storage';
 
 /*
  * Состояние редактора. Проект неизменяем: каждое действие делает новую
@@ -16,7 +17,19 @@ import { migrateProject } from '@core/io/project-file';
 
 export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure';
 
-export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | null;
+export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | null;
+
+/** Данные окна подтверждения или ввода: браузерные confirm()/prompt() в изолированных страницах запрещены. */
+export interface AskData {
+  title: string;
+  message: string;
+  okLabel?: string;
+  danger?: boolean;
+  /** Для окна ввода: начальное значение. */
+  value?: string;
+  onOk(value?: string): void;
+  onCancel?(): void;
+}
 
 export interface RecentEntry {
   key: string;
@@ -115,7 +128,7 @@ const RECENT_LIMIT = 6;
 
 export function loadRecent(): RecentEntry[] {
   try {
-    const raw = localStorage.getItem(RECENT_KEY);
+    const raw = safeStorage.getItem(RECENT_KEY);
     if (raw) return JSON.parse(raw) as RecentEntry[];
   } catch {
     /* пусто */
@@ -125,35 +138,25 @@ export function loadRecent(): RecentEntry[] {
 
 /** Кладёт проект в список недавних (в браузере), чтобы новый проект не стёр прежний. */
 export function pushRecent(p: Project): void {
-  if (typeof localStorage === 'undefined') return;
+  if (!safeStorage.available()) return;
   const key = p.meta.created + '|' + p.meta.name;
   const xs = p.board.outline.map((q) => q.x);
   const ys = p.board.outline.map((q) => q.y);
   const entry: RecentEntry = { key, name: p.meta.name, modified: p.meta.modified, size: `${(Math.max(...xs) - Math.min(...xs)).toFixed(0)}×${(Math.max(...ys) - Math.min(...ys)).toFixed(0)} мм`, project: p };
   const list = [entry, ...loadRecent().filter((r) => r.key !== key)].slice(0, RECENT_LIMIT);
-  for (let n = list.length; n > 0; n--) {
-    try {
-      localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, n)));
-      return;
-    } catch {
-      /* не влезло — пробуем меньше */
-    }
-  }
+  // Если не влезает, сохраняем меньше проектов.
+  for (let n = list.length; n > 0; n--) if (safeStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, n)))) return;
 }
 
 export function removeRecent(key: string): void {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(loadRecent().filter((r) => r.key !== key)));
-  } catch {
-    /* пусто */
-  }
+  safeStorage.setItem(RECENT_KEY, JSON.stringify(loadRecent().filter((r) => r.key !== key)));
 }
 
 const allVisible = (): Record<LayerId, boolean> => Object.fromEntries(LAYER_ORDER.map((l) => [l, true])) as Record<LayerId, boolean>;
 
 function loadInitialProject(): { project: Project; fileName: string | null } {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    const raw = safeStorage.getItem(AUTOSAVE_KEY);
     if (raw) {
       const obj = JSON.parse(raw) as { project: Project; fileName: string | null };
       if (obj && obj.project && obj.project.format) return { project: migrateProject(obj.project), fileName: obj.fileName ?? null };
@@ -166,7 +169,7 @@ function loadInitialProject(): { project: Project; fileName: string | null } {
 
 function loadSettings(): Partial<EditorState> {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = safeStorage.getItem(SETTINGS_KEY);
     if (raw) return JSON.parse(raw) as Partial<EditorState>;
   } catch {
     /* по умолчанию */
@@ -177,8 +180,8 @@ function loadSettings(): Partial<EditorState> {
 const HISTORY_LIMIT = 100;
 
 export const useEditor = create<EditorState>((set, get) => {
-  const initial = typeof localStorage !== 'undefined' ? loadInitialProject() : { project: createProject(), fileName: null };
-  const settings = typeof localStorage !== 'undefined' ? loadSettings() : {};
+  const initial = typeof window !== 'undefined' ? loadInitialProject() : { project: createProject(), fileName: null };
+  const settings = typeof window !== 'undefined' ? loadSettings() : {};
   return {
     project: initial.project,
     past: [],
@@ -347,12 +350,8 @@ export function setupAutosave(): void {
     if (s.project === prev.project && s.grid === prev.grid && s.units === prev.units && s.snap === prev.snap) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: s.grid, units: s.units, snap: s.snap }));
-      } catch {
-        /* нет места или приватный режим */
-      }
+      safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
+      safeStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: s.grid, units: s.units, snap: s.snap }));
     }, 600);
   });
 }

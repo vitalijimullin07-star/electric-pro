@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
+import { askText } from './AskDialog';
 import { LenInput, TextInput } from '../common/NumberInput';
 import { rectOutline, rectSize } from '@core/model/project';
 import { MAINS_CLASS, MAINS_CLEARANCE, RULE_PRESETS, defaultNetClasses } from '@core/model/rules';
@@ -240,11 +241,21 @@ export function BoardDialog() {
           <div className="row">
             <button
               className="btn sm"
-              onClick={() => {
-                const name = prompt('Имя класса (латиницей, без пробелов):', 'HighCurrent')?.trim();
-                if (!name || p.netClasses[name]) return;
-                s.commit((d) => void (d.netClasses[name] = { ...defaultNetClasses().Default, name, description: '' }));
-              }}
+              onClick={() =>
+                askText({
+                  title: 'Новый класс цепей',
+                  message: 'Имя класса латиницей, без пробелов:',
+                  value: 'HighCurrent',
+                  okLabel: 'Добавить',
+                  onOk: (v) => {
+                    const name = (v ?? '').replace(/\s+/g, '');
+                    if (!name || useEditor.getState().project.netClasses[name]) return;
+                    s.commit((d) => void (d.netClasses[name] = { ...defaultNetClasses().Default, name, description: '' }));
+                    s.openDialog('board');
+                  },
+                  onCancel: () => s.openDialog('board'),
+                })
+              }
             >
               Добавить класс
             </button>
