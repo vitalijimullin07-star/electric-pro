@@ -1,38 +1,75 @@
 import { useMemo, useState } from 'react';
 import { useEditor } from '@editor/store';
-import { categories, libraryFootprints, searchFootprints } from '@core/library';
+import { categories, groupsOf, libraryFootprints, searchFootprints, PROJECT_CATEGORY } from '@core/library';
 import { FootprintPreview } from '../common/FootprintPreview';
 import type { FootprintDef } from '@core/model/types';
+
+/* Библиотека: раздел → подраздел → корпуса, поиск по всему, предпросмотр и кнопка «Поставить». */
+
+const SHOW_LIMIT = 250;
 
 export function LibraryPanel() {
   const s = useEditor();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string>('');
+  const [grp, setGrp] = useState<string>('');
   const all = libraryFootprints();
-  const projectFps = Object.values(s.project.footprints).filter((f) => f.category === 'Проект' || !all.some((a) => a.id === f.id));
+  const projectFps = useMemo(() => Object.values(s.project.footprints).filter((f) => f.category === PROJECT_CATEGORY || !all.some((a) => a.id === f.id)), [s.project.footprints, all]);
+  const everything = useMemo(() => [...all, ...projectFps], [all, projectFps]);
+  const cats = useMemo(() => categories(everything), [everything]);
+  const groups = useMemo(() => (cat ? groupsOf(cat, everything) : []), [cat, everything]);
+
   const list = useMemo(() => {
-    const base = cat === 'Проект' ? projectFps : cat ? all.filter((f) => f.category === cat) : [...all, ...projectFps];
-    return searchFootprints(q, base).slice(0, 300);
-  }, [q, cat, all, projectFps]);
-  const cats = useMemo(() => [...categories(all), ...(projectFps.length ? ['Проект'] : [])], [all, projectFps.length]);
+    let base = everything;
+    if (cat) base = base.filter((f) => f.category === cat);
+    if (cat && grp) base = base.filter((f) => (f.group ?? '') === grp);
+    return searchFootprints(q, base);
+  }, [q, cat, grp, everything]);
+
   const chosen: FootprintDef | undefined = s.placeFootprint ? all.find((f) => f.id === s.placeFootprint) ?? s.project.footprints[s.placeFootprint] : undefined;
+  const pick = (f: FootprintDef) => {
+    if (s.tool !== 'place') s.setTool('place');
+    s.patch({ placeFootprint: f.id });
+  };
 
   return (
     <div>
-      <h3>Библиотека корпусов</h3>
+      <h3>
+        Библиотека корпусов <span className="hint">{all.length}</span>
+      </h3>
       <div className="row">
-        <input className="inp" placeholder="Поиск: 0805, dip 8, esp32, клеммник…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+        <input className="inp" placeholder="Поиск: 0805, dip 16, esp32, кнопка 6x6, кварц…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
       </div>
       <div className="row">
-        <select className="sel" value={cat} onChange={(e) => setCat(e.target.value)}>
-          <option value="">Все разделы ({all.length})</option>
+        <select
+          className="sel"
+          value={cat}
+          onChange={(e) => {
+            setCat(e.target.value);
+            setGrp('');
+          }}
+          style={{ flex: 1 }}
+        >
+          <option value="">Все разделы</option>
           {cats.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {c} ({everything.filter((f) => f.category === c).length})
             </option>
           ))}
         </select>
       </div>
+      {cat && groups.length > 1 && (
+        <div className="row">
+          <select className="sel" value={grp} onChange={(e) => setGrp(e.target.value)} style={{ flex: 1 }}>
+            <option value="">Все подразделы</option>
+            {groups.map((g) => (
+              <option key={g} value={g}>
+                {g || 'Прочие'} ({everything.filter((f) => f.category === cat && (f.group ?? '') === g).length})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {chosen && (
         <div style={{ margin: '8px 0 10px' }}>
           <FootprintPreview fp={chosen} />
@@ -40,7 +77,9 @@ export function LibraryPanel() {
             <b>{chosen.name}</b> <span className="hint">{chosen.description}</span>
           </div>
           <div className="hint">
-            {chosen.pads.filter((p) => p.type !== 'npth').length} выв. · {chosen.source ?? ''} · {chosen.verified ? <span className="tag ok">размеры сверены</span> : <span className="tag warn">размеры типовые — проверить</span>}
+            {chosen.category}
+            {chosen.group ? ` → ${chosen.group}` : ''} · {chosen.pads.filter((p) => p.type !== 'npth').length} выв. · {chosen.source ?? ''} ·{' '}
+            {chosen.verified ? <span className="tag ok">размеры сверены</span> : <span className="tag warn">размеры типовые — проверить</span>}
           </div>
           <div className="row">
             <button
@@ -56,27 +95,35 @@ export function LibraryPanel() {
           </div>
         </div>
       )}
-      <div className="list">
-        {list.map((f) => (
-          <button
-            key={f.id}
-            className={`item${s.placeFootprint === f.id ? ' on' : ''}`}
-            onClick={() => {
-              s.patch({ placeFootprint: f.id });
-              if (s.tool !== 'place') s.setTool('place');
-              s.patch({ placeFootprint: f.id });
-            }}
-            title={f.id}
-          >
-            <span className="grow">
-              <span className="nm">{f.name}</span>
-              <div className="ds">{f.description}</div>
-            </span>
-            <span className="tag">{f.pads.filter((p) => p.type !== 'npth').length}</span>
-          </button>
-        ))}
-        {!list.length && <p className="hint">Ничего не найдено.</p>}
-      </div>
+      {!cat && !q && (
+        <div className="list">
+          {cats.map((c) => (
+            <button key={c} className="item" onClick={() => setCat(c)}>
+              <span className="grow">
+                <span className="nm">{c}</span>
+                <div className="ds">{groupsOf(c, everything).filter(Boolean).join(' · ')}</div>
+              </span>
+              <span className="tag">{everything.filter((f) => f.category === c).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {(cat || q) && (
+        <div className="list">
+          {list.slice(0, SHOW_LIMIT).map((f) => (
+            <button key={f.id} className={`item${s.placeFootprint === f.id ? ' on' : ''}`} onClick={() => pick(f)} title={f.id}>
+              <span className="grow">
+                <span className="nm">{f.name}</span>
+                {!grp && f.group && <span className="tag" style={{ marginLeft: 6 }}>{f.group}</span>}
+                <div className="ds">{f.description}</div>
+              </span>
+              <span className="tag">{f.pads.filter((p) => p.type !== 'npth').length}</span>
+            </button>
+          ))}
+          {list.length > SHOW_LIMIT && <p className="hint">Показаны первые {SHOW_LIMIT} из {list.length}: уточните поиск или выберите подраздел.</p>}
+          {!list.length && <p className="hint">Ничего не найдено.</p>}
+        </div>
+      )}
     </div>
   );
 }

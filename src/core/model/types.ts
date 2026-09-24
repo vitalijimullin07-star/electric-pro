@@ -83,8 +83,10 @@ export interface FootprintDef {
   /** Короткое имя для списка: "0805". */
   name: string;
   description?: string;
-  /** Раздел библиотеки. */
+  /** Раздел библиотеки: «Резисторы», «Микросхемы»… */
   category: string;
+  /** Подраздел: «SMD чип», «DIP», «Выводные»… */
+  group?: string;
   tags?: string[];
   pads: PadDef[];
   graphics: Graphic[];

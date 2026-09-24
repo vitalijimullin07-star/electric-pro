@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { libraryFootprints, searchFootprints, compatibleFootprints, libraryFootprint } from '../src/core/library';
+import { libraryFootprints, searchFootprints, compatibleFootprints, libraryFootprint, libraryTree, categories } from '../src/core/library';
 import { TEMPLATES } from '../src/core/library/templates';
 import { padLocalShape, footprintBounds } from '../src/core/model/placement';
 import { shapesTouch } from '../src/core/math/shape';
@@ -10,7 +10,7 @@ describe('библиотека корпусов', () => {
   test('идентификаторы уникальны, корпусов много', () => {
     const ids = new Set(all.map((f) => f.id));
     expect(ids.size).toBe(all.length);
-    expect(all.length).toBeGreaterThan(150);
+    expect(all.length).toBeGreaterThan(600);
   });
 
   test('у каждого корпуса есть площадки с уникальными номерами и разумными размерами', () => {
@@ -31,7 +31,8 @@ describe('библиотека корпусов', () => {
 
   test('площадки одного корпуса не перекрываются', () => {
     for (const f of all) {
-      const shapes = f.pads.map((p) => ({ p, s: padLocalShape(p) }));
+      // Отверстия без металлизации могут перекрываться намеренно (паз из нескольких отверстий).
+      const shapes = f.pads.filter((p) => p.type !== 'npth').map((p) => ({ p, s: padLocalShape(p) }));
       for (let i = 0; i < shapes.length; i++)
         for (let j = i + 1; j < shapes.length; j++)
           expect(shapesTouch(shapes[i].s, shapes[j].s, -0.05), `${f.id}: ${shapes[i].p.number} и ${shapes[j].p.number}`).toBe(false);
@@ -69,6 +70,25 @@ describe('библиотека корпусов', () => {
     const pico = libraryFootprint('Module_Raspberry_Pi_Pico')!;
     expect(pico.pads.find((p) => p.number === '40')!.name).toBe('VBUS');
     expect(pico.pads.find((p) => p.number === '21')!.name).toBe('GP16');
+  });
+
+  test('разделы и подразделы заполнены, у каждого корпуса есть раздел', () => {
+    const tree = libraryTree(all);
+    expect(categories(all).length).toBeGreaterThanOrEqual(15);
+    for (const c of tree) {
+      expect(c.count, c.category).toBeGreaterThan(0);
+      for (const g of c.groups) expect(g.items.length, `${c.category} → ${g.name}`).toBeGreaterThan(0);
+    }
+    const ics = tree.find((c) => c.category === 'Микросхемы')!;
+    expect(ics.groups.map((g) => g.name)).toContain('DIP');
+    expect(ics.groups.find((g) => g.name === 'DIP')!.items.length).toBeGreaterThanOrEqual(25);
+    const noGroup = all.filter((f) => !f.group && f.category !== 'Проект');
+    expect(noGroup.map((f) => f.id)).toEqual([]);
+  });
+
+  test('старые идентификаторы на месте (их использует плата пылесоса)', () => {
+    for (const id of ['R_1206_3216Metric', 'C_1206_3216Metric', 'R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal', 'R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal', 'C_Rect_L7.2mm_W2.5mm_P5.08mm', 'CP_Radial_D8mm_P3.5mm', 'RV_Disc_D14mm_P7.5mm', 'Fuseholder_Clip-5x20mm_P22.6mm_Horizontal', 'Buzzer_12x9.5RM7.6', 'TO-92_Inline_Wide', 'DIP-6_W7.62mm', 'TerminalBlock_1x02_P5.08mm', 'PinHeader_1x10_P2.54mm', 'Module_ESP32_DevKit_30pin', 'Module_HLK-PM01', 'MountingHole_3.2mm_M3'])
+      expect(libraryFootprint(id), id).toBeTruthy();
   });
 
   test('поиск и совместимые корпуса', () => {

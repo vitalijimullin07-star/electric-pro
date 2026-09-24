@@ -91,12 +91,13 @@ export function jst(series: 'XH' | 'PH', n: number): FootprintDef {
 }
 
 /** Винтовой клеммник на плату (KF301/KF128/MKDS), шаг 5,08 / 5,0 / 3,5 мм. */
-export function screwTerminal(n: number, pitch: 5.08 | 5.0 | 3.5 | 3.81 = 5.08): FootprintDef {
+export function screwTerminal(n: number, pitch: number = 5.08): FootprintDef {
+  const large = pitch >= 7;
   const big = pitch >= 5;
-  const drill = big ? 1.3 : 1.2;
-  const pad = big ? 2.6 : 2.2;
-  const depth = big ? 7.6 : 7.0;
-  const height = big ? 10 : 8.5;
+  const drill = large ? 1.5 : big ? 1.3 : 1.2;
+  const pad = large ? 3.0 : big ? 2.6 : 2.2;
+  const depth = large ? 9.0 : big ? 7.6 : 7.0;
+  const height = large ? 12 : big ? 10 : 8.5;
   const pads: PadDef[] = [];
   const x0 = -((n - 1) * pitch) / 2;
   for (let i = 0; i < n; i++) pads.push(tht(String(i + 1), x0 + i * pitch, 0, pad, pad, drill, i === 0 ? 'rect' : 'circle'));
@@ -122,7 +123,7 @@ export function screwTerminal(n: number, pitch: 5.08 | 5.0 | 3.5 | 3.81 = 5.08):
     pads,
     graphics: g,
     courtyard: crt,
-    source: 'Типовой KF301-5.0/5.08, KF128-3.5',
+    source: 'Типовой KF301-5.0/5.08, KF128-3.5, KF7.5',
     verified: false,
     height,
   });
@@ -239,8 +240,8 @@ export function axialDiode(pkg: 'DO-35' | 'DO-41' | 'DO-201' | 'DO-15'): Footpri
 
 /** Электролитический конденсатор радиальный: диаметр D и шаг P. Плюс — вывод 1. */
 export function radialCap(D: number, P: number): FootprintDef {
-  const drill = D >= 10 ? 1.0 : 0.8;
-  const pad = D >= 10 ? 2.0 : 1.6;
+  const drill = D >= 10 ? 1.0 : P < 2.2 ? 0.6 : 0.8;
+  const pad = D >= 10 ? 2.0 : P < 2.2 ? 1.3 : 1.6;
   const pads = [tht('1', -P / 2, 0, pad, pad, drill, 'rect', { name: '+' }), tht('2', P / 2, 0, pad, pad, drill, 'circle', { name: '-' })];
   const r = D / 2;
   const crt = courtyardAround(pads, { x0: -r, y0: -r, x1: r, y1: r }, CRT_THT);

@@ -1,5 +1,7 @@
 import type { FootprintDef, Graphic, PadDef } from '../../model/types';
-import { CRT_THT, FAB_W, SILK_W, circle, courtyardAround, crtGraphic, fp, npth, r2, rect, refText, tht, valueText } from './util';
+import { CRT_THT, FAB_W, SILK_W, circle, courtyardAround, crtGraphic, fp, npth, r2, rect, refText, smd, tht, valueText } from './util';
+import { CAT } from '../categories';
+import { EXTRA_MODULES } from './modules-extra';
 
 /*
  * Готовые модули на штырях: платки с Aliexpress, отладочные платы, блоки питания.
@@ -39,9 +41,12 @@ export interface ModuleSpec {
   tags?: string[];
   refPrefix?: string;
   category?: string;
+  group?: string;
   source?: string;
   padDiameter?: number;
   drill?: number;
+  /** Планарные площадки по краю (модули без штырей, например ESP-12F): пары [x, y, w, h]. */
+  smdPads?: { name: string; at: [number, number]; size: [number, number] }[];
 }
 
 export function moduleFootprint(s: ModuleSpec): FootprintDef {
@@ -59,6 +64,7 @@ export function moduleFootprint(s: ModuleSpec): FootprintDef {
       pads.push(tht(num, x, y, padD, padD, drill, row.markFirst && i === 0 ? 'rect' : 'oval', nm ? { name: nm } : {}));
     });
   }
+  if (s.smdPads) for (const sp of s.smdPads) pads.push(smd(String(n++), sp.at[0], sp.at[1], sp.size[0], sp.size[1], 'roundrect', sp.name ? { name: sp.name } : {}));
   if (s.holes) for (const h of s.holes) pads.push(npth(h.at[0], h.at[1], h.d));
   const [bw, bh] = s.board;
   const [ox, oy] = s.offset ?? [0, 0];
@@ -103,8 +109,9 @@ export function moduleFootprint(s: ModuleSpec): FootprintDef {
     id: s.id,
     name: s.name,
     description: s.description,
-    category: s.category ?? 'Модули',
-    tags: ['module', 'tht', ...(s.tags ?? [])],
+    category: s.category ?? CAT.M,
+    group: s.group ?? 'Прочее',
+    tags: ['module', s.smdPads ? 'smd' : 'tht', ...(s.tags ?? [])],
     refPrefix: s.refPrefix ?? 'M',
     pads,
     graphics: g,
@@ -120,7 +127,7 @@ export function moduleFootprint(s: ModuleSpec): FootprintDef {
  * для обоих рядов; номера идут против часовой стрелки: левый ряд 1…n сверху вниз,
  * правый n+1…2n снизу вверх (как у DIP и у большинства модулей).
  */
-function twoRows(n: number, rowPitch: number, left: string[], right: string[]): HeaderRow[] {
+export function twoRows(n: number, rowPitch: number, left: string[], right: string[]): HeaderRow[] {
   const y0 = -((n - 1) * 2.54) / 2;
   return [
     { at: [-rowPitch / 2, y0], dir: 'y', names: left, markFirst: true },
@@ -145,6 +152,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       [-9, -28.5, 9, -20.5],
       [-4, 22.5, 4, 25],
     ],
+    group: 'Wi-Fi и Bluetooth',
     verified: false,
     height: 13,
     tags: ['esp32', 'devkit', 'wifi'],
@@ -166,6 +174,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       [-9, -29, 9, -21],
       [-4, 26.5, 4, 29],
     ],
+    group: 'Wi-Fi и Bluetooth',
     verified: false,
     height: 13,
     tags: ['esp32', 'devkitc', 'wifi'],
@@ -183,6 +192,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       ['A0', 'RSV', 'RSV', 'SD3', 'SD2', 'SD1', 'CMD', 'SD0', 'CLK', 'GND', '3V3', 'EN', 'RST', 'GND', 'VIN'],
       ['D0', 'D1', 'D2', 'D3', 'D4', '3V3', 'GND', 'D5', 'D6', 'D7', 'D8', 'RX', 'TX', 'GND', '3V3'],
     ),
+    group: 'Wi-Fi и Bluetooth',
     verified: false,
     height: 13,
     tags: ['esp8266', 'nodemcu', 'wifi'],
@@ -194,6 +204,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [25.6, 34.2],
     offset: [0, -1.5],
     rows: twoRows(8, 22.86, ['RST', 'A0', 'D0', 'D5', 'D6', 'D7', 'D8', '3V3'], ['TX', 'RX', 'D1', 'D2', 'D3', 'D4', 'GND', '5V']),
+    group: 'Wi-Fi и Bluetooth',
     verified: true,
     height: 10,
     tags: ['esp8266', 'd1 mini', 'wifi'],
@@ -218,6 +229,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       { at: [7.62, 20.3], d: 1.8 },
     ],
     fab: [[-3.8, -22.2, 3.8, -17.5]],
+    group: 'Микроконтроллеры',
     verified: true,
     height: 8,
     tags: ['arduino', 'nano', 'atmega328'],
@@ -230,6 +242,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
     description: 'Arduino Pro Mini, 2×12 выводов вдоль длинных сторон (ряды через 15,24 мм), платка 33×18 мм. Программатор и A4–A7 не показаны',
     board: [18, 33],
     rows: twoRows(12, 15.24, ['TX0', 'RX1', 'RST', 'GND', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9'], ['RAW', 'GND', 'RST', 'VCC', 'A3', 'A2', 'A1', 'A0', 'D13', 'D12', 'D11', 'D10']),
+    group: 'Микроконтроллеры',
     verified: false,
     height: 6,
     tags: ['arduino', 'pro mini'],
@@ -253,6 +266,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       { at: [5.7, 23.5], d: 2.1 },
     ],
     fab: [[-4, -26.5, 4, -21.5]],
+    group: 'Микроконтроллеры',
     verified: true,
     height: 4,
     tags: ['raspberry', 'pico', 'rp2040'],
@@ -273,6 +287,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
       ['VBAT', 'C13', 'C14', 'C15', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'B0', 'B1', 'B10', 'B11', 'RST', '3V3', 'GND', 'GND'],
       ['3V3', 'GND', '5V', 'B9', 'B8', 'B7', 'B6', 'B5', 'B4', 'B3', 'A15', 'A12', 'A11', 'A10', 'A9', 'A8', 'B15', 'B14', 'B13', 'B12'],
     ),
+    group: 'Микроконтроллеры',
     verified: false,
     height: 8,
     tags: ['stm32', 'blue pill'],
@@ -288,10 +303,11 @@ export const MODULE_SPECS: ModuleSpec[] = [
       { at: [-5.1, -14.6], dir: 'x', pitch: 10.2, names: ['+Vo', '-Vo'], markFirst: true },
       { at: [-5.1, 14.6], dir: 'x', pitch: 10.2, names: ['AC', 'AC'] },
     ],
+    group: 'AC-DC',
     verified: false,
     height: 15,
     tags: ['power', 'ac-dc', 'hi-link', '230v'],
-    category: 'Питание',
+    category: CAT.PS,
     refPrefix: 'PS',
     source: 'Hi-Link HLK-PM01, типовые размеры',
     padDiameter: 2.4,
@@ -304,6 +320,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [27.5, 15],
     offset: [0, -5.0],
     rows: [{ at: [-11.43, 0], dir: 'x', names: ['VDD', 'GND', 'SCL', 'SDA', 'ADDR', 'ALRT', 'A0', 'A1', 'A2', 'A3'], markFirst: true }],
+    group: 'Прочее',
     verified: false,
     height: 5,
     tags: ['adc', 'i2c', 'ads1115'],
@@ -315,6 +332,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [38, 22],
     offset: [0, -8.0],
     rows: [{ at: [-6.35, 0], dir: 'x', names: ['32K', 'SQW', 'SCL', 'SDA', 'VCC', 'GND'], markFirst: true }],
+    group: 'Прочее',
     verified: false,
     height: 14,
     tags: ['rtc', 'i2c', 'ds3231'],
@@ -326,6 +344,7 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [25.4, 20],
     offset: [0, -7.0],
     rows: [{ at: [-5.08, 0], dir: 'x', names: ['GND', 'VCC', 'SCK', 'CS', 'SO'], markFirst: true }],
+    group: 'Прочее',
     verified: false,
     height: 10,
     tags: ['thermocouple', 'spi', 'max31855'],
@@ -339,10 +358,11 @@ export const MODULE_SPECS: ModuleSpec[] = [
       { at: [-19.0, -8.0], dir: 'y', pitch: 16.0, names: ['IN+', 'IN-'], markFirst: true },
       { at: [19.0, -8.0], dir: 'y', pitch: 16.0, names: ['OUT+', 'OUT-'] },
     ],
+    group: 'DC-DC',
     verified: false,
     height: 14,
     tags: ['power', 'dc-dc', 'buck', 'lm2596'],
-    category: 'Питание',
+    category: CAT.PS,
     refPrefix: 'PS',
     padDiameter: 2.2,
     drill: 1.2,
@@ -354,10 +374,11 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [43, 17],
     offset: [0, -5.0],
     rows: [{ at: [-2.54, 0], dir: 'x', names: ['VCC', 'GND', 'IN'], markFirst: true }],
+    group: 'Модули',
     verified: false,
     height: 18,
     tags: ['relay', 'module'],
-    category: 'Реле',
+    category: CAT.K,
     refPrefix: 'K',
   },
   {
@@ -374,10 +395,11 @@ export const MODULE_SPECS: ModuleSpec[] = [
       { at: [11.6, 23.8], d: 2.0 },
     ],
     fab: [[-12.5, 4.5, 12.5, 24.0]],
+    group: 'ЖК и OLED модули',
     verified: false,
     height: 4,
     tags: ['display', 'oled', 'i2c'],
-    category: 'Дисплеи',
+    category: CAT.DS,
     refPrefix: 'DS',
   },
   {
@@ -387,10 +409,11 @@ export const MODULE_SPECS: ModuleSpec[] = [
     board: [15.1, 25.1],
     offset: [0, -13.5],
     rows: [{ at: [-3.81, 0], dir: 'x', names: ['VCC', 'DATA', 'NC', 'GND'], markFirst: true }],
+    group: 'Температура и влажность',
     verified: false,
     height: 7.7,
     tags: ['sensor', 'humidity', 'dht22'],
-    category: 'Датчики',
+    category: CAT.SENS,
     refPrefix: 'U',
     padDiameter: 1.6,
     drill: 0.9,
@@ -407,12 +430,13 @@ export function genericModule(w: number, h: number, pins: number, names?: string
     board: [w, h],
     offset: [0, -h / 2 + 1.5],
     rows: [{ at: [-((pins - 1) * 2.54) / 2, 0], dir: 'x', names: nm, markFirst: true }],
+    group: 'Прочее',
     verified: true,
   });
 }
 
 export function allModules(): FootprintDef[] {
-  const out = MODULE_SPECS.map(moduleFootprint);
+  const out = [...MODULE_SPECS, ...EXTRA_MODULES].map(moduleFootprint);
   for (const p of [3, 4, 5, 6, 8]) out.push(genericModule(20, 15, p));
   return out;
 }
