@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '@editor/store';
 import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/project-file';
-import { importLegacyVacuumProject } from '@core/examples';
 import { openTextFile, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
 import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, openKicadBoardText } from './library-io';
@@ -98,10 +97,7 @@ export async function openProject(): Promise<void> {
   try {
     const r = parseProjectFile(f.text);
     if (r.kind === 'project') s.replaceProject(r.project, f.name);
-    else {
-      s.replaceProject(importLegacyVacuumProject(r.file), null);
-      s.setMessage('Открыт проект старой версии Plata: перенесены расстановка и дорожки платы пылесоса.');
-    }
+    else s.setMessage('Это файл первой версии Plata (плата пылесоса) — такие файлы больше не открываются.');
   } catch (e) {
     s.setMessage((e as Error).message || 'Не удалось открыть файл.');
   }

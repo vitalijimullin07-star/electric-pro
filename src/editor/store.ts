@@ -6,7 +6,6 @@ import { createProject } from '@core/model/project';
 import type { CopperLayer, FootprintDef, ItemRef, LayerId, Project } from '@core/model/types';
 import type { DisplayUnit } from '@core/units';
 import { touch } from '@core/model/edit';
-import { EXAMPLES } from '@core/examples';
 import { migrateProject } from '@core/io/project-file';
 import { expandGroups } from '@core/model/groups';
 import { safeStorage } from './storage';
@@ -169,10 +168,13 @@ export const SETTINGS_KEY = 'plata2:settings';
 export const RECENT_KEY = 'plata2:recent';
 const RECENT_LIMIT = 6;
 
+/** Встроенный пример прежних версий редактора: плата контроллера пылесоса. */
+const isOldExample = (p: Project) => p.meta?.name === 'Плата контроллера пылесоса' && p.meta?.template === undefined && Object.values(p.components ?? {}).some((c) => c.ref === 'U1' && c.footprint === 'Module_ESP32_DevKit_30pin');
+
 export function loadRecent(): RecentEntry[] {
   try {
     const raw = safeStorage.getItem(RECENT_KEY);
-    if (raw) return JSON.parse(raw) as RecentEntry[];
+    if (raw) return (JSON.parse(raw) as RecentEntry[]).filter((r) => r.project && !isOldExample(r.project));
   } catch {
     /* пусто */
   }
@@ -202,12 +204,13 @@ function loadInitialProject(): { project: Project; fileName: string | null } {
     const raw = safeStorage.getItem(AUTOSAVE_KEY);
     if (raw) {
       const obj = JSON.parse(raw) as { project: Project; fileName: string | null };
-      if (obj && obj.project && obj.project.format) return { project: migrateProject(obj.project), fileName: obj.fileName ?? null };
+      // Бывший встроенный пример (плата пылесоса) убран из редактора — не восстанавливаем его.
+      if (obj && obj.project && obj.project.format && !isOldExample(obj.project)) return { project: migrateProject(obj.project), fileName: obj.fileName ?? null };
     }
   } catch {
     /* нет сохранения — открываем пример */
   }
-  return { project: EXAMPLES[0].create(), fileName: null };
+  return { project: createProject(), fileName: null };
 }
 
 function loadSettings(): Partial<EditorState> {

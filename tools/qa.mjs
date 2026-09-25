@@ -97,7 +97,11 @@ async function openPage(viewport, touch = false) {
   const downloads = [];
   page.on('download', (d) => downloads.push(d.suggestedFilename()));
 
-  await step('запуск: пример открыт, 49 цепей разведены', async () => {
+  await step('запуск: пустая плата; открытие файла import/plata-dip-razvedena — 49 цепей разведены', async () => {
+    expect(/Разведено 0 из 0/.test(await h.chips()), 'при запуске не пусто: ' + (await h.chips()));
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+    await fc.setFiles(new URL('../import/plata-dip-razvedena.plata.json', import.meta.url).pathname);
+    await page.waitForTimeout(800);
     const c = await h.chips();
     expect(/Разведено 49 из 49/.test(c), c);
   });

@@ -1,0 +1,8089 @@
+{
+ "format": "plata-project",
+ "version": 1,
+ "meta": {
+  "name": "Контроллер пылесоса — выводные детали",
+  "created": "2026-09-25T12:55:57.998Z",
+  "modified": "2026-09-25T12:55:57.998Z",
+  "template": "legacy:vacuum-controller",
+  "description": "Все детали в выводных (DIP) корпусах, цепи назначены, дорожек нет."
+ },
+ "board": {
+  "outline": [
+   {
+    "x": 0,
+    "y": 0
+   },
+   {
+    "x": 203.2,
+    "y": 0
+   },
+   {
+    "x": 203.2,
+    "y": 132.08
+   },
+   {
+    "x": 0,
+    "y": 132.08
+   }
+  ],
+  "cornerRadius": 2,
+  "cutouts": [],
+  "copperLayers": 1,
+  "thickness": 1.6,
+  "maskColor": "#1f6b3a"
+ },
+ "rules": {
+  "minClearance": 0.3,
+  "minTrackWidth": 0.4,
+  "minViaDiameter": 1.6,
+  "minViaDrill": 0.6,
+  "minDrill": 0.6,
+  "minAnnularRing": 0.3,
+  "edgeClearance": 1,
+  "holeToHole": 0.3,
+  "classClearances": [
+   {
+    "a": "Mains",
+    "b": "*",
+    "clearance": 6
+   }
+  ],
+  "maskMargin": 0.1,
+  "tentVias": false,
+  "teardrops": true
+ },
+ "netClasses": {
+  "Default": {
+   "name": "Default",
+   "description": "Сигнальные цепи",
+   "clearance": 0.3,
+   "trackWidth": 0.6,
+   "viaDiameter": 2,
+   "viaDrill": 0.8
+  },
+  "Power": {
+   "name": "Power",
+   "description": "Питание и земля",
+   "clearance": 0.3,
+   "trackWidth": 0.8,
+   "viaDiameter": 2,
+   "viaDrill": 0.8
+  },
+  "Mains": {
+   "name": "Mains",
+   "description": "Сеть 230 В",
+   "clearance": 0.3,
+   "trackWidth": 0.8,
+   "viaDiameter": 2,
+   "viaDrill": 0.8,
+   "color": "#ff8a3d"
+  }
+ },
+ "nets": {
+  "nys4n11nx34fo": {
+   "id": "nys4n11nx34fo",
+   "name": "3V3",
+   "description": "Питание 3,3 В",
+   "netClass": "Power"
+  },
+  "nys4n11ou5uke": {
+   "id": "nys4n11ou5uke",
+   "name": "5V",
+   "description": "Питание 5 В логики",
+   "netClass": "Power"
+  },
+  "nys4n11p42z4g": {
+   "id": "nys4n11p42z4g",
+   "name": "5VD",
+   "description": "Питание 5 В дисплея",
+   "netClass": "Power"
+  },
+  "nys4n11q4npeb": {
+   "id": "nys4n11q4npeb",
+   "name": "GND",
+   "description": "Общий минус",
+   "netClass": "Power"
+  },
+  "nys4n11ravg7a": {
+   "id": "nys4n11ravg7a",
+   "name": "T1_IN",
+   "description": "Турбина 1, сигнал",
+   "netClass": "Default"
+  },
+  "nys4n11suhsvf": {
+   "id": "nys4n11suhsvf",
+   "name": "T1_LED",
+   "description": "Турбина 1, светодиод оптрона",
+   "netClass": "Default"
+  },
+  "nys4n11t2nnw5": {
+   "id": "nys4n11t2nnw5",
+   "name": "T2_IN",
+   "description": "Турбина 2, сигнал",
+   "netClass": "Default"
+  },
+  "nys4n11uw7yk6": {
+   "id": "nys4n11uw7yk6",
+   "name": "T2_LED",
+   "description": "Турбина 2, светодиод оптрона",
+   "netClass": "Default"
+  },
+  "nys4n11vm0yms": {
+   "id": "nys4n11vm0yms",
+   "name": "T1_R",
+   "description": "Турбина 1, оптрон к резистору",
+   "netClass": "Mains"
+  },
+  "nys4n11wwvnsp": {
+   "id": "nys4n11wwvnsp",
+   "name": "T1_MT2",
+   "description": "Турбина 1, MT2 симистора",
+   "netClass": "Mains"
+  },
+  "nys4n11x0wfaa": {
+   "id": "nys4n11x0wfaa",
+   "name": "T1_G",
+   "description": "Турбина 1, затвор",
+   "netClass": "Mains"
+  },
+  "nys4n11yo1j88": {
+   "id": "nys4n11yo1j88",
+   "name": "T2_R",
+   "description": "Турбина 2, оптрон к резистору",
+   "netClass": "Mains"
+  },
+  "nys4n11zzzhwq": {
+   "id": "nys4n11zzzhwq",
+   "name": "T2_MT2",
+   "description": "Турбина 2, MT2 симистора",
+   "netClass": "Mains"
+  },
+  "nys4n120yqu64": {
+   "id": "nys4n120yqu64",
+   "name": "T2_G",
+   "description": "Турбина 2, затвор",
+   "netClass": "Mains"
+  },
+  "nys4n121qlamu": {
+   "id": "nys4n121qlamu",
+   "name": "ZC",
+   "description": "Синхронизация, Z-C диммера",
+   "netClass": "Default"
+  },
+  "nys4n12259gam": {
+   "id": "nys4n12259gam",
+   "name": "V1",
+   "description": "Клапан 1, CH3 диммера",
+   "netClass": "Default"
+  },
+  "nys4n123kvexd": {
+   "id": "nys4n123kvexd",
+   "name": "V2",
+   "description": "Клапан 2, CH4 диммера",
+   "netClass": "Default"
+  },
+  "nys4n124oj3l2": {
+   "id": "nys4n124oj3l2",
+   "name": "SSR",
+   "description": "Реле розетки инструмента",
+   "netClass": "Default"
+  },
+  "nys4n125r67so": {
+   "id": "nys4n125r67so",
+   "name": "ACS1",
+   "description": "Ток Т1 до делителя",
+   "netClass": "Default"
+  },
+  "nys4n1263bmu6": {
+   "id": "nys4n1263bmu6",
+   "name": "ACS1_D",
+   "description": "Ток Т1 после делителя",
+   "netClass": "Default"
+  },
+  "nys4n127n8e99": {
+   "id": "nys4n127n8e99",
+   "name": "ACS2",
+   "description": "Ток Т2 до делителя",
+   "netClass": "Default"
+  },
+  "nys4n1286mgoh": {
+   "id": "nys4n1286mgoh",
+   "name": "ACS2_D",
+   "description": "Ток Т2 после делителя",
+   "netClass": "Default"
+  },
+  "nys4n129uxffz": {
+   "id": "nys4n129uxffz",
+   "name": "MPX",
+   "description": "Разрежение до делителя",
+   "netClass": "Default"
+  },
+  "nys4n12auzxwf": {
+   "id": "nys4n12auzxwf",
+   "name": "MPX_D",
+   "description": "Разрежение после делителя",
+   "netClass": "Default"
+  },
+  "nys4n12blbsj7": {
+   "id": "nys4n12blbsj7",
+   "name": "CUR",
+   "description": "Ток розетки",
+   "netClass": "Default"
+  },
+  "nys4n12cplz22": {
+   "id": "nys4n12cplz22",
+   "name": "SDA1",
+   "description": "I2C шина 1, данные",
+   "netClass": "Default"
+  },
+  "nys4n12db5d96": {
+   "id": "nys4n12db5d96",
+   "name": "SCL1",
+   "description": "I2C шина 1, такт",
+   "netClass": "Default"
+  },
+  "nys4n12eot88p": {
+   "id": "nys4n12eot88p",
+   "name": "SDA2",
+   "description": "I2C шина 2, данные",
+   "netClass": "Default"
+  },
+  "nys4n12ff3s8s": {
+   "id": "nys4n12ff3s8s",
+   "name": "SCL2",
+   "description": "I2C шина 2, такт",
+   "netClass": "Default"
+  },
+  "nys4n12g83zak": {
+   "id": "nys4n12g83zak",
+   "name": "SCK",
+   "description": "Термопары, такт",
+   "netClass": "Default"
+  },
+  "nys4n12hah4yo": {
+   "id": "nys4n12hah4yo",
+   "name": "SO",
+   "description": "Термопары, данные",
+   "netClass": "Default"
+  },
+  "nys4n12ikuxou": {
+   "id": "nys4n12ikuxou",
+   "name": "CS1",
+   "description": "Термопара Т1, выбор",
+   "netClass": "Default"
+  },
+  "nys4n12jpd5b2": {
+   "id": "nys4n12jpd5b2",
+   "name": "CS2",
+   "description": "Термопара Т2, выбор",
+   "netClass": "Default"
+  },
+  "nys4n12k1ezr6": {
+   "id": "nys4n12k1ezr6",
+   "name": "TXD",
+   "description": "UART, на RX дисплея",
+   "netClass": "Default"
+  },
+  "nys4n12lon1s1": {
+   "id": "nys4n12lon1s1",
+   "name": "RXD",
+   "description": "UART, с TX дисплея",
+   "netClass": "Default"
+  },
+  "nys4n12m4854x": {
+   "id": "nys4n12m4854x",
+   "name": "BTN",
+   "description": "Кнопки, общая точка лестницы",
+   "netClass": "Default"
+  },
+  "nys4n12nw72fp": {
+   "id": "nys4n12nw72fp",
+   "name": "K1",
+   "description": "Кнопка «Продуть»",
+   "netClass": "Default"
+  },
+  "nys4n12oaja4j": {
+   "id": "nys4n12oaja4j",
+   "name": "K2",
+   "description": "Кнопка «Режим»",
+   "netClass": "Default"
+  },
+  "nys4n12pgm6jq": {
+   "id": "nys4n12pgm6jq",
+   "name": "K3",
+   "description": "Кнопка «Сброс»",
+   "netClass": "Default"
+  },
+  "nys4n12qhk2w6": {
+   "id": "nys4n12qhk2w6",
+   "name": "K4",
+   "description": "Кнопка «Турбины»",
+   "netClass": "Default"
+  },
+  "nys4n12rvx0xq": {
+   "id": "nys4n12rvx0xq",
+   "name": "K5",
+   "description": "Кнопка «Пресет»",
+   "netClass": "Default"
+  },
+  "nys4n12sxop8j": {
+   "id": "nys4n12sxop8j",
+   "name": "K6",
+   "description": "Кнопка «Назад»",
+   "netClass": "Default"
+  },
+  "nys4n12teliz9": {
+   "id": "nys4n12teliz9",
+   "name": "BZ_IN",
+   "description": "Зуммер, сигнал",
+   "netClass": "Default"
+  },
+  "nys4n12u7fmdx": {
+   "id": "nys4n12u7fmdx",
+   "name": "BZ_B",
+   "description": "Зуммер, база транзистора",
+   "netClass": "Default"
+  },
+  "nys4n12vlq1bg": {
+   "id": "nys4n12vlq1bg",
+   "name": "BZ_C",
+   "description": "Зуммер, минус",
+   "netClass": "Default"
+  },
+  "nys4n12wl0ddy": {
+   "id": "nys4n12wl0ddy",
+   "name": "AC_L",
+   "description": "Сеть L с клеммника",
+   "netClass": "Mains"
+  },
+  "nys4n12xnf150": {
+   "id": "nys4n12xnf150",
+   "name": "AC_L1",
+   "description": "L после F1, БП логики",
+   "netClass": "Mains"
+  },
+  "nys4n12y94xri": {
+   "id": "nys4n12y94xri",
+   "name": "AC_L2",
+   "description": "L после F2, БП дисплея",
+   "netClass": "Mains"
+  },
+  "nys4n12z73nin": {
+   "id": "nys4n12z73nin",
+   "name": "AC_N",
+   "description": "Сеть N",
+   "netClass": "Mains"
+  }
+ },
+ "footprints": {
+  "MountingHole_3.2mm_M3": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.2,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Courtyard",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.45,
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.1
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "MountingHole_3.2mm_M3",
+   "name": "Отверстие M3",
+   "description": "Крепёжное отверстие Ø3.2 мм под винт M3",
+   "category": "Крепёж",
+   "tags": [
+    "hole",
+    "mounting",
+    "m3"
+   ],
+   "refPrefix": "H",
+   "pads": [
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.45,
+     "y": -3.45
+    },
+    "max": {
+     "x": 3.45,
+     "y": 3.45
+    }
+   },
+   "source": "ISO 273, средний ряд",
+   "verified": true,
+   "height": 0
+  },
+  "Module_ESP32_DevKit_30pin": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -14.15,
+      "y": -28.55
+     },
+     "b": {
+      "x": 14.15,
+      "y": 22.95
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -14.21,
+      "y": -28.61
+     },
+     "b": {
+      "x": 14.21,
+      "y": 23.01
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -9,
+      "y": -28.5
+     },
+     "b": {
+      "x": 9,
+      "y": -20.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -4,
+      "y": 22.5
+     },
+     "b": {
+      "x": 4,
+      "y": 25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -12.7,
+      "y": -19.38
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -17.78
+     },
+     "text": "EN",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -15.24
+     },
+     "text": "VP",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -12.7
+     },
+     "text": "VN",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -10.16
+     },
+     "text": "D34",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -7.62
+     },
+     "text": "D35",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -5.08
+     },
+     "text": "D32",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": -2.54
+     },
+     "text": "D33",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 0
+     },
+     "text": "D25",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 2.54
+     },
+     "text": "D26",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 5.08
+     },
+     "text": "D27",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 7.62
+     },
+     "text": "D14",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 10.16
+     },
+     "text": "D12",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 12.7
+     },
+     "text": "D13",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.45,
+      "y": 17.78
+     },
+     "text": "VIN",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -17.78
+     },
+     "text": "D23",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -15.24
+     },
+     "text": "D22",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -12.7
+     },
+     "text": "TX0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -10.16
+     },
+     "text": "RX0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -7.62
+     },
+     "text": "D21",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -5.08
+     },
+     "text": "D19",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": -2.54
+     },
+     "text": "D18",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 0
+     },
+     "text": "D5",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 2.54
+     },
+     "text": "TX2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 5.08
+     },
+     "text": "RX2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 7.62
+     },
+     "text": "D4",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 10.16
+     },
+     "text": "D2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 12.7
+     },
+     "text": "D15",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.45,
+      "y": 17.78
+     },
+     "text": "3V3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -14.65,
+      "y": -29.05
+     },
+     "b": {
+      "x": 14.65,
+      "y": 23.45
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -29.75
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -2.8
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Module_ESP32_DevKit_30pin",
+   "name": "ESP32 DevKit 30",
+   "description": "ESP32 DevKit V1 (DOIT), 30 выводов, 2×15, ряды через 25,4 мм, платка 51,5×28,3 мм. USB и антенна по короткой стороне",
+   "category": "Модули",
+   "group": "Wi-Fi и Bluetooth",
+   "tags": [
+    "module",
+    "tht",
+    "esp32",
+    "devkit",
+    "wifi"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -12.7,
+      "y": -17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "EN"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VP"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VN"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D34"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D35"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D32"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D33"
+    },
+    {
+     "number": "8",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D25"
+    },
+    {
+     "number": "9",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D26"
+    },
+    {
+     "number": "10",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D27"
+    },
+    {
+     "number": "11",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D14"
+    },
+    {
+     "number": "12",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D12"
+    },
+    {
+     "number": "13",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D13"
+    },
+    {
+     "number": "14",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "15",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -12.7,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VIN"
+    },
+    {
+     "number": "30",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D23"
+    },
+    {
+     "number": "29",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D22"
+    },
+    {
+     "number": "28",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "TX0"
+    },
+    {
+     "number": "27",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RX0"
+    },
+    {
+     "number": "26",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D21"
+    },
+    {
+     "number": "25",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D19"
+    },
+    {
+     "number": "24",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D18"
+    },
+    {
+     "number": "23",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D5"
+    },
+    {
+     "number": "22",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "TX2"
+    },
+    {
+     "number": "21",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RX2"
+    },
+    {
+     "number": "20",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D4"
+    },
+    {
+     "number": "19",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D2"
+    },
+    {
+     "number": "18",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D15"
+    },
+    {
+     "number": "17",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "16",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 12.7,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "3V3"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -14.65,
+     "y": -29.05
+    },
+    "max": {
+     "x": 14.65,
+     "y": 23.45
+    }
+   },
+   "source": "Типовые размеры DOIT DevKit V1",
+   "verified": false,
+   "height": 13
+  },
+  "Module_ADS1115": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -13.75,
+      "y": -12.5
+     },
+     "b": {
+      "x": 13.75,
+      "y": 2.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -13.81,
+      "y": -12.56
+     },
+     "b": {
+      "x": 13.81,
+      "y": 2.56
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -13.03,
+      "y": 0
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.43,
+      "y": -1.25
+     },
+     "text": "VDD",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -8.89,
+      "y": -1.25
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.35,
+      "y": -1.25
+     },
+     "text": "SCL",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -3.81,
+      "y": -1.25
+     },
+     "text": "SDA",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -1.27,
+      "y": -1.25
+     },
+     "text": "ADDR",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 1.27,
+      "y": -1.25
+     },
+     "text": "ALRT",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 3.81,
+      "y": -1.25
+     },
+     "text": "A0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.35,
+      "y": -1.25
+     },
+     "text": "A1",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 8.89,
+      "y": -1.25
+     },
+     "text": "A2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.43,
+      "y": -1.25
+     },
+     "text": "A3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -14.25,
+      "y": -13
+     },
+     "b": {
+      "x": 14.25,
+      "y": 3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -13.7
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Module_ADS1115",
+   "name": "ADS1115",
+   "description": "Модуль АЦП ADS1115 (CJMCU), 1×10 выводов, платка 27,5×15 мм",
+   "category": "Модули",
+   "group": "Прочее",
+   "tags": [
+    "module",
+    "tht",
+    "adc",
+    "i2c",
+    "ads1115"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -11.43,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VDD"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -8.89,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "ADDR"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "ALRT"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A0"
+    },
+    {
+     "number": "8",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A1"
+    },
+    {
+     "number": "9",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 8.89,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A2"
+    },
+    {
+     "number": "10",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 11.43,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A3"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -14.25,
+     "y": -13
+    },
+    "max": {
+     "x": 14.25,
+     "y": 3
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 5
+  },
+  "Module_DS3231": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -19,
+      "y": -19
+     },
+     "b": {
+      "x": 19,
+      "y": 3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -19.06,
+      "y": -19.06
+     },
+     "b": {
+      "x": 19.06,
+      "y": 3.06
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -7.95,
+      "y": 0
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.35,
+      "y": -1.25
+     },
+     "text": "32K",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -3.81,
+      "y": -1.25
+     },
+     "text": "SQW",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -1.27,
+      "y": -1.25
+     },
+     "text": "SCL",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 1.27,
+      "y": -1.25
+     },
+     "text": "SDA",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 3.81,
+      "y": -1.25
+     },
+     "text": "VCC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.35,
+      "y": -1.25
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -19.5,
+      "y": -19.5
+     },
+     "b": {
+      "x": 19.5,
+      "y": 3.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -20.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -8
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Module_DS3231",
+   "name": "DS3231",
+   "description": "Модуль часов DS3231 (ZS-042), 1×6 выводов, платка 38×22 мм с держателем батареи",
+   "category": "Модули",
+   "group": "Прочее",
+   "tags": [
+    "module",
+    "tht",
+    "rtc",
+    "i2c",
+    "ds3231"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "32K"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SQW"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -19.5,
+     "y": -19.5
+    },
+    "max": {
+     "x": 19.5,
+     "y": 3.5
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 14
+  },
+  "PinHeader_1x04_P2.54mm__J2": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": -1.27
+     },
+     "b": {
+      "x": 5.08,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": -1.33
+     },
+     "b": {
+      "x": 5.14,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "b": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.58,
+      "y": -1.33
+     },
+     "b": {
+      "x": -5.58,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": -2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": -1.27
+     },
+     "b": {
+      "x": 0,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": 2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.58,
+      "y": -1.77
+     },
+     "b": {
+      "x": 5.58,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x04_P2.54mm__J2",
+   "name": "SDP 500",
+   "description": "Разъём SDP810-500Pa (перепад фильтра) (Штыри 1×4, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x4"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VDD"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.58,
+     "y": -1.77
+    },
+    "max": {
+     "x": 5.58,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x03_P2.54mm__J4": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": -1.33
+     },
+     "b": {
+      "x": 3.87,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "b": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.3100000000000005,
+      "y": -1.33
+     },
+     "b": {
+      "x": -4.3100000000000005,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.32,
+      "y": -1.77
+     },
+     "b": {
+      "x": 4.32,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x03_P2.54mm__J4",
+   "name": "MPX",
+   "description": "Разъём MPX5100DP (разрежение) (Штыри 1×3, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x3"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VS"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VOUT"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.32,
+     "y": -1.77
+    },
+    "max": {
+     "x": 4.32,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "R_1206_3216Metric": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.6,
+      "y": -0.8
+     },
+     "b": {
+      "x": 1.6,
+      "y": 0.8
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -0.7,
+      "y": -1.035
+     },
+     "b": {
+      "x": 0.7,
+      "y": -1.035
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -0.7,
+      "y": 1.035
+     },
+     "b": {
+      "x": 0.7,
+      "y": 1.035
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -2.28,
+      "y": -1.13
+     },
+     "b": {
+      "x": 2.28,
+      "y": 1.13
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -1.83
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 1.83
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_1206_3216Metric",
+   "name": "1206",
+   "description": "Резистор SMD 1206 (3216 метрич.), 3.2×1.6 мм",
+   "category": "Резисторы",
+   "tags": [
+    "smd",
+    "1206",
+    "3216",
+    "r"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -1.4625,
+      "y": 0
+     },
+     "size": {
+      "x": 1.125,
+      "y": 1.75
+     },
+     "roundness": 0.25
+    },
+    {
+     "number": "2",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 1.4625,
+      "y": 0
+     },
+     "size": {
+      "x": 1.125,
+      "y": 1.75
+     },
+     "roundness": 0.25
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.28,
+     "y": -1.13
+    },
+    "max": {
+     "x": 2.28,
+     "y": 1.13
+    }
+   },
+   "source": "IPC-7351B, номинал",
+   "verified": true,
+   "height": 0.6,
+   "group": "SMD чип"
+  },
+  "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.15,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3.15,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": 0
+     },
+     "b": {
+      "x": -3.15,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 3.15,
+      "y": 0
+     },
+     "b": {
+      "x": 5.08,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.21,
+      "y": -1.31
+     },
+     "b": {
+      "x": 3.21,
+      "y": 1.31
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.03,
+      "y": 0
+     },
+     "b": {
+      "x": -3.21,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.21,
+      "y": 0
+     },
+     "b": {
+      "x": 4.03,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -6.38,
+      "y": -1.75
+     },
+     "b": {
+      "x": 6.38,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 0.875,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "name": "Резистор 0.25W, 10,16 мм",
+   "description": "Резистор 0.25W с осевыми выводами, корпус 6.3×2.5 мм, шаг 10,16 мм",
+   "category": "Резисторы",
+   "tags": [
+    "tht",
+    "axial",
+    "resistor",
+    "0.25W"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -6.38,
+     "y": -1.75
+    },
+    "max": {
+     "x": 6.38,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 2.5,
+   "group": "Выводные горизонтально"
+  },
+  "Module_MAX31855": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -12.7,
+      "y": -17
+     },
+     "b": {
+      "x": 12.7,
+      "y": 3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -12.76,
+      "y": -17.06
+     },
+     "b": {
+      "x": 12.76,
+      "y": 3.06
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -6.68,
+      "y": 0
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -5.08,
+      "y": -1.25
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -2.54,
+      "y": -1.25
+     },
+     "text": "VCC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -1.25
+     },
+     "text": "SCK",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 2.54,
+      "y": -1.25
+     },
+     "text": "CS",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 5.08,
+      "y": -1.25
+     },
+     "text": "SO",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -13.2,
+      "y": -17.5
+     },
+     "b": {
+      "x": 13.2,
+      "y": 3.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -18.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -7
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Module_MAX31855",
+   "name": "MAX31855",
+   "description": "Модуль термопары MAX31855 (клон Adafruit), 1×5 выводов, платка 25,4×20 мм с клеммником термопары",
+   "category": "Модули",
+   "group": "Прочее",
+   "tags": [
+    "module",
+    "tht",
+    "thermocouple",
+    "spi",
+    "max31855"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCK"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "CS"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SO"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -13.2,
+     "y": -17.5
+    },
+    "max": {
+     "x": 13.2,
+     "y": 3.5
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 10
+  },
+  "PinHeader_1x04_P2.54mm__J8": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": -1.27
+     },
+     "b": {
+      "x": 5.08,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": -1.33
+     },
+     "b": {
+      "x": 5.14,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "b": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.58,
+      "y": -1.33
+     },
+     "b": {
+      "x": -5.58,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": -2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": -1.27
+     },
+     "b": {
+      "x": 0,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": 2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.58,
+      "y": -1.77
+     },
+     "b": {
+      "x": 5.58,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x04_P2.54mm__J8",
+   "name": "Дисплей",
+   "description": "Разъём дисплея (питание + UART) (Штыри 1×4, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x4"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "+5V"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "TX"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RX"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.58,
+     "y": -1.77
+    },
+    "max": {
+     "x": 5.58,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "TO-92_Inline_Wide": {
+   "graphics": [
+    {
+     "kind": "arc",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.3,
+     "start": 37.6,
+     "sweep": 284.8,
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.8248,
+      "y": -1.4
+     },
+     "b": {
+      "x": 1.8248,
+      "y": -1.4
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "arc",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.36,
+     "start": 38,
+     "sweep": 284,
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.8248,
+      "y": -1.46
+     },
+     "b": {
+      "x": 1.8248,
+      "y": -1.46
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.84,
+      "y": -1.9
+     },
+     "b": {
+      "x": 3.84,
+      "y": 2.8
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.6
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 3.5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "TO-92_Inline_Wide",
+   "name": "TO-92 (2,54)",
+   "description": "TO-92, выводы в линию, шаг 2,54 мм. Плоская грань сверху (−Y), вывод 1 слева",
+   "category": "Транзисторы",
+   "tags": [
+    "tht",
+    "to-92",
+    "transistor"
+   ],
+   "refPrefix": "Q",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.84,
+     "y": -1.9
+    },
+    "max": {
+     "x": 3.84,
+     "y": 2.8
+    }
+   },
+   "source": "JEDEC TO-92",
+   "verified": true,
+   "height": 5,
+   "group": "Выводные малые"
+  },
+  "Buzzer_12x9.5RM7.6": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6.06,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7.4,
+      "y": -1.5
+     },
+     "b": {
+      "x": -6.6,
+      "y": -1.5
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7,
+      "y": -1.9
+     },
+     "b": {
+      "x": -7,
+      "y": -1.1
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -6.5,
+      "y": -6.5
+     },
+     "b": {
+      "x": 6.5,
+      "y": 6.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -7.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 7.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Buzzer_12x9.5RM7.6",
+   "name": "Зуммер Ø12",
+   "description": "Активный зуммер Ø12 мм, шаг 7,6 мм, плюс — вывод 1",
+   "category": "Дисплеи и индикаторы",
+   "tags": [
+    "tht",
+    "buzzer"
+   ],
+   "refPrefix": "BZ",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.8,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "+"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.8,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "-"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -6.5,
+     "y": -6.5
+    },
+    "max": {
+     "x": 6.5,
+     "y": 6.5
+    }
+   },
+   "source": "KiCad Buzzer_12x9.5RM7.6",
+   "verified": true,
+   "height": 9.5,
+   "group": "Зуммеры и динамики"
+  },
+  "PinHeader_1x07_P2.54mm__J1": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -8.89,
+      "y": -1.27
+     },
+     "b": {
+      "x": 8.89,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -8.95,
+      "y": -1.33
+     },
+     "b": {
+      "x": 8.95,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -8.950000000000001,
+      "y": 1.27
+     },
+     "b": {
+      "x": -8.95,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -9.39,
+      "y": -1.33
+     },
+     "b": {
+      "x": -9.39,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -6.35,
+      "y": -1.27
+     },
+     "b": {
+      "x": -6.35,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": -3.81,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 6.35,
+      "y": -1.27
+     },
+     "b": {
+      "x": 6.35,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -9.39,
+      "y": -1.77
+     },
+     "b": {
+      "x": 9.39,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x07_P2.54mm__J1",
+   "name": "Диммер",
+   "description": "Разъём диммера RobotDyn (Штыри 1×7, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x7"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "ZC"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "CH1"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "CH2"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "CH3"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "CH4"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -9.39,
+     "y": -1.77
+    },
+    "max": {
+     "x": 9.39,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "CP_Radial_D8mm_P3.5mm": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 4,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 4.06,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.2,
+      "y": -2
+     },
+     "b": {
+      "x": -4.4,
+      "y": -2
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.8,
+      "y": -2.4
+     },
+     "b": {
+      "x": -4.8,
+      "y": -1.6
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "poly",
+     "layer": "F.Fab",
+     "pts": [
+      {
+       "x": 2.2,
+       "y": -3.2
+      },
+      {
+       "x": 2.2,
+       "y": 3.2
+      }
+     ],
+     "width": 0.1,
+     "closed": false,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.5,
+      "y": -4.5
+     },
+     "b": {
+      "x": 4.5,
+      "y": 4.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -5.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 5.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "CP_Radial_D8mm_P3.5mm",
+   "name": "Электролит Ø8",
+   "description": "Электролитический конденсатор Ø8 мм, шаг 3,5 мм, плюс — вывод 1",
+   "category": "Конденсаторы",
+   "tags": [
+    "tht",
+    "radial",
+    "electrolytic",
+    "capacitor"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1.75,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "+"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.75,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "-"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.5,
+     "y": -4.5
+    },
+    "max": {
+     "x": 4.5,
+     "y": 4.5
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 12,
+   "group": "Электролитические выводные"
+  },
+  "PinHeader_1x03_P2.54mm__J5": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": -1.33
+     },
+     "b": {
+      "x": 3.87,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "b": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.3100000000000005,
+      "y": -1.33
+     },
+     "b": {
+      "x": -4.3100000000000005,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.32,
+      "y": -1.77
+     },
+     "b": {
+      "x": 4.32,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x03_P2.54mm__J5",
+   "name": "ACS Т1",
+   "description": "Разъём ACS712 турбины 1 (Штыри 1×3, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x3"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "OUT"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.32,
+     "y": -1.77
+    },
+    "max": {
+     "x": 4.32,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x03_P2.54mm__J6": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": -1.33
+     },
+     "b": {
+      "x": 3.87,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "b": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.3100000000000005,
+      "y": -1.33
+     },
+     "b": {
+      "x": -4.3100000000000005,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.32,
+      "y": -1.77
+     },
+     "b": {
+      "x": 4.32,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x03_P2.54mm__J6",
+   "name": "ACS Т2",
+   "description": "Разъём ACS712 турбины 2 (Штыри 1×3, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x3"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "OUT"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.32,
+     "y": -1.77
+    },
+    "max": {
+     "x": 4.32,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x03_P2.54mm__J7": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": -1.33
+     },
+     "b": {
+      "x": 3.87,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "b": {
+      "x": -3.87,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.3100000000000005,
+      "y": -1.33
+     },
+     "b": {
+      "x": -4.3100000000000005,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.32,
+      "y": -1.77
+     },
+     "b": {
+      "x": 4.32,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x03_P2.54mm__J7",
+   "name": "Ток роз.",
+   "description": "Разъём rbAmp (ток розетки) (Штыри 1×3, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x3"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "OUT"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.32,
+     "y": -1.77
+    },
+    "max": {
+     "x": 4.32,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x04_P2.54mm__J3": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": -1.27
+     },
+     "b": {
+      "x": 5.08,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": -1.33
+     },
+     "b": {
+      "x": 5.14,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "b": {
+      "x": -5.14,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.58,
+      "y": -1.33
+     },
+     "b": {
+      "x": -5.58,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": -2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": -1.27
+     },
+     "b": {
+      "x": 0,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": 2.54,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.58,
+      "y": -1.77
+     },
+     "b": {
+      "x": 5.58,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x04_P2.54mm__J3",
+   "name": "SDP 125",
+   "description": "Разъём SDP810-125Pa (расход) (Штыри 1×4, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x4"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VDD"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.58,
+     "y": -1.77
+    },
+    "max": {
+     "x": 5.58,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x07_P2.54mm__J9": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -8.89,
+      "y": -1.27
+     },
+     "b": {
+      "x": 8.89,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -8.95,
+      "y": -1.33
+     },
+     "b": {
+      "x": 8.95,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -8.950000000000001,
+      "y": 1.27
+     },
+     "b": {
+      "x": -8.95,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -9.39,
+      "y": -1.33
+     },
+     "b": {
+      "x": -9.39,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -6.35,
+      "y": -1.27
+     },
+     "b": {
+      "x": -6.35,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": -3.81,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": -1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 3.81,
+      "y": -1.27
+     },
+     "b": {
+      "x": 3.81,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 6.35,
+      "y": -1.27
+     },
+     "b": {
+      "x": 6.35,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -9.39,
+      "y": -1.77
+     },
+     "b": {
+      "x": 9.39,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x07_P2.54mm__J9",
+   "name": "Кнопки",
+   "description": "Разъём кнопок панели (Штыри 1×7, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x7"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K1"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K2"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K3"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K4"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K5"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "K6"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -9.39,
+     "y": -1.77
+    },
+    "max": {
+     "x": 9.39,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "PinHeader_1x02_P2.54mm__J10": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": 2.54,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": -1.33
+     },
+     "b": {
+      "x": 2.6,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": 1.27
+     },
+     "b": {
+      "x": -2.6,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.04,
+      "y": -1.33
+     },
+     "b": {
+      "x": -3.04,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": -1.27
+     },
+     "b": {
+      "x": 0,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.04,
+      "y": -1.77
+     },
+     "b": {
+      "x": 3.04,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x02_P2.54mm__J10",
+   "name": "SSR",
+   "description": "Разъём SSR розетки (Штыри 1×2, шаг 2,54 мм)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x2"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "+"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "−"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.04,
+     "y": -1.77
+    },
+    "max": {
+     "x": 3.04,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "C_1206_3216Metric": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.6,
+      "y": -0.8
+     },
+     "b": {
+      "x": 1.6,
+      "y": 0.8
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -0.7,
+      "y": -1.035
+     },
+     "b": {
+      "x": 0.7,
+      "y": -1.035
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -0.7,
+      "y": 1.035
+     },
+     "b": {
+      "x": 0.7,
+      "y": 1.035
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -2.28,
+      "y": -1.13
+     },
+     "b": {
+      "x": 2.28,
+      "y": 1.13
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -1.83
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 1.83
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_1206_3216Metric",
+   "name": "1206",
+   "description": "Конденсатор SMD 1206 (3216 метрич.), 3.2×1.6 мм",
+   "category": "Конденсаторы",
+   "tags": [
+    "smd",
+    "1206",
+    "3216",
+    "c"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -1.4625,
+      "y": 0
+     },
+     "size": {
+      "x": 1.125,
+      "y": 1.75
+     },
+     "roundness": 0.25
+    },
+    {
+     "number": "2",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 1.4625,
+      "y": 0
+     },
+     "size": {
+      "x": 1.125,
+      "y": 1.75
+     },
+     "roundness": 0.25
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.28,
+     "y": -1.13
+    },
+    "max": {
+     "x": 2.28,
+     "y": 1.13
+    }
+   },
+   "source": "IPC-7351B, номинал",
+   "verified": true,
+   "height": 1.6,
+   "group": "SMD керамика"
+  },
+  "C_Rect_L7.2mm_W2.5mm_P5.08mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.6,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3.6,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.66,
+      "y": -1.31
+     },
+     "b": {
+      "x": 3.66,
+      "y": -1.31
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.66,
+      "y": -1.31
+     },
+     "b": {
+      "x": 3.66,
+      "y": 1.31
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.66,
+      "y": 1.31
+     },
+     "b": {
+      "x": -3.66,
+      "y": 1.31
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.66,
+      "y": 1.31
+     },
+     "b": {
+      "x": -3.66,
+      "y": -1.31
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.1,
+      "y": -1.75
+     },
+     "b": {
+      "x": 4.1,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_Rect_L7.2mm_W2.5mm_P5.08mm",
+   "name": "Конденсатор 5,08 мм",
+   "description": "Конденсатор с радиальными выводами, корпус 7.2×2.5 мм, шаг 5,08 мм",
+   "category": "Конденсаторы",
+   "tags": [
+    "tht",
+    "radial",
+    "capacitor",
+    "film",
+    "ceramic"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.1,
+     "y": -1.75
+    },
+    "max": {
+     "x": 4.1,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 5,
+   "group": "Плёночные и X2"
+  },
+  "DIP-6_W7.62mm": {
+   "graphics": [
+    {
+     "kind": "poly",
+     "layer": "F.Fab",
+     "pts": [
+      {
+       "x": -2.16,
+       "y": -4.0600000000000005
+      },
+      {
+       "x": 3.16,
+       "y": -4.0600000000000005
+      },
+      {
+       "x": 3.16,
+       "y": 4.0600000000000005
+      },
+      {
+       "x": -3.16,
+       "y": 4.0600000000000005
+      },
+      {
+       "x": -3.16,
+       "y": -3.0600000000000005
+      }
+     ],
+     "width": 0.1,
+     "closed": true,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.2600000000000002,
+      "y": -4.16
+     },
+     "b": {
+      "x": 3.2600000000000002,
+      "y": -4.16
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.2600000000000002,
+      "y": 4.16
+     },
+     "b": {
+      "x": 3.2600000000000002,
+      "y": 4.16
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.2600000000000002,
+      "y": -4.16
+     },
+     "b": {
+      "x": -3.2600000000000002,
+      "y": 4.16
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.2600000000000002,
+      "y": -4.16
+     },
+     "b": {
+      "x": 3.2600000000000002,
+      "y": 4.16
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "arc",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": -4.16
+     },
+     "r": 1,
+     "start": 180,
+     "sweep": 180,
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.12,
+      "y": -4.57
+     },
+     "b": {
+      "x": 5.12,
+      "y": 4.57
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -5.27
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 0.9,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "DIP-6_W7.62mm",
+   "name": "DIP-6",
+   "description": "DIP-6, ряды 7,62 мм узкий (0,3″)",
+   "category": "Микросхемы",
+   "group": "DIP",
+   "tags": [
+    "tht",
+    "dip",
+    "ic",
+    "dip6"
+   ],
+   "refPrefix": "U",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.81,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -3.81,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.12,
+     "y": -4.57
+    },
+    "max": {
+     "x": 5.12,
+     "y": 4.57
+    }
+   },
+   "source": "JEDEC MS-001/MS-011",
+   "verified": true,
+   "height": 4.5
+  },
+  "Module_HLK-PM01": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -10.1,
+      "y": -17
+     },
+     "b": {
+      "x": 10.1,
+      "y": 17
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -10.16,
+      "y": -17.06
+     },
+     "b": {
+      "x": 10.16,
+      "y": 17.06
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -6.7,
+      "y": -14.6
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -5.1,
+      "y": -13
+     },
+     "text": "+Vo",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 5.1,
+      "y": -13
+     },
+     "text": "-Vo",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -5.1,
+      "y": 13
+     },
+     "text": "AC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 5.1,
+      "y": 13
+     },
+     "text": "AC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -10.6,
+      "y": -17.5
+     },
+     "b": {
+      "x": 10.6,
+      "y": 17.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -18.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Module_HLK-PM01",
+   "name": "HLK-PM01",
+   "description": "Блок питания Hi-Link HLK-PM01/PM03/PM12 (230 В → 5/3,3/12 В, 3 Вт), 34×20,2×15 мм. Выходные выводы сверху (−Vo, +Vo), сетевые снизу (AC). Расстояния типовые — проверить",
+   "category": "Питание",
+   "group": "AC-DC",
+   "tags": [
+    "module",
+    "tht",
+    "power",
+    "ac-dc",
+    "hi-link",
+    "230v"
+   ],
+   "refPrefix": "PS",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -5.1,
+      "y": -14.6
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "name": "+Vo"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.1,
+      "y": -14.6
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "name": "-Vo"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -5.1,
+      "y": 14.6
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "name": "AC"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.1,
+      "y": 14.6
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "name": "AC"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -10.6,
+     "y": -17.5
+    },
+    "max": {
+     "x": 10.6,
+     "y": 17.5
+    }
+   },
+   "source": "Hi-Link HLK-PM01, типовые размеры",
+   "verified": false,
+   "height": 15
+  },
+  "R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.5,
+      "y": -2
+     },
+     "b": {
+      "x": 5.5,
+      "y": 2
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -7.62,
+      "y": 0
+     },
+     "b": {
+      "x": -5.5,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 5.5,
+      "y": 0
+     },
+     "b": {
+      "x": 7.62,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.56,
+      "y": -2.06
+     },
+     "b": {
+      "x": 5.56,
+      "y": 2.06
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.37,
+      "y": 0
+     },
+     "b": {
+      "x": -5.56,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 5.56,
+      "y": 0
+     },
+     "b": {
+      "x": 6.37,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -9.13,
+      "y": -2.5
+     },
+     "b": {
+      "x": 9.13,
+      "y": 2.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -3.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 0.9,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal",
+   "name": "Резистор 1W, 15,24 мм",
+   "description": "Резистор 1W с осевыми выводами, корпус 11×4 мм, шаг 15,24 мм",
+   "category": "Резисторы",
+   "tags": [
+    "tht",
+    "axial",
+    "resistor",
+    "1W"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -9.13,
+     "y": -2.5
+    },
+    "max": {
+     "x": 9.13,
+     "y": 2.5
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 4,
+   "group": "Выводные горизонтально"
+  },
+  "TerminalBlock_1x02_P5.08mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": -4.3
+     },
+     "b": {
+      "x": 5.08,
+      "y": 4.3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.14,
+      "y": -4.36
+     },
+     "b": {
+      "x": 5.14,
+      "y": 4.36
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": -2.54,
+      "y": -1.26
+     },
+     "r": 1.6256000000000002,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.064,
+      "y": 1.64
+     },
+     "b": {
+      "x": -1.016,
+      "y": 4
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 2.54,
+      "y": -1.26
+     },
+     "r": 1.6256000000000002,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": 1.016,
+      "y": 1.64
+     },
+     "b": {
+      "x": 4.064,
+      "y": 4
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.58,
+      "y": -4.359999999999999
+     },
+     "b": {
+      "x": -5.58,
+      "y": -2.8
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.58,
+      "y": -4.8
+     },
+     "b": {
+      "x": 5.58,
+      "y": 4.8
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -5.5
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 5.5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "TerminalBlock_1x02_P5.08mm",
+   "name": "Клеммник 2, 5,08",
+   "description": "Винтовой клеммник 2 конт., шаг 5,08 мм (KF301/MKDS)",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "connector",
+    "terminal",
+    "screw"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 2.6,
+      "y": 2.6
+     },
+     "drill": 1.3
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 2.6,
+      "y": 2.6
+     },
+     "drill": 1.3
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.58,
+     "y": -4.8
+    },
+    "max": {
+     "x": 5.58,
+     "y": 4.8
+    }
+   },
+   "source": "Типовой KF301-5.0/5.08, KF128-3.5, KF7.5",
+   "verified": false,
+   "height": 10,
+   "group": "Клеммники"
+  },
+  "Fuseholder_Clip-5x20mm_P22.6mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -10.5,
+      "y": -2.6
+     },
+     "b": {
+      "x": 10.5,
+      "y": 2.6
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -12.9,
+      "y": -3.3
+     },
+     "b": {
+      "x": -9.7,
+      "y": 3.3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": 9.7,
+      "y": -3.3
+     },
+     "b": {
+      "x": 12.9,
+      "y": 3.3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -10.56,
+      "y": -2.66
+     },
+     "b": {
+      "x": 10.56,
+      "y": 2.66
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -13.2,
+      "y": -3.8
+     },
+     "b": {
+      "x": 13.2,
+      "y": 3.8
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.5
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Fuseholder_Clip-5x20mm_P22.6mm_Horizontal",
+   "name": "Держатель 5×20",
+   "description": "Держатель предохранителя 5×20 мм на клипсах, шаг 22,6 мм",
+   "category": "Предохранители и защита",
+   "tags": [
+    "tht",
+    "fuse",
+    "5x20"
+   ],
+   "refPrefix": "F",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -11.3,
+      "y": 0
+     },
+     "size": {
+      "x": 2.6,
+      "y": 2.6
+     },
+     "drill": 1.3
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 11.3,
+      "y": 0
+     },
+     "size": {
+      "x": 2.6,
+      "y": 2.6
+     },
+     "drill": 1.3
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -13.2,
+     "y": -3.8
+    },
+    "max": {
+     "x": 13.2,
+     "y": 3.8
+    }
+   },
+   "source": "Типовые клипсы 5×20",
+   "verified": false,
+   "height": 8,
+   "group": "Предохранители выводные"
+  },
+  "RV_Disc_D14mm_P7.5mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -7,
+      "y": -2.5
+     },
+     "b": {
+      "x": 7,
+      "y": 2.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7.06,
+      "y": -2.56
+     },
+     "b": {
+      "x": 7.06,
+      "y": 2.56
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -7.5,
+      "y": -3
+     },
+     "b": {
+      "x": 7.5,
+      "y": 3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -3.7
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 3.7
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "RV_Disc_D14mm_P7.5mm",
+   "name": "Варистор Ø14",
+   "description": "Варистор Ø14 мм, шаг 7,5 мм, стоит вертикально",
+   "category": "Предохранители и защита",
+   "tags": [
+    "tht",
+    "varistor",
+    "disc"
+   ],
+   "refPrefix": "RV",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.75,
+      "y": 0
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.75,
+      "y": 0
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -7.5,
+     "y": -3
+    },
+    "max": {
+     "x": 7.5,
+     "y": 3
+    }
+   },
+   "source": "Типовые размеры (14D471K и т. п.)",
+   "verified": false,
+   "height": 16,
+   "group": "Варисторы и разрядники"
+  },
+  "C_Disc_D6mm_W2.5mm_P5mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": -1.35
+     },
+     "b": {
+      "x": 3.1,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": -1.35
+     },
+     "b": {
+      "x": 3.1,
+      "y": -0.9
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": 0.9
+     },
+     "b": {
+      "x": 3.1,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": 1.35
+     },
+     "b": {
+      "x": -3.1,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": 1.35
+     },
+     "b": {
+      "x": -3.1,
+      "y": 0.9
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": -0.9
+     },
+     "b": {
+      "x": -3.1,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.8,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3.8,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_Disc_D6mm_W2.5mm_P5mm",
+   "name": "Диск Ø6, 5",
+   "description": "Керамический дисковый конденсатор Ø6 мм, толщина 2.5 мм, шаг 5 мм",
+   "category": "Конденсаторы",
+   "group": "Керамические дисковые",
+   "tags": [
+    "tht",
+    "ceramic",
+    "disc"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.5,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.5,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.8,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3.8,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 7
+  }
+ },
+ "components": {
+  "cys4dr1hvr0e": {
+   "id": "cys4dr1hvr0e",
+   "ref": "H1",
+   "value": "",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.556,
+    "y": 3.556
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "excludeFromBom": true
+  },
+  "cys4dr2yloud": {
+   "id": "cys4dr2yloud",
+   "ref": "H2",
+   "value": "",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 199.64399999999998,
+    "y": 3.556
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "excludeFromBom": true
+  },
+  "cys4dr3esa2f": {
+   "id": "cys4dr3esa2f",
+   "ref": "H3",
+   "value": "",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.556,
+    "y": 128.524
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "excludeFromBom": true
+  },
+  "cys4dr4puuh9": {
+   "id": "cys4dr4puuh9",
+   "ref": "H4",
+   "value": "",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 199.64399999999998,
+    "y": 128.524
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "excludeFromBom": true
+  },
+  "cys4my6hsuc1": {
+   "id": "cys4my6hsuc1",
+   "ref": "U1",
+   "value": "ESP32",
+   "description": "ESP32 DevKit, 30 ножек",
+   "footprint": "Module_ESP32_DevKit_30pin",
+   "at": {
+    "x": 111.76,
+    "y": 53.34
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "2": "nys4n1263bmu6",
+    "3": "nys4n1286mgoh",
+    "4": "nys4n12blbsj7",
+    "5": "nys4n12m4854x",
+    "6": "nys4n12ff3s8s",
+    "7": "nys4n12eot88p",
+    "8": "nys4n11ravg7a",
+    "9": "nys4n11t2nnw5",
+    "10": "nys4n12259gam",
+    "11": "nys4n123kvexd",
+    "13": "nys4n124oj3l2",
+    "14": "nys4n11q4npeb",
+    "15": "nys4n11ou5uke",
+    "16": "nys4n11nx34fo",
+    "17": "nys4n11q4npeb",
+    "19": "nys4n12teliz9",
+    "20": "nys4n121qlamu",
+    "21": "nys4n12lon1s1",
+    "22": "nys4n12k1ezr6",
+    "23": "nys4n12ikuxou",
+    "24": "nys4n12g83zak",
+    "25": "nys4n12hah4yo",
+    "26": "nys4n12cplz22",
+    "29": "nys4n12db5d96",
+    "30": "nys4n12jpd5b2"
+   }
+  },
+  "cys4my76wf1q": {
+   "id": "cys4my76wf1q",
+   "ref": "M1",
+   "value": "ADS1115",
+   "description": "Модуль ADS1115 (АЦП)",
+   "footprint": "Module_ADS1115",
+   "at": {
+    "x": 118.11,
+    "y": 10.16
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12db5d96",
+    "4": "nys4n12cplz22",
+    "5": "nys4n11q4npeb",
+    "7": "nys4n12auzxwf"
+   }
+  },
+  "cys4my8q3our": {
+   "id": "cys4my8q3our",
+   "ref": "M2",
+   "value": "DS3231",
+   "description": "Модуль DS3231 (часы)",
+   "footprint": "Module_DS3231",
+   "at": {
+    "x": 146.05,
+    "y": 10.16
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "3": "nys4n12db5d96",
+    "4": "nys4n12cplz22",
+    "5": "nys4n11nx34fo",
+    "6": "nys4n11q4npeb"
+   }
+  },
+  "cys4mz9jq8jk": {
+   "id": "cys4mz9jq8jk",
+   "ref": "J2",
+   "value": "SDP 500",
+   "description": "Разъём SDP810-500Pa (перепад фильтра)",
+   "footprint": "PinHeader_1x04_P2.54mm__J2",
+   "at": {
+    "x": 166.37,
+    "y": 10.16
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12db5d96",
+    "4": "nys4n12cplz22"
+   }
+  },
+  "cys4mza3u3yi": {
+   "id": "cys4mza3u3yi",
+   "ref": "J4",
+   "value": "MPX",
+   "description": "Разъём MPX5100DP (разрежение)",
+   "footprint": "PinHeader_1x03_P2.54mm__J4",
+   "at": {
+    "x": 182.88,
+    "y": 10.16
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n129uxffz"
+   }
+  },
+  "cys4mzbfa98i": {
+   "id": "cys4mzbfa98i",
+   "ref": "R9",
+   "value": "10k",
+   "description": "Резистор 10k (делитель MPX)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 140.97,
+    "y": 22.86
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n129uxffz",
+    "2": "nys4n12auzxwf"
+   }
+  },
+  "cys4mzcmvvan": {
+   "id": "cys4mzcmvvan",
+   "ref": "R10",
+   "value": "18k",
+   "description": "Резистор 18k (делитель MPX)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 138.43,
+    "y": 33.02
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12auzxwf",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4mzdiczx9": {
+   "id": "cys4mzdiczx9",
+   "ref": "R11",
+   "value": "4.7k",
+   "description": "Резистор 4.7k (подтяжка SDA1)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 137.16,
+    "y": 38.1
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n12cplz22"
+   }
+  },
+  "cys4mzefo26k": {
+   "id": "cys4mzefo26k",
+   "ref": "R12",
+   "value": "4.7k",
+   "description": "Резистор 4.7k (подтяжка SCL1)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 137.16,
+    "y": 43.18
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n12db5d96"
+   }
+  },
+  "cys4mzfa13dy": {
+   "id": "cys4mzfa13dy",
+   "ref": "M3",
+   "value": "MAX Т1",
+   "description": "Модуль MAX31855, термопара Т1",
+   "footprint": "Module_MAX31855",
+   "at": {
+    "x": 160.02,
+    "y": 38.1
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11q4npeb",
+    "2": "nys4n11nx34fo",
+    "3": "nys4n12g83zak",
+    "4": "nys4n12ikuxou",
+    "5": "nys4n12hah4yo"
+   }
+  },
+  "cys4mzg92a6m": {
+   "id": "cys4mzg92a6m",
+   "ref": "M4",
+   "value": "MAX Т2",
+   "description": "Модуль MAX31855, термопара Т2",
+   "footprint": "Module_MAX31855",
+   "at": {
+    "x": 182.88,
+    "y": 38.1
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11q4npeb",
+    "2": "nys4n11nx34fo",
+    "3": "nys4n12g83zak",
+    "4": "nys4n12jpd5b2",
+    "5": "nys4n12hah4yo"
+   }
+  },
+  "cys4mzhwwafp": {
+   "id": "cys4mzhwwafp",
+   "ref": "J8",
+   "value": "Дисплей",
+   "description": "Разъём дисплея (питание + UART)",
+   "footprint": "PinHeader_1x04_P2.54mm__J8",
+   "at": {
+    "x": 158.75,
+    "y": 55.88
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11p42z4g",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12k1ezr6",
+    "4": "nys4n12lon1s1"
+   }
+  },
+  "cys4mzirh4tx": {
+   "id": "cys4mzirh4tx",
+   "ref": "R22",
+   "value": "1k",
+   "description": "Резистор 1k (база зуммера)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 135.89,
+    "y": 64.77
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12teliz9",
+    "2": "nys4n12u7fmdx"
+   }
+  },
+  "cys4mzjmzluu": {
+   "id": "cys4mzjmzluu",
+   "ref": "Q1",
+   "value": "S8050",
+   "description": "Транзистор S8050 (NPN), TO-92",
+   "footprint": "TO-92_Inline_Wide",
+   "at": {
+    "x": 157.48,
+    "y": 68.58
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11q4npeb",
+    "2": "nys4n12u7fmdx",
+    "3": "nys4n12vlq1bg"
+   }
+  },
+  "cys4mzkchk4k": {
+   "id": "cys4mzkchk4k",
+   "ref": "BZ1",
+   "value": "",
+   "description": "Зуммер активный 5 В",
+   "footprint": "Buzzer_12x9.5RM7.6",
+   "at": {
+    "x": 179.06,
+    "y": 68.58
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n12vlq1bg"
+   }
+  },
+  "cys4mzl1s8ih": {
+   "id": "cys4mzl1s8ih",
+   "ref": "J1",
+   "value": "Диммер",
+   "description": "Разъём диммера RobotDyn",
+   "footprint": "PinHeader_1x07_P2.54mm__J1",
+   "at": {
+    "x": 162.56,
+    "y": 81.28
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n121qlamu",
+    "6": "nys4n12259gam",
+    "7": "nys4n123kvexd"
+   }
+  },
+  "cys4n0mfyowh": {
+   "id": "cys4n0mfyowh",
+   "ref": "C3",
+   "value": "470µ",
+   "description": "Конденсатор 470 мкФ 16 В (питание дисплея)",
+   "footprint": "CP_Radial_D8mm_P3.5mm",
+   "at": {
+    "x": 146.53,
+    "y": 81.28
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11p42z4g",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n0nj2kpd": {
+   "id": "cys4n0nj2kpd",
+   "ref": "J5",
+   "value": "ACS Т1",
+   "description": "Разъём ACS712 турбины 1",
+   "footprint": "PinHeader_1x03_P2.54mm__J5",
+   "at": {
+    "x": 7.62,
+    "y": 10.16
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n125r67so"
+   }
+  },
+  "cys4n0oyjvi7": {
+   "id": "cys4n0oyjvi7",
+   "ref": "J6",
+   "value": "ACS Т2",
+   "description": "Разъём ACS712 турбины 2",
+   "footprint": "PinHeader_1x03_P2.54mm__J6",
+   "at": {
+    "x": 7.62,
+    "y": 24.13
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n127n8e99"
+   }
+  },
+  "cys4n0pz3tu3": {
+   "id": "cys4n0pz3tu3",
+   "ref": "J7",
+   "value": "Ток роз.",
+   "description": "Разъём rbAmp (ток розетки)",
+   "footprint": "PinHeader_1x03_P2.54mm__J7",
+   "at": {
+    "x": 7.62,
+    "y": 38.1
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12blbsj7"
+   }
+  },
+  "cys4n0qc9msf": {
+   "id": "cys4n0qc9msf",
+   "ref": "J3",
+   "value": "SDP 125",
+   "description": "Разъём SDP810-125Pa (расход)",
+   "footprint": "PinHeader_1x04_P2.54mm__J3",
+   "at": {
+    "x": 7.62,
+    "y": 53.34
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12ff3s8s",
+    "4": "nys4n12eot88p"
+   }
+  },
+  "cys4n0rpp9zx": {
+   "id": "cys4n0rpp9zx",
+   "ref": "J9",
+   "value": "Кнопки",
+   "description": "Разъём кнопок панели",
+   "footprint": "PinHeader_1x07_P2.54mm__J9",
+   "at": {
+    "x": 7.62,
+    "y": 73.66
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12nw72fp",
+    "2": "nys4n12oaja4j",
+    "3": "nys4n12pgm6jq",
+    "4": "nys4n12qhk2w6",
+    "5": "nys4n12rvx0xq",
+    "6": "nys4n12sxop8j",
+    "7": "nys4n11q4npeb"
+   }
+  },
+  "cys4n0s88z6g": {
+   "id": "cys4n0s88z6g",
+   "ref": "J10",
+   "value": "SSR",
+   "description": "Разъём SSR розетки",
+   "footprint": "PinHeader_1x02_P2.54mm__J10",
+   "at": {
+    "x": 7.62,
+    "y": 91.44
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n124oj3l2",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n0t4xol9": {
+   "id": "cys4n0t4xol9",
+   "ref": "R5",
+   "value": "10k",
+   "description": "Резистор 10k (делитель ACS Т1)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 8.89
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n125r67so",
+    "2": "nys4n1263bmu6"
+   }
+  },
+  "cys4n0uerofu": {
+   "id": "cys4n0uerofu",
+   "ref": "R6",
+   "value": "18k",
+   "description": "Резистор 18k (делитель ACS Т1)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 15.24
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n1263bmu6",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n0vclltv": {
+   "id": "cys4n0vclltv",
+   "ref": "R7",
+   "value": "10k",
+   "description": "Резистор 10k (делитель ACS Т2)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 22.86
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n127n8e99",
+    "2": "nys4n1286mgoh"
+   }
+  },
+  "cys4n0wc7o0j": {
+   "id": "cys4n0wc7o0j",
+   "ref": "R8",
+   "value": "18k",
+   "description": "Резистор 18k (делитель ACS Т2)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 29.21
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n1286mgoh",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n0xo3trn": {
+   "id": "cys4n0xo3trn",
+   "ref": "R13",
+   "value": "4.7k",
+   "description": "Резистор 4.7k (подтяжка SDA2)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 43.18
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n12eot88p"
+   }
+  },
+  "cys4n0y0s3bn": {
+   "id": "cys4n0y0s3bn",
+   "ref": "R14",
+   "value": "4.7k",
+   "description": "Резистор 4.7k (подтяжка SCL2)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 49.53
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n12ff3s8s"
+   }
+  },
+  "cys4n0z8dy2o": {
+   "id": "cys4n0z8dy2o",
+   "ref": "R16",
+   "value": "100",
+   "description": "Резистор 100 (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 57.15
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12nw72fp"
+   }
+  },
+  "cys4n0108208b": {
+   "id": "cys4n0108208b",
+   "ref": "R17",
+   "value": "1k",
+   "description": "Резистор 1k (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 63.5
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12oaja4j"
+   }
+  },
+  "cys4n011e8qxz": {
+   "id": "cys4n011e8qxz",
+   "ref": "R18",
+   "value": "2.2k",
+   "description": "Резистор 2.2k (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 69.85
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12pgm6jq"
+   }
+  },
+  "cys4n012blkll": {
+   "id": "cys4n012blkll",
+   "ref": "R19",
+   "value": "3.9k",
+   "description": "Резистор 3.9k (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 76.2
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12qhk2w6"
+   }
+  },
+  "cys4n013ltmon": {
+   "id": "cys4n013ltmon",
+   "ref": "R20",
+   "value": "6.8k",
+   "description": "Резистор 6.8k (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 82.55
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12rvx0xq"
+   }
+  },
+  "cys4n014vytrb": {
+   "id": "cys4n014vytrb",
+   "ref": "R21",
+   "value": "15k",
+   "description": "Резистор 15k (лестница кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 26.67,
+    "y": 88.9
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n12sxop8j"
+   }
+  },
+  "cys4n015j06o3": {
+   "id": "cys4n015j06o3",
+   "ref": "R15",
+   "value": "10k",
+   "description": "Резистор 10k (подтяжка кнопок)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 49.53,
+    "y": 45.72
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11nx34fo",
+    "2": "nys4n12m4854x"
+   }
+  },
+  "cys4n01625km2": {
+   "id": "cys4n01625km2",
+   "ref": "C2",
+   "value": "100n",
+   "description": "Конденсатор 100 нФ (фильтр кнопок)",
+   "footprint": "C_Disc_D6mm_W2.5mm_P5mm",
+   "alternatives": [
+    "C_1206_3216Metric",
+    "C_Rect_L7.2mm_W2.5mm_P5.08mm"
+   ],
+   "at": {
+    "x": 49.53,
+    "y": 52.07
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12m4854x",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n017xmja5": {
+   "id": "cys4n017xmja5",
+   "ref": "R1",
+   "value": "150",
+   "description": "Резистор 150 Ом (оптрон Т1)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 67.31,
+    "y": 85.09
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ravg7a",
+    "2": "nys4n11suhsvf"
+   }
+  },
+  "cys4n018b1wmy": {
+   "id": "cys4n018b1wmy",
+   "ref": "R2",
+   "value": "150",
+   "description": "Резистор 150 Ом (оптрон Т2)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "alternatives": [
+    "R_1206_3216Metric",
+    "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+   ],
+   "at": {
+    "x": 82.55,
+    "y": 85.09
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11t2nnw5",
+    "2": "nys4n11uw7yk6"
+   }
+  },
+  "cys4n019zwrwk": {
+   "id": "cys4n019zwrwk",
+   "ref": "C1",
+   "value": "470µ",
+   "description": "Конденсатор 470 мкФ 16 В (питание 5 В)",
+   "footprint": "CP_Radial_D8mm_P3.5mm",
+   "at": {
+    "x": 110.97,
+    "y": 81.28
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n11q4npeb"
+   }
+  },
+  "cys4n01a2fse1": {
+   "id": "cys4n01a2fse1",
+   "ref": "U2",
+   "value": "MOC Т1",
+   "description": "Оптрон MOC3021, турбина 1",
+   "footprint": "DIP-6_W7.62mm",
+   "at": {
+    "x": 66.04,
+    "y": 97.79
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11suhsvf",
+    "2": "nys4n11q4npeb",
+    "4": "nys4n11x0wfaa",
+    "6": "nys4n11vm0yms"
+   }
+  },
+  "cys4n01bdiz85": {
+   "id": "cys4n01bdiz85",
+   "ref": "U3",
+   "value": "MOC Т2",
+   "description": "Оптрон MOC3021, турбина 2",
+   "footprint": "DIP-6_W7.62mm",
+   "at": {
+    "x": 83.82,
+    "y": 97.79
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11uw7yk6",
+    "2": "nys4n11q4npeb",
+    "4": "nys4n120yqu64",
+    "6": "nys4n11yo1j88"
+   }
+  },
+  "cys4n01cqq3ow": {
+   "id": "cys4n01cqq3ow",
+   "ref": "M5",
+   "value": "HLK логика",
+   "description": "Блок питания HLK-PM01 (логика)",
+   "footprint": "Module_HLK-PM01",
+   "at": {
+    "x": 114.32,
+    "y": 103.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11ou5uke",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12xnf150",
+    "4": "nys4n12z73nin"
+   }
+  },
+  "cys4n01dccdjg": {
+   "id": "cys4n01dccdjg",
+   "ref": "M6",
+   "value": "HLK дисплей",
+   "description": "Блок питания HLK-PM01 (дисплей)",
+   "footprint": "Module_HLK-PM01",
+   "at": {
+    "x": 144.8,
+    "y": 103.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11p42z4g",
+    "2": "nys4n11q4npeb",
+    "3": "nys4n12y94xri",
+    "4": "nys4n12z73nin"
+   }
+  },
+  "cys4n01ec32c3": {
+   "id": "cys4n01ec32c3",
+   "ref": "R3",
+   "value": "330 1Вт",
+   "description": "Резистор 330 Ом 1 Вт (затвор Т1)",
+   "footprint": "R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal",
+   "at": {
+    "x": 60.96,
+    "y": 113.03
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11vm0yms",
+    "2": "nys4n11wwvnsp"
+   }
+  },
+  "cys4n01fv6pe2": {
+   "id": "cys4n01fv6pe2",
+   "ref": "R4",
+   "value": "330 1Вт",
+   "description": "Резистор 330 Ом 1 Вт (затвор Т2)",
+   "footprint": "R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal",
+   "at": {
+    "x": 86.36,
+    "y": 113.03
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11yo1j88",
+    "2": "nys4n11zzzhwq"
+   }
+  },
+  "cys4n11gulnnz": {
+   "id": "cys4n11gulnnz",
+   "ref": "J11",
+   "value": "BTA Т1",
+   "description": "Клеммник к BTA41 турбины 1",
+   "footprint": "TerminalBlock_1x02_P5.08mm",
+   "at": {
+    "x": 63.5,
+    "y": 124.46
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11wwvnsp",
+    "2": "nys4n11x0wfaa"
+   }
+  },
+  "cys4n11h3sqmp": {
+   "id": "cys4n11h3sqmp",
+   "ref": "J12",
+   "value": "BTA Т2",
+   "description": "Клеммник к BTA41 турбины 2",
+   "footprint": "TerminalBlock_1x02_P5.08mm",
+   "at": {
+    "x": 83.82,
+    "y": 124.46
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n11zzzhwq",
+    "2": "nys4n120yqu64"
+   }
+  },
+  "cys4n11ibpz8q": {
+   "id": "cys4n11ibpz8q",
+   "ref": "F1",
+   "value": "0,5А",
+   "description": "Предохранитель 0,5 А, БП логики",
+   "footprint": "Fuseholder_Clip-5x20mm_P22.6mm_Horizontal",
+   "at": {
+    "x": 173.86,
+    "y": 101.6
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12wl0ddy",
+    "2": "nys4n12xnf150"
+   }
+  },
+  "cys4n11jy824a": {
+   "id": "cys4n11jy824a",
+   "ref": "F2",
+   "value": "0,5А",
+   "description": "Предохранитель 0,5 А, БП дисплея",
+   "footprint": "Fuseholder_Clip-5x20mm_P22.6mm_Horizontal",
+   "at": {
+    "x": 173.86,
+    "y": 110.49
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12wl0ddy",
+    "2": "nys4n12y94xri"
+   }
+  },
+  "cys4n11kqkhcx": {
+   "id": "cys4n11kqkhcx",
+   "ref": "RV1",
+   "value": "471",
+   "description": "Варистор 14D471K, БП логики",
+   "footprint": "RV_Disc_D14mm_P7.5mm",
+   "at": {
+    "x": 166.31,
+    "y": 120.65
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12xnf150",
+    "2": "nys4n12z73nin"
+   }
+  },
+  "cys4n11lta24v": {
+   "id": "cys4n11lta24v",
+   "ref": "RV2",
+   "value": "471",
+   "description": "Варистор 14D471K, БП дисплея",
+   "footprint": "RV_Disc_D14mm_P7.5mm",
+   "at": {
+    "x": 181.55,
+    "y": 120.65
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12y94xri",
+    "2": "nys4n12z73nin"
+   }
+  },
+  "cys4n11mt3ce2": {
+   "id": "cys4n11mt3ce2",
+   "ref": "J13",
+   "value": "Сеть",
+   "description": "Клеммник сети 230 В",
+   "footprint": "TerminalBlock_1x02_P5.08mm",
+   "at": {
+    "x": 195.58,
+    "y": 116.84
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nys4n12wl0ddy",
+    "2": "nys4n12z73nin"
+   }
+  }
+ },
+ "tracks": {},
+ "vias": {},
+ "wires": {},
+ "zones": {},
+ "ruleAreas": {
+  "kys4dr59jwf0": {
+   "id": "kys4dr59jwf0",
+   "name": "Зона 230 В",
+   "outline": [
+    {
+     "x": 0,
+     "y": 97.79
+    },
+    {
+     "x": 203.2,
+     "y": 97.79
+    },
+    {
+     "x": 203.2,
+     "y": 132.08
+    },
+    {
+     "x": 0,
+     "y": 132.08
+    }
+   ],
+   "onlyClasses": [
+    "Mains"
+   ],
+   "showLabel": true
+  }
+ },
+ "drawings": {}
+}
