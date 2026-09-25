@@ -12,6 +12,8 @@ import { allModules } from './generators/modules';
 import { allResistors } from './generators/resistors';
 import { allSwitches } from './generators/switches';
 import { allTransistors } from './generators/transistors';
+import { namedChips } from './generators/chips';
+import { withPinLabels } from './pin-labels';
 
 export { moduleFootprint, genericModule, MODULE_SPECS } from './generators/modules';
 export { pinHeader, jst, screwTerminal, dip, axialResistor, axialDiode, radialCap, radialBoxCap, to92, to220, ledRound, fuseHolder5x20, disc, buzzer12, mountingHole, tactile6x6 } from './generators/tht';
@@ -27,6 +29,10 @@ export function libraryFootprints(): FootprintDef[] {
     const all = [...allResistors(), ...allCapacitors(), ...allInductors(), ...allDiodes(), ...allLeds(), ...allTransistors(), ...allIcs(), ...allConnectors(), ...allSwitches(), ...allDisplays(), ...allCrystals(), ...allMisc(), ...allModules()];
     byId = new Map();
     for (const f of all) if (!byId.has(f.id)) byId.set(f.id, f);
+    // Микросхемы и транзисторы с распиновкой строятся на готовых корпусах.
+    for (const f of namedChips(byId)) if (!byId.has(f.id)) byId.set(f.id, f);
+    // Распиновка на шелкографии у всех корпусов с именами выводов.
+    for (const [id, f] of byId) byId.set(id, withPinLabels(f));
     cache = [...byId.values()];
   }
   return cache;

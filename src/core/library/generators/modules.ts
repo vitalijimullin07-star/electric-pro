@@ -2,6 +2,7 @@ import type { FootprintDef, Graphic, PadDef } from '../../model/types';
 import { CRT_THT, FAB_W, SILK_W, circle, courtyardAround, crtGraphic, fp, npth, r2, rect, refText, smd, tht, valueText } from './util';
 import { CAT } from '../categories';
 import { EXTRA_MODULES } from './modules-extra';
+import { ARDUINO_MODULES } from './modules-arduino';
 
 /*
  * Готовые модули на штырях: платки с Aliexpress, отладочные платы, блоки питания.
@@ -436,7 +437,17 @@ export function genericModule(w: number, h: number, pins: number, names?: string
 }
 
 export function allModules(): FootprintDef[] {
-  const out = [...MODULE_SPECS, ...EXTRA_MODULES].map(moduleFootprint);
+  // Блоки питания Hi-Link одной серии: тот же корпус и выводы, другое напряжение.
+  const pm01 = MODULE_SPECS.find((s) => s.id === 'Module_HLK-PM01');
+  const hlk: ModuleSpec[] = pm01
+    ? [
+        ['PM03', '3,3 В 1 А'],
+        ['PM05', '5 В 0,6 А'],
+        ['PM12', '12 В 0,25 А'],
+        ['PM24', '24 В 0,125 А'],
+      ].map(([k, v]) => ({ ...pm01, id: `Module_HLK-${k}`, name: `HLK-${k}`, description: `Блок питания 220 В → ${v} Hi-Link HLK-${k}, корпус и выводы как у HLK-PM01`, tags: [...(pm01.tags ?? []), `hlk-${k.toLowerCase()}`] }))
+    : [];
+  const out = [...MODULE_SPECS, ...EXTRA_MODULES, ...ARDUINO_MODULES, ...hlk].map(moduleFootprint);
   for (const p of [3, 4, 5, 6, 8]) out.push(genericModule(20, 15, p));
   return out;
 }

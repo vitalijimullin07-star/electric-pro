@@ -417,7 +417,7 @@
    "id": "MountingHole_3.2mm_M3",
    "name": "Отверстие M3",
    "description": "Крепёжное отверстие Ø3.2 мм под винт M3",
-   "category": "Крепёж",
+   "category": "Крепёж и технологическое",
    "tags": [
     "hole",
     "mounting",
@@ -452,7 +452,8 @@
    },
    "source": "ISO 273, средний ряд",
    "verified": true,
-   "height": 0
+   "height": 0,
+   "group": "Отверстия"
   },
   "Module_ESP32_DevKit_30pin": {
    "graphics": [
@@ -949,6 +950,396 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -14.675,
+      "y": -17.78
+     },
+     "text": "EN",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -14.675,
+      "y": -15.24
+     },
+     "text": "VP",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -14.675,
+      "y": -12.7
+     },
+     "text": "VN",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": -10.16
+     },
+     "text": "D34",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": -7.62
+     },
+     "text": "D35",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": -5.08
+     },
+     "text": "D32",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": -2.54
+     },
+     "text": "D33",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 0
+     },
+     "text": "D25",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 2.54
+     },
+     "text": "D26",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 5.08
+     },
+     "text": "D27",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 7.62
+     },
+     "text": "D14",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 10.16
+     },
+     "text": "D12",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 12.7
+     },
+     "text": "D13",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -15.092,
+      "y": 17.78
+     },
+     "text": "VIN",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -17.78
+     },
+     "text": "D23",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -15.24
+     },
+     "text": "D22",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -12.7
+     },
+     "text": "TX0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -10.16
+     },
+     "text": "RX0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -7.62
+     },
+     "text": "D21",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -5.08
+     },
+     "text": "D19",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": -2.54
+     },
+     "text": "D18",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 14.675,
+      "y": 0
+     },
+     "text": "D5",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": 2.54
+     },
+     "text": "TX2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": 5.08
+     },
+     "text": "RX2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 14.675,
+      "y": 7.62
+     },
+     "text": "D4",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 14.675,
+      "y": 10.16
+     },
+     "text": "D2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": 12.7
+     },
+     "text": "D15",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 15.092,
+      "y": 17.78
+     },
+     "text": "3V3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
      "align": "center"
     }
    ],
@@ -1639,6 +2030,136 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -11.43,
+      "y": 2.392
+     },
+     "text": "VDD",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -8.89,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.35,
+      "y": 2.392
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.808
+     },
+     "text": "ADDR",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 2.808
+     },
+     "text": "ALRT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 1.975
+     },
+     "text": "A0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.35,
+      "y": 1.975
+     },
+     "text": "A1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 8.89,
+      "y": 1.975
+     },
+     "text": "A2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 11.43,
+      "y": 1.975
+     },
+     "text": "A3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "Module_ADS1115",
@@ -1976,6 +2497,84 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.35,
+      "y": 2.392
+     },
+     "text": "32K",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "SQW",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.392
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 2.392
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.35,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "Module_DS3231",
@@ -2229,6 +2828,58 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "VDD",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 2.392
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 2.392
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "PinHeader_1x04_P2.54mm__J2",
@@ -2437,6 +3088,45 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 1.975
+     },
+     "text": "VS",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 2.808
+     },
+     "text": "VOUT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -2970,6 +3660,71 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -5.08,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "SCK",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 1.975
+     },
+     "text": "CS",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 5.08,
+      "y": 1.975
+     },
+     "text": "SO",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "Module_MAX31855",
@@ -3207,6 +3962,58 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "+5V",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 1.975
+     },
+     "text": "TX",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 1.975
+     },
+     "text": "RX",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -3545,6 +4352,32 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.8,
+      "y": 1.608
+     },
+     "text": "+",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.8,
+      "y": 1.608
+     },
+     "text": "-",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "Buzzer_12x9.5RM7.6",
@@ -3773,6 +4606,97 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -7.62,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -5.08,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 1.975
+     },
+     "text": "ZC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "CH1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 2.392
+     },
+     "text": "CH2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 5.08,
+      "y": 2.392
+     },
+     "text": "CH3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 7.62,
+      "y": 2.392
+     },
+     "text": "CH4",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -4013,6 +4937,32 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.75,
+      "y": 1.508
+     },
+     "text": "+",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.75,
+      "y": 1.508
+     },
+     "text": "-",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "CP_Radial_D8mm_P3.5mm",
@@ -4191,6 +5141,45 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 2.392
+     },
+     "text": "OUT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -4386,6 +5375,45 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 2.392
+     },
+     "text": "OUT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "PinHeader_1x03_P2.54mm__J6",
@@ -4579,6 +5607,45 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 2.392
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 2.392
+     },
+     "text": "OUT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -4786,6 +5853,58 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "VDD",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 2.392
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 2.392
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -5048,6 +6167,97 @@
      "size": 1,
      "thickness": 0.15,
      "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -7.62,
+      "y": 1.975
+     },
+     "text": "K1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -5.08,
+      "y": 1.975
+     },
+     "text": "K2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.54,
+      "y": 1.975
+     },
+     "text": "K3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 1.975
+     },
+     "text": "K4",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.54,
+      "y": 1.975
+     },
+     "text": "K5",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 5.08,
+      "y": 1.975
+     },
+     "text": "K6",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 7.62,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
     }
    ],
    "id": "PinHeader_1x07_P2.54mm__J9",
@@ -5288,6 +6498,32 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 1.558
+     },
+     "text": "+",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 1.558
+     },
+     "text": "-",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
@@ -6025,6 +7261,58 @@
      "text": "${VALUE}",
      "size": 1,
      "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -5.1,
+      "y": -17.342
+     },
+     "text": "+Vo",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 5.1,
+      "y": -17.342
+     },
+     "text": "-Vo",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -5.1,
+      "y": 16.925
+     },
+     "text": "AC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 5.1,
+      "y": 16.925
+     },
+     "text": "AC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
      "align": "center"
     }
    ],
