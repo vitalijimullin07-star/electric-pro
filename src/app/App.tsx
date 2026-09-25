@@ -14,6 +14,7 @@ import { AskDialog } from '@ui/dialogs/AskDialog';
 import type { AskData } from '@editor/store';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 import { FootprintEditorDialog, type FootprintEditorData } from '@ui/dialogs/FootprintEditor';
+import { View3D } from '@ui/dialogs/View3D';
 
 export function App() {
   const dialog = useEditor((s) => s.dialog);
@@ -45,6 +46,7 @@ export function App() {
       {dialog === 'autoroute' && <AutorouteDialog />}
       {dialog === 'shortcuts' && <ShortcutsDialog />}
       {dialog === 'about' && <AboutDialog />}
+      {dialog === '3d' && <View3D />}
       {dialog === 'footprint' && <FootprintEditorDialog data={(dialogData ?? {}) as FootprintEditorData} />}
       {(dialog === 'confirm' || dialog === 'prompt') && dialogData ? <AskDialog data={dialogData as AskData} withInput={dialog === 'prompt'} /> : null}
     </div>

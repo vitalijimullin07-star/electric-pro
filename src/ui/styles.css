@@ -546,6 +546,43 @@ textarea:focus {
   border: 0;
   color: var(--ink);
 }
+.view3d {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: #12161b;
+}
+.view3d canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  display: block;
+}
+.view3d-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink);
+}
+.view3d-bar b {
+  margin-right: 6px;
+}
+.view3d-hint {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  color: var(--mute);
+  font-size: 12px;
+  pointer-events: none;
+}
 .modal-bg {
   position: fixed;
   inset: 0;

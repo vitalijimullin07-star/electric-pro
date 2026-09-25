@@ -210,6 +210,7 @@ export function TopBar() {
         { label: mark(s.show.courtyard) + 'Габариты корпусов', action: () => toggle('courtyard') },
         { label: mark(s.show.fab) + 'Сборочный слой', action: () => toggle('fab') },
         'sep',
+        { label: '3D-вид платы', kbd: '3', action: () => s.openDialog('3d') },
         { label: 'Вся плата', kbd: '0', action: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' })) },
         { label: 'Переключить активный слой', kbd: 'L', action: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l' })) },
         { label: (s.panelOpen ? '✓ ' : ' ') + 'Боковая панель', action: () => s.patch({ panelOpen: !s.panelOpen }) },

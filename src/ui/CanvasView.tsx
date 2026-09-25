@@ -268,6 +268,9 @@ export function CanvasView() {
         case '0':
           fit();
           return;
+        case '3':
+          s.openDialog('3d');
+          return;
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
