@@ -14,9 +14,10 @@ const digitsFor = (u: DisplayUnit) => (u === 'mm' ? 3 : u === 'mil' ? 1 : 4);
  * Поле длины. Значение хранится в мм, показывается и вводится в выбранных единицах;
  * можно явно дописать единицы: «0,5 мм», «20 mil», «0,1 in». Применяется по Enter или потере фокуса.
  */
-export function LenInput({ value, onChange, min, className = 'inp', disabled, placeholder }: { value: number; onChange: (v: number) => void; min?: number; className?: string; disabled?: boolean; placeholder?: string }) {
+/** Поле длины в текущих единицах. value = null — значений несколько (поле пустое, видна подсказка). */
+export function LenInput({ value, onChange, min, className = 'inp', disabled, placeholder }: { value: number | null; onChange: (v: number) => void; min?: number; className?: string; disabled?: boolean; placeholder?: string }) {
   const unit = useEditor((s) => s.units);
-  const show = (v: number) => fmt(fromMm(v, unit), digitsFor(unit));
+  const show = (v: number | null) => (v === null ? '' : fmt(fromMm(v, unit), digitsFor(unit)));
   const [text, setText] = useState(show(value));
   useEffect(() => setText(show(value)), [value, unit]); // eslint-disable-line react-hooks/exhaustive-deps
   const apply = () => {
@@ -27,7 +28,7 @@ export function LenInput({ value, onChange, min, className = 'inp', disabled, pl
       setText(show(value));
       return;
     }
-    if (Math.abs(v - value) > 1e-9) onChange(+v.toFixed(4));
+    if (value === null || Math.abs(v - value) > 1e-9) onChange(+v.toFixed(4));
     else setText(show(value));
   };
   return (

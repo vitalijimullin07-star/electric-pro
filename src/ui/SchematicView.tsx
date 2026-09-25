@@ -5,6 +5,7 @@ import { renderSchematic } from '@render/sch-renderer';
 import { schematicNetlist, symbolDef } from '@core/schematic/netlist';
 import { findFootprint } from '@editor/userlib';
 import { Icon } from './icons';
+import { SchSelectionBar } from './SelectionBar';
 
 /* Лист схемы: отрисовка, мышь и касания, клавиатура. */
 
@@ -206,6 +207,7 @@ export function SchematicView() {
   return (
     <div ref={stageRef} className={`stage sch tool-${schTool}`}>
       <canvas ref={canvasRef} />
+      <SchSelectionBar />
       <div className="hud">
         <span className="chip">Схема: цепей {unconnected}</span>
         {nl.warnings.length > 0 && <span className="chip warn">{nl.warnings[0]}</span>}

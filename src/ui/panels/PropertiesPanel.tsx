@@ -4,7 +4,7 @@ import type { CopperLayer, LayerId } from '@core/model/types';
 import { LenInput, TextInput, useUnits } from '../common/NumberInput';
 import { FootprintPreview } from '../common/FootprintPreview';
 import { computeConnectivity } from '@core/model/connectivity';
-import { alignSelection, deleteSelection, distributeSelection, flipSelection, groupSelection, renameComponent, rotateSelection, ungroupSelection } from '@editor/commands';
+import { selectedTrackWidth, setTrackWidth, alignSelection, deleteSelection, distributeSelection, flipSelection, groupSelection, renameComponent, rotateSelection, ungroupSelection } from '@editor/commands';
 import { groupOf } from '@core/model/groups';
 import { dimensionLabel } from '@core/render/graphic';
 import { boardBox, rectSize } from '@core/model/project';
@@ -23,6 +23,12 @@ export function PropertiesPanel() {
       <div>
         <h3>Выделено: {sel.length}</h3>
         <p className="hint">{[...kinds].map(([k, n]) => `${names[k] ?? k}: ${n}`).join(', ')}</p>
+        {kinds.get('track') ? (
+          <div className="field">
+            <label>Ширина дорожек</label>
+            <LenInput value={selectedTrackWidth(s)} placeholder="разная" min={0.05} onChange={(v) => setTrackWidth(v)} />
+          </div>
+        ) : null}
         {groupOf(s.project, sel[0]) && <p className="hint">Группа «{groupOf(s.project, sel[0])!.name}»: выделяется и двигается целиком.</p>}
         <h4>Выровнять</h4>
         <div className="row">
@@ -233,7 +239,7 @@ function TrackProps({ id }: { id: string }) {
           ))}
         </select>
         <label>Ширина</label>
-        <LenInput value={t.width} min={0.05} onChange={(v) => upd((x) => void (x.width = v))} />
+        <LenInput value={t.width} min={0.05} onChange={(v) => setTrackWidth(v)} />
         <label>Длина</label>
         <span>{len(polygonLength(t.points), 2)}</span>
         <label>Точек</label>

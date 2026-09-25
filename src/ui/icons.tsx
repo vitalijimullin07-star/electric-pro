@@ -34,6 +34,9 @@ const P: Record<string, string> = {
   open: 'M3 7h6l2 2h10v10H3zM3 7V5h6',
   export: 'M12 3v12M7 8l5-5 5 5M5 15v5h14v-5',
   grid: 'M4 4h16v16H4zM4 12h16M12 4v16',
+  rotateLeft: 'M4 12a8 8 0 1 0 3-6.2M4 4v5h5',
+  duplicate: 'M8 8h12v12H8zM4 16V4h12',
+  props: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',
 };
 
 export function Icon({ name, size = 20 }: { name: ToolId | keyof typeof P; size?: number }) {

@@ -481,6 +481,42 @@ async function openPage(viewport, touch = false) {
     expect(Object.keys((await h.project()).tracks).length === n0, 'лишняя дорожка');
   });
 
+  await step('кнопки на холсте: повернуть, удалить; ширина из строки состояния меняет выделенную дорожку', async () => {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('s');
+    const w0 = await page.evaluate(() => window.__plata.pads());
+    const a = w0.find((x) => x.label === 'R2.1');
+    const b = w0.find((x) => x.label === 'R2.2');
+    await h.clickAt((a.x + b.x) / 2, (a.y + b.y) / 2);
+    let p = await h.project();
+    const r2 = Object.values(p.components).find((c) => c.ref === 'R2');
+    expect(await page.locator('.selbar').isVisible(), 'нет панели быстрых действий');
+    await h.hit(page.locator('.selbar button[aria-label="Повернуть влево"]'));
+    p = await h.project();
+    expect(p.components[r2.id].rotation === (r2.rotation + 90) % 360, 'не повернулся: ' + p.components[r2.id].rotation);
+    await h.hit(page.locator('.selbar button[aria-label="Удалить"]'));
+    p = await h.project();
+    expect(!p.components[r2.id], 'не удалился');
+    expect(!(await page.$('.selbar')), 'панель осталась без выделения');
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    p = await h.project();
+    expect(p.components[r2.id]?.rotation === r2.rotation, 'отмена не вернула');
+    // Ширина дорожки: выделить дорожку, выбрать 2 мм внизу.
+    const t = Object.values(p.tracks)[0];
+    await page.keyboard.press('Escape');
+    await h.clickAt((t.points[0].x + t.points[1].x) / 2, (t.points[0].y + t.points[1].y) / 2);
+    const sel = (await page.evaluate(() => window.__plata.state().selection))[0];
+    expect(sel?.kind === 'track', 'не выделилась дорожка');
+    await page.selectOption('select[aria-label="Ширина дорожки"]', '2');
+    p = await h.project();
+    expect(p.tracks[sel.id].width === 2, 'ширина ' + p.tracks[sel.id].width);
+    expect((await page.inputValue('select[aria-label="Ширина дорожки"]')) === '2', 'в списке не 2');
+    await page.keyboard.press('Control+z');
+    await page.selectOption('select[aria-label="Ширина дорожки"]', 'auto');
+    await page.keyboard.press('Escape');
+  });
+
   await step('перенос компонента тянет концы дорожек (излом 45°), без этого — воздушные линии', async () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('s');

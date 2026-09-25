@@ -235,6 +235,35 @@ export function changeFootprint(componentId: string, fp: FootprintDef): boolean 
 }
 
 /** Ширина дорожки для точки: по классу цепи или ручная. */
+/** Ширины дорожек в выделении: одно число, если у всех одинаковая; null — разные или дорожек нет. */
+export function selectedTrackWidth(s: { selection: ItemRef[]; project: Project }): number | null {
+  const ws = new Set(s.selection.filter((r) => r.kind === 'track').map((r) => s.project.tracks[r.id]?.width).filter((w): w is number => w !== undefined));
+  return ws.size === 1 ? [...ws][0] : null;
+}
+
+/**
+ * Ширина дорожки: у выделенных дорожек, у проводимой сейчас и для новых.
+ * 'auto' — новые дорожки по классу цепи (выделенные не меняются).
+ */
+export function setTrackWidth(w: number | 'auto'): void {
+  const s = S();
+  const tracks = s.selection.filter((r) => r.kind === 'track' && !s.project.tracks[r.id]?.locked);
+  const pending = s.pending?.kind === 'route' ? s.pending : null;
+  const width = w === 'auto' ? (pending ? routeWidthForNet(s.project, pending.net ?? null) : null) : w;
+  if (w !== 'auto' && tracks.length) {
+    s.commit((d) => {
+      for (const r of tracks) if (d.tracks[r.id]) d.tracks[r.id].width = w;
+    });
+  }
+  s.patch({ routeWidth: w, ...(pending && width !== null ? { pending: { ...pending, width } } : {}) });
+  const txt = w === 'auto' ? 'по классу цепи' : `${String(w).replace('.', ',')} мм`;
+  s.setMessage(w !== 'auto' && tracks.length ? `Ширина ${txt}: у выделенных дорожек (${tracks.length}) и для новых.` : `Ширина новых дорожек: ${txt}.`);
+}
+
+function routeWidthForNet(p: Project, netId: string | null): number {
+  return Math.max(netClassOf(p, netId).trackWidth, p.rules.minTrackWidth);
+}
+
 export function routeWidthFor(netId: string | null): number {
   const s = S();
   if (s.routeWidth !== 'auto') return s.routeWidth;

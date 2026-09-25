@@ -5,6 +5,7 @@ import { fitView, renderScene, screenToWorld, wantsAnimation } from '@render/can
 import { AdaptiveQuality, gfxProfile } from '@render/quality';
 import { groupSelection, ungroupSelection, copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
+import { SelectionBar } from './SelectionBar';
 import { findFootprint } from '@editor/userlib';
 import { drcSummary } from '@core/model/drc';
 import { GRID_STEPS, UNIT_LABEL, fmt, fromMm } from '@core/units';
@@ -344,6 +345,7 @@ export function CanvasView() {
       <button className="ibtn panel-toggle" onClick={() => useEditor.setState({ panelOpen: !panelOpen })} aria-label="Панель">
         <Icon name="panel" />
       </button>
+      <SelectionBar />
       <div className="zoombar">
         <button onClick={() => zoom(1.25)} aria-label="Приблизить">
           +
