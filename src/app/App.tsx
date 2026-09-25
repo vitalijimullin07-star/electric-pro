@@ -14,6 +14,7 @@ import { AskDialog } from '@ui/dialogs/AskDialog';
 import type { AskData } from '@editor/store';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 import { FootprintEditorDialog, type FootprintEditorData } from '@ui/dialogs/FootprintEditor';
+import { DfmDialog } from '@ui/dialogs/DfmDialog';
 import { View3D } from '@ui/dialogs/View3D';
 import { SchematicView } from '@ui/SchematicView';
 
@@ -49,6 +50,7 @@ export function App() {
       {dialog === 'shortcuts' && <ShortcutsDialog />}
       {dialog === 'about' && <AboutDialog />}
       {dialog === '3d' && <View3D />}
+      {dialog === 'dfm' && <DfmDialog />}
       {dialog === 'footprint' && <FootprintEditorDialog data={(dialogData ?? {}) as FootprintEditorData} />}
       {(dialog === 'confirm' || dialog === 'prompt') && dialogData ? <AskDialog data={dialogData as AskData} withInput={dialog === 'prompt'} /> : null}
     </div>

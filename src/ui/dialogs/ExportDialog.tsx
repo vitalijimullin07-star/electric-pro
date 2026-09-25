@@ -65,6 +65,9 @@ export function ExportDialog() {
         })}>
           Скачать архив Gerber + сверловка
         </button>
+        <button className="btn" onClick={() => s.openDialog('dfm')}>
+          Проверить для производства…
+        </button>
         {!hosted && (
           <button className="btn" disabled={!!busy} onClick={() => run('Gerber по файлам', async () => {
             for (const f of exportGerbers(p)) if (!(await saveTextFile(f.name, f.content, 'text/plain'))) return false;

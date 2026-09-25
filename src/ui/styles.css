@@ -742,6 +742,13 @@ table.grid th {
   color: var(--mute);
   font-weight: 500;
 }
+table.grid.dfm-order th {
+  width: 42%;
+}
+.list.dfm-list {
+  max-height: 38vh;
+  overflow: auto;
+}
 table.grid input,
 table.grid select {
   width: 100%;

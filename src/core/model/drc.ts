@@ -140,13 +140,18 @@ export function runDrc(p: Project): DrcReport {
   const maxC = maxClearance(p);
   const hash: Record<CopperLayer, SpatialHash<CuItem>> = { 'F.Cu': new SpatialHash(3), 'B.Cu': new SpatialHash(3) };
   for (const it of items) hash[it.layer].insert(it, it.shape.box);
-  const checked = new Set<string>();
+  // Пары проверяются по отдельным кускам меди, а не по владельцам: у дорожки много отрезков,
+  // и ближе всего к чужой меди может оказаться не тот, что попался первым.
+  const index = new Map<CuItem, number>(items.map((it, i) => [it, i]));
+  const checked = new Set<number>();
   for (const a of items) {
     if (!layers.includes(a.layer)) continue;
     const q: Box = expandBox(a.shape.box, maxC);
+    const ia = index.get(a)!;
     for (const b of hash[a.layer].query(q)) {
       if (a === b || a.owner === b.owner) continue;
-      const key = a.owner < b.owner ? a.owner + '|' + b.owner : b.owner + '|' + a.owner;
+      const ib = index.get(b)!;
+      const key = ia < ib ? ia * items.length + ib : ib * items.length + ia;
       if (checked.has(key)) continue;
       checked.add(key);
       if (a.net && b.net && a.net === b.net) continue;

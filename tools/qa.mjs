@@ -103,7 +103,7 @@ async function openPage(viewport, touch = false) {
   });
 
   const menuItems = {
-    Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Настройки платы'],
+    Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
     Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону', 'Свойства компонента'],
     Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
     Упорядочить: ['Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
@@ -146,6 +146,7 @@ async function openPage(viewport, touch = false) {
     ['Файл', 'Новый проект', 'Новый проект'],
     ['Файл', 'Недавние проекты', 'Открыть проект'],
     ['Файл', 'Экспорт', 'Экспорт'],
+    ['Файл', 'Проверка для производства', 'Проверка для производства'],
     ['Файл', 'Настройки платы', 'Плата, правила и классы цепей'],
     ['Трассировка', 'Автотрассировка', 'Автотрассировка'],
     ['Справка', 'Горячие клавиши', 'Горячие клавиши'],
@@ -805,7 +806,7 @@ async function openPage(viewport, touch = false) {
     const n = await btns.count();
     for (let i = 0; i < n; i++) {
       const t = await btns.nth(i).textContent();
-      if (/Скопировать/.test(t)) continue;
+      if (/Скопировать|Проверить/.test(t)) continue;
       const before = downloads.length;
       await h.hit(btns.nth(i), { wait: /Отдельными/.test(t) ? 2000 : 400 });
       if (downloads.length === before) console.log('    нет файла от кнопки:', t, '|', await h.msg());
@@ -817,6 +818,33 @@ async function openPage(viewport, touch = false) {
     expect(downloads.some((f) => f.endsWith('.plata.json')), 'нет файла проекта');
     expect(downloads.filter((f) => f.endsWith('.svg')).length >= 3, 'svg: ' + downloads.filter((f) => f.endsWith('.svg')).join(','));
     expect(downloads.some((f) => f.endsWith('-LUT.pdf')), 'нет PDF для ЛУТ: ' + downloads.join(','));
+  });
+
+  await step('проверка для производства: профиль, замечание ведёт к месту, отчёт и архив', async () => {
+    await h.menu('Файл', 'Экспорт');
+    await h.hit(page.locator('.modal button', { hasText: 'Проверить для производства' }));
+    expect((await h.dialogTitle()) === 'Проверка для производства', 'окно: ' + (await h.dialogTitle()));
+    const order = await page.locator('.modal table.dfm-order').first().innerText();
+    expect(/Размер\s+\d+ × \d+ мм/.test(order) && /Слоёв меди\s+2/.test(order), 'параметры: ' + order);
+    // Домашний профиль строже: появляются замечания.
+    await page.selectOption('.modal select', 'home');
+    await page.waitForTimeout(200);
+    const tags = await page.locator('.modal .tag').allInnerTexts();
+    expect(tags.some((t) => /ошибок [1-9]/.test(t)) || tags.some((t) => /предупреждений [1-9]/.test(t)), 'домашний профиль без замечаний: ' + tags.join(' | '));
+    const item = page.locator('.modal .dfm-list .item:not([disabled])').first();
+    const text = await item.locator('.grow > div').first().innerText();
+    await h.hit(item);
+    expect(!(await page.$('.modal')), 'окно не закрылось по щелчку на замечание');
+    expect((await h.msg()) === text, 'сообщение: ' + (await h.msg()));
+    await h.menu('Файл', 'Проверка для производства');
+    expect((await page.locator('.modal select').inputValue()) === 'home', 'профиль не запомнился');
+    await page.selectOption('.modal select', 'typical');
+    const before = downloads.length;
+    await h.hit(page.locator('.modal footer button', { hasText: 'Сохранить отчёт' }), { wait: 400 });
+    await h.hit(page.locator('.modal footer button', { hasText: 'Скачать архив' }), { wait: 600 });
+    const got = downloads.slice(before);
+    expect(got.some((f) => f.endsWith('-DFM.txt')) && got.some((f) => f.endsWith('-gerber.zip')), 'файлы: ' + got.join(','));
+    await h.closeDialog();
   });
 
   let savedFile = null;
@@ -1105,6 +1133,7 @@ async function openPage(viewport, touch = false) {
     const vp = page.viewportSize();
     const list = [
       ['Файл', 'Экспорт'],
+      ['Файл', 'Проверка для производства'],
       ['Файл', 'Настройки платы'],
       ['Файл', 'Новый проект'],
       ['Файл', 'Недавние проекты'],

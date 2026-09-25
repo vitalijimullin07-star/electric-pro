@@ -1,7 +1,7 @@
 // Service worker Plata: редактор открывается и работает без интернета.
 // Страница — сначала из сети (чтобы получать обновления), при отсутствии сети — из кеша;
 // остальное (воркер, иконки) — из кеша с фоновым обновлением.
-const VERSION = '371f9ce956a2';
+const VERSION = 'f50236101d28';
 const CACHE = 'plata-' + VERSION;
 const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","router.worker-BP-dG_fR.js"];
 

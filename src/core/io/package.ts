@@ -1,3 +1,4 @@
+import { dfmReportText, runDfm, type FabProfile } from '../fab/dfm';
 import { strToU8, zipSync } from 'fflate';
 import type { Project } from '../model/types';
 import { exportBomCsv, exportNetlistText, exportPickPlaceCsv } from './bom';
@@ -8,13 +9,15 @@ import { boardCopperLayers } from '../model/layers';
 import { exportLutPdf, lutMirrorFor } from './lut-pdf';
 
 /** Архив для завода: Gerber, сверловка, BOM, расстановка. */
-export function fabricationZip(p: Project): { name: string; data: Uint8Array } {
+export function fabricationZip(p: Project, profile?: FabProfile): { name: string; data: Uint8Array } {
   const base = safeName(p.meta.name);
   const files: Record<string, Uint8Array> = {};
   for (const f of exportGerbers(p)) files[f.name] = strToU8(f.content);
   files[`${base}-BOM.csv`] = strToU8(exportBomCsv(p));
   files[`${base}-PickPlace.csv`] = strToU8(exportPickPlaceCsv(p));
   files[`${base}-netlist.txt`] = strToU8(exportNetlistText(p));
+  // Параметры для формы заказа и замечания по технологичности.
+  files[`${base}-DFM.txt`] = strToU8(dfmReportText(p, runDfm(p, profile)));
   return { name: `${base}-gerber.zip`, data: zipSync(files, { level: 6 }) };
 }
 

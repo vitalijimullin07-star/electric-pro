@@ -18,7 +18,7 @@ import { safeStorage } from './storage';
 
 export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure' | 'dimension';
 
-export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | 'footprint' | '3d' | null;
+export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | 'footprint' | '3d' | 'dfm' | null;
 
 /** Данные окна подтверждения или ввода: браузерные confirm()/prompt() в изолированных страницах запрещены. */
 export interface AskData {

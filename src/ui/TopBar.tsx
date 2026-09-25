@@ -172,6 +172,7 @@ export function TopBar() {
         { label: 'Сохранить проект', kbd: 'Ctrl+S', action: () => void saveProject() },
         'sep',
         { label: 'Экспорт: Gerber, SVG, BOM…', action: () => s.openDialog('export') },
+        { label: 'Проверка для производства…', action: () => s.openDialog('dfm') },
         'sep',
         { label: 'Настройки платы и правила…', action: () => s.openDialog('board') },
       ],
