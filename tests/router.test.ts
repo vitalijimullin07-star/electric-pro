@@ -64,3 +64,37 @@ describe('автотрассировка', () => {
     expect(d.markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
   });
 });
+
+describe('автотрассировка с полигонами', () => {
+  test('двусторонняя плата: земля остаётся полигонам, сшивка переходными, всё разведено', { timeout: 120_000 }, async () => {
+    const { autorouteWithZones } = await import('../src/core/router/zone-aware');
+    const { addZone } = await import('../src/core/model/edit');
+    const { rectOutline } = await import('../src/core/model/project');
+    const p = createProject({ width: 50, height: 40 });
+    const dip = libraryFootprint('DIP-8_W7.62mm')!;
+    const r = libraryFootprint('R_0805_2012Metric')!;
+    const u1 = addComponent(p, dip, { x: 25, y: 20 }, { ref: 'U1' });
+    const gnd = ensureNet(p, 'GND').id;
+    const vcc = ensureNet(p, 'VCC').id;
+    const sig = ensureNet(p, 'SIG').id;
+    const rs = [addComponent(p, r, { x: 10, y: 10 }), addComponent(p, r, { x: 40, y: 10 }), addComponent(p, r, { x: 10, y: 30 }), addComponent(p, r, { x: 40, y: 30 })];
+    connectPad(p, u1.id, '4', gnd);
+    connectPad(p, u1.id, '8', vcc);
+    connectPad(p, u1.id, '2', sig);
+    rs.forEach((c) => connectPad(p, c.id, '1', gnd));
+    connectPad(p, rs[0].id, '2', vcc);
+    connectPad(p, rs[1].id, '2', sig);
+    addZone(p, { layer: 'B.Cu', net: gnd, outline: rectOutline(50, 40), clearance: 0.3, minWidth: 0.25, priority: 0 });
+    addZone(p, { layer: 'F.Cu', net: gnd, outline: rectOutline(50, 40), clearance: 0.3, minWidth: 0.25, priority: 0 });
+    const res = await autorouteWithZones(structuredClone(p), { iterations: 30, yieldEvery: 1000 });
+    const q = applyResult(p, res);
+    const c = computeConnectivity(q);
+    expect([...c.nets.values()].filter((n) => !n.complete).map((n) => q.nets[n.netId].name)).toEqual([]);
+    expect(c.shorts).toEqual([]);
+    expect(res.stitches).toBeGreaterThan(0);
+    // Земля соединена заливкой: дорожек цепи GND нет или почти нет.
+    const gndTracks = Object.values(q.tracks).filter((t) => c.itemNet.get(t.id) === gnd).length;
+    expect(gndTracks).toBeLessThanOrEqual(2);
+    expect(runDrc(q).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
+  });
+});

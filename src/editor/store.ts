@@ -8,6 +8,7 @@ import type { DisplayUnit } from '@core/units';
 import { touch } from '@core/model/edit';
 import { EXAMPLES } from '@core/examples';
 import { migrateProject } from '@core/io/project-file';
+import { expandGroups } from '@core/model/groups';
 import { safeStorage } from './storage';
 
 /*
@@ -15,7 +16,7 @@ import { safeStorage } from './storage';
  * версию через immer, а история хранит предыдущие версии целиком.
  */
 
-export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure';
+export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure' | 'dimension';
 
 export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | null;
 
@@ -294,8 +295,10 @@ export const useEditor = create<EditorState>((set, get) => {
       const s = get();
       set({ tool: t, prevTool: s.tool === t ? s.prevTool : s.tool, pending: null, measure: t === 'measure' ? s.measure : null, placeFootprint: t === 'place' ? s.placeFootprint : null, ghost: null, message: TOOL_HINTS[t] });
     },
-    select(items, add = false) {
+    select(items0, add = false) {
       const s = get();
+      // Объект из группы выделяет всю группу.
+      const items = expandGroups(s.project, items0);
       if (!add) {
         set({ selection: items });
         return;
@@ -350,6 +353,7 @@ export const TOOL_HINTS: Record<ToolId, string> = {
   keepout: 'Область правил: щелчки по вершинам, двойной щелчок — замкнуть. Потом задайте ограничения в свойствах.',
   outline: 'Новый контур платы: щелчки по вершинам, двойной щелчок — замкнуть. Прямоугольник проще задать в настройках платы.',
   measure: 'Линейка: два щелчка.',
+  dimension: 'Размер на чертеже: щелчок — начало, щелчок — конец, третий — где провести линию. Shift — без сетки.',
 };
 
 /** Сохранение проекта и настроек в браузере (с задержкой, чтобы не тормозить). */

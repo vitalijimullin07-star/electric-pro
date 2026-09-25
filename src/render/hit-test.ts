@@ -5,6 +5,7 @@ import { sideLayer } from '@core/model/layers';
 import { placementOf, toWorld } from '@core/model/placement';
 import type { CopperLayer, ItemRef, LayerId, Project } from '@core/model/types';
 import { getWorld, type WorldPad } from '@core/model/world';
+import { dimensionStrokes } from '@core/render/graphic';
 
 /* Что находится под курсором. Порядок: площадки, переходные, дорожки, перемычки, компоненты, графика, области. */
 
@@ -122,6 +123,11 @@ function drawingDistance(d: Project['drawings'][string], pt: Vec2): number | nul
     }
     case 'arc':
       return Math.abs(dist(pt, d.c) - d.r) - d.width / 2;
+    case 'dimension': {
+      let m = Infinity;
+      for (const s of dimensionStrokes(d.a, d.b, d.offset, d.size).slice(0, 3)) m = Math.min(m, closestOnSegment(pt, s[0], s[1]).d);
+      return m - d.width / 2;
+    }
     case 'poly': {
       if (d.fill && d.pts.length > 2 && pointInPolygon(pt, d.pts)) return 0;
       let m = Infinity;

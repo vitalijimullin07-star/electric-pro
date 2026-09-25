@@ -17,6 +17,7 @@ const TOOLS: { id: ToolId; title: string; key?: string }[] = [
   { id: 'keepout', title: 'Область правил (запрет, зона 230 В)' },
   { id: 'outline', title: 'Контур платы' },
   { id: 'measure', title: 'Линейка', key: 'M' },
+  { id: 'dimension', title: 'Размер (размерная линия)' },
 ];
 
 export function ToolBar() {

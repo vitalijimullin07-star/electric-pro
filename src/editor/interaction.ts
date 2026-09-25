@@ -66,6 +66,12 @@ export class CanvasController {
     return hitTest(s.project, pt, { tol: this.tol(), visible: s.layerVisible, activeLayer: s.activeLayer, copperLayers: boardCopperLayers(s.project.board.copperLayers), copperOnly });
   }
 
+  /** Двойной щелчок — только два щелчка подряд: клавиша или щелчок с Shift между ними его сбрасывают. */
+  resetTap(): void {
+    this.lastTapAt = 0;
+    this.lastTapPos = null;
+  }
+
   setSpace(down: boolean): void {
     this.spaceDown = down;
   }
@@ -140,12 +146,14 @@ export class CanvasController {
         }
         if (e.shiftKey) {
           s.select([hit.ref], true);
+          this.resetTap();
           return;
         }
         if (!selKeys.has(key)) s.select([hit.ref]);
         // Выбрали объект — показываем его свойства (если панель открыта на библиотеке или слоях).
         if (s.panelTab === 'library' || s.panelTab === 'layers') s.patch({ panelTab: 'props' });
-        this.drag = { ...base, kind: 'move', items: selKeys.has(key) ? s.selection : [hit.ref], hit };
+        // Двигаем всё выделенное (объект из группы выделил всю группу).
+        this.drag = { ...base, kind: 'move', items: this.S.selection, hit };
         this.showHitInfo(hit);
       } else {
         // Пальцем по пустому месту двигаем плату, мышью — рамка выделения.
@@ -373,6 +381,8 @@ export class CanvasController {
         s.openDialog('text', { at: q });
         return;
       }
+      case 'dimension':
+        return this.clickDimension(e.shiftKey ? wp : snapPoint(wp));
       case 'measure': {
         const q = e.shiftKey ? wp : snapPoint(wp);
         if (!s.pending) s.patch({ pending: { kind: 'measure', points: [q], cursor: q }, measure: null });
@@ -620,6 +630,28 @@ export class CanvasController {
     if (this.S.ghost) this.S.patch({ ghost: null });
   }
 
+  /** Размер: два щелчка — концы, третий — на каком расстоянии провести размерную линию. */
+  private clickDimension(q: Vec2): void {
+    const s = this.S;
+    const pts = s.pending?.kind === 'poly' ? s.pending.points : [];
+    if (pts.length < 2) {
+      if (pts.length === 1 && dist(pts[0], q) < 1e-6) return;
+      s.patch({ pending: { kind: 'poly', points: [...pts, q], cursor: q } });
+      s.setMessage(pts.length ? 'Теперь щелчок сбоку — где провести размерную линию.' : 'Размер: второй конец.');
+      return;
+    }
+    const [a, b] = pts;
+    const L = dist(a, b);
+    const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+    // Смещение со знаком: проекция на левую нормаль к a→b.
+    const offset = +((q.x - a.x) * u.y - (q.y - a.y) * u.x).toFixed(3);
+    s.commit((d) => {
+      addDrawing(d, { kind: 'dimension', layer: 'F.Fab', a, b, offset: Math.abs(offset) < 0.5 ? 2 : offset, width: 0.12, size: 1.2 });
+    });
+    s.patch({ pending: null });
+    s.setMessage(`Размер ${L.toFixed(2).replace('.', ',')} мм поставлен на сборочный слой. Смещение и высота цифр — в свойствах.`);
+  }
+
   private clickTwoPoint(wp: Vec2): void {
     const s = this.S;
     const q = snapPoint(wp);
@@ -719,7 +751,7 @@ export class CanvasController {
     for (const v of Object.values(p.vias)) if (inside(v.at)) sel.push({ kind: 'via', id: v.id });
     for (const wr of Object.values(p.wires)) if (inside(wr.a) && inside(wr.b)) sel.push({ kind: 'wire', id: wr.id });
     for (const d of Object.values(p.drawings)) {
-      const pts = d.kind === 'line' || d.kind === 'rect' ? [d.a, d.b] : d.kind === 'poly' ? d.pts : d.kind === 'text' ? [d.at] : [d.c];
+      const pts = d.kind === 'line' || d.kind === 'rect' || d.kind === 'dimension' ? [d.a, d.b] : d.kind === 'poly' ? d.pts : d.kind === 'text' ? [d.at] : [d.c];
       if (s.layerVisible[d.layer] && pts.every(inside)) sel.push({ kind: 'drawing', id: d.id });
     }
     for (const z of Object.values(p.zones)) if (s.layerVisible[z.layer] && z.outline.every(inside)) sel.push({ kind: 'zone', id: z.id });

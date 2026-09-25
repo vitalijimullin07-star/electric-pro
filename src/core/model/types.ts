@@ -65,6 +65,8 @@ export type Graphic =
   | { kind: 'circle'; layer: LayerId; c: Vec2; r: number; width: number; fill?: boolean }
   | { kind: 'arc'; layer: LayerId; c: Vec2; r: number; start: number; sweep: number; width: number }
   | { kind: 'poly'; layer: LayerId; pts: Vec2[]; width: number; fill?: boolean; closed?: boolean }
+  /** Размерная линия: расстояние от a до b, вынесенное на offset (со знаком, влево от a→b). */
+  | { kind: 'dimension'; layer: LayerId; a: Vec2; b: Vec2; offset: number; width: number; size: number }
   | {
       kind: 'text';
       layer: LayerId;
@@ -287,6 +289,15 @@ export interface Project {
   zones: Record<Id, Zone>;
   ruleAreas: Record<Id, RuleArea>;
   drawings: Record<Id, Drawing>;
+  /** Группы: выделяются и двигаются вместе. */
+  groups?: Record<Id, Group>;
+}
+
+/** Группа объектов (Ctrl+G): щелчок по любому выделяет всю группу. */
+export interface Group {
+  id: Id;
+  name: string;
+  members: ItemRef[];
 }
 
 /** Ссылка на объект проекта: для выделения, подсветки и сообщений проверки. */

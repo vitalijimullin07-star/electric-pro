@@ -5,7 +5,7 @@ import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/projec
 import { importLegacyVacuumProject } from '@core/examples';
 import { openTextFile, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
-import { copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll } from '@editor/commands';
+import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
 import { askConfirm } from './dialogs/AskDialog';
@@ -167,6 +167,24 @@ export function TopBar() {
       ],
     },
     {
+      id: 'arrange',
+      label: 'Упорядочить',
+      items: [
+        { label: 'Выровнять по левому краю', action: () => alignSelection('left'), disabled: s.selection.length < 2 },
+        { label: 'Выровнять по правому краю', action: () => alignSelection('right'), disabled: s.selection.length < 2 },
+        { label: 'Выровнять по верху', action: () => alignSelection('top'), disabled: s.selection.length < 2 },
+        { label: 'Выровнять по низу', action: () => alignSelection('bottom'), disabled: s.selection.length < 2 },
+        { label: 'Центры по вертикали', action: () => alignSelection('hcenter'), disabled: s.selection.length < 2 },
+        { label: 'Центры по горизонтали', action: () => alignSelection('vcenter'), disabled: s.selection.length < 2 },
+        'sep',
+        { label: 'Распределить по горизонтали', action: () => distributeSelection('h'), disabled: s.selection.length < 3 },
+        { label: 'Распределить по вертикали', action: () => distributeSelection('v'), disabled: s.selection.length < 3 },
+        'sep',
+        { label: 'Сгруппировать', kbd: 'Ctrl+G', action: groupSelection, disabled: s.selection.length < 2 },
+        { label: 'Разгруппировать', kbd: 'Ctrl+Shift+G', action: ungroupSelection, disabled: !s.selection.length },
+      ],
+    },
+    {
       id: 'view',
       label: 'Вид',
       items: [
@@ -194,6 +212,7 @@ export function TopBar() {
         { label: 'Цепи: список и создание…', action: () => s.patch({ panelTab: 'nets', panelOpen: true }) },
         'sep',
         { label: 'Надпись', kbd: 'T', action: () => s.setTool('text') },
+        { label: 'Размерная линия', action: () => s.setTool('dimension') },
         { label: 'Область правил (запрет, 230 В)', action: () => s.setTool('keepout') },
         { label: 'Полигон меди', action: () => s.setTool('zone') },
         { label: 'Новый контур платы', action: () => s.setTool('outline') },

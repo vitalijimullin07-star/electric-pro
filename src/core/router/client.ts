@@ -1,18 +1,18 @@
 import type { Project } from '../model/types';
-import { autoroute, type RouteOptions, type RouteResult } from './autoroute';
+import { autorouteWithZones, type ZoneRouteOptions, type ZoneRouteResult } from './zone-aware';
 import type { WorkerIn, WorkerOut } from './router.worker';
 
 export interface RouteJob {
-  promise: Promise<RouteResult>;
+  promise: Promise<ZoneRouteResult>;
   cancel(): void;
 }
 
 type Progress = (info: { iteration: number; conflicts: number; fraction: number }) => void;
 
 /** Автотрассировка в основном потоке: медленнее для интерфейса, но работает где угодно. */
-function runInline(project: Project, options: Omit<RouteOptions, 'progress'>, onProgress?: Progress): RouteJob {
+function runInline(project: Project, options: Omit<ZoneRouteOptions, 'progress'>, onProgress?: Progress): RouteJob {
   let cancelled = false;
-  const promise = autoroute(project, {
+  const promise = autorouteWithZones(project, {
     ...options,
     yieldEvery: 2,
     progress: (i) => {
@@ -28,7 +28,7 @@ function runInline(project: Project, options: Omit<RouteOptions, 'progress'>, on
  * страница, строгие правила безопасности) или он упал до первого сообщения —
  * разводит в основном потоке.
  */
-export function startAutoroute(project: Project, options: Omit<RouteOptions, 'progress'>, onProgress?: Progress): RouteJob {
+export function startAutoroute(project: Project, options: Omit<ZoneRouteOptions, 'progress'>, onProgress?: Progress): RouteJob {
   let worker: Worker;
   try {
     if (typeof Worker === 'undefined') throw new Error('нет воркеров');
@@ -39,7 +39,7 @@ export function startAutoroute(project: Project, options: Omit<RouteOptions, 'pr
   let done = false;
   let heard = false;
   let fallback: RouteJob | null = null;
-  const promise = new Promise<RouteResult>((resolve, reject) => {
+  const promise = new Promise<ZoneRouteResult>((resolve, reject) => {
     const toInline = () => {
       done = true;
       worker.terminate();

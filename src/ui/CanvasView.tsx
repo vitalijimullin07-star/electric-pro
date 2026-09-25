@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { stableProject, useEditor } from '@editor/store';
 import { CanvasController } from '@editor/interaction';
 import { fitView, renderScene, screenToWorld } from '@render/canvas-renderer';
-import { copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
+import { groupSelection, ungroupSelection, copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
 import { libraryFootprint } from '@core/library';
 import { drcSummary } from '@core/model/drc';
@@ -142,6 +142,7 @@ export function CanvasView() {
         return;
       }
       const ctrl = ctrlRef.current!;
+      if (e.key !== 'Shift') ctrl.resetTap();
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
       if (mod && k === 'z') {
@@ -157,6 +158,12 @@ export function CanvasView() {
       if (mod && k === 'a') {
         e.preventDefault();
         selectAll();
+        return;
+      }
+      if (mod && k === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) ungroupSelection();
+        else groupSelection();
         return;
       }
       if (mod && (k === 'c' || k === 'x' || k === 'v' || k === 'd') && !e.shiftKey) {

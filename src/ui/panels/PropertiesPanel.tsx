@@ -4,7 +4,9 @@ import type { CopperLayer, LayerId } from '@core/model/types';
 import { LenInput, TextInput, useUnits } from '../common/NumberInput';
 import { FootprintPreview } from '../common/FootprintPreview';
 import { computeConnectivity } from '@core/model/connectivity';
-import { deleteSelection, flipSelection, renameComponent, rotateSelection } from '@editor/commands';
+import { alignSelection, deleteSelection, distributeSelection, flipSelection, groupSelection, renameComponent, rotateSelection, ungroupSelection } from '@editor/commands';
+import { groupOf } from '@core/model/groups';
+import { dimensionLabel } from '@core/render/graphic';
 import { boardBox, rectSize } from '@core/model/project';
 import { polygonLength } from '@core/math/geom';
 
@@ -21,6 +23,44 @@ export function PropertiesPanel() {
       <div>
         <h3>Выделено: {sel.length}</h3>
         <p className="hint">{[...kinds].map(([k, n]) => `${names[k] ?? k}: ${n}`).join(', ')}</p>
+        {groupOf(s.project, sel[0]) && <p className="hint">Группа «{groupOf(s.project, sel[0])!.name}»: выделяется и двигается целиком.</p>}
+        <h4>Выровнять</h4>
+        <div className="row">
+          <button className="btn" onClick={() => alignSelection('left')} title="По левому краю">
+            ⇤ лево
+          </button>
+          <button className="btn" onClick={() => alignSelection('hcenter')} title="Центры на одной вертикали">
+            ↔ центр
+          </button>
+          <button className="btn" onClick={() => alignSelection('right')} title="По правому краю">
+            право ⇥
+          </button>
+          <button className="btn" onClick={() => alignSelection('top')} title="По верху">
+            ⤒ верх
+          </button>
+          <button className="btn" onClick={() => alignSelection('vcenter')} title="Центры на одной горизонтали">
+            ↕ центр
+          </button>
+          <button className="btn" onClick={() => alignSelection('bottom')} title="По низу">
+            ⤓ низ
+          </button>
+        </div>
+        <div className="row">
+          <button className="btn" onClick={() => distributeSelection('h')} disabled={sel.length < 3}>
+            Распределить по горизонтали
+          </button>
+          <button className="btn" onClick={() => distributeSelection('v')} disabled={sel.length < 3}>
+            по вертикали
+          </button>
+        </div>
+        <div className="row">
+          <button className="btn" onClick={groupSelection}>
+            Сгруппировать
+          </button>
+          <button className="btn" onClick={ungroupSelection} disabled={!sel.some((r) => groupOf(s.project, r))}>
+            Разгруппировать
+          </button>
+        </div>
         <div className="row">
           <button className="btn" onClick={() => rotateSelection(90)}>
             Повернуть
@@ -284,7 +324,7 @@ function DrawingProps({ id }: { id: string }) {
     });
   return (
     <div>
-      <h3>{g.kind === 'text' ? 'Надпись' : 'Графика'}</h3>
+      <h3>{g.kind === 'text' ? 'Надпись' : g.kind === 'dimension' ? `Размер ${dimensionLabel(g.a, g.b)} мм` : 'Графика'}</h3>
       <div className="field">
         <label>Слой</label>
         <select className="sel" value={g.layer} onChange={(e) => upd((x) => void (x.layer = e.target.value as LayerId))}>
@@ -317,6 +357,14 @@ function DrawingProps({ id }: { id: string }) {
               <>
                 <label>Заливка</label>
                 <input type="checkbox" checked={!!g.fill} onChange={(e) => upd((x) => void ('fill' in x && (x.fill = e.target.checked)))} />
+              </>
+            )}
+            {g.kind === 'dimension' && (
+              <>
+                <label>Вынос линии</label>
+                <LenInput value={g.offset} onChange={(v) => upd((x) => void (x.kind === 'dimension' && (x.offset = v)))} />
+                <label>Высота цифр</label>
+                <LenInput value={g.size} min={0.5} onChange={(v) => upd((x) => void (x.kind === 'dimension' && (x.size = v)))} />
               </>
             )}
             {g.kind === 'circle' && (

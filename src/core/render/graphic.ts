@@ -27,6 +27,42 @@ function substitute(text: string, c: Component | null): string {
 }
 
 /** Примитивы одного графического элемента корпуса или платы. */
+/** Подпись размера: длина в мм с запятой, два знака. */
+export const dimensionLabel = (a: Vec2, b: Vec2): string => Math.hypot(b.x - a.x, b.y - a.y).toFixed(2).replace('.', ',');
+
+/**
+ * Штрихи размерной линии: выносные линии от точек a и b, сама линия со стрелками
+ * на расстоянии offset (влево от направления a→b на экране) и число над ней.
+ */
+export function dimensionStrokes(a: Vec2, b: Vec2, offset: number, size: number): Vec2[][] {
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 1e-6) return [];
+  const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+  const nrm = { x: u.y, y: -u.x };
+  const sg = offset < 0 ? -1 : 1;
+  const P = (q: Vec2, s: number, t = 0): Vec2 => ({ x: q.x + nrm.x * s + u.x * t, y: q.y + nrm.y * s + u.y * t });
+  const A = P(a, offset);
+  const B = P(b, offset);
+  const gap = Math.abs(offset) > 1 ? 0.5 * sg : 0;
+  const over = 0.8 * sg;
+  const arrow = Math.min(1.2, L / 4);
+  const out: Vec2[][] = [
+    [P(a, gap), P(a, offset + over)],
+    [P(b, gap), P(b, offset + over)],
+    [A, B],
+    [P(A, arrow * 0.35, arrow), A, P(A, -arrow * 0.35, arrow)],
+    [P(B, arrow * 0.35, -arrow), B, P(B, -arrow * 0.35, -arrow)],
+  ];
+  // Надпись над линией, читаемая (не вверх ногами).
+  let rot = (Math.atan2(-u.y, u.x) * 180) / Math.PI;
+  rot = ((rot % 360) + 360) % 360;
+  if (rot > 90 && rot <= 270) rot = (rot + 180) % 360;
+  const mid = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+  const at = P(mid, sg * size * 0.9);
+  for (const s of textStrokes({ text: dimensionLabel(a, b), at, size, rotation: rot, align: 'center' })) out.push(s);
+  return out;
+}
+
 export function graphicPrims(g: Graphic, pl: Placement | null, comp: Component | null, out: LayerPrims, o: { hideRef?: boolean; hideValue?: boolean } = {}): void {
   const layer = pl ? sideLayer(g.layer, pl.side) : g.layer;
   const T = (p: Vec2): Vec2 => (pl ? toWorld(pl, p) : p);
@@ -42,6 +78,10 @@ export function graphicPrims(g: Graphic, pl: Placement | null, comp: Component |
     case 'circle': {
       const pts = circlePoints(g.c, g.r, Math.max(24, Math.ceil(g.r * 24))).map(T);
       push(out, layer, g.fill ? { kind: 'region', pts } : { kind: 'path', pts, width: g.width, closed: true });
+      return;
+    }
+    case 'dimension': {
+      for (const pts of dimensionStrokes(T(g.a), T(g.b), g.offset, g.size)) push(out, layer, { kind: 'path', pts, width: g.width });
       return;
     }
     case 'arc': {

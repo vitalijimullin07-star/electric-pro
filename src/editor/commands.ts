@@ -5,6 +5,9 @@ import { otherCopper } from '@core/model/layers';
 import { netClassOf } from '@core/model/rules';
 import type { Component, Drawing, FootprintDef, ItemRef, Project, RuleArea, Side, Track, Via, Wire, Zone } from '@core/model/types';
 import { computeConnectivity } from '@core/model/connectivity';
+import { groupOf, pruneGroups } from '@core/model/groups';
+import { getWorld } from '@core/model/world';
+import { boxOfPoints, type Box } from '@core/math/geom';
 import { snapTo } from '@core/units';
 import { useEditor } from './store';
 
@@ -27,6 +30,7 @@ export function deleteSelection(): void {
       else if (r.kind === 'drawing') delete d.drawings[r.id];
     }
     pruneFootprints(d);
+    pruneGroups(d);
   });
   s.patch({ selection: [], message: n === 1 ? 'Удалено.' : `Удалено объектов: ${n}.` });
 }
@@ -53,6 +57,7 @@ function drawingPoints(d: Project['drawings'][string]): Vec2[] {
   switch (d.kind) {
     case 'line':
     case 'rect':
+    case 'dimension':
       return [d.a, d.b];
     case 'circle':
     case 'arc':
@@ -135,7 +140,7 @@ export function moveItems(d: Project, sel: ItemRef[], map: (q: Vec2) => Vec2, ro
     } else if (r.kind === 'drawing') {
       const g = d.drawings[r.id];
       if (!g || g.locked) continue;
-      if (g.kind === 'line' || g.kind === 'rect') {
+      if (g.kind === 'line' || g.kind === 'rect' || g.kind === 'dimension') {
         g.a = map(g.a);
         g.b = map(g.b);
       } else if (g.kind === 'circle' || g.kind === 'arc') g.c = map(g.c);
@@ -389,4 +394,138 @@ export function pasteClipboard(at?: Vec2 | null): void {
 /** Ctrl+D: копия выделенного рядом с оригиналом. */
 export function duplicateSelection(): void {
   if (copySelection()) pasteClipboard(null);
+}
+
+/* ---------------- выравнивание, распределение, группы ---------------- */
+
+function itemBox(p: Project, r: ItemRef): Box | null {
+  switch (r.kind) {
+    case 'component': {
+      const wc = getWorld(p).componentById.get(r.id);
+      return wc ? boxOfPoints(wc.outline) : null;
+    }
+    case 'via': {
+      const v = p.vias[r.id];
+      return v ? boxOfPoints([v.at], v.diameter / 2) : null;
+    }
+    case 'track': {
+      const t = p.tracks[r.id];
+      return t ? boxOfPoints(t.points, t.width / 2) : null;
+    }
+    case 'wire': {
+      const w = p.wires[r.id];
+      return w ? boxOfPoints([w.a, w.b]) : null;
+    }
+    case 'drawing': {
+      const g = p.drawings[r.id];
+      return g ? boxOfPoints(drawingPoints(g)) : null;
+    }
+    case 'zone':
+      return p.zones[r.id] ? boxOfPoints(p.zones[r.id].outline) : null;
+    case 'ruleArea':
+      return p.ruleAreas[r.id] ? boxOfPoints(p.ruleAreas[r.id].outline) : null;
+  }
+}
+
+type Unit = { refs: ItemRef[]; box: Box };
+
+/** Единицы выравнивания: группа целиком — одна единица, остальное поштучно. */
+function selectionUnits(p: Project, sel: ItemRef[]): Unit[] {
+  const done = new Set<string>();
+  const units: Unit[] = [];
+  for (const r of sel) {
+    const k = r.kind + ':' + r.id;
+    if (done.has(k)) continue;
+    const g = groupOf(p, r);
+    const refs = g ? g.members.filter((m) => sel.some((x) => x.kind === m.kind && x.id === m.id)) : [r];
+    for (const m of refs) done.add(m.kind + ':' + m.id);
+    const boxes = refs.map((m) => itemBox(p, m)).filter((b): b is Box => !!b);
+    if (!boxes.length) continue;
+    units.push({ refs, box: boxOfPoints(boxes.flatMap((b) => [{ x: b.minX, y: b.minY }, { x: b.maxX, y: b.maxY }])) });
+  }
+  return units;
+}
+
+export type AlignMode = 'left' | 'right' | 'top' | 'bottom' | 'hcenter' | 'vcenter';
+
+/** Выравнивает выделенное по краю или центру общего габарита. */
+export function alignSelection(mode: AlignMode): void {
+  const s = S();
+  const units = selectionUnits(s.project, s.selection);
+  if (units.length < 2) {
+    s.setMessage('Выровнять можно два объекта и больше: выделите их рамкой или с Shift.');
+    return;
+  }
+  const minX = Math.min(...units.map((u) => u.box.minX));
+  const maxX = Math.max(...units.map((u) => u.box.maxX));
+  const minY = Math.min(...units.map((u) => u.box.minY));
+  const maxY = Math.max(...units.map((u) => u.box.maxY));
+  s.commit((d) => {
+    for (const u of units) {
+      const b = u.box;
+      const dx = mode === 'left' ? minX - b.minX : mode === 'right' ? maxX - b.maxX : mode === 'hcenter' ? (minX + maxX) / 2 - (b.minX + b.maxX) / 2 : 0;
+      const dy = mode === 'top' ? minY - b.minY : mode === 'bottom' ? maxY - b.maxY : mode === 'vcenter' ? (minY + maxY) / 2 - (b.minY + b.maxY) / 2 : 0;
+      if (Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9) moveItems(d, u.refs, (q) => ({ x: +(q.x + dx).toFixed(4), y: +(q.y + dy).toFixed(4) }));
+    }
+  });
+}
+
+/** Распределяет выделенное с равными промежутками по горизонтали или вертикали. */
+export function distributeSelection(axis: 'h' | 'v'): void {
+  const s = S();
+  const units = selectionUnits(s.project, s.selection);
+  if (units.length < 3) {
+    s.setMessage('Распределить можно три объекта и больше.');
+    return;
+  }
+  const lo = (u: Unit) => (axis === 'h' ? u.box.minX : u.box.minY);
+  const hi = (u: Unit) => (axis === 'h' ? u.box.maxX : u.box.maxY);
+  units.sort((a, b) => lo(a) + hi(a) - (lo(b) + hi(b)));
+  const span = hi(units[units.length - 1]) - lo(units[0]);
+  const total = units.reduce((a, u) => a + hi(u) - lo(u), 0);
+  const gap = (span - total) / (units.length - 1);
+  s.commit((d) => {
+    let pos = lo(units[0]);
+    for (const u of units) {
+      const shift = pos - lo(u);
+      if (Math.abs(shift) > 1e-9) moveItems(d, u.refs, (q) => (axis === 'h' ? { x: +(q.x + shift).toFixed(4), y: q.y } : { x: q.x, y: +(q.y + shift).toFixed(4) }));
+      pos += hi(u) - lo(u) + gap;
+    }
+  });
+  s.setMessage(gap < 0 ? 'Распределено, но объекты перекрываются: места мало.' : `Промежутки выровнены: ${gap.toFixed(2).replace('.', ',')} мм.`);
+}
+
+/** Ctrl+G: объединить выделенное в группу. */
+export function groupSelection(): void {
+  const s = S();
+  if (s.selection.length < 2) {
+    s.setMessage('В группу объединяют два объекта и больше.');
+    return;
+  }
+  const members = [...s.selection];
+  let name = '';
+  s.commit((d) => {
+    d.groups ??= {};
+    // Объекты уходят из прежних групп.
+    for (const g of Object.values(d.groups)) g.members = g.members.filter((m) => !members.some((x) => x.kind === m.kind && x.id === m.id));
+    pruneGroups(d);
+    const id = newId('grp');
+    name = `Группа ${Object.keys(d.groups).length + 1}`;
+    d.groups[id] = { id, name, members };
+  });
+  s.setMessage(`${name}: объектов ${members.length}. Щелчок по любому выделяет всю группу; Ctrl+Shift+G — разгруппировать.`);
+}
+
+/** Ctrl+Shift+G: распустить группы выделенных объектов. */
+export function ungroupSelection(): void {
+  const s = S();
+  const ids = new Set(s.selection.map((r) => groupOf(s.project, r)?.id).filter((x): x is string => !!x));
+  if (!ids.size) {
+    s.setMessage('Выделенное не входит в группы.');
+    return;
+  }
+  s.commit((d) => {
+    for (const id of ids) delete d.groups?.[id];
+  });
+  s.setMessage(`Разгруппировано: ${ids.size}.`);
 }

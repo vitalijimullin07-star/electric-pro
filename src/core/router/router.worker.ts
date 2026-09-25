@@ -1,19 +1,19 @@
 import type { Project } from '../model/types';
-import { autoroute, type RouteOptions, type RouteResult } from './autoroute';
+import { autorouteWithZones, type ZoneRouteOptions, type ZoneRouteResult } from './zone-aware';
 
 /* Web Worker: автотрассировка в фоне, чтобы интерфейс не замирал. */
 
-export type WorkerIn = { type: 'route'; project: Project; options: Omit<RouteOptions, 'progress'> };
+export type WorkerIn = { type: 'route'; project: Project; options: Omit<ZoneRouteOptions, 'progress'> };
 export type WorkerOut =
   | { type: 'progress'; iteration: number; conflicts: number; fraction: number }
-  | { type: 'done'; result: RouteResult }
+  | { type: 'done'; result: ZoneRouteResult }
   | { type: 'error'; message: string };
 
 self.onmessage = async (e: MessageEvent<WorkerIn>) => {
   const msg = e.data;
   if (msg.type !== 'route') return;
   try {
-    const result = await autoroute(msg.project, {
+    const result = await autorouteWithZones(msg.project, {
       ...msg.options,
       yieldEvery: 1000,
       progress: (info) => {

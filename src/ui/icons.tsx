@@ -17,6 +17,7 @@ const P: Record<string, string> = {
   keepout: 'M4 4h16v16H4zM4 4l16 16M20 4L4 20',
   outline: 'M4 4h11l5 5v11H4zM15 4v5h5',
   measure: 'M3 17L17 3l4 4L7 21zM7 13l2 2m1-5l2 2m1-5l2 2',
+  dimension: 'M4 8v10M20 8v10M4 13h16M4 13l3-2m-3 2l3 2M20 13l-3-2m3 2l-3 2M9 7h6',
   undo: 'M9 14L4 9l5-5M4 9h9a6 6 0 0 1 0 12h-3',
   redo: 'M15 14l5-5-5-5M20 9h-9a6 6 0 0 0 0 12h3',
   fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',

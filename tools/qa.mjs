@@ -31,7 +31,7 @@ function helpers(page, touch = false) {
     const loc = typeof target === 'string' ? page.locator(target).first() : target;
     await loc.waitFor({ state: 'attached', timeout: opts.timeout ?? 4000 });
     // Как человек: прокрутить панель или список, если элемент ниже края (но не саму страницу).
-    await loc.evaluate((el) => el.closest('.panel .body, .modal .content, .toolbar, .topbar') && el.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    await loc.evaluate((el) => el.closest('.panel .body, .modal .content, .toolbar, .topbar, .menu-drop') && el.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
     const box = await loc.boundingBox();
     if (!box) throw new Error(`нет на экране: ${target}`);
     const vp = page.viewportSize();
@@ -104,10 +104,11 @@ async function openPage(viewport, touch = false) {
 
   const menuItems = {
     Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Сохранить проект', 'Экспорт', 'Настройки платы'],
-    Правка: ['Отменить', 'Повторить', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону', 'Свойства компонента'],
+    Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону', 'Свойства компонента'],
+    Упорядочить: ['Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
     Вид: ['Сетка', 'Воздушные линии', 'Отметки проверки', 'Позиционные обозначения', 'Номиналы', 'Габариты корпусов', 'Сборочный слой', 'Вся плата', 'Переключить активный слой', 'Боковая панель'],
-    Разместить: ['Компонент из библиотеки', 'Цепи', 'Надпись', 'Область правил', 'Полигон меди', 'Новый контур платы'],
-    Трассировка: ['Дорожка', 'Переходное отверстие', 'Перемычка проводом', 'Автотрассировка', 'Стереть все дорожки', 'Проверка правил'],
+    Разместить: ['Компонент из библиотеки', 'Цепи', 'Надпись', 'Размерная линия', 'Область правил', 'Полигон меди', 'Новый контур платы'],
+    Трассировка: ['Дорожка', 'Переходное отверстие', 'Перемычка проводом', 'Каплевидные переходы', 'Автотрассировка', 'Стереть все дорожки', 'Проверка правил'],
     Справка: ['Горячие клавиши', 'О программе'],
   };
   for (const [top, items] of Object.entries(menuItems))
@@ -349,6 +350,73 @@ async function openPage(viewport, touch = false) {
     await page.keyboard.press('Control+z');
     const refs = Object.values((await h.project()).components).map((c) => c.ref).sort().join(',');
     expect(refs === 'R1,R2,U1', 'после отмены: ' + refs);
+    await page.keyboard.press('Escape');
+  });
+
+  await step('выравнивание, распределение, группа Ctrl+G, размерная линия', async () => {
+    await page.keyboard.press('s');
+    const p0 = await h.project();
+    const byRef = (p, r) => Object.values(p.components).find((c) => c.ref === r);
+    const [u1, r1, r2] = ['U1', 'R1', 'R2'].map((r) => byRef(p0, r));
+    await h.clickAt(u1.at.x, u1.at.y);
+    await page.keyboard.down('Shift');
+    await h.clickAt(r1.at.x, r1.at.y);
+    await h.clickAt(r2.at.x, r2.at.y);
+    await page.keyboard.up('Shift');
+    let sel = (await page.evaluate(() => window.__plata.state())).selection;
+    expect(sel.length === 3, 'выделено ' + sel.length);
+    await h.menu('Упорядочить', 'Выровнять по верху');
+    const outl = () => page.evaluate(() => window.__plata.outlines());
+    let o = await outl();
+    const tops = ['U1', 'R1', 'R2'].map((r) => o[r].minY);
+    expect(Math.max(...tops) - Math.min(...tops) < 1e-3, 'верх не выровнен: ' + tops.join(', '));
+    await page.keyboard.press('Control+z');
+    // После отмены выделение снимается — выделяем снова.
+    await h.clickAt(u1.at.x, u1.at.y);
+    await page.keyboard.down('Shift');
+    await h.clickAt(r1.at.x, r1.at.y);
+    await h.clickAt(r2.at.x, r2.at.y);
+    await page.keyboard.up('Shift');
+    await h.menu('Упорядочить', 'Распределить по горизонтали');
+    o = await outl();
+    const xs = ['U1', 'R1', 'R2'].map((r) => o[r]).sort((a, b) => a.minX - b.minX);
+    const g1 = xs[1].minX - xs[0].maxX;
+    const g2 = xs[2].minX - xs[1].maxX;
+    expect(Math.abs(g1 - g2) < 1e-3, `промежутки ${g1.toFixed(3)} и ${g2.toFixed(3)}`);
+    await page.keyboard.press('Control+z');
+    // Группа из двух резисторов: щелчок по одному выделяет оба, перетаскивание двигает оба.
+    await page.keyboard.press('Escape');
+    await h.clickAt(r1.at.x, r1.at.y);
+    await page.keyboard.down('Shift');
+    await h.clickAt(r2.at.x, r2.at.y);
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Control+g');
+    expect(Object.keys((await h.project()).groups ?? {}).length === 1, 'группа не создана: ' + (await h.msg()));
+    await page.keyboard.press('Escape');
+    await h.clickAt(r1.at.x, r1.at.y);
+    sel = (await page.evaluate(() => window.__plata.state())).selection;
+    expect(sel.length === 2, 'щелчок выделил ' + sel.length);
+    const a = await h.toScreen(r1.at.x, r1.at.y);
+    const b = await h.toScreen(r1.at.x - 5, r1.at.y);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 6 });
+    await page.mouse.up();
+    let p = await h.project();
+    expect(Math.abs(byRef(p, 'R1').at.x - (r1.at.x - 5)) < 0.7 && Math.abs(byRef(p, 'R2').at.x - (r2.at.x - 5)) < 0.7, 'группа не сдвинулась целиком: ' + JSON.stringify([r1.at, byRef(p, 'R1').at, r2.at, byRef(p, 'R2').at, (await page.evaluate(() => window.__plata.state())).selection.length, await h.msg()]));
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+z');
+    expect(!Object.keys((await h.project()).groups ?? {}).length, 'отмена группы');
+    // Размер: три щелчка.
+    await page.keyboard.press('Escape');
+    await h.hit('.toolbar .tbtn[aria-label^="Размер"]');
+    await h.clickAt(5, 38);
+    await h.clickAt(25, 38);
+    await h.clickAt(15, 36);
+    p = await h.project();
+    const dim = Object.values(p.drawings).find((d) => d.kind === 'dimension');
+    expect(dim && Math.abs(Math.hypot(dim.b.x - dim.a.x, dim.b.y - dim.a.y) - 19.685) < 0.7 && dim.offset > 1, 'размер: ' + JSON.stringify(dim));
+    await page.keyboard.press('Control+z');
     await page.keyboard.press('Escape');
   });
 
@@ -822,7 +890,7 @@ async function openPage(viewport, touch = false) {
     await h.closeDialog();
   });
   await step('телефон: все меню доступны (строка прокручивается)', async () => {
-    for (const top of ['Файл', 'Правка', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
+    for (const top of ['Файл', 'Правка', 'Упорядочить', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
       const b = page.getByRole('button', { name: top, exact: true });
       await b.scrollIntoViewIfNeeded();
       await page.waitForTimeout(80);

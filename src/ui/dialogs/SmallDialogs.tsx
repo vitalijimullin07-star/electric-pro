@@ -115,6 +115,8 @@ export function AutorouteDialog() {
   const [keep, setKeep] = useState(conn.total - conn.unrouted > 0);
   const [grid, setGrid] = useState<number>(autoGrid(p));
   const [iters, setIters] = useState(30);
+  const hasZones = Object.values(p.zones).some((z) => z.net);
+  const [stitch, setStitch] = useState(true);
   const [job, setJob] = useState<ReturnType<typeof startAutoroute> | null>(null);
   const r = s.routing;
   const oneLayer = p.board.copperLayers === 1;
@@ -122,7 +124,7 @@ export function AutorouteDialog() {
   const run = () => {
     const base = keep ? p : (() => p)();
     s.patch({ routing: { running: true, iteration: 0, conflicts: 0, fraction: 0, message: 'Подготовка…' } });
-    const j = startAutoroute(base, { grid, iterations: iters, keepExisting: keep, allowWires: oneLayer, allowVias: !oneLayer }, (info) =>
+    const j = startAutoroute(base, { grid, iterations: iters, keepExisting: keep, allowWires: oneLayer, allowVias: !oneLayer, stitch }, (info) =>
       s.patch({ routing: { running: true, iteration: info.iteration, conflicts: info.conflicts, fraction: info.fraction, message: `Проход ${info.iteration}: спорных клеток ${info.conflicts}` } }),
     );
     setJob(j);
@@ -137,7 +139,7 @@ export function AutorouteDialog() {
         const c2 = computeConnectivity(useEditor.getState().project);
         s.patch({
           routing: { running: false, iteration: res.iterations, conflicts: res.conflicts, fraction: 1 },
-          message: `Разведено за ${(res.ms / 1000).toFixed(1)} с: дорожек ${res.tracks.length}, ${oneLayer ? 'перемычек' : 'переходных'} ${oneLayer ? res.wires.length : res.vias.length}${res.failed ? `, не проведено связей: ${res.failed} (заменены перемычками)` : ''}. Не разведено цепей: ${c2.unrouted}.`,
+          message: `Разведено за ${(res.ms / 1000).toFixed(1)} с: дорожек ${res.tracks.length}, ${oneLayer ? 'перемычек' : 'переходных'} ${oneLayer ? res.wires.length : res.vias.length}${res.zoneNets ? `, цепей соединено заливкой: ${res.zoneNets}` : ''}${res.stitches ? `, сшивок: ${res.stitches}` : ''}${res.failed ? `, не проведено связей: ${res.failed} (заменены перемычками)` : ''}. Не разведено цепей: ${c2.unrouted}.`,
         });
         s.closeDialog();
       })
@@ -178,6 +180,7 @@ export function AutorouteDialog() {
           ? 'Односторонняя плата: дорожки по нижней меди, где не пройти — перемычки проводом с площадками. '
           : 'Двусторонняя плата: дорожки на обоих слоях, переходные отверстия где нужно. '}
         Метод согласования конфликтов: несколько проходов, спорные места дорожают. Учитываются зазоры классов, области правил и зона 230 В.
+        {hasZones ? ' Цепи, которые соединяет заливка полигона (обычно земля), дорожками не ведутся — только недостающие связи.' : ''}
       </p>
       <div className="field">
         <label>Сетка, мм</label>
@@ -191,6 +194,12 @@ export function AutorouteDialog() {
         </select>
         <label>Проходов, до</label>
         <input className="inp" type="number" min={4} max={80} value={iters} onChange={(e) => setIters(+e.target.value || 30)} disabled={r.running} />
+        {hasZones && !oneLayer && (
+          <>
+            <label>Сшить полигоны переходными</label>
+            <input type="checkbox" checked={stitch} onChange={(e) => setStitch(e.target.checked)} disabled={r.running} />
+          </>
+        )}
         <label>Существующие дорожки</label>
         <select className="sel" value={keep ? 'keep' : 'redo'} onChange={(e) => setKeep(e.target.value === 'keep')} disabled={r.running}>
           <option value="redo">стереть и развести всё заново</option>
@@ -231,6 +240,7 @@ export function ShortcutsDialog() {
     ['Ctrl+A', 'Выделить всё'],
     ['Ctrl+C / Ctrl+X / Ctrl+V', 'Копировать, вырезать, вставить под курсор'],
     ['Ctrl+D', 'Дублировать выделенное'],
+    ['Ctrl+G / Ctrl+Shift+G', 'Сгруппировать / разгруппировать'],
     ['Ctrl+S / Ctrl+O', 'Сохранить / открыть файл проекта'],
     ['Колесо, +, −, 0', 'Масштаб; 0 — вся плата'],
     ['Средняя кнопка, пробел+тяга, правая кнопка', 'Двигать вид'],

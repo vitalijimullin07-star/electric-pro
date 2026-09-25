@@ -95,7 +95,7 @@ export function footprintBounds(fp: FootprintDef): { min: Vec2; max: Vec2 } {
     addP(s.box.maxX, s.box.maxY);
   }
   for (const g of fp.graphics) {
-    if (g.kind === 'line' || g.kind === 'rect') {
+    if (g.kind === 'line' || g.kind === 'rect' || g.kind === 'dimension') {
       addP(g.a.x, g.a.y);
       addP(g.b.x, g.b.y);
     } else if (g.kind === 'circle' || g.kind === 'arc') {

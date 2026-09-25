@@ -22,6 +22,10 @@ export function installQaHooks(): void {
       const n = Object.values(p.nets).find((x) => x.name === name);
       return n ? (computeConnectivity(p).nets.get(n.id)?.complete ?? null) : null;
     },
+    outlines: () => {
+      const w = getWorld(useEditor.getState().project);
+      return Object.fromEntries(w.components.map((c) => [c.component.ref, { minX: Math.min(...c.outline.map((q) => q.x)), maxX: Math.max(...c.outline.map((q) => q.x)), minY: Math.min(...c.outline.map((q) => q.y)), maxY: Math.max(...c.outline.map((q) => q.y)) }]));
+    },
     pads: () => getWorld(useEditor.getState().project).pads.map((p) => ({ label: padLabel(p), key: p.key, x: p.center.x, y: p.center.y, net: p.net })),
   };
 }
