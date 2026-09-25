@@ -110,6 +110,13 @@ export function LibraryPanel() {
             </button>
             <b>{chosen.name}</b>
           </div>
+          {!sch && Object.keys(s.project.components).length > 0 && (
+            <div className="row" style={{ marginTop: 0 }}>
+              <button className="btn" onClick={() => s.openDialog('replace', { target: chosen.id })}>
+                Заменить им детали на плате…
+              </button>
+            </div>
+          )}
           <FootprintPreview fp={chosen} />
           <div className="row">
             {mine ? (

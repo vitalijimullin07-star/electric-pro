@@ -7,10 +7,12 @@ import type { CopperLayer, ItemRef, Project } from '@core/model/types';
 import { findFootprint } from './userlib';
 import { hitTest, type Hit } from '@render/hit-test';
 import { screenToWorld } from '@render/canvas-renderer';
-import { finishTrack, moveItems, placeComponent, placeVia, placeWire, routeWidthFor, snapPoint, viaSizeFor } from './commands';
+import { deleteSelection, finishTrack, moveItems, placeComponent, placeVia, placeWire, routeWidthFor, snapPoint, viaSizeFor } from './commands';
+import { PointerInput, isPenBarrel, isPenEraser } from './pointer';
 import { useEditor, type ToolId } from './store';
 import { boxOfPoints, closestOnSegment } from '@core/math/geom';
 import { getWorld } from '@core/model/world';
+import { applyFollow, planFollow, type FollowPlan } from '@core/model/follow';
 
 /*
  * Обработка мыши и касаний на холсте. Один контроллер, поведение зависит от инструмента.
@@ -30,7 +32,14 @@ interface Drag {
   segment?: { ref: ItemRef; index: number; orig: Vec2[] };
   hit?: Hit | null;
   touch?: boolean;
+  /** Концы дорожек на площадках переносимых деталей (считается в начале переноса). */
+  follow?: FollowPlan | null;
+  /** Нажата кнопка на корпусе пера: без сдвига — отмена или свойства. */
+  barrel?: boolean;
 }
+
+/** Долгое нажатие пальцем или пером открывает свойства. */
+const LONG_PRESS_MS = 550;
 
 export class CanvasController {
   private drag: Drag | null = null;
@@ -44,6 +53,13 @@ export class CanvasController {
   private diagonalFirst = true;
   /** Точка платы под курсором (для вставки под курсор); null — курсор вне холста. */
   pointerWorld: Vec2 | null = null;
+  /** Перо над экраном (не касаясь): точка привязки для прицела. */
+  penHover: Vec2 | null = null;
+  /** Перерисовать холст без изменения состояния (прицел пера). */
+  onOverlay: (() => void) | null = null;
+  readonly input = new PointerInput();
+  private dragPointer: number | null = null;
+  private longTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
 
@@ -59,7 +75,39 @@ export class CanvasController {
     return screenToWorld(this.S.view, this.screenPt(e));
   }
   private tol(): number {
-    return Math.max(0.15, 6 / this.S.view.scale);
+    return Math.max(0.15, this.input.tolPx() / this.S.view.scale);
+  }
+
+  private clearLongPress(): void {
+    if (this.longTimer) clearTimeout(this.longTimer);
+    this.longTimer = null;
+  }
+
+  /** Долгое нажатие на объект: свойства (компонент — окно, надпись — правка, остальное — панель). */
+  private startLongPress(hit: Hit): void {
+    this.clearLongPress();
+    this.longTimer = setTimeout(() => {
+      this.longTimer = null;
+      const d = this.drag;
+      if (!d || d.moved) return;
+      this.drag = null;
+      this.openProps(hit);
+    }, LONG_PRESS_MS);
+  }
+
+  private openProps(hit: Hit): void {
+    const s = this.S;
+    s.select([hit.ref]);
+    if (hit.ref.kind === 'component') s.openDialog('component', hit.ref.id);
+    else if (hit.ref.kind === 'drawing' && s.project.drawings[hit.ref.id]?.kind === 'text') s.openDialog('text', hit.ref.id);
+    else s.patch({ panelTab: 'props', panelOpen: true });
+  }
+
+  private setPenHover(q: Vec2 | null): void {
+    const a = this.penHover;
+    if (a === q || (a && q && a.x === q.x && a.y === q.y)) return;
+    this.penHover = q;
+    this.onOverlay?.();
   }
   private hits(pt: Vec2, copperOnly = false): Hit[] {
     const s = this.S;
@@ -99,9 +147,30 @@ export class CanvasController {
   onPointerDown(e: PointerEvent): void {
     const s = this.S;
     if (s.routing.running) return;
-    this.canvas.setPointerCapture(e.pointerId);
+    const acc = this.input.accept(e, 'down');
+    if (!acc.ok) return; // ладонь, пока работаем пером
+    if (acc.drop.length) {
+      // Ладонь легла раньше пера: забываем её касания и начатый ими жест.
+      for (const id of acc.drop) this.pointers.delete(id);
+      this.pinch = null;
+      if (this.drag && this.dragPointer !== null && acc.drop.includes(this.dragPointer)) {
+        if (this.drag.moved && (this.drag.kind === 'move' || this.drag.kind === 'vertex' || this.drag.kind === 'segment')) this.S.endTransaction();
+        this.drag = null;
+      }
+    }
+    if (e.pointerType === 'pen' && !this.input.penSeen) {
+      this.input.penSeen = true;
+      s.setMessage('Перо: касание — выбрать и тянуть, кнопка на пере — сдвиг вида (без сдвига — отмена или свойства), долгое нажатие — свойства. Ладонь можно положить на экран.');
+    }
+    this.setPenHover(null);
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* указатель уже отпущен (или событие синтетическое) — захват не нужен */
+    }
     const sp = this.screenPt(e);
     this.pointers.set(e.pointerId, sp);
+    this.clearLongPress();
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d0: dist(a, b) || 1, view0: { ...s.view }, c0: screenToWorld(s.view, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) };
@@ -112,13 +181,24 @@ export class CanvasController {
     const wp = this.worldPt(e);
     const view0 = { ...s.view };
     const base: Drag = { kind: 'pan', start: sp, startWorld: wp, last: sp, view0, moved: false, touch: e.pointerType === 'touch' };
+    this.dragPointer = e.pointerId;
 
+    // Ластик пера стирает объект под ним.
+    if (isPenEraser(e)) {
+      const h = this.hits(wp)[0];
+      if (h && !h.inside) {
+        s.select([h.ref]);
+        deleteSelection();
+        s.setMessage('Стёрто ластиком пера. Ctrl+Z — вернуть.');
+      }
+      return;
+    }
     if (e.button === 1 || e.button === 2 || this.spaceDown || s.tool === 'pan') {
       if (e.button === 2 && s.pending) {
         this.cancelPending();
         return;
       }
-      this.drag = base;
+      this.drag = { ...base, barrel: isPenBarrel(e) };
       return;
     }
     if (e.button !== 0) return;
@@ -155,6 +235,7 @@ export class CanvasController {
         // Двигаем всё выделенное (объект из группы выделил всю группу).
         this.drag = { ...base, kind: 'move', items: this.S.selection, hit };
         this.showHitInfo(hit);
+        if (e.pointerType !== 'mouse') this.startLongPress(hit);
       } else {
         // Пальцем по пустому месту двигаем плату, мышью — рамка выделения.
         this.drag = e.pointerType === 'touch' ? base : { ...base, kind: 'box' };
@@ -168,8 +249,11 @@ export class CanvasController {
 
   onPointerMove(e: PointerEvent): void {
     const s = this.S;
+    if (!this.input.accept(e, 'move').ok) return;
     const sp = this.screenPt(e);
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, sp);
+    // Перетаскивание ведёт только тот указатель, которым оно начато.
+    if (this.drag && !this.pinch && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     if (this.pinch && this.pointers.size >= 2) {
       const [a, b] = [...this.pointers.values()];
       const d = dist(a, b) || 1;
@@ -180,6 +264,8 @@ export class CanvasController {
     }
     const wp = this.worldPt(e);
     this.pointerWorld = wp;
+    // Перо над экраном: прицел в точке привязки.
+    if (e.pointerType === 'pen') this.setPenHover(e.buttons === 0 && !this.drag ? (s.tool === 'select' || s.tool === 'pan' ? wp : this.S.pending ? this.pendingCursor(wp) : snapPoint(wp)) : null);
     if (!this.drag) {
       // Наведение и предпросмотр.
       if (s.pending) {
@@ -199,12 +285,14 @@ export class CanvasController {
     const d = this.drag;
     const dx = sp.x - d.start.x;
     const dy = sp.y - d.start.y;
-    if (!d.moved && Math.hypot(dx, dy) > (d.touch ? 8 : 4)) {
+    if (!d.moved && Math.hypot(dx, dy) > this.input.dragPx()) {
       d.moved = true;
+      this.clearLongPress();
       if (d.kind === 'move' && d.items?.every((r) => r.kind === 'component' && s.project.components[r.id]?.locked)) {
         s.setMessage('Компонент закреплён: снимите «закрепить» в свойствах, чтобы двигать.');
       }
       if (d.kind === 'move' || d.kind === 'vertex' || d.kind === 'segment') s.beginTransaction();
+      if (d.kind === 'move' && d.items && s.followTracks) d.follow = planFollow(s.project, d.items);
       if (d.kind === 'box') s.patch({ pending: { kind: 'box', points: [], cursor: wp, start: d.startWorld } });
     }
     if (!d.moved) return;
@@ -233,6 +321,7 @@ export class CanvasController {
         // Восстанавливаем от исходного состояния, чтобы не накапливать погрешность.
         for (const r of d.items!) restoreItem(draft, base, r);
         moveItems(draft, d.items!, (q) => ({ x: +(q.x + delta.x).toFixed(4), y: +(q.y + delta.y).toFixed(4) }));
+        if (d.follow) applyFollow(draft, base, d.follow, { translate: delta });
       });
     } else if (d.kind === 'vertex' && d.vertex) {
       const q = snapPoint(wp);
@@ -267,16 +356,25 @@ export class CanvasController {
 
   onPointerUp(e: PointerEvent): void {
     const s = this.S;
+    if (!this.input.accept(e, 'up').ok) return;
     this.pointers.delete(e.pointerId);
+    this.clearLongPress();
     if (this.pinch) {
       if (this.pointers.size === 0) this.pinch = null;
       this.drag = null;
       return;
     }
+    if (this.drag && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     const d = this.drag;
     this.drag = null;
     if (!d) return;
     const wp = this.worldPt(e);
+    if (d.barrel && !d.moved) {
+      // Кнопка пера без сдвига: как правая кнопка мыши — свойства объекта под пером.
+      const h = this.hits(wp)[0];
+      if (h && !h.inside) this.openProps(h);
+      return;
+    }
     if (d.kind === 'move' || d.kind === 'vertex' || d.kind === 'segment') {
       if (d.moved) {
         s.endTransaction();
@@ -307,7 +405,10 @@ export class CanvasController {
   }
 
   onPointerCancel(e: PointerEvent): void {
+    this.input.accept(e, 'up');
+    this.clearLongPress();
     this.pointers.delete(e.pointerId);
+    if (this.drag && this.dragPointer !== null && e.pointerId !== this.dragPointer && !this.pinch) return;
     if (this.drag && (this.drag.kind === 'move' || this.drag.kind === 'vertex' || this.drag.kind === 'segment') && this.drag.moved) this.S.endTransaction();
     this.drag = null;
     this.pinch = null;
@@ -627,6 +728,7 @@ export class CanvasController {
   hideGhost(): void {
     this.ghostAt = null;
     this.pointerWorld = null;
+    this.setPenHover(null);
     if (this.S.ghost) this.S.patch({ ghost: null });
   }
 

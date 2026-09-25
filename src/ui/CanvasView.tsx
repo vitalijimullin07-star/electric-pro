@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { stableProject, useEditor } from '@editor/store';
 import { CanvasController } from '@editor/interaction';
-import { fitView, renderScene, screenToWorld } from '@render/canvas-renderer';
+import { fitView, renderScene, screenToWorld, wantsAnimation } from '@render/canvas-renderer';
+import { AdaptiveQuality, gfxProfile } from '@render/quality';
 import { groupSelection, ungroupSelection, copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
 import { findFootprint } from '@editor/userlib';
@@ -14,6 +15,7 @@ export function CanvasView() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctrlRef = useRef<CanvasController | null>(null);
+  const redrawRef = useRef<() => void>(() => {});
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const tool = useEditor((s) => s.tool);
   const placeFootprint = useEditor((s) => s.placeFootprint);
@@ -29,15 +31,18 @@ export function CanvasView() {
   useEffect(() => {
     const canvas = canvasRef.current!;
     const stage = stageRef.current!;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { alpha: false })!;
     let raf = 0;
     let dirty = true;
-    const draw = () => {
+    const adaptive = new AdaptiveQuality(useEditor.getState().gfxLevel);
+    const draw = (now: number) => {
       raf = 0;
       if (!dirty) return;
       dirty = false;
+      const t0 = performance.now();
       const s = useEditor.getState();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const gfx = gfxProfile(s.quality, s.gfxLevel);
+      const dpr = Math.min(gfx.dprCap, window.devicePixelRatio || 1);
       const w = stage.clientWidth;
       const h = stage.clientHeight;
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -62,12 +67,22 @@ export function CanvasView() {
         measure: s.measure,
         ghost: s.ghost,
         units: s.units,
+        gfx,
+        time: now,
+        penHover: ctrlRef.current?.penHover ?? null,
       });
+      // «Авто»: кадры слишком долгие — понижаем качество.
+      if (s.quality === 'auto' && adaptive.sample(performance.now() - t0) && adaptive.level !== s.gfxLevel) {
+        useEditor.setState({ gfxLevel: adaptive.level });
+      }
+      // Бегущий пунктир и пульсация — пока есть что анимировать.
+      if (wantsAnimation({ gfx, selection: s.selection, highlightNet: s.highlightNet, pending: s.pending })) schedule();
     };
     const schedule = () => {
       dirty = true;
       if (!raf) raf = requestAnimationFrame(draw);
     };
+    redrawRef.current = schedule;
     const unsub = useEditor.subscribe(schedule);
     const ro = new ResizeObserver(schedule);
     ro.observe(stage);
@@ -95,6 +110,7 @@ export function CanvasView() {
     const canvas = canvasRef.current!;
     const ctrl = new CanvasController(canvas);
     ctrlRef.current = ctrl;
+    ctrl.onOverlay = () => redrawRef.current();
     const onWheel = (e: WheelEvent) => ctrl.onWheel(e);
     const onDown = (e: PointerEvent) => {
       (document.activeElement as HTMLElement | null)?.blur?.();

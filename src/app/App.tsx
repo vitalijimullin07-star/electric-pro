@@ -15,14 +15,24 @@ import type { AskData } from '@editor/store';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 import { FootprintEditorDialog, type FootprintEditorData } from '@ui/dialogs/FootprintEditor';
 import { DfmDialog } from '@ui/dialogs/DfmDialog';
+import { LayerMoveDialog } from '@ui/dialogs/LayerMoveDialog';
+import { ReplaceDialog, type ReplaceData } from '@ui/dialogs/ReplaceDialog';
 import { View3D } from '@ui/dialogs/View3D';
 import { SchematicView } from '@ui/SchematicView';
+import { gfxProfile } from '@render/quality';
 
 export function App() {
   const dialog = useEditor((s) => s.dialog);
   const dialogData = useEditor((s) => s.dialogData);
   const dirty = useEditor((s) => s.dirty);
   const mode = useEditor((s) => s.mode);
+  const quality = useEditor((s) => s.quality);
+  const gfxLevel = useEditor((s) => s.gfxLevel);
+
+  // Уровень графики — атрибутом на <html>: стили выключают размытие и анимацию в экономном режиме.
+  useEffect(() => {
+    document.documentElement.dataset.gfx = gfxProfile(quality, gfxLevel).level;
+  }, [quality, gfxLevel]);
 
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -51,6 +61,8 @@ export function App() {
       {dialog === 'about' && <AboutDialog />}
       {dialog === '3d' && <View3D />}
       {dialog === 'dfm' && <DfmDialog />}
+      {dialog === 'layers' && <LayerMoveDialog />}
+      {dialog === 'replace' && <ReplaceDialog data={(dialogData ?? {}) as ReplaceData} />}
       {dialog === 'footprint' && <FootprintEditorDialog data={(dialogData ?? {}) as FootprintEditorData} />}
       {(dialog === 'confirm' || dialog === 'prompt') && dialogData ? <AskDialog data={dialogData as AskData} withInput={dialog === 'prompt'} /> : null}
     </div>

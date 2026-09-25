@@ -28,6 +28,7 @@ import { alignSelection, copySelection, cutSelection, deleteSelection, distribut
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
 import { askConfirm } from './dialogs/AskDialog';
+import { QUALITY_NAMES, detectLevel, type QualityMode } from '@render/quality';
 
 /* Верхняя строка меню в духе EasyEDA: Файл, Правка, Вид, Плата, Трассировка, Экспорт, Справка. */
 
@@ -158,6 +159,19 @@ export function TopBar() {
 
   const toggle = (k: keyof typeof s.show) => s.patch({ show: { ...s.show, [k]: !s.show[k] } });
   const mark = (v: boolean) => (v ? '✓ ' : ' ');
+  const setQuality = (q: QualityMode) => {
+    // «Авто» заново оценивает устройство: вдруг раньше понизили из-за разовой задержки.
+    s.patch(q === 'auto' ? { quality: q, gfxLevel: detectLevel() } : { quality: q });
+    s.setMessage(
+      q === 'eco'
+        ? 'Экономная графика: обычная чёткость, без теней и свечения — меньше нагрев и расход батареи.'
+        : q === 'high'
+          ? 'Максимальная графика: полная чёткость экрана, свечение, блики и анимация.'
+          : q === 'balanced'
+            ? 'Сбалансированная графика: чёткость до 2×, свечение и блики без анимации.'
+            : 'Качество подбирается по устройству и снижается, если кадры рисуются медленно.',
+    );
+  };
 
   const menus: { id: string; label: string; items: Item[] }[] = [
     {
@@ -192,8 +206,10 @@ export function TopBar() {
         { label: 'Выделить всё', kbd: 'Ctrl+A', action: selectAll },
         { label: 'Удалить выделенное', kbd: 'Del', action: deleteSelection, disabled: !s.selection.length },
         { label: 'Повернуть на 90°', kbd: 'R', action: () => rotateSelection(90), disabled: !s.selection.length },
-        { label: 'На другую сторону', kbd: 'F', action: flipSelection, disabled: !s.selection.length },
+        { label: 'На другую сторону или слой', kbd: 'F', action: flipSelection, disabled: !s.selection.length },
+        { label: 'Перенос между слоями…', action: () => s.openDialog('layers') },
         'sep',
+        { label: 'Заменить корпуса у деталей…', action: () => s.openDialog('replace', {}), disabled: !Object.keys(s.project.components).length },
         { label: 'Свойства компонента…', action: () => s.openDialog('component', s.selection.find((r) => r.kind === 'component')?.id), disabled: !s.selection.some((r) => r.kind === 'component') },
       ],
     },
@@ -217,6 +233,14 @@ export function TopBar() {
       id: 'arrange',
       label: 'Упорядочить',
       items: [
+        {
+          label: mark(s.followTracks) + 'Дорожки тянутся за компонентом',
+          action: () => {
+            s.patch({ followTracks: !s.followTracks });
+            s.setMessage(s.followTracks ? 'Дорожки остаются на месте: к оторванным выводам покажутся воздушные линии.' : 'Концы дорожек будут ехать за компонентом с изломом 45°.');
+          },
+        },
+        'sep',
         { label: 'Выровнять по левому краю', action: () => alignSelection('left'), disabled: s.selection.length < 2 },
         { label: 'Выровнять по правому краю', action: () => alignSelection('right'), disabled: s.selection.length < 2 },
         { label: 'Выровнять по верху', action: () => alignSelection('top'), disabled: s.selection.length < 2 },
@@ -244,6 +268,12 @@ export function TopBar() {
         { label: mark(s.show.fab) + 'Сборочный слой', action: () => toggle('fab') },
         'sep',
         { label: '3D-вид платы', kbd: '3', action: () => s.openDialog('3d') },
+        'sep',
+        ...(['auto', 'high', 'balanced', 'eco'] as QualityMode[]).map((q) => ({
+          label: mark(s.quality === q) + 'Графика: ' + QUALITY_NAMES[q].toLowerCase() + (q === 'auto' ? ` (сейчас ${QUALITY_NAMES[s.gfxLevel].toLowerCase()})` : ''),
+          action: () => setQuality(q),
+        })),
+        'sep',
         { label: 'Вся плата', kbd: '0', action: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' })) },
         { label: 'Переключить активный слой', kbd: 'L', action: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l' })) },
         { label: (s.panelOpen ? '✓ ' : ' ') + 'Боковая панель', action: () => s.patch({ panelOpen: !s.panelOpen }) },

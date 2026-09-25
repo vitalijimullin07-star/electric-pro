@@ -10,6 +10,7 @@ import { EXAMPLES } from '@core/examples';
 import { migrateProject } from '@core/io/project-file';
 import { expandGroups } from '@core/model/groups';
 import { safeStorage } from './storage';
+import { detectLevel, type QualityLevel, type QualityMode } from '@render/quality';
 
 /*
  * Состояние редактора. Проект неизменяем: каждое действие делает новую
@@ -18,7 +19,7 @@ import { safeStorage } from './storage';
 
 export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure' | 'dimension';
 
-export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | 'footprint' | '3d' | 'dfm' | null;
+export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | 'footprint' | '3d' | 'dfm' | 'layers' | 'replace' | null;
 
 /** Данные окна подтверждения или ввода: браузерные confirm()/prompt() в изолированных страницах запрещены. */
 export interface AskData {
@@ -104,6 +105,11 @@ export interface EditorState {
   grid: number;
   snap: boolean;
   units: DisplayUnit;
+  /** Концы дорожек на площадках едут за переносимым компонентом. */
+  followTracks: boolean;
+  /** Качество графики и уровень, подобранный в режиме «Авто». */
+  quality: QualityMode;
+  gfxLevel: QualityLevel;
   view: ViewState;
   routeWidth: number | 'auto';
   placeFootprint: string | null;
@@ -240,6 +246,9 @@ export const useEditor = create<EditorState>((set, get) => {
     grid: settings.grid ?? 0.635,
     snap: settings.snap ?? true,
     units: settings.units ?? 'mm',
+    followTracks: settings.followTracks ?? true,
+    quality: settings.quality ?? 'auto',
+    gfxLevel: typeof window !== 'undefined' ? detectLevel() : 'balanced',
     view: { x: -5, y: -5, scale: 4 },
     mode: 'pcb',
     schTool: 'select',
@@ -401,6 +410,9 @@ export const TOOL_HINTS: Record<ToolId, string> = {
   dimension: 'Размер на чертеже: щелчок — начало, щелчок — конец, третий — где провести линию. Shift — без сетки.',
 };
 
+/** Настройки, которые запоминаются в браузере. */
+const SETTINGS_FIELDS = ['grid', 'units', 'snap', 'followTracks', 'quality'] as const satisfies readonly (keyof EditorState)[];
+
 /** Сохранение проекта и настроек в браузере (с задержкой, чтобы не тормозить). */
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let warnedFull = false;
@@ -408,7 +420,7 @@ function saveNow(): void {
   saveTimer = null;
   const s = useEditor.getState();
   const ok = safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
-  safeStorage.setItem(SETTINGS_KEY, JSON.stringify({ grid: s.grid, units: s.units, snap: s.snap }));
+  safeStorage.setItem(SETTINGS_KEY, JSON.stringify(Object.fromEntries(SETTINGS_FIELDS.map((k) => [k, s[k]]))));
   // Место в браузере кончилось (или хранилище запрещено) — предупреждаем один раз, чтобы сохранили файлом.
   if (!ok && safeStorage.available() && !warnedFull) {
     warnedFull = true;
@@ -417,7 +429,7 @@ function saveNow(): void {
 }
 export function setupAutosave(): void {
   useEditor.subscribe((s, prev) => {
-    if (s.project === prev.project && s.grid === prev.grid && s.units === prev.units && s.snap === prev.snap) return;
+    if (s.project === prev.project && SETTINGS_FIELDS.every((k) => s[k] === prev[k])) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 600);
   });

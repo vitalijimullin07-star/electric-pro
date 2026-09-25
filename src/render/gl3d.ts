@@ -79,12 +79,19 @@ export class GlView {
   private meshes: GpuMesh[] = [];
   private tex: Record<'top' | 'bottom', WebGLTexture | null> = { top: null, bottom: null };
   private uintOk: boolean;
+  /** Наибольшая сторона текстуры, которую поддерживает видеокарта. */
+  maxTex: number;
 
-  constructor(private canvas: HTMLCanvasElement) {
-    const gl = (canvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true }) ?? canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+  constructor(
+    private canvas: HTMLCanvasElement,
+    o: { antialias?: boolean } = {},
+  ) {
+    const gl = (canvas.getContext('webgl', { antialias: o.antialias ?? true, preserveDrawingBuffer: true, powerPreference: o.antialias === false ? 'low-power' : 'high-performance' }) ??
+      canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
     if (!gl) throw new Error('Браузер не поддерживает WebGL');
     this.gl = gl;
     this.uintOk = !!gl.getExtension('OES_element_index_uint');
+    this.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     const sh = (type: number, src: string) => {
       const s = gl.createShader(type)!;
       gl.shaderSource(s, src);

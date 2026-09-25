@@ -26,6 +26,7 @@ export function ComponentDialog({ id }: { id: string }) {
     });
 
   const alt = compatibleFootprints(fp);
+  const sameFp = Object.values(p.components).filter((x) => x.footprint === fp.id).length;
   const candidates = showAll ? searchFootprints(fpQuery, libraryFootprints()).slice(0, 40) : alt;
 
   const setPadNet = (pad: string, name: string) => {
@@ -86,6 +87,11 @@ export function ComponentDialog({ id }: { id: string }) {
             <label>
               <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> искать по всей библиотеке
             </label>
+            {sameFp > 1 && (
+              <button className="btn" onClick={() => s.openDialog('replace', { footprint: fp.id })}>
+                Заменить у всех {sameFp} с этим корпусом…
+              </button>
+            )}
           </div>
         </div>
         <div>

@@ -9,6 +9,7 @@ import { labelShape, orthoTail, symbolWorldBox } from '@render/sch-renderer';
 import { askConfirm, askText } from '../ui/dialogs/AskDialog';
 import { findFootprint } from './userlib';
 import { useEditor, type SchRef, type SchTool, type ViewState } from './store';
+import { PointerInput } from './pointer';
 
 /* Схема: команды и управление мышью и касаниями. Изменения — через commit, как на плате. */
 
@@ -275,6 +276,9 @@ export class SchController {
   private lastTap = { at: 0, pos: null as Vec2 | null };
   pointerWorld: Vec2 | null = null;
   lastLabel = 'GND';
+  /** Перо, палец или мышь: допуск попадания и защита от ладони. */
+  private readonly input = new PointerInput();
+  private dragPointer: number | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
 
@@ -288,7 +292,7 @@ export class SchController {
     return { x: v.x + p.x / v.scale, y: v.y + p.y / v.scale };
   }
   private tol(): number {
-    return Math.max(0.6, 7 / S().schView.scale);
+    return Math.max(0.6, (this.input.tolPx() + 1) / S().schView.scale);
   }
 
   zoomAt(sp: Vec2, k: number): void {
@@ -306,7 +310,22 @@ export class SchController {
 
   onPointerDown(e: PointerEvent, space: boolean): void {
     const s = S();
-    this.canvas.setPointerCapture(e.pointerId);
+    const acc = this.input.accept(e, 'down');
+    if (!acc.ok) return; // ладонь, пока работаем пером
+    for (const id of acc.drop) this.pointers.delete(id);
+    if (acc.drop.length) {
+      this.pinch = null;
+      if (this.drag && this.dragPointer !== null && acc.drop.includes(this.dragPointer)) {
+        if (this.drag.kind === 'move' && this.drag.moved) s.endTransaction();
+        this.drag = null;
+      }
+    }
+    this.dragPointer = e.pointerId;
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* указатель уже отпущен (или событие синтетическое) — захват не нужен */
+    }
     const sp = this.sp(e);
     this.pointers.set(e.pointerId, sp);
     if (this.pointers.size === 2) {
@@ -351,6 +370,8 @@ export class SchController {
 
   onPointerMove(e: PointerEvent): void {
     const s = S();
+    if (!this.input.accept(e, 'move').ok) return;
+    if (this.drag && !this.pinch && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     const sp = this.sp(e);
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, sp);
     if (this.pinch && this.pointers.size >= 2) {
@@ -369,7 +390,7 @@ export class SchController {
     }
     const dx = sp.x - d.start.x;
     const dy = sp.y - d.start.y;
-    if (!d.moved && Math.hypot(dx, dy) > (d.touch ? 8 : 4)) {
+    if (!d.moved && Math.hypot(dx, dy) > this.input.dragPx()) {
       d.moved = true;
       if (d.kind === 'move') s.beginTransaction();
     }
@@ -387,7 +408,9 @@ export class SchController {
 
   onPointerUp(e: PointerEvent): void {
     const s = S();
+    if (!this.input.accept(e, 'up').ok) return;
     this.pointers.delete(e.pointerId);
+    if (this.drag && !this.pinch && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     if (this.pinch) {
       if (!this.pointers.size) this.pinch = null;
       this.drag = null;
@@ -415,6 +438,7 @@ export class SchController {
   }
 
   onPointerCancel(e: PointerEvent): void {
+    this.input.accept(e, 'up');
     this.pointers.delete(e.pointerId);
     if (this.drag?.kind === 'move' && this.drag.moved) S().endTransaction();
     this.drag = null;

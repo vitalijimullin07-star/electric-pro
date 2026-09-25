@@ -104,10 +104,10 @@ async function openPage(viewport, touch = false) {
 
   const menuItems = {
     Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
-    Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону', 'Свойства компонента'],
+    Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону или слой', 'Перенос между слоями', 'Заменить корпуса у деталей', 'Свойства компонента'],
     Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
-    Упорядочить: ['Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
-    Вид: ['Сетка', 'Воздушные линии', 'Отметки проверки', 'Позиционные обозначения', 'Номиналы', 'Габариты корпусов', 'Сборочный слой', '3D-вид платы', 'Вся плата', 'Переключить активный слой', 'Боковая панель'],
+    Упорядочить: ['Дорожки тянутся за компонентом', 'Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
+    Вид: ['Сетка', 'Воздушные линии', 'Отметки проверки', 'Позиционные обозначения', 'Номиналы', 'Габариты корпусов', 'Сборочный слой', '3D-вид платы', 'Графика: авто', 'Графика: максимальное', 'Графика: сбалансированное', 'Графика: экономное', 'Вся плата', 'Переключить активный слой', 'Боковая панель'],
     Разместить: ['Компонент из библиотеки', 'Цепи', 'Надпись', 'Размерная линия', 'Область правил', 'Полигон меди', 'Новый контур платы'],
     Трассировка: ['Дорожка', 'Переходное отверстие', 'Перемычка проводом', 'Каплевидные переходы', 'Автотрассировка', 'Стереть все дорожки', 'Проверка правил'],
     Справка: ['Горячие клавиши', 'установить приложение', 'О программе'],
@@ -147,6 +147,8 @@ async function openPage(viewport, touch = false) {
     ['Файл', 'Недавние проекты', 'Открыть проект'],
     ['Файл', 'Экспорт', 'Экспорт'],
     ['Файл', 'Проверка для производства', 'Проверка для производства'],
+    ['Правка', 'Перенос между слоями', 'Перенос между слоями'],
+    ['Правка', 'Заменить корпуса у деталей', 'Замена корпусов'],
     ['Файл', 'Настройки платы', 'Плата, правила и классы цепей'],
     ['Трассировка', 'Автотрассировка', 'Автотрассировка'],
     ['Справка', 'Горячие клавиши', 'Горячие клавиши'],
@@ -473,6 +475,147 @@ async function openPage(viewport, touch = false) {
     await page.keyboard.press('Escape');
     expect(!(await page.evaluate(() => window.__plata.state().pending)), 'Esc не отменил');
     expect(Object.keys((await h.project()).tracks).length === n0, 'лишняя дорожка');
+  });
+
+  await step('перенос компонента тянет концы дорожек (излом 45°), без этого — воздушные линии', async () => {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('s');
+    const before = (await h.chips()).match(/Разведено \d+ из \d+/)[0];
+    const w0 = await page.evaluate(() => window.__plata.pads());
+    const p1 = w0.find((x) => x.label === 'R1.1');
+    const p2 = w0.find((x) => x.label === 'R1.2');
+    const drag = async (dx, dy) => {
+      const a = await h.toScreen((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+      const b = await h.toScreen((p1.x + p2.x) / 2 + dx, (p1.y + p2.y) / 2 + dy);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(a.x + 8, a.y + 8, { steps: 2 });
+      await page.mouse.move(b.x, b.y, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(250);
+    };
+    await drag(3.81, 5.08);
+    const w1 = await page.evaluate(() => window.__plata.pads());
+    const n1 = w1.find((x) => x.label === 'R1.1');
+    expect(Math.hypot(n1.x - p1.x, n1.y - p1.y) > 3, 'R1 не сдвинулся');
+    const p = await h.project();
+    const ends = Object.values(p.tracks).flatMap((t) => [t.points[0], t.points[t.points.length - 1]]);
+    expect(ends.some((q) => Math.hypot(q.x - n1.x, q.y - n1.y) < 0.01), 'конец дорожки не приехал на R1.1');
+    for (const t of Object.values(p.tracks))
+      for (let i = 0; i + 1 < t.points.length; i++) {
+        const dx = Math.abs(t.points[i + 1].x - t.points[i].x);
+        const dy = Math.abs(t.points[i + 1].y - t.points[i].y);
+        expect(dx < 1e-3 || dy < 1e-3 || Math.abs(dx - dy) < 1e-3, 'отрезок не под 45°: ' + JSON.stringify(t.points));
+      }
+    expect((await h.chips()).includes(before), 'разводка порвалась: ' + (await h.chips()));
+    await page.keyboard.press('Control+z');
+    // Выключаем — дорожки остаются, появляются воздушные линии.
+    await h.menu('Упорядочить', 'Дорожки тянутся за компонентом');
+    await drag(3.81, 5.08);
+    expect(!(await h.chips()).includes(before), 'дорожки уехали, хотя выключено: ' + (await h.chips()));
+    await page.keyboard.press('Control+z');
+    await h.menu('Упорядочить', 'Дорожки тянутся за компонентом');
+    expect((await h.chips()).includes(before), 'после отмены: ' + (await h.chips()));
+  });
+
+  await step('перенос между слоями: F у дорожки, обмен слоёв меди через окно, отмена', async () => {
+    const p0 = await h.project();
+    const t = Object.values(p0.tracks).find((x) => x.layer === 'F.Cu');
+    const mid = { x: (t.points[0].x + t.points[1].x) / 2, y: (t.points[0].y + t.points[1].y) / 2 };
+    await page.keyboard.press('Escape');
+    await h.clickAt(mid.x, mid.y);
+    const sel = (await page.evaluate(() => window.__plata.state().selection))[0];
+    expect(sel?.kind === 'track', 'не выделилась дорожка: ' + JSON.stringify(sel));
+    const id = sel.id;
+    const layer0 = p0.tracks[id].layer;
+    await page.keyboard.press('f');
+    let p = await h.project();
+    expect(p.tracks[id].layer !== layer0, 'слой не сменился');
+    expect(/Перенесено объектов: 1/.test(await h.msg()), 'сообщение: ' + (await h.msg()));
+    await page.keyboard.press('Control+z');
+    const nF = Object.values(p0.tracks).filter((x) => x.layer === 'F.Cu').length;
+    const nB = Object.values(p0.tracks).filter((x) => x.layer === 'B.Cu').length;
+    await h.menu('Правка', 'Перенос между слоями');
+    await page.locator('.modal label', { hasText: 'всё со слоя' }).locator('input').check();
+    await page.locator('.modal select').first().selectOption('F.Cu');
+    await page.locator('.modal select').nth(1).selectOption('B.Cu');
+    await h.hit(page.locator('.modal footer button', { hasText: 'Перенести' }));
+    p = await h.project();
+    expect(Object.values(p.tracks).filter((x) => x.layer === 'B.Cu').length === nF && Object.values(p.tracks).filter((x) => x.layer === 'F.Cu').length === nB, 'слои не поменялись местами');
+    await page.keyboard.press('Control+z');
+    p = await h.project();
+    expect(Object.values(p.tracks).filter((x) => x.layer === 'F.Cu').length === nF, 'отмена не вернула');
+  });
+
+  await step('массовая замена корпусов: все резисторы 0805 → 1206, отмена', async () => {
+    await h.menu('Правка', 'Заменить корпуса у деталей');
+    expect((await h.dialogTitle()) === 'Замена корпусов', 'окно: ' + (await h.dialogTitle()));
+    await page.locator('.modal select').selectOption({ label: 'Резисторы — 2' });
+    await page.fill('.modal input.inp', 'R_1206_3216');
+    await h.hit(page.locator('.modal .list .item', { hasText: '1206' }).first());
+    await h.hit(page.locator('.modal footer button', { hasText: 'Заменить у 2' }));
+    const p = await h.project();
+    const rs = Object.values(p.components).filter((c) => /^R\d/.test(c.ref));
+    expect(rs.length === 2 && rs.every((c) => c.footprint === 'R_1206_3216Metric'), 'корпуса: ' + rs.map((c) => c.footprint).join(','));
+    expect(/Корпус «.*» у деталей: 2/.test(await h.msg()), 'сообщение: ' + (await h.msg()));
+    await page.keyboard.press('Control+z');
+    const q = await h.project();
+    expect(Object.values(q.components).filter((c) => /^R\d/.test(c.ref)).every((c) => c.footprint === 'R_0805_2012Metric'), 'отмена не вернула корпуса');
+  });
+
+  await step('перо: ладонь при работе пером не двигает плату, долгое нажатие пером — свойства', async () => {
+    const pe = (type, x, y, o = {}) =>
+      page.evaluate(
+        ([type, x, y, o]) => {
+          const c = document.querySelector('.stage canvas');
+          c.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: o.id ?? 7, pointerType: o.kind ?? 'pen', button: o.button ?? (type === 'pointermove' ? -1 : 0), buttons: o.buttons ?? (type === 'pointerup' ? 0 : 1), isPrimary: true }));
+        },
+        [type, x, y, o],
+      );
+    const box = await page.locator('.stage canvas').boundingBox();
+    const v0 = await page.evaluate(() => window.__plata.view());
+    // Перо над экраном, потом ладонь ведёт по пустому месту.
+    await pe('pointermove', box.x + 50, box.y + 400, { buttons: 0 });
+    await pe('pointerdown', box.x + 300, box.y + 600, { kind: 'touch', id: 21 });
+    await pe('pointermove', box.x + 420, box.y + 650, { kind: 'touch', id: 21 });
+    await pe('pointerup', box.x + 420, box.y + 650, { kind: 'touch', id: 21 });
+    const v1 = await page.evaluate(() => window.__plata.view());
+    expect(v1.x === v0.x && v1.y === v0.y, 'ладонь сдвинула плату');
+    // Через секунду без пера палец снова двигает плату.
+    await page.waitForTimeout(900);
+    await pe('pointerdown', box.x + 300, box.y + 600, { kind: 'touch', id: 22 });
+    await pe('pointermove', box.x + 420, box.y + 650, { kind: 'touch', id: 22 });
+    await pe('pointerup', box.x + 420, box.y + 650, { kind: 'touch', id: 22 });
+    const v2 = await page.evaluate(() => window.__plata.view());
+    expect(v2.x !== v1.x || v2.y !== v1.y, 'палец не двигает плату');
+    // Вид обратно, как был: следующие шаги щёлкают по координатам платы.
+    await pe('pointerdown', box.x + 420, box.y + 650, { kind: 'touch', id: 23 });
+    await pe('pointermove', box.x + 300, box.y + 600, { kind: 'touch', id: 23 });
+    await pe('pointerup', box.x + 300, box.y + 600, { kind: 'touch', id: 23 });
+    const v3 = await page.evaluate(() => window.__plata.view());
+    expect(Math.abs(v3.x - v0.x) < 1e-6 && Math.abs(v3.y - v0.y) < 1e-6, 'вид не вернулся');
+    // Долгое нажатие пером на резистор — окно свойств.
+    const w = await page.evaluate(() => window.__plata.pads());
+    const a = w.find((x) => x.label === 'R2.1');
+    const b = w.find((x) => x.label === 'R2.2');
+    const q = await h.toScreen((a.x + b.x) / 2, (a.y + b.y) / 2);
+    await pe('pointerdown', q.x, q.y);
+    await page.waitForTimeout(750);
+    await pe('pointerup', q.x, q.y);
+    expect(/^R2/.test((await h.dialogTitle()) ?? ''), 'окно: ' + (await h.dialogTitle()));
+    await h.closeDialog();
+  });
+
+  await step('качество графики: экономное и обратно авто', async () => {
+    await h.menu('Вид', 'Графика: экономное');
+    expect((await page.evaluate(() => document.documentElement.dataset.gfx)) === 'eco', 'атрибут: ' + (await page.evaluate(() => document.documentElement.dataset.gfx)));
+    await h.menu('Вид', 'Графика: максимальное');
+    expect((await page.evaluate(() => document.documentElement.dataset.gfx)) === 'high', 'не максимальное');
+    await h.menu('Вид', 'Графика: авто');
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('plata2:settings') || '{}').quality);
+    await page.waitForTimeout(700);
+    const saved2 = await page.evaluate(() => JSON.parse(localStorage.getItem('plata2:settings') || '{}').quality);
+    expect(saved === 'auto' || saved2 === 'auto', 'настройка не сохранилась: ' + saved2);
   });
 
   await step('дорожка от середины косого участка другой дорожки начинается точно на её оси', async () => {
@@ -1134,6 +1277,8 @@ async function openPage(viewport, touch = false) {
     const list = [
       ['Файл', 'Экспорт'],
       ['Файл', 'Проверка для производства'],
+      ['Правка', 'Перенос между слоями'],
+      ['Правка', 'Заменить корпуса у деталей'],
       ['Файл', 'Настройки платы'],
       ['Файл', 'Новый проект'],
       ['Файл', 'Недавние проекты'],

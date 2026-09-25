@@ -5,6 +5,7 @@ import { boardTexture } from '@render/board-texture';
 import { GlView, type Camera } from '@render/gl3d';
 import { saveTextFile } from '../files';
 import { safeName } from '@core/io/gerber';
+import { gfxProfile } from '@render/quality';
 
 /*
  * 3D-вид платы: вращение — мышь или один палец, сдвиг — правая кнопка, Shift или два
@@ -14,6 +15,9 @@ import { safeName } from '@core/io/gerber';
 export function View3D() {
   const s = useEditor();
   const p = s.project;
+  // Качество: плотность пикселей, сглаживание и разрешение текстуры платы.
+  const gfx = gfxProfile(s.quality, s.gfxLevel);
+  const texPx = gfx.level === 'high' ? 3072 : gfx.level === 'balanced' ? 2048 : 1024;
   const cvRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<GlView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +30,7 @@ export function View3D() {
     if (raf.current) return;
     raf.current = requestAnimationFrame(() => {
       raf.current = 0;
-      viewRef.current?.draw(cam.current, Math.min(2, window.devicePixelRatio || 1));
+      viewRef.current?.draw(cam.current, Math.min(gfx.dprCap, window.devicePixelRatio || 1));
     });
   };
 
@@ -45,10 +49,11 @@ export function View3D() {
   useEffect(() => {
     const cv = cvRef.current!;
     try {
-      if (!viewRef.current) viewRef.current = new GlView(cv);
+      if (!viewRef.current) viewRef.current = new GlView(cv, { antialias: gfx.antialias3d });
       const scene = buildScene3D(p);
       if (!parts) scene.meshes = scene.meshes.slice(0, 3);
-      viewRef.current.setScene(scene, { top: boardTexture(p, 'top'), bottom: boardTexture(p, 'bottom') });
+      const tp = Math.min(texPx, viewRef.current.maxTex || 2048);
+      viewRef.current.setScene(scene, { top: boardTexture(p, 'top', tp), bottom: boardTexture(p, 'bottom', tp) });
       const b = scene.box;
       const first = box.current.size === 100 && box.current.cx === 0;
       box.current = { cx: (b.minX + b.maxX) / 2, cy: (b.minY + b.maxY) / 2, size: Math.max(b.maxX - b.minX, b.maxY - b.minY) };
@@ -57,7 +62,7 @@ export function View3D() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [p, parts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p, parts, texPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => viewRef.current?.dispose(), []);
 

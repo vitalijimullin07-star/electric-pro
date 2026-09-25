@@ -9,11 +9,28 @@ import { groupOf, pruneGroups } from '@core/model/groups';
 import { getWorld } from '@core/model/world';
 import { boxOfPoints, type Box } from '@core/math/geom';
 import { snapTo } from '@core/units';
+import { applyFollow, planFollow } from '@core/model/follow';
+import { applyLayerMove, planLayerMove, type LayerMovePlan, type LayerTarget } from '@core/model/layer-move';
+import { LAYERS } from '@core/model/layers';
 import { useEditor } from './store';
 
 /* Команды редактора: работают через store.commit и знают про выделение. */
 
 const S = () => useEditor.getState();
+
+/**
+ * Правка с дорожками за компонентами: концы на площадках переносимых деталей
+ * едут вместе с ними (если это включено). translate — общий сдвиг всего выделенного.
+ */
+export function commitFollowing(sel: ItemRef[], fn: (d: Project) => void, translate?: Vec2): void {
+  const s = S();
+  const base = s.project;
+  const plan = s.followTracks ? planFollow(base, sel) : null;
+  s.commit((d) => {
+    fn(d);
+    if (plan) applyFollow(d, base, plan, { translate });
+  });
+}
 
 export function deleteSelection(): void {
   const s = S();
@@ -85,17 +102,40 @@ export function rotateSelection(deg: number): void {
     const dy = q.y - c.y;
     return { x: +(c.x + dx * Math.cos(r) + dy * Math.sin(r)).toFixed(4), y: +(c.y - dx * Math.sin(r) + dy * Math.cos(r)).toFixed(4) };
   };
-  s.commit((d) => moveItems(d, s.selection, rot, (a) => normAngle(a + deg)));
+  commitFollowing(s.selection, (d) => moveItems(d, s.selection, rot, (a) => normAngle(a + deg)));
 }
 
+/** Сообщение по итогам переноса между слоями. */
+export function layerMoveMessage(plan: LayerMovePlan, to?: string): string {
+  const parts = [`Перенесено объектов: ${plan.moves.length}${to ? ` на «${to}»` : ''}.`];
+  if (plan.vias.length) parts.push(`Поставлено переходных на стыках: ${plan.vias.length}.`);
+  if (plan.broken.length) parts.push(`Концов на планарных площадках прежнего слоя: ${plan.broken.length} — там появятся воздушные линии.`);
+  if (plan.skipped) parts.push(`Нельзя перенести: ${plan.skipped} (медь — только на медь платы, надписи — не на контур).`);
+  return parts.join(' ');
+}
+
+/** Выделенное (кроме компонентов) — на другой слой. */
+export function moveSelectionToLayer(target: LayerTarget): LayerMovePlan | null {
+  const s = S();
+  const refs = s.selection.filter((r) => r.kind !== 'component');
+  if (!refs.length) return null;
+  const plan = planLayerMove(s.project, refs, target);
+  if (plan.moves.length) s.commit((d) => applyLayerMove(d, plan));
+  s.setMessage(plan.moves.length ? layerMoveMessage(plan, target === 'flip' ? undefined : LAYERS[target].name) : plan.skipped ? layerMoveMessage(plan) : 'Выделенное уже на этом слое.');
+  return plan;
+}
+
+/** F: компоненты — на другую сторону платы, дорожки, полигоны и графика — на парный слой. */
 export function flipSelection(): void {
   const s = S();
   const comps = s.selection.filter((r) => r.kind === 'component');
-  if (!comps.length) {
-    s.setMessage('На другую сторону переносятся компоненты: выберите компонент.');
+  const others = s.selection.filter((r) => r.kind === 'track' || r.kind === 'zone' || r.kind === 'drawing');
+  if (!comps.length && !others.length) {
+    s.setMessage('На другую сторону переносятся компоненты, дорожки, полигоны и графика: выберите их.');
     return;
   }
-  if (s.project.board.copperLayers === 1) {
+  const plan = others.length ? planLayerMove(s.project, others, 'flip') : null;
+  if (comps.length && s.project.board.copperLayers === 1) {
     s.setMessage('Плата односторонняя: планарные детали и так стоят со стороны меди, выводные — сверху.');
   }
   s.commit((d) => {
@@ -107,7 +147,9 @@ export function flipSelection(): void {
       if (d.board.copperLayers === 1 && smd && c.side === 'bottom') continue;
       c.side = c.side === 'top' ? 'bottom' : ('top' as Side);
     }
+    if (plan) applyLayerMove(d, plan);
   });
+  if (plan && (plan.moves.length || plan.skipped)) s.setMessage(layerMoveMessage(plan));
 }
 
 /** Двигает объекты: map — преобразование точки, rot — новый угол компонента. */
@@ -156,7 +198,7 @@ export function moveItems(d: Project, sel: ItemRef[], map: (q: Vec2) => Vec2, ro
 export function translateSelectionBy(dx: number, dy: number): void {
   const s = S();
   if (!s.selection.length) return;
-  s.commit((d) => moveItems(d, s.selection, (q) => ({ x: +(q.x + dx).toFixed(4), y: +(q.y + dy).toFixed(4) })));
+  commitFollowing(s.selection, (d) => moveItems(d, s.selection, (q) => ({ x: +(q.x + dx).toFixed(4), y: +(q.y + dy).toFixed(4) })), { x: dx, y: dy });
 }
 
 export function selectAll(): void {
@@ -460,7 +502,7 @@ export function alignSelection(mode: AlignMode): void {
   const maxX = Math.max(...units.map((u) => u.box.maxX));
   const minY = Math.min(...units.map((u) => u.box.minY));
   const maxY = Math.max(...units.map((u) => u.box.maxY));
-  s.commit((d) => {
+  commitFollowing(s.selection, (d) => {
     for (const u of units) {
       const b = u.box;
       const dx = mode === 'left' ? minX - b.minX : mode === 'right' ? maxX - b.maxX : mode === 'hcenter' ? (minX + maxX) / 2 - (b.minX + b.maxX) / 2 : 0;
@@ -484,7 +526,7 @@ export function distributeSelection(axis: 'h' | 'v'): void {
   const span = hi(units[units.length - 1]) - lo(units[0]);
   const total = units.reduce((a, u) => a + hi(u) - lo(u), 0);
   const gap = (span - total) / (units.length - 1);
-  s.commit((d) => {
+  commitFollowing(s.selection, (d) => {
     let pos = lo(units[0]);
     for (const u of units) {
       const shift = pos - lo(u);

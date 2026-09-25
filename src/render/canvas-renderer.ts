@@ -12,6 +12,7 @@ import { graphicPrims, type LayerPrims, type Prim } from '@core/render/flatten';
 import { textStrokes } from '@core/render/stroke-font';
 import type { EditorState, Pending, ViewState } from '@editor/store';
 import { fmtLen, type DisplayUnit } from '@core/units';
+import { GFX, type GfxProfile } from './quality';
 
 /*
  * Отрисовка платы на Canvas 2D. Вид сверху: нижняя медь под верхней,
@@ -20,7 +21,8 @@ import { fmtLen, type DisplayUnit } from '@core/units';
  */
 
 export const COLORS = {
-  bg: '#12161b',
+  bg: '#0d1116',
+  bgCenter: '#18202a',
   boardFill: '#1b3a2a',
   boardEdge: '#e8c44a',
   grid: 'rgba(255,255,255,0.10)',
@@ -32,7 +34,7 @@ export const COLORS = {
   via: '#c9c9c9',
   wire: '#7fe0ff',
   rats: '#9fd8c0',
-  selection: '#5fe0ff',
+  selection: '#4fd1ff',
   hover: 'rgba(255,255,255,0.65)',
   drcError: '#ff4f3a',
   drcWarn: '#ffb020',
@@ -95,6 +97,30 @@ export interface RenderInput {
   ghost?: EditorState['ghost'];
   /** Перетаскиваемые компоненты и т. п. рисуются как есть — они уже в проекте. */
   dragging?: boolean;
+  /** Качество: свечение, блики, тени, анимация. */
+  gfx?: GfxProfile;
+  /** Время кадра, мс (для анимации). */
+  time?: number;
+  /** Прицел пера над экраном. */
+  penHover?: Vec2 | null;
+}
+
+/** Есть ли что анимировать: бегущий пунктир выделения, пульсация ошибок, подсветка цепи. */
+export function wantsAnimation(inp: Pick<RenderInput, 'gfx' | 'selection' | 'highlightNet' | 'pending'>): boolean {
+  return !!inp.gfx?.animate && (inp.selection.length > 0 || !!inp.highlightNet || inp.pending?.kind === 'route');
+}
+
+/** Цвет светлее на долю k (для бликов меди). */
+const lightCache = new Map<string, string>();
+function lighter(hex: string, k: number): string {
+  const key = hex + k;
+  let c = lightCache.get(key);
+  if (c) return c;
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (v: number) => Math.round(v + (255 - v) * k);
+  c = `rgb(${mix((n >> 16) & 255)},${mix((n >> 8) & 255)},${mix(n & 255)})`;
+  lightCache.set(key, c);
+  return c;
 }
 
 export function worldToScreen(v: ViewState, p: Vec2): Vec2 {
@@ -155,6 +181,24 @@ function componentGraphics(p: Project, w: World, refs: boolean, values: boolean,
   return out;
 }
 
+/** Фон с мягким виньетированием: рисуется один раз на размер холста (градиент на весь экран дорог). */
+let backdropCache: { w: number; h: number; cv: HTMLCanvasElement | OffscreenCanvas } | null = null;
+function backdrop(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {
+  // Фон размытый по природе: хватает половинного разрешения.
+  const w = Math.max(1, Math.round(width / 2));
+  const h = Math.max(1, Math.round(height / 2));
+  if (backdropCache && backdropCache.w === w && backdropCache.h === h) return backdropCache.cv;
+  const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const c = cv.getContext('2d') as CanvasRenderingContext2D;
+  const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.1, w / 2, h / 2, Math.max(w, h) * 0.75);
+  g.addColorStop(0, COLORS.bgCenter);
+  g.addColorStop(1, COLORS.bg);
+  c.fillStyle = g;
+  c.fillRect(0, 0, w, h);
+  backdropCache = { w, h, cv };
+  return cv;
+}
+
 export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): void {
   const { project: p, view: v, width, height, dpr } = inp;
   const w = getWorld(p);
@@ -163,24 +207,58 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   const px = 1 / v.scale; // один пиксель в мм
   const vb = visibleBox(v, width, height);
 
+  const fx = inp.gfx ?? GFX.balanced;
+  const time = inp.time ?? 0;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, width, height);
+  if (fx.shadows) ctx.drawImage(backdrop(width, height), 0, 0, width, height);
+  else {
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, width, height);
+  }
   ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, -v.x * v.scale * dpr, -v.y * v.scale * dpr);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  /** Свечение (размытие в пикселях экрана). */
+  const glow = (color: string, blurPx: number) => {
+    if (!fx.glow) return;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = blurPx * dpr;
+  };
+  const noGlow = () => {
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+  };
+  const ants = fx.animate ? -time / 45 : 0;
 
   // Плата.
   const outline = boardPolygon(p.board);
-  ctx.beginPath();
-  outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-  ctx.closePath();
+  const boardPath = new Path2D();
+  const outlinePath = new Path2D();
+  outline.forEach((q, i) => (i ? outlinePath.lineTo(q.x, q.y) : outlinePath.moveTo(q.x, q.y)));
+  outlinePath.closePath();
+  boardPath.addPath(outlinePath);
   for (const cut of p.board.cutouts) {
-    cut.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-    ctx.closePath();
+    cut.forEach((q, i) => (i ? boardPath.lineTo(q.x, q.y) : boardPath.moveTo(q.x, q.y)));
+    boardPath.closePath();
+  }
+  if (fx.shadows) {
+    // Тень платы на фоне: ореол из нескольких полупрозрачных обводок, сдвинутый вниз
+    // (размытие shadowBlur на всю плату слишком дорого на телефоне).
+    ctx.save();
+    ctx.translate(0, px * 5);
+    for (const [w, a] of [
+      [18, 0.09],
+      [7, 0.16],
+    ]) {
+      ctx.strokeStyle = `rgba(0,0,0,${a})`;
+      ctx.lineWidth = px * w;
+      ctx.stroke(outlinePath);
+    }
+    ctx.restore();
   }
   ctx.fillStyle = p.board.maskColor ?? COLORS.boardFill;
-  ctx.fill('evenodd');
+  ctx.fill(boardPath, 'evenodd');
+
 
   // Сетка.
   if (inp.show.grid && inp.grid * v.scale >= 5) {
@@ -285,15 +363,26 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       const isHl = hlNet && net === hlNet;
       const isSel = selKeys.has('track:' + t.id);
       if (isSel || isHl || hoverKey === 'track:' + t.id) {
-        ctx.strokeStyle = isSel ? COLORS.selection : isHl ? COLORS.netHighlight : COLORS.hover;
+        const c = isSel ? COLORS.selection : isHl ? COLORS.netHighlight : COLORS.hover;
+        ctx.strokeStyle = c;
         ctx.lineWidth = t.width + px * 4;
         ctx.globalAlpha = 0.45;
+        if (isSel || isHl) glow(c, 10);
         strokePoly(ctx, t.points);
+        noGlow();
         ctx.globalAlpha = active ? 1 : 0.55;
       }
       ctx.strokeStyle = net === 'short' ? COLORS.drcError : col;
       ctx.lineWidth = Math.max(t.width, px);
       strokePoly(ctx, t.points);
+      if (fx.sheen && active && t.width * v.scale > 3) {
+        // Блик по оси дорожки — медь выглядит объёмной.
+        ctx.strokeStyle = lighter(col, 0.55);
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = t.width * 0.3;
+        strokePoly(ctx, t.points);
+        ctx.globalAlpha = 1;
+      }
     }
     // Площадки этого слоя.
     if (inp.show.pads)
@@ -309,8 +398,18 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
           ctx.fill();
           ctx.globalAlpha = active ? 1 : 0.55;
         }
-        ctx.fillStyle = wp.pad.type === 'tht' ? COLORS.padTht : layer === 'F.Cu' ? COLORS.padTop : COLORS.padBottom;
-        ctx.fill(shapePath(wp.shape));
+        const pc = wp.pad.type === 'tht' ? COLORS.padTht : layer === 'F.Cu' ? COLORS.padTop : COLORS.padBottom;
+        ctx.fillStyle = pc;
+        const path = shapePath(wp.shape);
+        ctx.fill(path);
+        if (fx.sheen && v.scale > 4) {
+          // Светлый ободок — площадка как лужёная.
+          ctx.strokeStyle = lighter(pc, 0.5);
+          ctx.lineWidth = px * 1.2;
+          ctx.globalAlpha = (active ? 0.8 : 0.45);
+          ctx.stroke(path);
+          ctx.globalAlpha = active ? 1 : 0.55;
+        }
       }
   }
   ctx.globalAlpha = 1;
@@ -341,12 +440,21 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     if (isSel || (hlNet && net === hlNet) || hoverKey === 'via:' + v2.id) {
       ctx.fillStyle = isSel ? COLORS.selection : COLORS.netHighlight;
       ctx.globalAlpha = 0.45;
+      if (isSel) glow(COLORS.selection, 10);
       ctx.beginPath();
       ctx.arc(v2.at.x, v2.at.y, v2.diameter / 2 + px * 3, 0, Math.PI * 2);
       ctx.fill();
+      noGlow();
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = net === 'short' ? COLORS.drcError : COLORS.via;
+    if (fx.sheen && v.scale > 4) {
+      // Переходное — металлический «пятак» с бликом.
+      const r0 = v2.diameter / 2;
+      const g = ctx.createRadialGradient(v2.at.x - r0 * 0.35, v2.at.y - r0 * 0.35, r0 * 0.1, v2.at.x, v2.at.y, r0);
+      g.addColorStop(0, '#f2f2f2');
+      g.addColorStop(1, net === 'short' ? COLORS.drcError : '#9a9a9a');
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = net === 'short' ? COLORS.drcError : COLORS.via;
     ctx.beginPath();
     ctx.arc(v2.at.x, v2.at.y, v2.diameter / 2, 0, Math.PI * 2);
     ctx.fill();
@@ -380,16 +488,15 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   }
   // Контур платы.
   if (vis('Edge.Cuts')) {
+    if (fx.glow) {
+      // Мягкое свечение контура — широкой прозрачной обводкой.
+      ctx.strokeStyle = 'rgba(232,196,74,0.16)';
+      ctx.lineWidth = px * 7;
+      ctx.stroke(boardPath);
+    }
     ctx.strokeStyle = COLORS.boardEdge;
     ctx.lineWidth = Math.max(0.15, px * 1.5);
-    ctx.beginPath();
-    outline.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-    ctx.closePath();
-    for (const cut of p.board.cutouts) {
-      cut.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-      ctx.closePath();
-    }
-    ctx.stroke();
+    ctx.stroke(boardPath);
   }
 
   // Перемычки проводом.
@@ -421,10 +528,12 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.strokeStyle = hl ? COLORS.netHighlight : COLORS.rats;
       ctx.globalAlpha = hl ? 0.95 : 0.6;
       ctx.setLineDash(hl ? [] : [0.6, 0.4]);
+      if (hl) glow(COLORS.netHighlight, 6);
       ctx.beginPath();
       ctx.moveTo(r.a.x, r.a.y);
       ctx.lineTo(r.b.x, r.b.y);
       ctx.stroke();
+      noGlow();
     }
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
@@ -435,11 +544,19 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     ctx.strokeStyle = color;
     ctx.lineWidth = px * wpx;
     ctx.setLineDash([px * 6, px * 4]);
+    ctx.lineDashOffset = ants * px;
+    if (color === COLORS.selection) {
+      glow(color, 8);
+      ctx.fillStyle = 'rgba(79,209,255,0.06)';
+    }
     ctx.beginPath();
     pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
     ctx.closePath();
+    if (color === COLORS.selection && fx.shadows) ctx.fill();
     ctx.stroke();
+    noGlow();
     ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
   };
   for (const wc of w.components) {
     const k = 'component:' + wc.component.id;
@@ -479,7 +596,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     const rep = runDrc(inp.base ?? p);
     for (const m of rep.markers) {
       const col = m.severity === 'error' ? COLORS.drcError : COLORS.drcWarn;
-      const r = px * 7;
+      const r = px * (7 + (fx.animate && m.severity === 'error' ? 1.5 * Math.sin(time / 260) : 0));
       ctx.strokeStyle = col;
       ctx.lineWidth = px * 1.6;
       ctx.beginPath();
@@ -488,6 +605,13 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.lineTo(m.at.x + r * 0.5, m.at.y + r * 0.5);
       ctx.moveTo(m.at.x + r * 0.5, m.at.y - r * 0.5);
       ctx.lineTo(m.at.x - r * 0.5, m.at.y + r * 0.5);
+      if (fx.glow) {
+        ctx.globalAlpha = 0.25;
+        ctx.lineWidth = px * 5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = px * 1.6;
+      }
       ctx.stroke();
     }
   }
@@ -545,6 +669,25 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       for (const [l, list] of Object.entries(tmp)) for (const pr of list ?? []) strokePrim(ctx, pr, l.endsWith('Courtyard') ? COLORS.selection : LAYERS[l as LayerId].color, px);
       ctx.globalAlpha = 1;
     }
+  }
+  // Прицел пера над экраном: куда попадёт касание (с привязкой к сетке).
+  if (inp.penHover) {
+    const q = inp.penHover;
+    ctx.strokeStyle = COLORS.selection;
+    ctx.lineWidth = px * 1.2;
+    glow(COLORS.selection, 6);
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, px * 7, 0, Math.PI * 2);
+    ctx.moveTo(q.x - px * 12, q.y);
+    ctx.lineTo(q.x - px * 3, q.y);
+    ctx.moveTo(q.x + px * 3, q.y);
+    ctx.lineTo(q.x + px * 12, q.y);
+    ctx.moveTo(q.x, q.y - px * 12);
+    ctx.lineTo(q.x, q.y - px * 3);
+    ctx.moveTo(q.x, q.y + px * 3);
+    ctx.lineTo(q.x, q.y + px * 12);
+    ctx.stroke();
+    noGlow();
   }
   if (inp.measure) {
     const { a, b } = inp.measure;

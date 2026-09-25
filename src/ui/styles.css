@@ -444,6 +444,10 @@ textarea:focus {
 .list .item:hover {
   background: var(--panel-2);
 }
+.list.replace-list {
+  max-height: 34vh;
+  overflow: auto;
+}
 .list .item.on {
   background: rgba(79, 179, 255, 0.15);
   outline: 1px solid rgba(79, 179, 255, 0.4);
@@ -885,4 +889,193 @@ table.grid select {
   .stage .hud {
     right: 56px;
   }
+}
+
+/* ---------------- современный вид ----------------
+ * Стекло для плавающих элементов, мягкие тени, акцент с градиентом, плавные переходы.
+ * В экономном режиме графики (data-gfx="eco" на <html>) размытие, тени и анимация выключены.
+ */
+:root {
+  --bg: #0d1116;
+  --panel: #151b23;
+  --panel-2: #1e2630;
+  --line: #28323e;
+  --accent: #4fd1ff;
+  --accent-2: #6d8bff;
+  --accent-ink: #04121c;
+  --radius: 10px;
+  --glass: rgba(24, 31, 40, 0.78);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.topbar {
+  background: linear-gradient(180deg, #1a212b 0%, #141a22 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+.toolbar,
+.panel,
+.statusbar {
+  background: var(--panel);
+}
+.menu > button,
+.tbtn,
+.btn,
+.ibtn,
+.stage .zoombar button,
+.list .item,
+.panel .tabs button,
+.mode-switch button,
+.layer-row {
+  transition:
+    background-color 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.15s var(--ease);
+}
+.tbtn {
+  border-radius: 10px;
+}
+.tbtn.on {
+  background: rgba(79, 209, 255, 0.16);
+  color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px rgba(79, 209, 255, 0.5),
+    0 0 14px rgba(79, 209, 255, 0.18);
+}
+.tbtn.on .key {
+  color: var(--accent);
+}
+.btn {
+  border-radius: 8px;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 209, 255, 0.1);
+}
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  border-color: transparent;
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px rgba(79, 209, 255, 0.25);
+}
+.btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 209, 255, 0.35);
+}
+.btn:active:not(:disabled),
+.tbtn:active,
+.ibtn:active {
+  transform: scale(0.97);
+}
+input.inp:focus,
+select.sel:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 209, 255, 0.22);
+}
+.chip,
+.stage .zoombar button,
+.ibtn,
+.menu-drop,
+.stage .ghost {
+  background: var(--glass);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.stage .zoombar button,
+.ibtn {
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.menu-drop {
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  animation: pop-in 0.14s var(--ease);
+  transform-origin: top left;
+}
+.modal-bg {
+  background: rgba(4, 8, 12, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.modal {
+  border-radius: 16px;
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.3);
+  animation: pop-in 0.18s var(--ease);
+}
+.modal header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+  border-radius: 16px 16px 0 0;
+}
+.panel .tabs button.on {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.list .item.on {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.mode-switch button.on {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: var(--accent-ink);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334050 transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #334050;
+  border-radius: 8px;
+}
+/* Перо и палец: цели крупнее (на телефоне и планшете). */
+@media (pointer: coarse) {
+  .menu-drop button {
+    min-height: 40px;
+  }
+  .list .item {
+    min-height: 40px;
+  }
+}
+/* Экономная графика: без размытия, теней и анимации. */
+[data-gfx='eco'] * {
+  transition: none !important;
+  animation: none !important;
+}
+[data-gfx='eco'] .chip,
+[data-gfx='eco'] .stage .zoombar button,
+[data-gfx='eco'] .ibtn,
+[data-gfx='eco'] .menu-drop,
+[data-gfx='eco'] .modal-bg,
+[data-gfx='eco'] .stage .ghost {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-gfx='eco'] .chip,
+[data-gfx='eco'] .stage .zoombar button,
+[data-gfx='eco'] .ibtn,
+[data-gfx='eco'] .menu-drop {
+  background: #1a2028;
+}
+[data-gfx='eco'] .modal,
+[data-gfx='eco'] .menu-drop,
+[data-gfx='eco'] .btn.primary,
+[data-gfx='eco'] .stage .zoombar button {
+  box-shadow: none;
 }

@@ -32,6 +32,9 @@ export function LayersPanel() {
           </div>
         );
       })}
+      <button className="btn" style={{ marginTop: 6 }} onClick={() => s.openDialog('layers')}>
+        Перенести или поменять слои…
+      </button>
       <h4>Показывать</h4>
       {(
         [
