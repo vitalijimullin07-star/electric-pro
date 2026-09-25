@@ -7,6 +7,7 @@ import { openTextFile, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
 import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, openKicadBoardText } from './library-io';
 import { addUserFootprints } from '@editor/userlib';
+import { installApp } from '../app/pwa';
 import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
@@ -256,6 +257,7 @@ export function TopBar() {
       label: 'Справка',
       items: [
         { label: 'Горячие клавиши', action: () => s.openDialog('shortcuts') },
+        { label: s.installable ? 'Установить как приложение' : 'Как установить приложение', action: () => void installApp() },
         { label: 'О программе', action: () => s.openDialog('about') },
       ],
     },

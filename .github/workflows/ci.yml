@@ -26,4 +26,4 @@ jobs:
           path: dist
       # Сайт на GitHub Pages публикуется из корня ветки main: собранный index.html должен быть закоммичен.
       - name: Собранный index.html совпадает с исходниками
-        run: git diff --exit-code --stat -- index.html 'router.worker-*.js' || (echo 'Запустите npm run build и закоммитьте index.html' && exit 1)
+        run: git diff --exit-code --stat -- index.html sw.js 'router.worker-*.js' || (echo 'Запустите npm run build и закоммитьте index.html и sw.js' && exit 1)

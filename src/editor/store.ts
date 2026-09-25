@@ -91,6 +91,8 @@ export interface EditorState {
   placeFootprint: string | null;
   /** «Мои корпуса» (хранятся в браузере, см. userlib.ts). */
   userFootprints: FootprintDef[];
+  /** Браузер готов установить редактор как приложение. */
+  installable: boolean;
   /** Призрак устанавливаемого корпуса под курсором. */
   ghost: { footprint: string; def: FootprintDef; at: Vec2; rotation: number; side: 'top' | 'bottom' } | null;
   drawLayer: LayerId;
@@ -224,6 +226,7 @@ export const useEditor = create<EditorState>((set, get) => {
     routeWidth: 'auto',
     placeFootprint: null,
     userFootprints: loadUserLibSafe(),
+    installable: false,
     ghost: null,
     drawLayer: 'F.Silk',
     drawWidth: 0.15,

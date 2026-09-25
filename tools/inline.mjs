@@ -4,6 +4,7 @@
 // автотрассировка работает в основном потоке.
 import { copyFileSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
 const dist = new URL('../dist/', import.meta.url).pathname;
 const root = new URL('../', import.meta.url).pathname;
@@ -26,8 +27,20 @@ for (const f of readdirSync(join(dist, 'assets'))) if (/^router\.worker-.*\.js$/
 writeFileSync(join(dist, 'plata.html'), html);
 writeFileSync(join(dist, 'index.html'), html);
 
-// Корень репозитория — сайт для GitHub Pages (публикация из ветки main): index.html и воркер.
+// Работа без сети: service worker кеширует страницу, воркер, манифест и иконки.
+// Версия кеша — от содержимого, чтобы новая сборка вытесняла старую.
+const workers = readdirSync(dist).filter((f) => /^router\.worker-.*\.js$/.test(f));
+const statics = ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+const version = createHash('sha256').update(html).update(workers.join()).digest('hex').slice(0, 12);
+const sw = readFileSync(new URL('./sw.template.js', import.meta.url), 'utf8')
+  .replace('__VERSION__', version)
+  .replace('__PRECACHE__', JSON.stringify(['./', 'index.html', ...statics, ...workers]));
+writeFileSync(join(dist, 'sw.js'), sw);
+
+// Корень репозитория — сайт для GitHub Pages (публикация из ветки main): index.html, воркер, sw.js, манифест, иконки.
 for (const f of readdirSync(root)) if (/^router\.worker-.*\.js$/.test(f)) unlinkSync(join(root, f));
 writeFileSync(join(root, 'index.html'), html);
-for (const f of readdirSync(dist)) if (/^router\.worker-.*\.js$/.test(f)) copyFileSync(join(dist, f), join(root, f));
+writeFileSync(join(root, 'sw.js'), sw);
+for (const f of workers) copyFileSync(join(dist, f), join(root, f));
+for (const f of statics) copyFileSync(join(dist, f), join(root, f));
 console.log(`dist/plata.html ${(html.length / 1024).toFixed(0)} КБ`);
