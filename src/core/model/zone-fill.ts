@@ -138,7 +138,8 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey, teardrops: 
     }
 
     grid.border();
-    grid.open(r);
+    // Узел сетки видит перешеек с точностью до полшага — не режем то, что на самом деле не уже минимума.
+    grid.open(Math.max(0, r - 0.4 * h));
     const { labels, count } = grid.label();
     const touches: Set<string>[] = Array.from({ length: count }, () => new Set<string>());
     for (const o of joins) for (const lab of grid.touching(o.shape, labels)) touches[lab].add(o.key!);

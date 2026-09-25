@@ -1,7 +1,6 @@
 import { type Shape, shapeOutline } from '../math/shape';
 import type { Vec2 } from '../math/vec';
-import { sideLayer } from '../model/layers';
-import { padLocalShape, placementOf, shapeToWorld } from '../model/placement';
+import { padCopperLayers, padLocalShape, placementOf, shapeToWorld } from '../model/placement';
 import { boardPolygon } from '../model/project';
 import type { LayerId, Project } from '../model/types';
 import { getWorld } from '../model/world';
@@ -47,7 +46,7 @@ export function flattenProject(p: Project, o: FlattenOptions = {}): LayerPrims {
     }
     for (const pad of fp.pads) {
       if (pad.type === 'npth') continue;
-      const layers = pad.type === 'tht' ? (['F.Cu', 'B.Cu'] as LayerId[]) : ([sideLayer('F.Cu', c.side)] as LayerId[]);
+      const layers: LayerId[] = padCopperLayers(pad, c.side);
       const shape = shapeToWorld(pl, padLocalShape(pad));
       for (const l of layers) push(out, l, { kind: 'flash', shape });
       const mm = pad.maskMargin ?? maskMargin;

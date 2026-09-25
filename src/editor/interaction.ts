@@ -4,7 +4,7 @@ import { netAtPoint } from '@core/model/connectivity';
 import { boardCopperLayers } from '@core/model/layers';
 import { addDrawing, addRuleArea, addZone } from '@core/model/edit';
 import type { CopperLayer, ItemRef, Project } from '@core/model/types';
-import { libraryFootprint } from '@core/library';
+import { findFootprint } from './userlib';
 import { hitTest, type Hit } from '@render/hit-test';
 import { screenToWorld } from '@render/canvas-renderer';
 import { finishTrack, moveItems, placeComponent, placeVia, placeWire, routeWidthFor, snapPoint, viaSizeFor } from './commands';
@@ -576,7 +576,7 @@ export class CanvasController {
       s.patch({ panelTab: 'library', panelOpen: true });
       return;
     }
-    const fp = libraryFootprint(s.placeFootprint) ?? s.project.footprints[s.placeFootprint];
+    const fp = findFootprint(s.placeFootprint);
     if (!fp) return;
     const side = this.placeSideFor(fp);
     const id = placeComponent(fp, snapPoint(wp), this.placeRotation, side);
@@ -617,12 +617,12 @@ export class CanvasController {
       if (s.ghost) s.patch({ ghost: null });
       return;
     }
-    const fp = libraryFootprint(s.placeFootprint) ?? s.project.footprints[s.placeFootprint];
+    const fp = findFootprint(s.placeFootprint);
     if (!fp) return;
     const g = s.ghost;
     const side = this.placeSideFor(fp);
-    if (g && g.footprint === fp.id && g.at.x === this.ghostAt.x && g.at.y === this.ghostAt.y && g.rotation === this.placeRotation && g.side === side) return;
-    s.patch({ ghost: { footprint: fp.id, at: this.ghostAt, rotation: this.placeRotation, side } });
+    if (g && g.def === fp && g.at.x === this.ghostAt.x && g.at.y === this.ghostAt.y && g.rotation === this.placeRotation && g.side === side) return;
+    s.patch({ ghost: { footprint: fp.id, def: fp, at: this.ghostAt, rotation: this.placeRotation, side } });
   }
   hideGhost(): void {
     this.ghostAt = null;

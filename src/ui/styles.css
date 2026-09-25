@@ -644,6 +644,15 @@ textarea:focus {
   font-size: 12px;
   margin-top: auto;
 }
+table.grid.pads td {
+  padding: 1px 2px;
+}
+table.grid.pads .inp,
+table.grid.pads .sel {
+  min-width: 52px;
+  padding: 3px 4px;
+  font-size: 12px;
+}
 table.grid {
   width: 100%;
   border-collapse: collapse;

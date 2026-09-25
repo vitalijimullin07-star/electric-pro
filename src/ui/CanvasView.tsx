@@ -4,7 +4,7 @@ import { CanvasController } from '@editor/interaction';
 import { fitView, renderScene, screenToWorld } from '@render/canvas-renderer';
 import { groupSelection, ungroupSelection, copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
-import { libraryFootprint } from '@core/library';
+import { findFootprint } from '@editor/userlib';
 import { drcSummary } from '@core/model/drc';
 import { GRID_STEPS, UNIT_LABEL, fmt, fromMm } from '@core/units';
 
@@ -290,7 +290,7 @@ export function CanvasView() {
     useEditor.setState({ view: fitView(useEditor.getState().project, stage.clientWidth, stage.clientHeight) });
   };
 
-  const ghostFp = tool === 'place' && placeFootprint ? libraryFootprint(placeFootprint) ?? project.footprints[placeFootprint] : null;
+  const ghostFp = tool === 'place' && placeFootprint ? findFootprint(placeFootprint, project) : null;
   const unitsClass = summary.errors ? 'err' : summary.warnings ? 'warn' : 'ok';
 
   return (

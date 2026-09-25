@@ -34,7 +34,9 @@ export function dirToWorld(pl: Placement, v: Vec2): Vec2 {
 export function padCopperLayers(pad: PadDef, side: Side): CopperLayer[] {
   if (pad.type === 'npth') return [];
   if (pad.type === 'tht') return ['F.Cu', 'B.Cu'];
-  return [side === 'top' ? 'F.Cu' : 'B.Cu'];
+  // Площадка на обратной стороне корпуса оказывается на противоположном слое.
+  const top = (side === 'top') !== (pad.layer === 'B.Cu');
+  return [top ? 'F.Cu' : 'B.Cu'];
 }
 
 /** Фигура площадки в координатах корпуса, раздутая на delta ≥ 0 (для маски и зазоров). */

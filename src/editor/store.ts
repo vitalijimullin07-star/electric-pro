@@ -3,7 +3,7 @@ import { produce } from 'immer';
 import type { Vec2 } from '@core/math/vec';
 import { LAYER_ORDER } from '@core/model/layers';
 import { createProject } from '@core/model/project';
-import type { CopperLayer, ItemRef, LayerId, Project } from '@core/model/types';
+import type { CopperLayer, FootprintDef, ItemRef, LayerId, Project } from '@core/model/types';
 import type { DisplayUnit } from '@core/units';
 import { touch } from '@core/model/edit';
 import { EXAMPLES } from '@core/examples';
@@ -18,7 +18,7 @@ import { safeStorage } from './storage';
 
 export type ToolId = 'select' | 'pan' | 'route' | 'via' | 'wire' | 'place' | 'line' | 'rect' | 'circle' | 'poly' | 'text' | 'zone' | 'keepout' | 'outline' | 'measure' | 'dimension';
 
-export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | null;
+export type DialogId = 'new' | 'export' | 'board' | 'rules' | 'component' | 'net' | 'autoroute' | 'about' | 'text' | 'shortcuts' | 'open' | 'confirm' | 'prompt' | 'footprint' | null;
 
 /** Данные окна подтверждения или ввода: браузерные confirm()/prompt() в изолированных страницах запрещены. */
 export interface AskData {
@@ -89,8 +89,10 @@ export interface EditorState {
   view: ViewState;
   routeWidth: number | 'auto';
   placeFootprint: string | null;
+  /** «Мои корпуса» (хранятся в браузере, см. userlib.ts). */
+  userFootprints: FootprintDef[];
   /** Призрак устанавливаемого корпуса под курсором. */
-  ghost: { footprint: string; at: Vec2; rotation: number; side: 'top' | 'bottom' } | null;
+  ghost: { footprint: string; def: FootprintDef; at: Vec2; rotation: number; side: 'top' | 'bottom' } | null;
   drawLayer: LayerId;
   drawWidth: number;
   textSize: number;
@@ -125,6 +127,18 @@ export interface EditorState {
 }
 
 export const AUTOSAVE_KEY = 'plata2:autosave';
+export const USERLIB_KEY = 'plata2:userlib';
+
+/** «Мои корпуса» из браузера (при ошибке — пусто). */
+export function loadUserLibSafe(): FootprintDef[] {
+  try {
+    const raw = safeStorage.getItem(USERLIB_KEY);
+    const list = raw ? (JSON.parse(raw) as FootprintDef[]) : [];
+    return Array.isArray(list) ? list.filter((f) => f && typeof f.id === 'string' && Array.isArray(f.pads)) : [];
+  } catch {
+    return [];
+  }
+}
 export const SETTINGS_KEY = 'plata2:settings';
 export const RECENT_KEY = 'plata2:recent';
 const RECENT_LIMIT = 6;
@@ -209,6 +223,7 @@ export const useEditor = create<EditorState>((set, get) => {
     view: { x: -5, y: -5, scale: 4 },
     routeWidth: 'auto',
     placeFootprint: null,
+    userFootprints: loadUserLibSafe(),
     ghost: null,
     drawLayer: 'F.Silk',
     drawWidth: 0.15,

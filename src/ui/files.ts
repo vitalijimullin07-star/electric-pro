@@ -89,6 +89,21 @@ export function openTextFile(accept: string): Promise<{ name: string; text: stri
   });
 }
 
+/** Выбор нескольких файлов сразу (импорт корпусов). */
+export function openTextFiles(accept: string): Promise<{ name: string; text: string }[]> {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = accept;
+    inp.multiple = true;
+    inp.onchange = async () => {
+      const files = [...(inp.files ?? [])];
+      resolve(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
+    };
+    inp.click();
+  });
+}
+
 export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);

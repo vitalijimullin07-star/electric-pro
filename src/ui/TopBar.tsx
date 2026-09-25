@@ -5,6 +5,8 @@ import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/projec
 import { importLegacyVacuumProject } from '@core/examples';
 import { openTextFile, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
+import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, openKicadBoardText } from './library-io';
+import { addUserFootprints } from '@editor/userlib';
 import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
@@ -63,9 +65,18 @@ export async function saveProject(): Promise<void> {
 }
 
 export async function openProject(): Promise<void> {
-  const f = await openTextFile('.json,application/json');
+  const f = await openTextFile('.json,.kicad_pcb,.kicad_mod,application/json');
   if (!f) return;
   const s = useEditor.getState();
+  if (/\.kicad_pcb$/i.test(f.name)) return openKicadBoardText(f.name, f.text);
+  if (/\.kicad_mod$/i.test(f.name)) {
+    const { fps, errors } = footprintsFromFiles([f]);
+    if (!fps.length) return s.setMessage(errors.join('; '));
+    addUserFootprints(fps);
+    s.setTool('place');
+    s.patch({ placeFootprint: fps[0].id, panelTab: 'library', panelOpen: true });
+    return s.setMessage(`Корпус «${fps[0].name}» добавлен в «Мои корпуса». Щёлкните по плате, чтобы поставить.`);
+  }
   try {
     const r = parseProjectFile(f.text);
     if (r.kind === 'project') s.replaceProject(r.project, f.name);
@@ -139,6 +150,8 @@ export function TopBar() {
         { label: 'Новый проект…', kbd: '', action: () => s.openDialog('new') },
         { label: 'Открыть файл проекта…', kbd: 'Ctrl+O', action: () => void openProject() },
         { label: 'Недавние проекты…', action: () => s.openDialog('open') },
+        { label: 'Импорт платы KiCad (.kicad_pcb)…', action: () => void importKicadBoardFile() },
+        { label: 'Импорт корпусов KiCad (.kicad_mod)…', action: () => void importFootprintFiles() },
         { label: 'Сохранить проект', kbd: 'Ctrl+S', action: () => void saveProject() },
         'sep',
         { label: 'Экспорт: Gerber, SVG, BOM…', action: () => s.openDialog('export') },

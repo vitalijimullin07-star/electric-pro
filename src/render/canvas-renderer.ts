@@ -5,7 +5,6 @@ import { computeConnectivity } from '@core/model/connectivity';
 import { runDrc } from '@core/model/drc';
 import { LAYERS, boardCopperLayers } from '@core/model/layers';
 import { padLocalShape, placementOf, shapeToWorld } from '@core/model/placement';
-import { libraryFootprint } from '@core/library';
 import { boardPolygon } from '@core/model/project';
 import type { CopperLayer, ItemRef, LayerId, Project } from '@core/model/types';
 import { getWorld, type World } from '@core/model/world';
@@ -533,7 +532,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   }
   // Призрак устанавливаемого корпуса.
   if (inp.ghost) {
-    const fp = libraryFootprint(inp.ghost.footprint) ?? p.footprints[inp.ghost.footprint];
+    const fp = inp.ghost.def;
     if (fp) {
       const pl = { at: inp.ghost.at, rotation: inp.ghost.rotation, side: inp.ghost.side };
       ctx.globalAlpha = 0.55;

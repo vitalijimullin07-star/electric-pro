@@ -2,7 +2,7 @@
 // что элемент виден на экране и не перекрыт (document.elementFromPoint), без автопрокрутки.
 // Запуск: npm run build && node tools/qa.mjs [адрес]. По умолчанию открывает index.html с диска.
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const url = process.argv[2] ?? process.env.QA_URL ?? 'file://' + new URL('../index.html', import.meta.url).pathname;
 const out = process.env.QA_OUT ?? 'qa-out';
@@ -873,6 +873,77 @@ async function openPage(viewport, touch = false) {
       const p = await h.project();
       expect(p.board.outline.length >= 3, 'шаблон ' + name);
     }
+  });
+
+  await step('редактор корпусов: новый корпус из генератора, в «Мои корпуса», поставить на плату', async () => {
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await h.hit(page.locator('.panel .tabs button', { hasText: 'Библиотека' }));
+    await h.hit(page.locator('.panel button', { hasText: 'Новый корпус' }));
+    expect((await h.dialogTitle()) === 'Новый корпус', 'нет окна редактора: ' + (await h.dialogTitle()));
+    await page.locator('.modal .field input').first().fill('QA корпус');
+    await page.locator('.modal select').first().selectOption('quad');
+    await h.hit(page.locator('.modal button', { hasText: 'Заменить площадки' }));
+    expect((await page.locator('.modal h4', { hasText: 'Площадки: 16' }).count()) === 1, 'генератор QFP не дал 16 площадок');
+    await h.hit(page.locator('.modal footer button', { hasText: 'Сохранить и поставить' }));
+    const st = await page.evaluate(() => window.__plata.state());
+    expect(st.tool === 'place' && !st.dialog, 'после сохранения: ' + st.tool + ' ' + st.dialog);
+    await h.clickAt(20, 20);
+    const p = await h.project();
+    const c = Object.values(p.components)[0];
+    expect(c && c.footprint.startsWith('My_qa') && p.footprints[c.footprint].pads.length === 16, 'не поставился свой корпус: ' + JSON.stringify(c));
+    const lib = await page.evaluate(() => JSON.parse(localStorage.getItem('plata2:userlib') || '[]').map((f) => f.id));
+    expect(lib.includes(c.footprint), 'нет в «Моих корпусах»: ' + lib.join(','));
+    await page.keyboard.press('Escape');
+  });
+
+  await step('импорт корпуса KiCad (.kicad_mod) и выгрузка «Моих корпусов»', async () => {
+    const mod = `${out}/qa-test.kicad_mod`;
+    writeFileSync(
+      mod,
+      '(footprint "QA_SOT-23_Test" (version 20240108) (layer "F.Cu") (descr "проверка")\n' +
+        ' (property "Reference" "REF**" (at 0 -2.4 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))\n' +
+        ' (fp_rect (start -1.9 -1.7) (end 1.9 1.7) (stroke (width 0.05) (type solid)) (layer "F.CrtYd"))\n' +
+        ' (pad "1" smd roundrect (at -1.1 -0.95) (size 1.3 0.6) (layers "F.Cu" "F.Mask" "F.Paste") (roundrect_rratio 0.25))\n' +
+        ' (pad "2" smd roundrect (at -1.1 0.95) (size 1.3 0.6) (layers "F.Cu" "F.Mask" "F.Paste") (roundrect_rratio 0.25))\n' +
+        ' (pad "3" smd roundrect (at 1.1 0) (size 1.3 0.6) (layers "F.Cu" "F.Mask" "F.Paste") (roundrect_rratio 0.25)))\n',
+    );
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.hit(page.locator('.panel button', { hasText: 'Импорт…' }))]);
+    await chooser.setFiles(mod);
+    await page.waitForTimeout(300);
+    expect(/добавлено 1/.test(await h.msg()), 'импорт: ' + (await h.msg()));
+    const st = await page.evaluate(() => window.__plata.state());
+    expect(st.tool === 'place', 'после импорта не включена установка');
+    await h.clickAt(35, 20);
+    const p = await h.project();
+    expect(Object.values(p.components).some((c) => c.footprint === 'QA_SOT-23_Test'), 'импортированный корпус не поставился');
+    await page.keyboard.press('Escape');
+    const before = downloads.length;
+    await h.hit(page.locator('.panel button', { hasText: 'Мои → файл' }));
+    await page.waitForTimeout(400);
+    expect(downloads.slice(before).some((f) => f === 'plata-my-footprints.json'), 'нет файла моих корпусов: ' + downloads.slice(before).join(','));
+  });
+
+  await step('открытие платы KiCad (.kicad_pcb): детали, дорожки, цепи', async () => {
+    const pcb = `${out}/qa-test.kicad_pcb`;
+    const res = (ref, at, n1, n2) =>
+      `(footprint "L:R" (layer "F.Cu") (at ${at}) (property "Reference" "${ref}" (at 0 -1.5 0) (layer "F.SilkS") (effects (font (size 1 1)))) ` +
+      `(pad "1" thru_hole circle (at -2.54 0) (size 1.6 1.6) (drill 0.8) (layers "*.Cu" "*.Mask") ${n1}) (pad "2" thru_hole circle (at 2.54 0) (size 1.6 1.6) (drill 0.8) (layers "*.Cu" "*.Mask") ${n2}))`;
+    writeFileSync(
+      pcb,
+      `(kicad_pcb (version 20241229) (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user)) (net 0 "") (net 1 "A") (net 2 "B")\n` +
+        res('R1', '10 10', '(net 1 "A")', '(net 2 "B")') + '\n' + res('R2', '10 20 90', '(net 2 "B")', '(net 1 "A")') + '\n' +
+        `(segment (start 7.46 10) (end 7.46 15) (width 0.3) (layer "B.Cu") (net 1)) (segment (start 7.46 15) (end 10 17.46) (width 0.3) (layer "B.Cu") (net 1))\n` +
+        `(gr_rect (start 0 0) (end 30 30) (stroke (width 0.1) (type solid)) (layer "Edge.Cuts")))\n`,
+    );
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Импорт платы KiCad')]);
+    await chooser.setFiles(pcb);
+    await page.waitForTimeout(400);
+    const p = await h.project();
+    expect(Object.keys(p.components).length === 2 && Object.keys(p.tracks).length === 2, 'плата KiCad: ' + (await h.msg()));
+    expect(/Плата из KiCad/.test(await h.msg()), 'сообщение: ' + (await h.msg()));
+    const chips = await h.chips();
+    expect(/Разведено 1 из 2/.test(chips), 'связность: ' + chips);
   });
 
   await page.screenshot({ path: `${out}/desktop.png` });

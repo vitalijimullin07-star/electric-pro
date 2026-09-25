@@ -57,6 +57,11 @@ export function ComponentDialog({ id }: { id: string }) {
               {fp.name} <span className="hint">{fp.id}</span>
             </span>
           </div>
+          <div className="row">
+            <button className="btn" onClick={() => s.openDialog('footprint', { base: fp, componentId: id })}>
+              Изменить корпус в редакторе…
+            </button>
+          </div>
           <h4>Заменить корпус</h4>
           {!showAll && <p className="hint">{alt.length ? 'Корпуса с теми же выводами:' : 'Совместимых корпусов в библиотеке нет.'}</p>}
           {showAll && <input className="inp" placeholder="Поиск по всей библиотеке" value={fpQuery} onChange={(e) => setFpQuery(e.target.value)} />}
