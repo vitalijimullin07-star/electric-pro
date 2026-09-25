@@ -8,6 +8,22 @@ import { safeName } from '@core/io/gerber';
 import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, openKicadBoardText } from './library-io';
 import { addUserFootprints } from '@editor/userlib';
 import { installApp } from '../app/pwa';
+import { enterSchematic, leaveSchematic, mirrorSchSelection, rotateSchSelection, setSchTool, updateBoardFromSchematic } from '@editor/sch';
+import { exportSchematicPdf } from '@core/io/sch-pdf';
+import type { SchTool } from '@editor/store';
+
+function enterSchematicTool(t: SchTool): void {
+  enterSchematic();
+  setSchTool(t);
+}
+
+async function printSchematic(): Promise<void> {
+  const s = useEditor.getState();
+  const r = exportSchematicPdf(s.project);
+  if (!r) return s.setMessage('Схема пуста.');
+  const ok = await saveTextFile(`${safeName(s.project.meta.name)}-schematic.pdf`, r.bytes, 'application/pdf');
+  if (ok !== false) s.setMessage(`Схема сохранена в PDF (лист ${r.paper}).`);
+}
 import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
@@ -181,6 +197,22 @@ export function TopBar() {
       ],
     },
     {
+      id: 'sch',
+      label: 'Схема',
+      items: [
+        s.mode === 'sch' ? { label: 'Перейти к плате', action: leaveSchematic } : { label: 'Открыть схему', action: enterSchematic },
+        { label: 'Обновить плату по схеме', action: updateBoardFromSchematic, disabled: !p.schematic },
+        { label: 'Добавить на схему детали с платы', action: enterSchematic },
+        'sep',
+        { label: 'Провод', kbd: 'W', action: () => (s.mode === 'sch' ? setSchTool('wire') : enterSchematicTool('wire')) },
+        { label: 'Метка цепи', kbd: 'N', action: () => (s.mode === 'sch' ? setSchTool('label') : enterSchematicTool('label')) },
+        { label: 'Повернуть', kbd: 'R', action: rotateSchSelection, disabled: s.mode !== 'sch' || !s.schSelection.length },
+        { label: 'Зеркально', kbd: 'X', action: mirrorSchSelection, disabled: s.mode !== 'sch' || !s.schSelection.some((r) => r.kind === 'symbol') },
+        'sep',
+        { label: 'Печать схемы (PDF)', action: () => void printSchematic(), disabled: !p.schematic || !Object.keys(p.schematic.symbols).length },
+      ],
+    },
+    {
       id: 'arrange',
       label: 'Упорядочить',
       items: [
@@ -274,6 +306,14 @@ export function TopBar() {
           <path d="M9 9h8v14h6" stroke="#e8b061" strokeWidth="3" fill="none" strokeLinejoin="round" />
         </svg>
         Plata
+      </span>
+      <span className="mode-switch" role="tablist" aria-label="Что редактировать">
+        <button role="tab" aria-selected={s.mode === 'pcb'} className={s.mode === 'pcb' ? 'on' : ''} onClick={leaveSchematic}>
+          Плата
+        </button>
+        <button role="tab" aria-selected={s.mode === 'sch'} className={s.mode === 'sch' ? 'on' : ''} onClick={() => s.mode !== 'sch' && enterSchematic()}>
+          Схема
+        </button>
       </span>
       {menus.map((m) => (
         <div key={m.id} className={`menu${open?.id === m.id ? ' open' : ''}`}>

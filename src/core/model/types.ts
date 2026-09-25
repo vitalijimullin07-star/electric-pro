@@ -293,6 +293,43 @@ export interface Project {
   drawings: Record<Id, Drawing>;
   /** Группы: выделяются и двигаются вместе. */
   groups?: Record<Id, Group>;
+  /** Принципиальная схема (если начата): символы деталей, провода, метки цепей. */
+  schematic?: Schematic;
+}
+
+/* ---------------- схема ---------------- */
+
+/** Символ детали на схеме: один на компонент платы. */
+export interface SchSymbol {
+  id: Id;
+  component: Id;
+  at: Vec2;
+  /** 0, 90, 180, 270 — против часовой. */
+  rotation: number;
+  /** Зеркально по горизонтали. */
+  mirror?: boolean;
+}
+
+/** Провод схемы: ломаная, соединяется концами и в вершинах. */
+export interface SchWire {
+  id: Id;
+  points: Vec2[];
+}
+
+/** Метка цепи: все провода и выводы под одноимёнными метками — одна цепь. */
+export interface SchLabel {
+  id: Id;
+  at: Vec2;
+  text: string;
+  rotation?: number;
+  /** power — значок питания/земли (GND, +5V). */
+  kind?: 'net' | 'power';
+}
+
+export interface Schematic {
+  symbols: Record<Id, SchSymbol>;
+  wires: Record<Id, SchWire>;
+  labels: Record<Id, SchLabel>;
 }
 
 /** Группа объектов (Ctrl+G): щелчок по любому выделяет всю группу. */

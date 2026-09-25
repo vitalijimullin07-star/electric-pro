@@ -127,7 +127,7 @@ function BoardProps() {
   );
 }
 
-function ComponentProps({ id }: { id: string }) {
+export function ComponentProps({ id }: { id: string }) {
   const s = useEditor();
   const p = s.project;
   const c = p.components[id];

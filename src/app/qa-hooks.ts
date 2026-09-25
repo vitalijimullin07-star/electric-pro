@@ -2,6 +2,7 @@ import { useEditor } from '@editor/store';
 import { getWorld, padLabel } from '@core/model/world';
 import { runDrc } from '@core/model/drc';
 import { computeConnectivity } from '@core/model/connectivity';
+import { placedPins } from '@core/schematic/netlist';
 
 /** Доступ к состоянию для сквозных проверок (tools/qa.mjs). Включается только с ?qa=1 в адресе. */
 export function installQaHooks(): void {
@@ -16,6 +17,8 @@ export function installQaHooks(): void {
     view: () => ({ ...useEditor.getState().view }),
     ghost: () => useEditor.getState().ghost,
     drc: () => runDrc(useEditor.getState().project).markers.map((m) => `${m.severity}: ${m.message}`),
+    schPins: () => placedPins(useEditor.getState().project).map((x) => ({ ref: x.ref, number: x.number, x: x.at.x, y: x.at.y })),
+    schView: () => ({ ...useEditor.getState().schView }),
     fills: () => computeConnectivity(useEditor.getState().project).zoneFills.map((f) => ({ id: f.zone.id, net: f.zone.net, loops: f.loops.length, islands: f.islands.length, removed: f.removed })),
     netComplete: (name: string) => {
       const p = useEditor.getState().project;

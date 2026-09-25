@@ -546,6 +546,43 @@ textarea:focus {
   border: 0;
   color: var(--ink);
 }
+.mode-switch {
+  display: inline-flex;
+  margin: 0 8px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: none;
+}
+.mode-switch button {
+  background: transparent;
+  border: 0;
+  color: var(--mute);
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.mode-switch button.on {
+  background: var(--accent);
+  color: #0b1220;
+  font-weight: 600;
+}
+.stage.sch {
+  background: #f7f5ee;
+}
+.stage.sch .chip {
+  background: rgba(255, 255, 255, 0.85);
+  color: #303030;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.chip-btn {
+  cursor: pointer;
+  font: inherit;
+}
+.stage.sch .chip-btn {
+  background: #1f4fa0;
+  color: #fff;
+}
 .view3d {
   position: fixed;
   inset: 0;

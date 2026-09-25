@@ -4,6 +4,7 @@ import { LayersPanel } from './LayersPanel';
 import { NetsPanel } from './NetsPanel';
 import { LibraryPanel } from './LibraryPanel';
 import { DrcPanel } from './DrcPanel';
+import { SchPanel } from './SchPanel';
 import { runDrc } from '@core/model/drc';
 
 const TABS: { id: 'props' | 'layers' | 'nets' | 'library' | 'drc'; label: string }[] = [
@@ -18,6 +19,7 @@ export function RightPanel() {
   const tab = useEditor((s) => s.panelTab);
   const open = useEditor((s) => s.panelOpen);
   const project = useEditor(stableProject);
+  const mode = useEditor((s) => s.mode);
   const errors = runDrc(project).errors;
   return (
     <aside className={`panel${open ? ' open' : ''}`} style={open ? undefined : { display: window.innerWidth >= 900 ? 'none' : undefined }}>
@@ -31,7 +33,7 @@ export function RightPanel() {
         ))}
       </div>
       <div className="body">
-        {tab === 'props' && <PropertiesPanel />}
+        {tab === 'props' && (mode === 'sch' ? <SchPanel /> : <PropertiesPanel />)}
         {tab === 'layers' && <LayersPanel />}
         {tab === 'nets' && <NetsPanel />}
         {tab === 'library' && <LibraryPanel />}

@@ -15,11 +15,13 @@ import type { AskData } from '@editor/store';
 import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
 import { FootprintEditorDialog, type FootprintEditorData } from '@ui/dialogs/FootprintEditor';
 import { View3D } from '@ui/dialogs/View3D';
+import { SchematicView } from '@ui/SchematicView';
 
 export function App() {
   const dialog = useEditor((s) => s.dialog);
   const dialogData = useEditor((s) => s.dialogData);
   const dirty = useEditor((s) => s.dirty);
+  const mode = useEditor((s) => s.mode);
 
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -33,7 +35,7 @@ export function App() {
     <div className="app">
       <TopBar />
       <ToolBar />
-      <CanvasView />
+      {mode === 'sch' ? <SchematicView /> : <CanvasView />}
       <RightPanel />
       <StatusBar />
       {dialog === 'new' && <NewProjectDialog />}

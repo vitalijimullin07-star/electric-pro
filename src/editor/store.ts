@@ -69,8 +69,26 @@ export interface RouteProgress {
   message?: string;
 }
 
+/** Выделенный объект схемы. */
+export interface SchRef {
+  kind: 'symbol' | 'wire' | 'label';
+  id: string;
+}
+
+export type SchTool = 'select' | 'pan' | 'wire' | 'label' | 'place';
+
+export type SchPending = { kind: 'wire'; points: Vec2[]; cursor: Vec2 } | { kind: 'box'; start: Vec2; cursor: Vec2 } | null;
+
 export interface EditorState {
   project: Project;
+  /** Что редактируем: плату или схему. */
+  mode: 'pcb' | 'sch';
+  schTool: SchTool;
+  schSelection: SchRef[];
+  schPending: SchPending;
+  schView: ViewState;
+  /** Поворот следующего ставимого символа. */
+  schPlaceRotation: number;
   past: Project[];
   future: Project[];
   /** Идёт ли перетаскивание: история уже записана, промежуточные состояния не сохраняем. */
@@ -223,6 +241,12 @@ export const useEditor = create<EditorState>((set, get) => {
     snap: settings.snap ?? true,
     units: settings.units ?? 'mm',
     view: { x: -5, y: -5, scale: 4 },
+    mode: 'pcb',
+    schTool: 'select',
+    schSelection: [],
+    schPending: null,
+    schView: { x: 0, y: 0, scale: 3 },
+    schPlaceRotation: 0,
     routeWidth: 'auto',
     placeFootprint: null,
     userFootprints: loadUserLibSafe(),
@@ -300,6 +324,9 @@ export const useEditor = create<EditorState>((set, get) => {
         fileName,
         dirty: false,
         tool: 'select',
+        schSelection: [],
+        schPending: null,
+        schTool: 'select',
         message: `Открыт проект «${p.meta.name}».`,
       });
     },

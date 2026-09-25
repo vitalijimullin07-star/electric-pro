@@ -10,12 +10,14 @@ export function StatusBar() {
   const units = useEditor((s) => s.units);
   const snap = useEditor((s) => s.snap);
   const routeWidth = useEditor((s) => s.routeWidth);
+  const mode = useEditor((s) => s.mode);
   const copper = boardCopperLayers(project.board.copperLayers);
   return (
     <footer className="statusbar">
       <span className="msg" title={message}>
         {message}
       </span>
+      {mode === 'pcb' && (
       <span>
         Слой{' '}
         <select value={activeLayer} onChange={(e) => useEditor.setState({ activeLayer: e.target.value as 'F.Cu' | 'B.Cu' })} aria-label="Активный слой">
@@ -26,6 +28,8 @@ export function StatusBar() {
           ))}
         </select>
       </span>
+      )}
+      {mode === 'pcb' && (
       <span>
         Ширина{' '}
         <select value={String(routeWidth)} onChange={(e) => useEditor.setState({ routeWidth: e.target.value === 'auto' ? 'auto' : +e.target.value })} aria-label="Ширина дорожки">
@@ -37,6 +41,7 @@ export function StatusBar() {
           ))}
         </select>
       </span>
+      )}
       <label>
         <input type="checkbox" checked={snap} onChange={(e) => useEditor.setState({ snap: e.target.checked })} /> привязка
       </label>

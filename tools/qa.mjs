@@ -105,6 +105,7 @@ async function openPage(viewport, touch = false) {
   const menuItems = {
     Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Настройки платы'],
     Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону', 'Свойства компонента'],
+    Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
     Упорядочить: ['Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
     Вид: ['Сетка', 'Воздушные линии', 'Отметки проверки', 'Позиционные обозначения', 'Номиналы', 'Габариты корпусов', 'Сборочный слой', '3D-вид платы', 'Вся плата', 'Переключить активный слой', 'Боковая панель'],
     Разместить: ['Компонент из библиотеки', 'Цепи', 'Надпись', 'Размерная линия', 'Область правил', 'Полигон меди', 'Новый контур платы'],
@@ -969,6 +970,68 @@ async function openPage(viewport, touch = false) {
     expect(/Разведено 1 из 2/.test(chips), 'связность: ' + chips);
   });
 
+  await step('схема: поставить два резистора, провод, метки GND, обновить плату по схеме', async () => {
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await h.hit(page.locator('.mode-switch button', { hasText: 'Схема' }));
+    expect(await page.locator('.stage.sch canvas').isVisible(), 'нет листа схемы');
+    const sch = async (x, y) => {
+      const box = await page.locator('.stage canvas').boundingBox();
+      const v = await page.evaluate(() => window.__plata.schView());
+      return { x: box.x + (x - v.x) * v.scale, y: box.y + (y - v.y) * v.scale };
+    };
+    const clickSch = async (x, y, wait = 120) => {
+      const q = await sch(x, y);
+      await page.mouse.click(q.x, q.y);
+      await page.waitForTimeout(wait);
+    };
+    // Два резистора из библиотеки.
+    await h.hit(page.locator('.panel .tabs button', { hasText: 'Библиотека' }));
+    await page.fill('.panel input[placeholder^="Поиск"]', '0805');
+    await h.hit(page.locator('.panel .list .item', { hasText: '0805' }).first());
+    await h.hit(page.locator('.panel button', { hasText: 'Поставить на схему' }));
+    await clickSch(30.48, 30.48);
+    await clickSch(60.96, 30.48);
+    await page.keyboard.press('Escape');
+    let p = await h.project();
+    expect(Object.keys(p.schematic?.symbols ?? {}).length === 2 && Object.keys(p.components).length === 2, 'символов ' + Object.keys(p.schematic?.symbols ?? {}).length);
+    const pins = await page.evaluate(() => window.__plata.schPins());
+    const pin = (r, n) => pins.find((x) => x.ref === r && x.number === n);
+    // Провод R1.2 → R2.1.
+    await page.keyboard.press('w');
+    await clickSch(pin('R1', '2').x, pin('R1', '2').y);
+    await clickSch(pin('R2', '1').x, pin('R2', '1').y);
+    p = await h.project();
+    expect(Object.keys(p.schematic.wires).length === 1, 'провод не проведён: ' + (await h.msg()));
+    // Метки GND на R1.1 и R2.2.
+    await page.keyboard.press('n');
+    for (const [r, n] of [['R1', '1'], ['R2', '2']]) {
+      await clickSch(pin(r, n).x, pin(r, n).y);
+      expect((await h.dialogTitle()) === 'Метка цепи', 'нет окна метки');
+      await page.locator('.modal input').fill('GND');
+      await h.hit(page.locator('.modal footer button', { hasText: 'Поставить' }));
+    }
+    await page.keyboard.press('Escape');
+    await h.hit(page.locator('.stage .chip-btn', { hasText: 'Обновить плату по схеме' }));
+    expect(/Плата обновлена по схеме/.test(await h.msg()), 'обновление: ' + (await h.msg()));
+    p = await h.project();
+    const net = (ref, n) => {
+      const c = Object.values(p.components).find((x) => x.ref === ref);
+      return p.nets[c.padNets[n]]?.name;
+    };
+    expect(net('R1', '1') === 'GND' && net('R2', '2') === 'GND', 'GND: ' + net('R1', '1') + ' ' + net('R2', '2'));
+    expect(net('R1', '2') && net('R1', '2') === net('R2', '1'), 'провод не стал цепью: ' + net('R1', '2') + ' ' + net('R2', '1'));
+    // На плате — две неразведённые цепи.
+    await h.hit(page.locator('.mode-switch button', { hasText: 'Плата' }));
+    const chips = await h.chips();
+    expect(/Разведено 0 из 2/.test(chips), 'плата после схемы: ' + chips);
+    // Печать схемы в PDF.
+    const before = downloads.length;
+    await h.menu('Схема', 'Печать схемы');
+    await page.waitForTimeout(400);
+    expect(downloads.slice(before).some((f) => f.endsWith('-schematic.pdf')), 'нет PDF схемы');
+  });
+
   await page.screenshot({ path: `${out}/desktop.png` });
   await page.context().close();
 }
@@ -984,7 +1047,7 @@ async function openPage(viewport, touch = false) {
     await h.closeDialog();
   });
   await step('телефон: все меню доступны (строка прокручивается)', async () => {
-    for (const top of ['Файл', 'Правка', 'Упорядочить', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
+    for (const top of ['Файл', 'Правка', 'Схема', 'Упорядочить', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
       const b = page.getByRole('button', { name: top, exact: true });
       await b.scrollIntoViewIfNeeded();
       await page.waitForTimeout(80);

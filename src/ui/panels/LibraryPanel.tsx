@@ -4,6 +4,7 @@ import { categories, groupsOf, libraryFootprints, searchFootprints, PROJECT_CATE
 import { FootprintPreview } from '../common/FootprintPreview';
 import type { FootprintDef } from '@core/model/types';
 import { findFootprint, removeUserFootprint } from '@editor/userlib';
+import { setSchTool } from '@editor/sch';
 import { askConfirm } from '../dialogs/AskDialog';
 import { exportUserLibrary, importFootprintFiles } from '../library-io';
 
@@ -35,8 +36,10 @@ export function LibraryPanel() {
 
   const chosen: FootprintDef | undefined = s.placeFootprint ? findFootprint(s.placeFootprint, s.project) : undefined;
   const mine = !!chosen && user.some((u) => u.id === chosen.id);
+  const sch = s.mode === 'sch';
   const pick = (f: FootprintDef) => {
-    if (s.tool !== 'place') s.setTool('place');
+    if (sch) setSchTool('place');
+    else if (s.tool !== 'place') s.setTool('place');
     s.patch({ placeFootprint: f.id });
   };
 
@@ -97,12 +100,13 @@ export function LibraryPanel() {
             <button
               className="btn primary"
               onClick={() => {
-                s.setTool('place');
+                if (sch) setSchTool('place');
+                else s.setTool('place');
                 s.patch({ placeFootprint: chosen.id, panelOpen: window.innerWidth >= 900 });
-                s.setMessage(`Щёлкните по плате, чтобы поставить ${chosen.name}. R — поворот, Esc — закончить.`);
+                s.setMessage(`Щёлкните по ${sch ? 'схеме' : 'плате'}, чтобы поставить ${chosen.name}. R — поворот, Esc — закончить.`);
               }}
             >
-              Поставить на плату
+              {sch ? 'Поставить на схему' : 'Поставить на плату'}
             </button>
             <b>{chosen.name}</b>
           </div>
