@@ -30,6 +30,8 @@ export const HOMEMADE_RULES: DesignRules = {
   classClearances: [],
   maskMargin: 0.1,
   tentVias: false,
+  // Дома капли особенно полезны: дорожка не отрывается у площадки при травлении и пайке.
+  teardrops: true,
 };
 
 export const RULE_PRESETS: { id: string; name: string; rules: DesignRules }[] = [

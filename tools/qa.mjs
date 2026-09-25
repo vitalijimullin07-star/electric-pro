@@ -747,6 +747,7 @@ async function openPage(viewport, touch = false) {
     expect(downloads.some((f) => f.endsWith('.gtl')), 'нет верхней меди gtl');
     expect(downloads.some((f) => f.endsWith('.plata.json')), 'нет файла проекта');
     expect(downloads.filter((f) => f.endsWith('.svg')).length >= 3, 'svg: ' + downloads.filter((f) => f.endsWith('.svg')).join(','));
+    expect(downloads.some((f) => f.endsWith('-LUT.pdf')), 'нет PDF для ЛУТ: ' + downloads.join(','));
   });
 
   let savedFile = null;

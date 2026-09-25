@@ -206,6 +206,11 @@ export function TopBar() {
         { label: 'Дорожка', kbd: 'W', action: () => s.setTool('route') },
         { label: 'Переходное отверстие', kbd: 'V', action: () => s.setTool('via') },
         { label: 'Перемычка проводом', kbd: 'J', action: () => s.setTool('wire') },
+        { label: mark(!!s.project.rules.teardrops) + 'Каплевидные переходы', action: () => {
+          const on = !s.project.rules.teardrops;
+          s.commit((d) => void (d.rules.teardrops = on || undefined));
+          s.setMessage(on ? 'Капли включены: дорожки плавно расширяются у площадок и переходных (где хватает зазора).' : 'Капли выключены.');
+        } },
         'sep',
         { label: 'Автотрассировка…', action: () => s.openDialog('autoroute') },
         { label: 'Стереть все дорожки', action: () =>

@@ -7,6 +7,7 @@ import { boardCopperLayers } from './layers';
 import type { CopperLayer, Id, ItemRef, Project } from './types';
 import { getWorld, type World, type WorldPad, type WorldSegment, type WorldVia } from './world';
 import { fillZones, type ZoneFill } from './zone-fill';
+import { computeTeardrops, type Teardrop } from './teardrops';
 
 /*
  * Связность: какие площадки, дорожки, переходные и перемычки соединены физически.
@@ -55,6 +56,8 @@ export interface Connectivity {
   total: number;
   /** Заливка полигонов (считается вместе со связностью: острова соединяют свою цепь). */
   zoneFills: ZoneFill[];
+  /** Каплевидные переходы (если включены в правилах). */
+  teardrops: Teardrop[];
 }
 
 class UnionFind {
@@ -197,9 +200,11 @@ export function computeConnectivity(p: Project, o: { zonesFrom?: Project } = {})
   };
 
   // Полигоны: заливка обходит чужие цепи, её острова соединяют всё своё, чего касаются.
+  const baseNet = (key: string) => netOfRoot(uf.find(key));
+  const teardrops = computeTeardrops(p, world, baseNet);
   const zoneFills = zonesFrom
     ? computeConnectivity(zonesFrom).zoneFills.filter((zf) => p.zones[zf.zone.id])
-    : fillZones(p, world, (key) => netOfRoot(uf.find(key)));
+    : fillZones(p, world, baseNet, teardrops);
   if (zoneFills.some((z) => z.islands.length)) {
     for (const zf of zoneFills)
       zf.islands.forEach((keys, i) => {
@@ -302,7 +307,7 @@ export function computeConnectivity(p: Project, o: { zonesFrom?: Project } = {})
     }
   }
 
-  const res: Connectivity = { world, itemNet, nets, shorts, ratsnest, dangling, unrouted, total, zoneFills };
+  const res: Connectivity = { world, itemNet, nets, shorts, ratsnest, dangling, unrouted, total, zoneFills, teardrops };
   (zonesFrom ? staleCache : cache).set(p, res);
   return res;
 }
@@ -325,3 +330,6 @@ export function netAtPoint(p: Project, pt: Vec2, layer: CopperLayer | null): Id 
 
 /** Заливка полигонов проекта (кешируется вместе со связностью). */
 export const getZoneFills = (p: Project): ZoneFill[] => computeConnectivity(p).zoneFills;
+
+/** Каплевидные переходы проекта (пусто, если выключены в правилах). */
+export const getTeardrops = (p: Project): Teardrop[] => computeConnectivity(p).teardrops;

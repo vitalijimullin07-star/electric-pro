@@ -5,7 +5,7 @@ import { padLocalShape, placementOf, shapeToWorld } from '../model/placement';
 import { boardPolygon } from '../model/project';
 import type { LayerId, Project } from '../model/types';
 import { getWorld } from '../model/world';
-import { getZoneFills } from '../model/connectivity';
+import { getTeardrops, getZoneFills } from '../model/connectivity';
 import { graphicPrims, push, type LayerPrims } from './graphic';
 import { textStrokes } from './stroke-font';
 
@@ -34,6 +34,7 @@ export function flattenProject(p: Project, o: FlattenOptions = {}): LayerPrims {
 
   // Заливка полигонов — первой: медь, выводимая следом, ложится поверх вырезов.
   for (const zf of getZoneFills(p)) if (zf.loops.length) push(out, zf.zone.layer, { kind: 'fill', loops: zf.loops, holes: zf.holes });
+  for (const td of getTeardrops(p)) push(out, td.layer, { kind: 'region', pts: td.pts });
 
   for (const wc of w.components) {
     const c = wc.component;

@@ -268,6 +268,15 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.fill(loopsPath(zf.loops), 'evenodd');
     }
     ctx.globalAlpha = active ? 1 : 0.55;
+    // Капли — цветом дорожек, под ними.
+    ctx.fillStyle = col;
+    for (const td of conn.teardrops) {
+      if (td.layer !== layer || !inView(td.shape.box, vb)) continue;
+      ctx.beginPath();
+      td.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath();
+      ctx.fill();
+    }
     // Дорожки.
     for (const t of Object.values(p.tracks)) {
       if (t.layer !== layer || t.points.length < 2) continue;

@@ -7,6 +7,7 @@ import { boardPolygon } from './project';
 import { netClassOf, requiredClearance } from './rules';
 import type { CopperLayer, Id, Project, Zone } from './types';
 import type { World } from './world';
+import type { Teardrop } from './teardrops';
 
 /*
  * Заливка полигонов меди. Считается на сетке: в каждом узле — расстояние со знаком
@@ -45,7 +46,7 @@ interface CuObj {
 const NODE_BUDGET = 260_000;
 const BIG = 1e4;
 
-export function fillZones(p: Project, world: World, netOf: NetOfKey): ZoneFill[] {
+export function fillZones(p: Project, world: World, netOf: NetOfKey, teardrops: Teardrop[] = []): ZoneFill[] {
   const zones = Object.values(p.zones);
   if (!zones.length) return [];
   const layers = boardCopperLayers(p.board.copperLayers);
@@ -61,6 +62,8 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey): ZoneFill[]
     for (const l of wp.layers) cu[l].push({ key: 'P' + wp.key, shape: wp.shape, net: wp.net, pad: true });
   }
   for (const s of world.segments) cu[s.track.layer].push({ key: 'T' + s.track.id, shape: s.shape, net: netOf('T' + s.track.id), pad: false });
+  // Капли — медь своей дорожки.
+  for (const td of teardrops) cu[td.layer].push({ key: 'T' + td.trackId, shape: td.shape, net: netOf('T' + td.trackId), pad: false });
   for (const v of world.vias) {
     const net = netOf('V' + v.via.id);
     for (const l of ['F.Cu', 'B.Cu'] as CopperLayer[]) cu[l].push({ key: 'V' + v.via.id, shape: v.shape, net, pad: false });

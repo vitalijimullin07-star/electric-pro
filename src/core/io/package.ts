@@ -5,6 +5,7 @@ import { exportGerbers, safeName } from './gerber';
 import { serializeProject } from './project-file';
 import { exportAssemblySvg, exportCopperSvg } from './svg-export';
 import { boardCopperLayers } from '../model/layers';
+import { exportLutPdf, lutMirrorFor } from './lut-pdf';
 
 /** Архив для завода: Gerber, сверловка, BOM, расстановка. */
 export function fabricationZip(p: Project): { name: string; data: Uint8Array } {
@@ -25,6 +26,8 @@ export function homemadeZip(p: Project): { name: string; data: Uint8Array } {
     files[`${base}-${l.replace('.', '_')}.svg`] = strToU8(exportCopperSvg(p, l));
     files[`${base}-${l.replace('.', '_')}-mirror.svg`] = strToU8(exportCopperSvg(p, l, { mirror: true }));
   }
+  const layers = [...boardCopperLayers(p.board.copperLayers), 'F.Silk' as const];
+  files[`${base}-LUT.pdf`] = exportLutPdf(p, { sheets: layers.map((layer) => ({ layer, mirror: lutMirrorFor(layer) })) }).bytes;
   files[`${base}-assembly-top.svg`] = strToU8(exportAssemblySvg(p, 'top'));
   files[`${base}-netlist.txt`] = strToU8(exportNetlistText(p));
   files[`${base}-BOM.csv`] = strToU8(exportBomCsv(p));

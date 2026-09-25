@@ -130,6 +130,8 @@ export function BoardDialog() {
             ))}
             <label>Закрывать переходные маской</label>
             <input type="checkbox" checked={p.rules.tentVias} onChange={(e) => s.commit((d) => void (d.rules.tentVias = e.target.checked))} />
+            <label>Каплевидные переходы</label>
+            <input type="checkbox" checked={!!p.rules.teardrops} onChange={(e) => s.commit((d) => void (d.rules.teardrops = e.target.checked || undefined))} />
           </div>
           <h4>Особые зазоры между классами</h4>
           <p className="hint">Например, 6 мм между сетью 230 В и всем остальным. «*» — любой другой класс.</p>
