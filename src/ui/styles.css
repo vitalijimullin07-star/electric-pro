@@ -305,9 +305,15 @@ a {
 .panel .tabs {
   display: flex;
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.panel .tabs::-webkit-scrollbar {
+  display: none;
 }
 .panel .tabs button {
-  flex: 1;
+  flex: 1 0 auto;
+  white-space: nowrap;
   background: transparent;
   border: 0;
   padding: 9px 4px;
@@ -1132,4 +1138,127 @@ textarea:focus {
   -webkit-backdrop-filter: none;
   background: #1a2028;
   box-shadow: none;
+}
+
+/* ---------------- симуляция ---------------- */
+.sim-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+  vertical-align: middle;
+}
+.sim-dot.paused {
+  background: var(--warn);
+  box-shadow: none;
+}
+.sim-sound {
+  margin-left: auto;
+  color: var(--mute);
+}
+.sim-tabs {
+  margin: 8px 0;
+}
+.sim-dev {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sim-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sim-led {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: none;
+}
+.sim-note {
+  width: 14px;
+  text-align: center;
+  color: var(--warn);
+}
+.sim-lcd {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2458d6;
+  color: #eaf2ff;
+  font: 15px/1.35 ui-monospace, 'Courier New', monospace;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 0 0 3px #173a9e;
+  overflow-x: auto;
+  white-space: pre;
+}
+.sim-lcd.dark {
+  background: #15233f;
+  color: #7f93bd;
+}
+.sim-oled {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 6px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+  border: 3px solid #0d1624;
+}
+.sim-hold {
+  margin-top: 6px;
+  min-width: 170px;
+  min-height: 40px;
+  touch-action: none;
+  user-select: none;
+}
+.sim-param {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.sim-param input[type='range'] {
+  width: 100%;
+}
+.sim-serial {
+  height: 220px;
+  overflow: auto;
+  margin: 6px 0;
+  padding: 8px;
+  background: #0b0f14;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #b8f5c8;
+  font: 12px/1.4 ui-monospace, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.sim-pins td {
+  font-size: 12px;
+}
+.sim-pins tr.bad td {
+  color: var(--err);
+}
+.sim-lvl {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3a86ff;
+  vertical-align: middle;
+}
+.sim-lvl.l1 {
+  background: #ff453a;
+}
+.sim-scope {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin: 6px 0;
 }

@@ -295,6 +295,13 @@ export interface Project {
   groups?: Record<Id, Group>;
   /** Принципиальная схема (если начата): символы деталей, провода, метки цепей. */
   schematic?: Schematic;
+  /** Прошивка для симуляции (Intel HEX из Arduino IDE). */
+  firmware?: Firmware;
+}
+
+export interface Firmware {
+  name: string;
+  hex: string;
 }
 
 /* ---------------- схема ---------------- */

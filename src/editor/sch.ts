@@ -10,6 +10,7 @@ import { askConfirm, askText } from '../ui/dialogs/AskDialog';
 import { findFootprint } from './userlib';
 import { useEditor, type SchRef, type SchTool, type ViewState } from './store';
 import { PointerInput } from './pointer';
+import { simRuntime } from './sim-runtime';
 
 /* Схема: команды и управление мышью и касаниями. Изменения — через commit, как на плате. */
 
@@ -279,6 +280,7 @@ export class SchController {
   /** Перо, палец или мышь: допуск попадания и защита от ладони. */
   private readonly input = new PointerInput();
   private dragPointer: number | null = null;
+  private simPress: string | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
 
@@ -349,6 +351,16 @@ export class SchController {
     if (e.button !== 0) return;
     if (s.schTool === 'select') {
       const hit = schHits(s.project, wp, this.tol())[0] ?? null;
+      // Идёт симуляция: касание символа кнопки нажимает её.
+      if (simRuntime.active && hit?.ref.kind === 'symbol') {
+        const sym = s.project.schematic?.symbols[hit.ref.id];
+        const btn = sym ? simRuntime.buttonOf(sym.component) : null;
+        if (btn) {
+          simRuntime.press(btn, true);
+          this.simPress = btn;
+          return;
+        }
+      }
       const keys = new Set(s.schSelection.map((r) => r.kind + ':' + r.id));
       if (hit) {
         const k = hit.ref.kind + ':' + hit.ref.id;
@@ -410,6 +422,11 @@ export class SchController {
     const s = S();
     if (!this.input.accept(e, 'up').ok) return;
     this.pointers.delete(e.pointerId);
+    if (this.simPress) {
+      simRuntime.press(this.simPress, false);
+      this.simPress = null;
+      return;
+    }
     if (this.drag && !this.pinch && this.dragPointer !== null && e.pointerId !== this.dragPointer) return;
     if (this.pinch) {
       if (!this.pointers.size) this.pinch = null;

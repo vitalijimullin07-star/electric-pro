@@ -1,0 +1,5071 @@
+{
+ "format": "plata-project",
+ "version": 1,
+ "meta": {
+  "name": "Arduino — демо симуляции",
+  "created": "2026-09-25T18:02:03.014Z",
+  "modified": "2026-09-25T18:02:03.014Z"
+ },
+ "board": {
+  "outline": [
+   {
+    "x": 0,
+    "y": 0
+   },
+   {
+    "x": 110,
+    "y": 0
+   },
+   {
+    "x": 110,
+    "y": 75
+   },
+   {
+    "x": 0,
+    "y": 75
+   }
+  ],
+  "cornerRadius": 2,
+  "cutouts": [],
+  "copperLayers": 2,
+  "thickness": 1.6,
+  "maskColor": "#1f6b3a"
+ },
+ "rules": {
+  "minClearance": 0.2,
+  "minTrackWidth": 0.2,
+  "minViaDiameter": 0.6,
+  "minViaDrill": 0.3,
+  "minDrill": 0.3,
+  "minAnnularRing": 0.13,
+  "edgeClearance": 0.3,
+  "holeToHole": 0.5,
+  "classClearances": [],
+  "maskMargin": 0.05,
+  "tentVias": true
+ },
+ "netClasses": {
+  "Default": {
+   "name": "Default",
+   "description": "Сигнальные цепи",
+   "clearance": 0.2,
+   "trackWidth": 0.25,
+   "viaDiameter": 0.6,
+   "viaDrill": 0.3
+  },
+  "Power": {
+   "name": "Power",
+   "description": "Питание и земля",
+   "clearance": 0.2,
+   "trackWidth": 0.5,
+   "viaDiameter": 0.8,
+   "viaDrill": 0.4
+  }
+ },
+ "nets": {
+  "n9pr2jd56s1j": {
+   "id": "n9pr2jd56s1j",
+   "name": "GND",
+   "netClass": "Power"
+  },
+  "n9pr2jeu69oq": {
+   "id": "n9pr2jeu69oq",
+   "name": "5V",
+   "netClass": "Power"
+  },
+  "n9pr2jf0z7g9": {
+   "id": "n9pr2jf0z7g9",
+   "name": "LED_BLINK",
+   "netClass": "Default"
+  },
+  "n9pr2jgyxfa8": {
+   "id": "n9pr2jgyxfa8",
+   "name": "LED1_A",
+   "netClass": "Default"
+  },
+  "n9pr2jh5lmyi": {
+   "id": "n9pr2jh5lmyi",
+   "name": "LED_PWM",
+   "netClass": "Default"
+  },
+  "n9pr2jiax37p": {
+   "id": "n9pr2jiax37p",
+   "name": "LED2_A",
+   "netClass": "Default"
+  },
+  "n9pr2jj2wkzy": {
+   "id": "n9pr2jj2wkzy",
+   "name": "LED_BTN",
+   "netClass": "Default"
+  },
+  "n9pr2jkgrpcv": {
+   "id": "n9pr2jkgrpcv",
+   "name": "LED3_A",
+   "netClass": "Default"
+  },
+  "n9pr2jlydy89": {
+   "id": "n9pr2jlydy89",
+   "name": "BTN",
+   "netClass": "Default"
+  },
+  "n9pr2jm7v38x": {
+   "id": "n9pr2jm7v38x",
+   "name": "POT",
+   "netClass": "Default"
+  },
+  "n9pr2jnt2t8r": {
+   "id": "n9pr2jnt2t8r",
+   "name": "DHT",
+   "netClass": "Default"
+  },
+  "n9pr2jogst9d": {
+   "id": "n9pr2jogst9d",
+   "name": "BUZ",
+   "netClass": "Default"
+  },
+  "n9pr2jpoc4za": {
+   "id": "n9pr2jpoc4za",
+   "name": "SDA",
+   "netClass": "Default"
+  },
+  "n9pr2jqnn8qz": {
+   "id": "n9pr2jqnn8qz",
+   "name": "SCL",
+   "netClass": "Default"
+  }
+ },
+ "footprints": {
+  "Module_Arduino_Nano": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -8.9,
+      "y": -21.6
+     },
+     "b": {
+      "x": 8.9,
+      "y": 21.6
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -8.96,
+      "y": -21.66
+     },
+     "b": {
+      "x": 8.96,
+      "y": 21.66
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.8,
+      "y": -22.2
+     },
+     "b": {
+      "x": 3.8,
+      "y": -17.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -7.62,
+      "y": -19.38
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -17.78
+     },
+     "text": "D13",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -15.24
+     },
+     "text": "3V3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -12.7
+     },
+     "text": "REF",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -10.16
+     },
+     "text": "A0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -7.62
+     },
+     "text": "A1",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -5.08
+     },
+     "text": "A2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": -2.54
+     },
+     "text": "A3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 0
+     },
+     "text": "A4",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 2.54
+     },
+     "text": "A5",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 5.08
+     },
+     "text": "A6",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 7.62
+     },
+     "text": "A7",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 10.16
+     },
+     "text": "5V",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 12.7
+     },
+     "text": "RST",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.37,
+      "y": 17.78
+     },
+     "text": "VIN",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -17.78
+     },
+     "text": "D12",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -15.24
+     },
+     "text": "D11",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -12.7
+     },
+     "text": "D10",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -10.16
+     },
+     "text": "D9",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -7.62
+     },
+     "text": "D8",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -5.08
+     },
+     "text": "D7",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": -2.54
+     },
+     "text": "D6",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 0
+     },
+     "text": "D5",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 2.54
+     },
+     "text": "D4",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 5.08
+     },
+     "text": "D3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 7.62
+     },
+     "text": "D2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 10.16
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 12.7
+     },
+     "text": "RST",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 15.24
+     },
+     "text": "RX0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.37,
+      "y": 17.78
+     },
+     "text": "TX1",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 0,
+     "align": "right"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -9.4,
+      "y": -22.1
+     },
+     "b": {
+      "x": 9.4,
+      "y": 22.1
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -22.8
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": -17.78
+     },
+     "text": "D13",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": -15.24
+     },
+     "text": "3V3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": -12.7
+     },
+     "text": "REF",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": -10.16
+     },
+     "text": "A0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": -7.62
+     },
+     "text": "A1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": -5.08
+     },
+     "text": "A2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": -2.54
+     },
+     "text": "A3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": 0
+     },
+     "text": "A4",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": 2.54
+     },
+     "text": "A5",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": 5.08
+     },
+     "text": "A6",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": 7.62
+     },
+     "text": "A7",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -9.595,
+      "y": 10.16
+     },
+     "text": "5V",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": 12.7
+     },
+     "text": "RST",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": 15.24
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -10.012,
+      "y": 17.78
+     },
+     "text": "VIN",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": -17.78
+     },
+     "text": "D12",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": -15.24
+     },
+     "text": "D11",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": -12.7
+     },
+     "text": "D10",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": -10.16
+     },
+     "text": "D9",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": -7.62
+     },
+     "text": "D8",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": -5.08
+     },
+     "text": "D7",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": -2.54
+     },
+     "text": "D6",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": 0
+     },
+     "text": "D5",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": 2.54
+     },
+     "text": "D4",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": 5.08
+     },
+     "text": "D3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9.595,
+      "y": 7.62
+     },
+     "text": "D2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": 10.16
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": 12.7
+     },
+     "text": "RST",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": 15.24
+     },
+     "text": "RX0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 10.012,
+      "y": 17.78
+     },
+     "text": "TX1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 0,
+     "align": "center"
+    }
+   ],
+   "id": "Module_Arduino_Nano",
+   "name": "Arduino Nano",
+   "description": "Arduino Nano (и клоны), 2×15 выводов, ряды через 15,24 мм, платка 43,2×17,8 мм",
+   "category": "Модули",
+   "group": "Микроконтроллеры",
+   "tags": [
+    "module",
+    "tht",
+    "arduino",
+    "nano",
+    "atmega328"
+   ],
+   "refPrefix": "A",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -7.62,
+      "y": -17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D13"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "3V3"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "REF"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A0"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A1"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A2"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A3"
+    },
+    {
+     "number": "8",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A4"
+    },
+    {
+     "number": "9",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A5"
+    },
+    {
+     "number": "10",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A6"
+    },
+    {
+     "number": "11",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A7"
+    },
+    {
+     "number": "12",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "5V"
+    },
+    {
+     "number": "13",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RST"
+    },
+    {
+     "number": "14",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "15",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -7.62,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VIN"
+    },
+    {
+     "number": "30",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D12"
+    },
+    {
+     "number": "29",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D11"
+    },
+    {
+     "number": "28",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D10"
+    },
+    {
+     "number": "27",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D9"
+    },
+    {
+     "number": "26",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D8"
+    },
+    {
+     "number": "25",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D7"
+    },
+    {
+     "number": "24",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": -2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D6"
+    },
+    {
+     "number": "23",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D5"
+    },
+    {
+     "number": "22",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D4"
+    },
+    {
+     "number": "21",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D3"
+    },
+    {
+     "number": "20",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "D2"
+    },
+    {
+     "number": "19",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "18",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RST"
+    },
+    {
+     "number": "17",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "RX0"
+    },
+    {
+     "number": "16",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 7.62,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "TX1"
+    },
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": -7.62,
+      "y": -20.3
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1.8
+    },
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 7.62,
+      "y": -20.3
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1.8
+    },
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": -7.62,
+      "y": 20.3
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1.8
+    },
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 7.62,
+      "y": 20.3
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -9.4,
+     "y": -22.1
+    },
+    "max": {
+     "x": 9.4,
+     "y": 22.1
+    }
+   },
+   "source": "Arduino Nano, чертёж 1,70″×0,70″",
+   "verified": true,
+   "height": 8
+  },
+  "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.15,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3.15,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -5.08,
+      "y": 0
+     },
+     "b": {
+      "x": -3.15,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 3.15,
+      "y": 0
+     },
+     "b": {
+      "x": 5.08,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.21,
+      "y": -1.31
+     },
+     "b": {
+      "x": 3.21,
+      "y": 1.31
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.03,
+      "y": 0
+     },
+     "b": {
+      "x": -3.21,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.21,
+      "y": 0
+     },
+     "b": {
+      "x": 4.03,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -6.38,
+      "y": -1.75
+     },
+     "b": {
+      "x": 6.38,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 0.875,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "name": "Резистор 0.25W, 10,16 мм",
+   "description": "Резистор 0.25W с осевыми выводами, корпус 6.3×2.5 мм, шаг 10,16 мм",
+   "category": "Резисторы",
+   "tags": [
+    "tht",
+    "axial",
+    "resistor",
+    "0.25W"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -6.38,
+     "y": -1.75
+    },
+    "max": {
+     "x": 6.38,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 2.5,
+   "group": "Выводные горизонтально"
+  },
+  "LED_D5.0mm": {
+   "graphics": [
+    {
+     "kind": "arc",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.85,
+     "start": 142.13635363826964,
+     "sweep": -284.2727072765393,
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.25,
+      "y": -1.7493
+     },
+     "b": {
+      "x": -2.25,
+      "y": 1.7493
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "arc",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.91,
+     "start": 142.13635363826964,
+     "sweep": -284.2727072765393,
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.31,
+      "y": -1.7493
+     },
+     "b": {
+      "x": -2.31,
+      "y": 1.7493
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -2.75,
+      "y": -3.35
+     },
+     "b": {
+      "x": 3.35,
+      "y": 3.35
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.05
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 4.05
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 1.608
+     },
+     "text": "K",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 1.608
+     },
+     "text": "A",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "LED_D5.0mm",
+   "name": "LED 5 мм",
+   "description": "Светодиод Ø5 мм, шаг 2,54 мм, катод (плоская грань) — вывод 1",
+   "category": "Светодиоды",
+   "tags": [
+    "tht",
+    "led",
+    "5mm"
+   ],
+   "refPrefix": "LED",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "K"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "A"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.75,
+     "y": -3.35
+    },
+    "max": {
+     "x": 3.35,
+     "y": 3.35
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 8.6,
+   "group": "Выводные"
+  },
+  "SW_PUSH_6mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3,
+      "y": -3
+     },
+     "b": {
+      "x": 3,
+      "y": 3
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.75,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.4132,
+      "y": -3.06
+     },
+     "b": {
+      "x": 2.4132,
+      "y": -3.06
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.06,
+      "y": -1.0698
+     },
+     "b": {
+      "x": 3.06,
+      "y": 1.0698
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 2.4132,
+      "y": 3.06
+     },
+     "b": {
+      "x": -2.4132,
+      "y": 3.06
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.06,
+      "y": 1.0698
+     },
+     "b": {
+      "x": -3.06,
+      "y": -1.0698
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -4.66,
+      "y": -3.65
+     },
+     "b": {
+      "x": 4.66,
+      "y": 3.65
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.35
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 4.35
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "SW_PUSH_6mm",
+   "name": "Кнопка 6×6",
+   "description": "Тактовая кнопка 6×6 мм, 4 вывода; выводы 1–2 и 3–4 соединены внутри",
+   "category": "Кнопки и переключатели",
+   "tags": [
+    "tht",
+    "switch",
+    "button",
+    "tactile"
+   ],
+   "refPrefix": "SW",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.25,
+      "y": -2.25
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.25,
+      "y": -2.25
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.25,
+      "y": 2.25
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.25,
+      "y": 2.25
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -4.66,
+     "y": -3.65
+    },
+    "max": {
+     "x": 4.66,
+     "y": 3.65
+    }
+   },
+   "source": "Типовая кнопка 6×6",
+   "verified": true,
+   "height": 5,
+   "group": "Тактовые"
+  },
+  "Potentiometer_Bourns_3386P": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -4.765,
+      "y": -4.765
+     },
+     "b": {
+      "x": 4.765,
+      "y": 4.765
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.865,
+      "y": -4.865
+     },
+     "b": {
+      "x": 4.865,
+      "y": -4.865
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 4.865,
+      "y": -4.865
+     },
+     "b": {
+      "x": 4.865,
+      "y": 4.865
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 4.865,
+      "y": 4.865
+     },
+     "b": {
+      "x": -4.865,
+      "y": 4.865
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -4.865,
+      "y": 4.865
+     },
+     "b": {
+      "x": -4.865,
+      "y": -4.865
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": -2.5
+     },
+     "r": 2.0966,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.27,
+      "y": -5.27
+     },
+     "b": {
+      "x": 5.27,
+      "y": 5.27
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -5.97
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 5.97
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": 3.958
+     },
+     "text": "W",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Potentiometer_Bourns_3386P",
+   "name": "Подстроечный 3386P",
+   "description": "Подстроечный резистор 3386P, 9.53×9.53 мм, 3 вывода в линию с шагом 2,54 мм (2 — движок)",
+   "category": "Резисторы",
+   "group": "Подстроечные",
+   "tags": [
+    "tht",
+    "trimmer",
+    "bourns",
+    "3386p"
+   ],
+   "refPrefix": "RV",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.54,
+      "y": 2.5
+     },
+     "size": {
+      "x": 1.5,
+      "y": 1.5
+     },
+     "drill": 0.8,
+     "name": "1"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.5
+     },
+     "size": {
+      "x": 1.5,
+      "y": 1.5
+     },
+     "drill": 0.8,
+     "name": "W"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 2.5
+     },
+     "size": {
+      "x": 1.5,
+      "y": 1.5
+     },
+     "drill": 0.8,
+     "name": "3"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.27,
+     "y": -5.27
+    },
+    "max": {
+     "x": 5.27,
+     "y": 5.27
+    }
+   },
+   "source": "Bourns, даташит",
+   "verified": false,
+   "height": 4.83
+  },
+  "Module_DHT22": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -7.55,
+      "y": -26.05
+     },
+     "b": {
+      "x": 7.55,
+      "y": -0.95
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7.61,
+      "y": -26.11
+     },
+     "b": {
+      "x": 7.61,
+      "y": -0.89
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -5.41,
+      "y": 0
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -3.81,
+      "y": -1.2
+     },
+     "text": "VCC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -1.27,
+      "y": -1.2
+     },
+     "text": "DATA",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 1.27,
+      "y": -1.2
+     },
+     "text": "NC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 3.81,
+      "y": -1.2
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -8.06,
+      "y": -26.55
+     },
+     "b": {
+      "x": 8.06,
+      "y": 1.3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -27.25
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -13.5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.342
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.758
+     },
+     "text": "DATA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 2.342
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Module_DHT22",
+   "name": "DHT22",
+   "description": "Датчик DHT22/AM2302, 4 вывода с шагом 2,54 мм (VCC, DATA, NC, GND), корпус 15,1×25,1 мм",
+   "category": "Датчики",
+   "group": "Температура и влажность",
+   "tags": [
+    "module",
+    "tht",
+    "sensor",
+    "humidity",
+    "dht22"
+   ],
+   "refPrefix": "U",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "VCC"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "DATA"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "NC"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "GND"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -8.06,
+     "y": -26.55
+    },
+    "max": {
+     "x": 8.06,
+     "y": 1.3
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 7.7
+  },
+  "Buzzer_12x8.5mm_P6mm": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6.1,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -6.5,
+      "y": -6.5
+     },
+     "b": {
+      "x": 6.5,
+      "y": 6.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -7.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 7.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Buzzer_12x8.5mm_P6mm",
+   "name": "Зуммер Ø12, 6 мм",
+   "description": "Пассивный магнитный зуммер Ø12×8,5 мм, шаг 6 мм",
+   "category": "Дисплеи и индикаторы",
+   "group": "Зуммеры и динамики",
+   "tags": [
+    "tht",
+    "buzzer"
+   ],
+   "refPrefix": "BZ",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -6.5,
+     "y": -6.5
+    },
+    "max": {
+     "x": 6.5,
+     "y": 6.5
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": false,
+   "height": 8.5
+  },
+  "Module_PCF8574_LCD_Backpack": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -21,
+      "y": -15.5
+     },
+     "b": {
+      "x": 21,
+      "y": 3.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -21.06,
+      "y": -15.56
+     },
+     "b": {
+      "x": 21.06,
+      "y": 3.56
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -20.65,
+      "y": 2.54
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -19.05,
+      "y": 1.29
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -16.51,
+      "y": 1.29
+     },
+     "text": "VCC",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -13.97,
+      "y": 1.29
+     },
+     "text": "SDA",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.43,
+      "y": 1.29
+     },
+     "text": "SCL",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -21.5,
+      "y": -16
+     },
+     "b": {
+      "x": 21.5,
+      "y": 4
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -16.7
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -6
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -19.05,
+      "y": 4.932
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -16.51,
+      "y": 4.932
+     },
+     "text": "VCC",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -13.97,
+      "y": 4.932
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -11.43,
+      "y": 4.932
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Module_PCF8574_LCD_Backpack",
+   "name": "PCF8574 переходник I2C",
+   "description": "I2C-переходник для LCD1602/2004 на PCF8574: 1×4 (GND, VCC, SDA, SCL) и 1×16 к дисплею",
+   "category": "Модули",
+   "group": "Прочее",
+   "tags": [
+    "module",
+    "tht",
+    "pcf8574",
+    "i2c",
+    "lcd"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -19.05,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -16.51,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VCC"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -13.97,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -11.43,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -21.5,
+     "y": -16
+    },
+    "max": {
+     "x": 21.5,
+     "y": 4
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 8
+  }
+ },
+ "components": {
+  "c9pr2i19qm3g": {
+   "id": "c9pr2i19qm3g",
+   "ref": "A1",
+   "value": "Arduino Nano",
+   "footprint": "Module_Arduino_Nano",
+   "at": {
+    "x": 22,
+    "y": 37
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jf0z7g9",
+    "4": "n9pr2jm7v38x",
+    "8": "n9pr2jpoc4za",
+    "9": "n9pr2jqnn8qz",
+    "12": "n9pr2jeu69oq",
+    "14": "n9pr2jd56s1j",
+    "19": "n9pr2jd56s1j",
+    "20": "n9pr2jlydy89",
+    "22": "n9pr2jnt2t8r",
+    "24": "n9pr2jh5lmyi",
+    "29": "n9pr2jogst9d",
+    "30": "n9pr2jj2wkzy"
+   }
+  },
+  "c9pr2i2f2tmi": {
+   "id": "c9pr2i2f2tmi",
+   "ref": "R1",
+   "value": "220",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "at": {
+    "x": 50,
+    "y": 12
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jf0z7g9",
+    "2": "n9pr2jgyxfa8"
+   }
+  },
+  "c9pr2i3nf5c5": {
+   "id": "c9pr2i3nf5c5",
+   "ref": "R2",
+   "value": "220",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "at": {
+    "x": 50,
+    "y": 20
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jh5lmyi",
+    "2": "n9pr2jiax37p"
+   }
+  },
+  "c9pr2i4gqw47": {
+   "id": "c9pr2i4gqw47",
+   "ref": "R3",
+   "value": "220",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal",
+   "at": {
+    "x": 50,
+    "y": 28
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jj2wkzy",
+    "2": "n9pr2jkgrpcv"
+   }
+  },
+  "c9pr2i5cprn1": {
+   "id": "c9pr2i5cprn1",
+   "ref": "D1",
+   "value": "красный",
+   "footprint": "LED_D5.0mm",
+   "at": {
+    "x": 64,
+    "y": 12
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jd56s1j",
+    "2": "n9pr2jgyxfa8"
+   }
+  },
+  "c9pr2i6gfosr": {
+   "id": "c9pr2i6gfosr",
+   "ref": "D2",
+   "value": "зелёный",
+   "footprint": "LED_D5.0mm",
+   "at": {
+    "x": 64,
+    "y": 20
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jd56s1j",
+    "2": "n9pr2jiax37p"
+   }
+  },
+  "c9pr2i75scpy": {
+   "id": "c9pr2i75scpy",
+   "ref": "D3",
+   "value": "жёлтый",
+   "footprint": "LED_D5.0mm",
+   "at": {
+    "x": 64,
+    "y": 28
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jd56s1j",
+    "2": "n9pr2jkgrpcv"
+   }
+  },
+  "c9pr2i8ffa8b": {
+   "id": "c9pr2i8ffa8b",
+   "ref": "SW1",
+   "value": "кнопка",
+   "footprint": "SW_PUSH_6mm",
+   "at": {
+    "x": 52,
+    "y": 42
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jlydy89",
+    "2": "n9pr2jlydy89",
+    "3": "n9pr2jd56s1j",
+    "4": "n9pr2jd56s1j"
+   }
+  },
+  "c9pr2i9r2kwv": {
+   "id": "c9pr2i9r2kwv",
+   "ref": "RV1",
+   "value": "10k",
+   "footprint": "Potentiometer_Bourns_3386P",
+   "at": {
+    "x": 52,
+    "y": 58
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jd56s1j",
+    "2": "n9pr2jm7v38x",
+    "3": "n9pr2jeu69oq"
+   }
+  },
+  "c9pr2ia7i9jz": {
+   "id": "c9pr2ia7i9jz",
+   "ref": "U1",
+   "value": "DHT22",
+   "footprint": "Module_DHT22",
+   "at": {
+    "x": 78,
+    "y": 58
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jeu69oq",
+    "2": "n9pr2jnt2t8r",
+    "4": "n9pr2jd56s1j"
+   }
+  },
+  "c9pr2ibvbscr": {
+   "id": "c9pr2ibvbscr",
+   "ref": "BZ1",
+   "value": "пассивный",
+   "footprint": "Buzzer_12x8.5mm_P6mm",
+   "at": {
+    "x": 80,
+    "y": 40
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jogst9d",
+    "2": "n9pr2jd56s1j"
+   }
+  },
+  "c9pr2icdyzqy": {
+   "id": "c9pr2icdyzqy",
+   "ref": "M1",
+   "value": "LCD1602 I2C",
+   "footprint": "Module_PCF8574_LCD_Backpack",
+   "at": {
+    "x": 92,
+    "y": 16
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "n9pr2jd56s1j",
+    "2": "n9pr2jeu69oq",
+    "3": "n9pr2jpoc4za",
+    "4": "n9pr2jqnn8qz"
+   }
+  }
+ },
+ "tracks": {
+  "t9psqv3b0u3dc": {
+   "id": "t9psqv3b0u3dc",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 65.27,
+     "y": 12
+    },
+    {
+     "x": 64.8,
+     "y": 10.4
+    },
+    {
+     "x": 64.8,
+     "y": 9.6
+    },
+    {
+     "x": 55.2,
+     "y": 9.6
+    },
+    {
+     "x": 55.2,
+     "y": 10.4
+    },
+    {
+     "x": 55.08,
+     "y": 12
+    }
+   ]
+  },
+  "t9psqv3c31xsp": {
+   "id": "t9psqv3c31xsp",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 65.27,
+     "y": 20
+    },
+    {
+     "x": 64.8,
+     "y": 18.4
+    },
+    {
+     "x": 64.8,
+     "y": 17.6
+    },
+    {
+     "x": 56,
+     "y": 17.6
+    },
+    {
+     "x": 56,
+     "y": 19.2
+    },
+    {
+     "x": 55.08,
+     "y": 20
+    }
+   ]
+  },
+  "t9psqv3dubqby": {
+   "id": "t9psqv3dubqby",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 65.27,
+     "y": 28
+    },
+    {
+     "x": 64.8,
+     "y": 26.4
+    },
+    {
+     "x": 64.8,
+     "y": 25.6
+    },
+    {
+     "x": 55.2,
+     "y": 25.6
+    },
+    {
+     "x": 55.2,
+     "y": 26.4
+    },
+    {
+     "x": 55.08,
+     "y": 28
+    }
+   ]
+  },
+  "t9psqv3ejwzub": {
+   "id": "t9psqv3ejwzub",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 44.92,
+     "y": 20
+    },
+    {
+     "x": 44.8,
+     "y": 21.6
+    },
+    {
+     "x": 20,
+     "y": 21.6
+    },
+    {
+     "x": 20,
+     "y": 28
+    },
+    {
+     "x": 19.46,
+     "y": 29.38
+    }
+   ]
+  },
+  "t9psqv3f85tg5": {
+   "id": "t9psqv3f85tg5",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 48.75,
+     "y": 39.75
+    },
+    {
+     "x": 47.2,
+     "y": 39.2
+    },
+    {
+     "x": 26.4,
+     "y": 39.2
+    },
+    {
+     "x": 26.4,
+     "y": 31.2
+    },
+    {
+     "x": 28.8,
+     "y": 31.2
+    },
+    {
+     "x": 28.8,
+     "y": 30.4
+    },
+    {
+     "x": 29.62,
+     "y": 29.38
+    }
+   ]
+  },
+  "t9psqv3gjrofi": {
+   "id": "t9psqv3gjrofi",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 55.25,
+     "y": 39.75
+    },
+    {
+     "x": 53.6,
+     "y": 40
+    },
+    {
+     "x": 50.4,
+     "y": 40
+    },
+    {
+     "x": 48.75,
+     "y": 39.75
+    }
+   ]
+  },
+  "t9psqv3h6g44e": {
+   "id": "t9psqv3h6g44e",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 44.92,
+     "y": 28
+    },
+    {
+     "x": 44,
+     "y": 27.2
+    },
+    {
+     "x": 4.8,
+     "y": 27.2
+    },
+    {
+     "x": 4.8,
+     "y": 28
+    },
+    {
+     "x": 4.219999999999999,
+     "y": 29.38
+    }
+   ]
+  },
+  "t9psqv3is07u7": {
+   "id": "t9psqv3is07u7",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 52,
+     "y": 60.5
+    },
+    {
+     "x": 51.2,
+     "y": 59.2
+    },
+    {
+     "x": 51.2,
+     "y": 48
+    },
+    {
+     "x": 12.8,
+     "y": 48
+    },
+    {
+     "x": 12.8,
+     "y": 45.6
+    },
+    {
+     "x": 11.84,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3ji14db": {
+   "id": "t9psqv3ji14db",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 44.92,
+     "y": 12
+    },
+    {
+     "x": 44.8,
+     "y": 13.6
+    },
+    {
+     "x": 47.2,
+     "y": 13.6
+    },
+    {
+     "x": 47.2,
+     "y": 32.8
+    },
+    {
+     "x": 28,
+     "y": 32.8
+    }
+   ]
+  },
+  "t9psqv3knb2k9": {
+   "id": "t9psqv3knb2k9",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 28,
+     "y": 32.8
+    },
+    {
+     "x": 5.6,
+     "y": 32.8
+    },
+    {
+     "x": 5.6,
+     "y": 43.2
+    },
+    {
+     "x": 4.219999999999999,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3lklybo": {
+   "id": "t9psqv3lklybo",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 76.73,
+     "y": 58
+    },
+    {
+     "x": 76,
+     "y": 56.8
+    },
+    {
+     "x": 76,
+     "y": 41.6
+    },
+    {
+     "x": 68.8,
+     "y": 41.6
+    }
+   ]
+  },
+  "t9psqv3mca4wy": {
+   "id": "t9psqv3mca4wy",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 68.8,
+     "y": 41.6
+    },
+    {
+     "x": 25.6,
+     "y": 41.6
+    },
+    {
+     "x": 25.6,
+     "y": 30.4
+    },
+    {
+     "x": 24.54,
+     "y": 29.38
+    }
+   ]
+  },
+  "t9psqv3nnycxf": {
+   "id": "t9psqv3nnycxf",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 77,
+     "y": 40
+    },
+    {
+     "x": 76,
+     "y": 39.2
+    },
+    {
+     "x": 76,
+     "y": 36
+    },
+    {
+     "x": 30.4,
+     "y": 36
+    }
+   ]
+  },
+  "t9psqv3o24usb": {
+   "id": "t9psqv3o24usb",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 30.4,
+     "y": 36
+    },
+    {
+     "x": 29.6,
+     "y": 36
+    },
+    {
+     "x": 29.6,
+     "y": 31.2
+    },
+    {
+     "x": 7.2,
+     "y": 31.2
+    },
+    {
+     "x": 7.2,
+     "y": 30.4
+    },
+    {
+     "x": 6.76,
+     "y": 29.38
+    }
+   ]
+  },
+  "t9psqv3pzjlpa": {
+   "id": "t9psqv3pzjlpa",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 94.54,
+     "y": 29.97
+    },
+    {
+     "x": 93.6,
+     "y": 30.4
+    },
+    {
+     "x": 79.2,
+     "y": 30.4
+    },
+    {
+     "x": 79.2,
+     "y": 43.2
+    },
+    {
+     "x": 56.8,
+     "y": 43.2
+    },
+    {
+     "x": 56.8,
+     "y": 42.4
+    },
+    {
+     "x": 22.4,
+     "y": 42.4
+    },
+    {
+     "x": 22.4,
+     "y": 43.2
+    },
+    {
+     "x": 22,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3q1jslc": {
+   "id": "t9psqv3q1jslc",
+   "layer": "B.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 94.54,
+     "y": 27.43
+    },
+    {
+     "x": 93.6,
+     "y": 28
+    },
+    {
+     "x": 68,
+     "y": 28
+    },
+    {
+     "x": 68,
+     "y": 34.4
+    },
+    {
+     "x": 28,
+     "y": 34.4
+    }
+   ]
+  },
+  "t9psqv3rn9hvg": {
+   "id": "t9psqv3rn9hvg",
+   "layer": "F.Cu",
+   "width": 0.25,
+   "points": [
+    {
+     "x": 28,
+     "y": 34.4
+    },
+    {
+     "x": 24.8,
+     "y": 34.4
+    },
+    {
+     "x": 24.8,
+     "y": 43.2
+    },
+    {
+     "x": 24.54,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3s8fcyy": {
+   "id": "t9psqv3s8fcyy",
+   "layer": "B.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 54.54,
+     "y": 60.5
+    },
+    {
+     "x": 53.6,
+     "y": 59.2
+    },
+    {
+     "x": 53.6,
+     "y": 47.2
+    },
+    {
+     "x": 32.8,
+     "y": 47.2
+    },
+    {
+     "x": 32.8,
+     "y": 45.6
+    },
+    {
+     "x": 32.16,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3tsx8l2": {
+   "id": "t9psqv3tsx8l2",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 74.19,
+     "y": 58
+    },
+    {
+     "x": 72.8,
+     "y": 59.2
+    },
+    {
+     "x": 55.2,
+     "y": 59.2
+    },
+    {
+     "x": 54.54,
+     "y": 60.5
+    }
+   ]
+  },
+  "t9psqv3u0xvq4": {
+   "id": "t9psqv3u0xvq4",
+   "layer": "B.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 94.54,
+     "y": 32.510000000000005
+    },
+    {
+     "x": 93.6,
+     "y": 32.8
+    },
+    {
+     "x": 80,
+     "y": 32.8
+    },
+    {
+     "x": 80,
+     "y": 56
+    },
+    {
+     "x": 75.2,
+     "y": 56
+    },
+    {
+     "x": 75.2,
+     "y": 56.8
+    },
+    {
+     "x": 74.19,
+     "y": 58
+    }
+   ]
+  },
+  "t9psqv3vzrvld": {
+   "id": "t9psqv3vzrvld",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 48.75,
+     "y": 44.25
+    },
+    {
+     "x": 47.2,
+     "y": 44.8
+    },
+    {
+     "x": 47.2,
+     "y": 46.4
+    },
+    {
+     "x": 37.6,
+     "y": 46.4
+    },
+    {
+     "x": 37.6,
+     "y": 45.6
+    },
+    {
+     "x": 37.24,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3wevlgt": {
+   "id": "t9psqv3wevlgt",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 55.25,
+     "y": 44.25
+    },
+    {
+     "x": 53.6,
+     "y": 44.8
+    },
+    {
+     "x": 50.4,
+     "y": 44.8
+    },
+    {
+     "x": 48.75,
+     "y": 44.25
+    }
+   ]
+  },
+  "t9psqv3xxw0me": {
+   "id": "t9psqv3xxw0me",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 32.16,
+     "y": 29.38
+    },
+    {
+     "x": 32,
+     "y": 30.4
+    },
+    {
+     "x": 32,
+     "y": 42.4
+    },
+    {
+     "x": 36.8,
+     "y": 42.4
+    },
+    {
+     "x": 36.8,
+     "y": 43.2
+    },
+    {
+     "x": 37.24,
+     "y": 44.62
+    }
+   ]
+  },
+  "t9psqv3yhvyph": {
+   "id": "t9psqv3yhvyph",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 49.46,
+     "y": 60.5
+    },
+    {
+     "x": 49.6,
+     "y": 59.2
+    },
+    {
+     "x": 49.6,
+     "y": 45.6
+    },
+    {
+     "x": 48.75,
+     "y": 44.25
+    }
+   ]
+  },
+  "t9psqv3z9tuez": {
+   "id": "t9psqv3z9tuez",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 62.73,
+     "y": 28
+    },
+    {
+     "x": 63.2,
+     "y": 29.6
+    },
+    {
+     "x": 63.2,
+     "y": 43.2
+    },
+    {
+     "x": 56,
+     "y": 43.2
+    },
+    {
+     "x": 55.25,
+     "y": 44.25
+    }
+   ]
+  },
+  "t9psqv4022d3c": {
+   "id": "t9psqv4022d3c",
+   "layer": "B.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 62.73,
+     "y": 20
+    },
+    {
+     "x": 63.2,
+     "y": 21.6
+    },
+    {
+     "x": 63.2,
+     "y": 26.4
+    },
+    {
+     "x": 62.73,
+     "y": 28
+    }
+   ]
+  },
+  "t9psqv41e3k95": {
+   "id": "t9psqv41e3k95",
+   "layer": "B.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 62.73,
+     "y": 12
+    },
+    {
+     "x": 63.2,
+     "y": 13.6
+    },
+    {
+     "x": 63.2,
+     "y": 18.4
+    },
+    {
+     "x": 62.73,
+     "y": 20
+    }
+   ]
+  },
+  "t9psqv42q2zci": {
+   "id": "t9psqv42q2zci",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 83,
+     "y": 40
+    },
+    {
+     "x": 81.6,
+     "y": 39.2
+    },
+    {
+     "x": 81.6,
+     "y": 36.8
+    },
+    {
+     "x": 63.2,
+     "y": 36.8
+    }
+   ]
+  },
+  "t9psqv43355jr": {
+   "id": "t9psqv43355jr",
+   "layer": "B.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 94.54,
+     "y": 35.05
+    },
+    {
+     "x": 93.6,
+     "y": 36
+    },
+    {
+     "x": 83.2,
+     "y": 36
+    },
+    {
+     "x": 83.2,
+     "y": 38.4
+    },
+    {
+     "x": 83,
+     "y": 40
+    }
+   ]
+  },
+  "t9psqv44n9gyd": {
+   "id": "t9psqv44n9gyd",
+   "layer": "F.Cu",
+   "width": 0.5,
+   "points": [
+    {
+     "x": 81.81,
+     "y": 58
+    },
+    {
+     "x": 83.2,
+     "y": 57.6
+    },
+    {
+     "x": 83.2,
+     "y": 41.6
+    },
+    {
+     "x": 83,
+     "y": 40
+    }
+   ]
+  }
+ },
+ "vias": {
+  "v9psqv457ldzu": {
+   "id": "v9psqv457ldzu",
+   "at": {
+    "x": 28,
+    "y": 32.8
+   },
+   "diameter": 0.6,
+   "drill": 0.3
+  },
+  "v9psqv46j42o7": {
+   "id": "v9psqv46j42o7",
+   "at": {
+    "x": 68.8,
+    "y": 41.6
+   },
+   "diameter": 0.6,
+   "drill": 0.3
+  },
+  "v9psqv47jwe27": {
+   "id": "v9psqv47jwe27",
+   "at": {
+    "x": 30.4,
+    "y": 36
+   },
+   "diameter": 0.6,
+   "drill": 0.3
+  },
+  "v9psqv48x3qzz": {
+   "id": "v9psqv48x3qzz",
+   "at": {
+    "x": 28,
+    "y": 34.4
+   },
+   "diameter": 0.6,
+   "drill": 0.3
+  }
+ },
+ "wires": {},
+ "zones": {},
+ "ruleAreas": {},
+ "drawings": {},
+ "firmware": {
+  "name": "sim_demo.hex",
+  "hex": ":100000000C9434000C9449000C9449000C94490061\r\n:100010000C9449000C9449000C9449000C9449003C\r\n:100020000C9449000C9449000C9449000C9449002C\r\n:100030000C9449000C9449000C9449000C9449001C\r\n:100040000C9449000C9449000C9449000C9449000C\r\n:100050000C9449000C9449000C9449000C944900FC\r\n:100060000C9449000C94490011241FBECFEFD8E036\r\n:10007000DEBFCDBF11E0A0E0B1E0E6E1F7E002C0F5\r\n:1000800005900D92A037B107D9F70E94BA010C94E0\r\n:1000900089030C9400009091C00095FFFCCF8093E1\r\n:1000A000C6000895CF93DF93EC018991811103C0BD\r\n:1000B000DF91CF9108950E944B00F7CF4F925F924E\r\n:1000C0006F927F928F929F92AF92BF92CF92DF9268\r\n:1000D000EF92FF920F931F93CF93DF93CDB7DEB7CD\r\n:1000E0002C970FB6F894DEBF0FBECDBF6B017C011D\r\n:1000F000F7FE0BC08DE20E944B00F094E094D09488\r\n:10010000C094C11CD11CE11CF11CCE0101965C0104\r\n:100110004C0110E000E08AE0482E512C612C712C3B\r\n:100120000F5F1F4FC701B601A30192010E94480350\r\n:10013000605DF40161934F0169017A01C114D1043A\r\n:10014000E104F10469F70A0D1B1DF80182918F018A\r\n:100150000E944B00A016B106C1F72C960FB6F8947A\r\n:10016000DEBF0FBECDBFDF91CF911F910F91FF90EA\r\n:10017000EF90DF90CF90BF90AF909F908F907F9047\r\n:100180006F905F904F9008951092850010928400B8\r\n:1001900099B192959170981305C0809184009091C7\r\n:1001A00085000895209184003091850021393140E7\r\n:1001B00078F38FEF9FEF089594EA9093BC009091AD\r\n:1001C000BC0097FFFCCF9EE49093BB0094E8909313\r\n:1001D000BC009091BC0097FFFCCF9091B900886063\r\n:1001E0008093BB0084E88093BC008091BC0087FFB3\r\n:1001F000FCCF84E98093BC0085E38A95F1F7000089\r\n:100200000895CF93DF9390E1899FE0011124C62BDD\r\n:100210008C2F84600E94DC008C2FDF91CF910C9496\r\n:10022000DC00CF93DF93C82FD62F82958F700E946A\r\n:1002300001016D2F8C2F8F70DF91CF910C940101F4\r\n:10024000CF93DF93EC018991811103C0DF91CF91AE\r\n:10025000089561E00E941101F6CF2F923F924F92D4\r\n:100260005F926F927F928F929F92AF92BF92CF9246\r\n:10027000DF92EF92FF920F931F93CF93DF93CDB74F\r\n:10028000DEB72D970FB6F894DEBF0FBECDBF2B01A2\r\n:100290003C014D87DC01CB0177FE07C088279927F9\r\n:1002A000DC0184199509A609B709BC01CD01F12C1F\r\n:1002B000E12C9E012F5F3F4F69012AE0822E912C95\r\n:1002C000A12CB12C87010F5F1F4F16012E0C3F1C74\r\n:1002D000A50194010E944803605DF1016083B901AA\r\n:1002E000CA01FD85FF2309F43FC00130110531F437\r\n:1002F0002EE22A8302E010E07801E4CF6115710557\r\n:1003000081059105C9F702301105B1F377FE08C0E8\r\n:10031000F601E00FF11F8DE2808387010E5F1F4F12\r\n:100320000C0D1D1D61E0F80182918F010E941101E9\r\n:10033000C016D106B9F72D960FB6F894DEBF0FBEE2\r\n:10034000CDBFDF91CF911F910F91FF90EF90DF9084\r\n:10035000CF90BF90AF909F908F907F906F905F9065\r\n:100360004F903F902F90089561157105810591057B\r\n:1003700019F6CCCFCF93DF9300D000D000D0CDB70B\r\n:10038000DEB71092C50087E68093C40088E18093B1\r\n:10039000C10086E08093C2001092B90088E4809387\r\n:1003A000B80094E09093BC0084B1886384B9569AF5\r\n:1003B0005A9A83E884BD83E085BD82E08093B000D3\r\n:1003C0009093B1009CE79093B300109280008093CB\r\n:1003D00081002FEF80E792E0215080409040E1F7CC\r\n:1003E00000C0000060E083E00E940101EFE1FEE454\r\n:1003F0003197F1F700C0000060E083E00E94010146\r\n:1004000060E083E00E94010160E082E00E9401015F\r\n:1004100060E088E20E94110160E08CE00E9411011E\r\n:1004200060E081E00E9411018FE39FE10197F1F705\r\n:1004300000C0000060E086E00E94110184E291E0CB\r\n:100440000E94200185E391E00E94520094E0292E51\r\n:10045000312CF12CE12CFE0131966F0189B1F82F7E\r\n:10046000F470FE8382FDABC02C9A8091B000806452\r\n:100470008093B000320C8CEF830D853F08F02194FF\r\n:1004800037BC8FE39CE90197F1F700C000009FEFB4\r\n:10049000E91AF90AC70162E370E00E943403892B6C\r\n:1004A000E9F685B1E0E28E2785B9F60125E01192E3\r\n:1004B0002A95E9F7549A5C988FE39FE10197F1F749\r\n:1004C00000C0000054985C9A80E00E94C40001962D\r\n:1004D00009F07DC010E000E0912C812C712CF0E43B\r\n:1004E000F0937C0027EC20937A0080917A0086FDBF\r\n:1004F000FCCF409078005090790060E080E80E9446\r\n:100500001101092C000CAA08BB0889E591E07720AD\r\n:10051000E9F08DE491E00E94200141E0C501B401C1\r\n:100520000E942D0161E08FED0E94110180E591E0B4\r\n:100530000E942001C8016AE070E00E94340390E04C\r\n:1005400080E040E00E942D0185E591E00E942001BD\r\n:1005500060E080EC0E9411018BE691E00E94200196\r\n:10056000712C612C40E0C301B2010E942D018E81EB\r\n:10057000811174C080E091E00E9420018DE491E03F\r\n:100580000E945200C501B4010E945E0081E591E025\r\n:100590000E945200B80190E080E00E945E008AE66E\r\n:1005A00091E00E945200C301B2010E945E009E8150\r\n:1005B000911157C082E191E00E9452004FCF2C98D8\r\n:1005C0008091B0008F7B8093B0002B9853CF81E057\r\n:1005D0000E94C400019609F47DCF80E00E94C4000F\r\n:1005E000019609F477CF10E081E00E94C4000196E3\r\n:1005F00009F470CF80E00E94C400E12FE695E695F3\r\n:10060000E695EC0DFD2DF11D2081220F8135910520\r\n:1006100018F520831F5F183239F709811A811027D6\r\n:10062000012710279B812C8189813A81830F890FB3\r\n:10063000820F3D8183134ECF892E912C982C8824D4\r\n:100640008824E89497F8822A97FF03C091948194B4\r\n:1006500091087724739443CF2160DBCF89E091E048\r\n:100660008BCF8BE191E0A8CFAA1BBB1B51E107C048\r\n:10067000AA1FBB1FA617B70710F0A61BB70B881F32\r\n:10068000991F5A95A9F780959095BC01CD010895C1\r\n:10069000052E97FB1EF400940E945F0357FD07D0C0\r\n:1006A0000E94670307FC03D04EF40C945F0350953F\r\n:1006B0004095309521953F4F4F4F5F4F089590954E\r\n:1006C0008095709561957F4F8F4F9F4F0895A1E260\r\n:1006D0001A2EAA1BBB1BFD010DC0AA1FBB1FEE1FBC\r\n:1006E000FF1FA217B307E407F50720F0A21BB30B07\r\n:1006F000E40BF50B661F771F881F991F1A9469F783\r\n:1007000060957095809590959B01AC01BD01CF01DE\r\n:060710000895F894FFCFEC\r\n:100716002042544E3A312020002042544E3A302096\r\n:1007260020002042544E3D310D0A002042544E3DD9\r\n:10073600300D0A00506C6174612073696D756C61CF\r\n:1007460074696F6E00506C6174612073696D756CAD\r\n:100756006174696F6E2064656D6F0D0A00543D000B\r\n:100766004320483D002520200044485432323A2098\r\n:100776006E6F20646174612020002041303D0000CE\r\n:00000001FF\r\n"
+ },
+ "schematic": {
+  "symbols": {
+   "sy9pr2pr50s4v": {
+    "id": "sy9pr2pr50s4v",
+    "component": "c9pr2i19qm3g",
+    "at": {
+     "x": 35.56,
+     "y": 45.72
+    },
+    "rotation": 0
+   },
+   "sy9pr2q1gypq2f": {
+    "id": "sy9pr2q1gypq2f",
+    "component": "c9pr2ibvbscr",
+    "at": {
+     "x": 71.12,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q1lqjn7r": {
+    "id": "sy9pr2q1lqjn7r",
+    "component": "c9pr2i5cprn1",
+    "at": {
+     "x": 101.6,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q1qrqddt": {
+    "id": "sy9pr2q1qrqddt",
+    "component": "c9pr2i6gfosr",
+    "at": {
+     "x": 134.62,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q1vuk8py": {
+    "id": "sy9pr2q1vuk8py",
+    "component": "c9pr2i75scpy",
+    "at": {
+     "x": 167.64000000000001,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q20cp6jt": {
+    "id": "sy9pr2q20cp6jt",
+    "component": "c9pr2icdyzqy",
+    "at": {
+     "x": 200.66,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q29byvur": {
+    "id": "sy9pr2q29byvur",
+    "component": "c9pr2i2f2tmi",
+    "at": {
+     "x": 236.22,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q2eh8ml3": {
+    "id": "sy9pr2q2eh8ml3",
+    "component": "c9pr2i3nf5c5",
+    "at": {
+     "x": 269.24,
+     "y": 27.94
+    },
+    "rotation": 0
+   },
+   "sy9pr2q2j5xh66": {
+    "id": "sy9pr2q2j5xh66",
+    "component": "c9pr2i4gqw47",
+    "at": {
+     "x": 33.02,
+     "y": 83.82000000000001
+    },
+    "rotation": 0
+   },
+   "sy9pr2q2obujr2": {
+    "id": "sy9pr2q2obujr2",
+    "component": "c9pr2i9r2kwv",
+    "at": {
+     "x": 68.58,
+     "y": 83.82000000000001
+    },
+    "rotation": 0
+   },
+   "sy9pr2q2vzru55": {
+    "id": "sy9pr2q2vzru55",
+    "component": "c9pr2i8ffa8b",
+    "at": {
+     "x": 104.14,
+     "y": 83.82000000000001
+    },
+    "rotation": 0
+   },
+   "sy9pr2q34ajfgi": {
+    "id": "sy9pr2q34ajfgi",
+    "component": "c9pr2ia7i9jz",
+    "at": {
+     "x": 144.78,
+     "y": 83.82000000000001
+    },
+    "rotation": 0
+   }
+  },
+  "wires": {
+   "sw9pr2psjrzlj": {
+    "id": "sw9pr2psjrzlj",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 27.94
+     },
+     {
+      "x": 25.4,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2puopt3w": {
+    "id": "sw9pr2puopt3w",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 35.56
+     },
+     {
+      "x": 25.4,
+      "y": 35.56
+     }
+    ]
+   },
+   "sw9pr2qwdd3ub": {
+    "id": "sw9pr2qwdd3ub",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 45.72
+     },
+     {
+      "x": 25.4,
+      "y": 45.72
+     }
+    ]
+   },
+   "sw9pr2qyt820h": {
+    "id": "sw9pr2qyt820h",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 48.26
+     },
+     {
+      "x": 25.4,
+      "y": 48.26
+     }
+    ]
+   },
+   "sw9pr2q10z26o2": {
+    "id": "sw9pr2q10z26o2",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 55.88
+     },
+     {
+      "x": 25.4,
+      "y": 55.88
+     }
+    ]
+   },
+   "sw9pr2q129sd55": {
+    "id": "sw9pr2q129sd55",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 60.96
+     },
+     {
+      "x": 25.4,
+      "y": 60.96
+     }
+    ]
+   },
+   "sw9pr2q147sl1v": {
+    "id": "sw9pr2q147sl1v",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 35.56
+     },
+     {
+      "x": 45.72,
+      "y": 35.56
+     }
+    ]
+   },
+   "sw9pr2q16bx0j3": {
+    "id": "sw9pr2q16bx0j3",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 38.1
+     },
+     {
+      "x": 45.72,
+      "y": 38.1
+     }
+    ]
+   },
+   "sw9pr2q18vd1rx": {
+    "id": "sw9pr2q18vd1rx",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 43.18
+     },
+     {
+      "x": 45.72,
+      "y": 43.18
+     }
+    ]
+   },
+   "sw9pr2q1aypfhf": {
+    "id": "sw9pr2q1aypfhf",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 48.26
+     },
+     {
+      "x": 45.72,
+      "y": 48.26
+     }
+    ]
+   },
+   "sw9pr2q1cq7rox": {
+    "id": "sw9pr2q1cq7rox",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 60.96
+     },
+     {
+      "x": 45.72,
+      "y": 60.96
+     }
+    ]
+   },
+   "sw9pr2q1eczf0l": {
+    "id": "sw9pr2q1eczf0l",
+    "points": [
+     {
+      "x": 43.18,
+      "y": 63.5
+     },
+     {
+      "x": 45.72,
+      "y": 63.5
+     }
+    ]
+   },
+   "sw9pr2q1h6l143": {
+    "id": "sw9pr2q1h6l143",
+    "points": [
+     {
+      "x": 66.04,
+      "y": 27.94
+     },
+     {
+      "x": 63.5,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1j16sge": {
+    "id": "sw9pr2q1j16sge",
+    "points": [
+     {
+      "x": 76.2,
+      "y": 27.94
+     },
+     {
+      "x": 78.74,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1m9if2j": {
+    "id": "sw9pr2q1m9if2j",
+    "points": [
+     {
+      "x": 96.52,
+      "y": 27.94
+     },
+     {
+      "x": 93.98,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1o087ll": {
+    "id": "sw9pr2q1o087ll",
+    "points": [
+     {
+      "x": 106.68,
+      "y": 27.94
+     },
+     {
+      "x": 109.22,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1rpb6kh": {
+    "id": "sw9pr2q1rpb6kh",
+    "points": [
+     {
+      "x": 129.54,
+      "y": 27.94
+     },
+     {
+      "x": 127,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1tpibbg": {
+    "id": "sw9pr2q1tpibbg",
+    "points": [
+     {
+      "x": 139.7,
+      "y": 27.94
+     },
+     {
+      "x": 142.24,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1w6or2b": {
+    "id": "sw9pr2q1w6or2b",
+    "points": [
+     {
+      "x": 162.56,
+      "y": 27.94
+     },
+     {
+      "x": 160.02,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q1y55k8o": {
+    "id": "sw9pr2q1y55k8o",
+    "points": [
+     {
+      "x": 172.72,
+      "y": 27.94
+     },
+     {
+      "x": 175.26,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q21e5rbx": {
+    "id": "sw9pr2q21e5rbx",
+    "points": [
+     {
+      "x": 193.04,
+      "y": 27.94
+     },
+     {
+      "x": 190.5,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q23yid86": {
+    "id": "sw9pr2q23yid86",
+    "points": [
+     {
+      "x": 193.04,
+      "y": 30.48
+     },
+     {
+      "x": 190.5,
+      "y": 30.48
+     }
+    ]
+   },
+   "sw9pr2q25trbr3": {
+    "id": "sw9pr2q25trbr3",
+    "points": [
+     {
+      "x": 208.28,
+      "y": 27.94
+     },
+     {
+      "x": 210.82,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q275vq5y": {
+    "id": "sw9pr2q275vq5y",
+    "points": [
+     {
+      "x": 208.28,
+      "y": 30.48
+     },
+     {
+      "x": 210.82,
+      "y": 30.48
+     }
+    ]
+   },
+   "sw9pr2q2apffmk": {
+    "id": "sw9pr2q2apffmk",
+    "points": [
+     {
+      "x": 231.14,
+      "y": 27.94
+     },
+     {
+      "x": 228.6,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q2cdhzic": {
+    "id": "sw9pr2q2cdhzic",
+    "points": [
+     {
+      "x": 241.3,
+      "y": 27.94
+     },
+     {
+      "x": 243.84,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q2flr0ft": {
+    "id": "sw9pr2q2flr0ft",
+    "points": [
+     {
+      "x": 264.16,
+      "y": 27.94
+     },
+     {
+      "x": 261.62,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q2hggh7t": {
+    "id": "sw9pr2q2hggh7t",
+    "points": [
+     {
+      "x": 274.32,
+      "y": 27.94
+     },
+     {
+      "x": 276.86,
+      "y": 27.94
+     }
+    ]
+   },
+   "sw9pr2q2kwcio8": {
+    "id": "sw9pr2q2kwcio8",
+    "points": [
+     {
+      "x": 27.94,
+      "y": 83.82
+     },
+     {
+      "x": 25.4,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q2mhsxjy": {
+    "id": "sw9pr2q2mhsxjy",
+    "points": [
+     {
+      "x": 38.1,
+      "y": 83.82
+     },
+     {
+      "x": 40.64,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q2pq316m": {
+    "id": "sw9pr2q2pq316m",
+    "points": [
+     {
+      "x": 60.96,
+      "y": 83.82
+     },
+     {
+      "x": 58.42,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q2rmztn5": {
+    "id": "sw9pr2q2rmztn5",
+    "points": [
+     {
+      "x": 60.96,
+      "y": 86.36
+     },
+     {
+      "x": 58.42,
+      "y": 86.36
+     }
+    ]
+   },
+   "sw9pr2q2tc38kt": {
+    "id": "sw9pr2q2tc38kt",
+    "points": [
+     {
+      "x": 76.2,
+      "y": 83.82
+     },
+     {
+      "x": 78.74,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q2wpl3ti": {
+    "id": "sw9pr2q2wpl3ti",
+    "points": [
+     {
+      "x": 96.52,
+      "y": 83.82
+     },
+     {
+      "x": 93.98,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q2ycs49k": {
+    "id": "sw9pr2q2ycs49k",
+    "points": [
+     {
+      "x": 96.52,
+      "y": 86.36
+     },
+     {
+      "x": 93.98,
+      "y": 86.36
+     }
+    ]
+   },
+   "sw9pr2q30n2tku": {
+    "id": "sw9pr2q30n2tku",
+    "points": [
+     {
+      "x": 111.76,
+      "y": 83.82
+     },
+     {
+      "x": 114.3,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q32yb0vf": {
+    "id": "sw9pr2q32yb0vf",
+    "points": [
+     {
+      "x": 111.76,
+      "y": 86.36
+     },
+     {
+      "x": 114.3,
+      "y": 86.36
+     }
+    ]
+   },
+   "sw9pr2q35urup8": {
+    "id": "sw9pr2q35urup8",
+    "points": [
+     {
+      "x": 134.62,
+      "y": 83.82
+     },
+     {
+      "x": 132.08,
+      "y": 83.82
+     }
+    ]
+   },
+   "sw9pr2q37tsoiz": {
+    "id": "sw9pr2q37tsoiz",
+    "points": [
+     {
+      "x": 134.62,
+      "y": 86.36
+     },
+     {
+      "x": 132.08,
+      "y": 86.36
+     }
+    ]
+   },
+   "sw9pr2q390brd7": {
+    "id": "sw9pr2q390brd7",
+    "points": [
+     {
+      "x": 152.4,
+      "y": 83.82
+     },
+     {
+      "x": 154.94,
+      "y": 83.82
+     }
+    ]
+   }
+  },
+  "labels": {
+   "sl9pr2pt3oi2f": {
+    "id": "sl9pr2pt3oi2f",
+    "at": {
+     "x": 25.4,
+     "y": 27.94
+    },
+    "text": "LED_BLINK",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2pvn4sxy": {
+    "id": "sl9pr2pvn4sxy",
+    "at": {
+     "x": 25.4,
+     "y": 35.56
+    },
+    "text": "POT",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2qxurtay": {
+    "id": "sl9pr2qxurtay",
+    "at": {
+     "x": 25.4,
+     "y": 45.72
+    },
+    "text": "SDA",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2qz9cdd5": {
+    "id": "sl9pr2qz9cdd5",
+    "at": {
+     "x": 25.4,
+     "y": 48.26
+    },
+    "text": "SCL",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q11uwujk": {
+    "id": "sl9pr2q11uwujk",
+    "at": {
+     "x": 25.4,
+     "y": 55.88
+    },
+    "text": "5V",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q13rdsjf": {
+    "id": "sl9pr2q13rdsjf",
+    "at": {
+     "x": 25.4,
+     "y": 60.96
+    },
+    "text": "GND",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q15f622i": {
+    "id": "sl9pr2q15f622i",
+    "at": {
+     "x": 45.72,
+     "y": 35.56
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q17d7gkb": {
+    "id": "sl9pr2q17d7gkb",
+    "at": {
+     "x": 45.72,
+     "y": 38.1
+    },
+    "text": "BTN",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q19bm904": {
+    "id": "sl9pr2q19bm904",
+    "at": {
+     "x": 45.72,
+     "y": 43.18
+    },
+    "text": "DHT",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q1bqev8x": {
+    "id": "sl9pr2q1bqev8x",
+    "at": {
+     "x": 45.72,
+     "y": 48.26
+    },
+    "text": "LED_PWM",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q1d6ey4t": {
+    "id": "sl9pr2q1d6ey4t",
+    "at": {
+     "x": 45.72,
+     "y": 60.96
+    },
+    "text": "BUZ",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q1ft1ten": {
+    "id": "sl9pr2q1ft1ten",
+    "at": {
+     "x": 45.72,
+     "y": 63.5
+    },
+    "text": "LED_BTN",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q1i3w6ig": {
+    "id": "sl9pr2q1i3w6ig",
+    "at": {
+     "x": 63.5,
+     "y": 27.94
+    },
+    "text": "BUZ",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q1kvj6x4": {
+    "id": "sl9pr2q1kvj6x4",
+    "at": {
+     "x": 78.74,
+     "y": 27.94
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q1npgigr": {
+    "id": "sl9pr2q1npgigr",
+    "at": {
+     "x": 93.98,
+     "y": 27.94
+    },
+    "text": "LED1_A",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q1pklbz2": {
+    "id": "sl9pr2q1pklbz2",
+    "at": {
+     "x": 109.22,
+     "y": 27.94
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q1sltozn": {
+    "id": "sl9pr2q1sltozn",
+    "at": {
+     "x": 127,
+     "y": 27.94
+    },
+    "text": "LED2_A",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q1uvx38m": {
+    "id": "sl9pr2q1uvx38m",
+    "at": {
+     "x": 142.24,
+     "y": 27.94
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q1x7di89": {
+    "id": "sl9pr2q1x7di89",
+    "at": {
+     "x": 160.02,
+     "y": 27.94
+    },
+    "text": "LED3_A",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q1zt6ak0": {
+    "id": "sl9pr2q1zt6ak0",
+    "at": {
+     "x": 175.26,
+     "y": 27.94
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q22a8gpa": {
+    "id": "sl9pr2q22a8gpa",
+    "at": {
+     "x": 190.5,
+     "y": 27.94
+    },
+    "text": "GND",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q24oe4re": {
+    "id": "sl9pr2q24oe4re",
+    "at": {
+     "x": 190.5,
+     "y": 30.48
+    },
+    "text": "5V",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q26lfbb1": {
+    "id": "sl9pr2q26lfbb1",
+    "at": {
+     "x": 210.82,
+     "y": 27.94
+    },
+    "text": "SCL",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q28v8gdq": {
+    "id": "sl9pr2q28v8gdq",
+    "at": {
+     "x": 210.82,
+     "y": 30.48
+    },
+    "text": "SDA",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q2b7pkpi": {
+    "id": "sl9pr2q2b7pkpi",
+    "at": {
+     "x": 228.6,
+     "y": 27.94
+    },
+    "text": "LED_BLINK",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q2dp64p3": {
+    "id": "sl9pr2q2dp64p3",
+    "at": {
+     "x": 243.84,
+     "y": 27.94
+    },
+    "text": "LED1_A",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q2g6zh7y": {
+    "id": "sl9pr2q2g6zh7y",
+    "at": {
+     "x": 261.62,
+     "y": 27.94
+    },
+    "text": "LED_PWM",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q2iw9iyk": {
+    "id": "sl9pr2q2iw9iyk",
+    "at": {
+     "x": 276.86,
+     "y": 27.94
+    },
+    "text": "LED2_A",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q2l3tvj3": {
+    "id": "sl9pr2q2l3tvj3",
+    "at": {
+     "x": 25.4,
+     "y": 83.82
+    },
+    "text": "LED_BTN",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q2nyqip1": {
+    "id": "sl9pr2q2nyqip1",
+    "at": {
+     "x": 40.64,
+     "y": 83.82
+    },
+    "text": "LED3_A",
+    "rotation": 0,
+    "kind": "net"
+   },
+   "sl9pr2q2qf52cf": {
+    "id": "sl9pr2q2qf52cf",
+    "at": {
+     "x": 58.42,
+     "y": 83.82
+    },
+    "text": "GND",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q2stg501": {
+    "id": "sl9pr2q2stg501",
+    "at": {
+     "x": 58.42,
+     "y": 86.36
+    },
+    "text": "POT",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q2utieht": {
+    "id": "sl9pr2q2utieht",
+    "at": {
+     "x": 78.74,
+     "y": 83.82
+    },
+    "text": "5V",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q2xt38wh": {
+    "id": "sl9pr2q2xt38wh",
+    "at": {
+     "x": 93.98,
+     "y": 83.82
+    },
+    "text": "BTN",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q2zxa8hp": {
+    "id": "sl9pr2q2zxa8hp",
+    "at": {
+     "x": 93.98,
+     "y": 86.36
+    },
+    "text": "BTN",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q31ki62z": {
+    "id": "sl9pr2q31ki62z",
+    "at": {
+     "x": 114.3,
+     "y": 83.82
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q33rxdcb": {
+    "id": "sl9pr2q33rxdcb",
+    "at": {
+     "x": 114.3,
+     "y": 86.36
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   },
+   "sl9pr2q365ncbk": {
+    "id": "sl9pr2q365ncbk",
+    "at": {
+     "x": 132.08,
+     "y": 83.82
+    },
+    "text": "5V",
+    "rotation": 180,
+    "kind": "power"
+   },
+   "sl9pr2q38v8gnh": {
+    "id": "sl9pr2q38v8gnh",
+    "at": {
+     "x": 132.08,
+     "y": 86.36
+    },
+    "text": "DHT",
+    "rotation": 180,
+    "kind": "net"
+   },
+   "sl9pr2q3anah5i": {
+    "id": "sl9pr2q3anah5i",
+    "at": {
+     "x": 154.94,
+     "y": 83.82
+    },
+    "text": "GND",
+    "rotation": 0,
+    "kind": "power"
+   }
+  }
+ }
+}

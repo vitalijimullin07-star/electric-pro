@@ -127,7 +127,9 @@ export interface EditorState {
   dialog: DialogId;
   dialogData: unknown;
   routing: RouteProgress;
-  panelTab: 'props' | 'layers' | 'nets' | 'library' | 'drc';
+  panelTab: 'props' | 'layers' | 'nets' | 'library' | 'drc' | 'sim';
+  /** Симуляция: состояние для интерфейса (сама симуляция — в sim-runtime.ts). */
+  sim: { status: 'off' | 'running' | 'paused'; seconds: number; speed: number; error: string | null; tick: number };
   panelOpen: boolean;
   fileName: string | null;
   dirty: boolean;
@@ -274,6 +276,7 @@ export const useEditor = create<EditorState>((set, get) => {
     dialogData: null,
     routing: { running: false, iteration: 0, conflicts: 0, fraction: 0 },
     panelTab: 'props',
+    sim: { status: 'off', seconds: 0, speed: 0, error: null, tick: 0 },
     panelOpen: typeof window !== 'undefined' ? window.innerWidth >= 900 : true,
     fileName: initial.fileName,
     dirty: false,

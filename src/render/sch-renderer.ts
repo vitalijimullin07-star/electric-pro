@@ -6,6 +6,7 @@ import { labelShape, symbolWorldBox } from '@core/schematic/layout';
 
 export { labelShape, symbolWorldBox };
 import type { SchPending, SchRef, ViewState } from '@editor/store';
+import type { SimView } from '@core/sim';
 
 /*
  * Отрисовка схемы: светлый «лист», символы красно-коричневым с жёлтой заливкой,
@@ -37,6 +38,8 @@ export interface SchRenderInput {
   pending: SchPending;
   /** Символ, который сейчас ставим (призрак под курсором). */
   ghost?: { def: SymbolDef; at: Vec2; rotation: number } | null;
+  /** Идёт симуляция: уровни на выводах, светодиоды, нажатые кнопки, экраны. */
+  sim?: SimView | null;
 }
 
 function text(ctx: CanvasRenderingContext2D, s: string, at: Vec2, size: number, align: CanvasTextAlign = 'center', color = SCH_COLORS.text, bold = false): void {
@@ -236,6 +239,65 @@ export function renderSchematic(ctx: CanvasRenderingContext2D, inp: SchRenderInp
     ctx.setLineDash([]);
   }
   if (inp.ghost) drawSymbol(ctx, inp.ghost.def, { at: inp.ghost.at, rotation: inp.ghost.rotation }, '?', '', px, 0.5);
+  if (inp.sim) drawSchSim(ctx, inp.sim, p, pins, px);
+}
+
+/** Симуляция на схеме: точки уровней на выводах, свечение светодиодов, нажатые кнопки, экраны у символов. */
+function drawSchSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, pins: ReturnType<typeof placedPins>, px: number): void {
+  for (const pin of pins) {
+    const net = p.components[pin.component]?.padNets[pin.number];
+    const st = net ? sim.nets.get(net) : undefined;
+    if (!st) continue;
+    ctx.fillStyle = st.duty > 0.02 && st.duty < 0.98 ? '#9b30d9' : st.level ? '#e0281c' : '#1c6fe0';
+    ctx.beginPath();
+    ctx.arc(pin.at.x, pin.at.y, Math.max(0.45, px * 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const symOf = new Map(Object.values(p.schematic?.symbols ?? {}).map((s) => [s.component, s]));
+  for (const d of sim.devices) {
+    const s = symOf.get(d.comp);
+    const def = s ? symbolOf(p, s) : null;
+    if (!s || !def) continue;
+    const b = symbolWorldBox(def, s);
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    if (d.kind === 'led' && d.on) {
+      const r = Math.max(3, (b.maxX - b.minX) * 0.8);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, d.color ?? '#ff3b30');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalAlpha = 0.3 + 0.6 * (d.brightness ?? 1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (d.kind === 'button' && d.pressed) {
+      ctx.fillStyle = 'rgba(31,111,224,0.25)';
+      ctx.fillRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+    } else if (d.kind === 'lcd' && d.lines) {
+      // Экран — под символом (под номиналом), чтобы не закрывать соседей справа.
+      const ch = 2.2;
+      const w = d.lines[0].length * ch * 0.62 + 2;
+      const x = cx - w / 2;
+      const top = b.maxY + 3;
+      ctx.fillStyle = d.backlight === false ? '#15233f' : '#2458d6';
+      ctx.fillRect(x, top, w, d.lines.length * ch + 2);
+      ctx.fillStyle = '#eaf2ff';
+      ctx.font = `${ch * 0.8}px ui-monospace, monospace`;
+      ctx.textBaseline = 'middle';
+      d.lines.forEach((l, i) => ctx.fillText(l, x + 1, top + 1 + (i + 0.5) * ch));
+      ctx.textBaseline = 'alphabetic';
+    } else if (d.kind === 'oled' && d.frame && d.width && d.height) {
+      const k = 0.3;
+      const x = cx - (d.width * k) / 2;
+      const y = b.maxY + 3;
+      ctx.fillStyle = '#04080e';
+      ctx.fillRect(x, y, d.width * k, d.height * k);
+      ctx.fillStyle = '#78d2ff';
+      for (let yy = 0; yy < d.height; yy++) for (let xx = 0; xx < d.width; xx++) if (d.frame[yy * d.width + xx]) ctx.fillRect(x + xx * k, y + yy * k, k, k);
+    }
+  }
 }
 
 /** Прямоугольный излом: сначала по горизонтали, потом по вертикали. */

@@ -6,6 +6,7 @@ import { schematicNetlist, symbolDef } from '@core/schematic/netlist';
 import { findFootprint } from '@editor/userlib';
 import { Icon } from './icons';
 import { SchSelectionBar } from './SelectionBar';
+import { simRuntime } from '@editor/sim-runtime';
 
 /* Лист схемы: отрисовка, мышь и касания, клавиатура. */
 
@@ -47,6 +48,7 @@ export function SchematicView() {
         dpr,
         selection: s.schSelection,
         pending: s.schPending,
+        sim: simRuntime.view,
         ghost: def && at ? { def, at: { x: Math.round(at.x / 2.54) * 2.54, y: Math.round(at.y / 2.54) * 2.54 }, rotation: s.schPlaceRotation } : null,
       });
     };
@@ -54,11 +56,13 @@ export function SchematicView() {
       if (!raf) raf = requestAnimationFrame(draw);
     };
     const unsub = useEditor.subscribe(schedule);
+    const unsubSim = simRuntime.subscribe(schedule);
     const ro = new ResizeObserver(schedule);
     ro.observe(stage);
     schedule();
     return () => {
       unsub();
+      unsubSim();
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };

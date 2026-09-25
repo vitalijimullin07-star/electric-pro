@@ -1,7 +1,7 @@
 # Заметки для разработки Plata
 
 - Интерфейс, тексты и комментарии на русском, в предложениях обычный регистр.
-- Стек: TypeScript (strict), Vite, React 19, zustand + immer, vitest. Без других фреймворков.
+- Стек: TypeScript (strict), Vite, React 19, zustand + immer, vitest. Без других фреймворков; для симуляции AVR подключена библиотека avr8js (MIT).
 - Все размеры в модели — миллиметры, ось Y вниз, углы в градусах (положительный — против часовой на экране).
 - Проект (`src/core/model/types.ts`) — простой сериализуемый объект. Изменения только через `commit` в store (immer) либо функциями `src/core/model/edit.ts` на свежем объекте. Кеши связности, DRC и геометрии привязаны к объекту проекта через WeakMap: после правок «на месте» (в тестах) делайте `structuredClone`.
 - Ядро (`src/core`) не знает про React и DOM: его можно запускать в воркере и в Node.
@@ -10,6 +10,7 @@
 - После изменений: `npm run check` (типы + тесты). Если трогали автотрассировку или связность — `npm test -- tests/router.test.ts` обязательно (плата пылесоса должна разводиться без ошибок).
 - Заливка полигонов — `src/core/model/zone-fill.ts` (поле расстояний на сетке + marching squares), считается внутри `computeConnectivity` и достаётся через `getZoneFills`. Во время перетаскивания DRC и заливка берутся из состояния до его начала (`stableProject` в store) — не вызывайте `runDrc(s.project)` из компонентов, которые перерисовываются на каждом кадре.
 - Качество графики — `src/render/quality.ts`. В `canvas-renderer.ts` не используйте `shadowBlur` на крупных путях (плата, контур): на телефоне это десятки миллисекунд на кадр — ореол рисуйте широкой полупрозрачной обводкой. Замер кадра: `window.__plata.bench(уровень, кадров, dpr)` при `?qa=1`.
+- Симуляция — `src/core/sim` (ядро: контроллер `mcu.ts`, цепи и уровни `circuit.ts`, детали `devices.ts`, дисплеи `hd44780.ts`/`ssd1306.ts`), исполнитель в редакторе — `src/editor/sim-runtime.ts`, панель — `src/ui/panels/SimPanel.tsx`. Тестовые прошивки — C в `tests/fixtures/fw`, собираются `sh tests/fixtures/fw/build.sh` (нужен avr-gcc), готовые .hex лежат рядом. Новая деталь для симуляции: ветка в `buildDevices` (по корпусу и именам выводов) + тест в `tests/sim.test.ts`.
 - Меняя формат проекта, добавьте миграцию в `src/core/io/project-file.ts` (`migrateProject`).
 - Плата пылесоса из старого формата (`src/core/io/legacy-plata.ts`, данные — `src/core/examples/vacuum-controller`) осталась только для тестов: в редакторе её нет по просьбе автора. Её вариант на выводных деталях — `import/plata-dip*.plata.json`.
 - Сайт https://vitalijimullin07-star.github.io/electric-pro/ — GitHub Pages из корня ветки `main`. Корневой `index.html` и `router.worker-*.js` — собранный редактор (генерирует `npm run build`), исходная страница — `app.html`. После любых изменений кода: `npm run build` и закоммитить обновлённый `index.html`, иначе CI упадёт.

@@ -13,6 +13,7 @@ import { textStrokes } from '@core/render/stroke-font';
 import type { EditorState, Pending, ViewState } from '@editor/store';
 import { fmtLen, type DisplayUnit } from '@core/units';
 import { GFX, type GfxProfile } from './quality';
+import type { SimView } from '@core/sim';
 
 /*
  * Отрисовка платы на Canvas 2D. Вид сверху: нижняя медь под верхней,
@@ -103,6 +104,8 @@ export interface RenderInput {
   time?: number;
   /** Прицел пера над экраном. */
   penHover?: Vec2 | null;
+  /** Идёт симуляция: уровни на выводах, свечение светодиодов, экраны. */
+  sim?: SimView | null;
 }
 
 /** Есть ли что анимировать: бегущий пунктир выделения, пульсация ошибок, подсветка цепи. */
@@ -670,6 +673,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.globalAlpha = 1;
     }
   }
+  if (inp.sim) drawSim(ctx, inp.sim, p, w, px);
+
   // Прицел пера над экраном: куда попадёт касание (с привязкой к сетке).
   if (inp.penHover) {
     const q = inp.penHover;
@@ -715,6 +720,92 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
     ctx.fillText(label, sp.x - tw / 2, sp.y - 7);
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* ---------------- симуляция поверх платы ---------------- */
+
+const oledCache = new WeakMap<Uint8Array, HTMLCanvasElement | OffscreenCanvas>();
+function oledImage(frame: Uint8Array, w: number, h: number): HTMLCanvasElement | OffscreenCanvas {
+  let cv = oledCache.get(frame);
+  if (cv) return cv;
+  cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const c = cv.getContext('2d') as CanvasRenderingContext2D;
+  const img = c.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    const on = frame[i];
+    img.data.set(on ? [120, 210, 255, 255] : [4, 8, 14, 255], i * 4);
+  }
+  c.putImageData(img, 0, 0);
+  oledCache.set(frame, cv);
+  return cv;
+}
+
+function drawSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, w: World, px: number): void {
+  // Уровни на выводах сигнальных цепей: красный — 1, синий — 0, фиолетовый — ШИМ.
+  for (const wp of w.pads) {
+    const st = wp.net ? sim.nets.get(wp.net) : undefined;
+    if (!st) continue;
+    ctx.fillStyle = st.duty > 0.02 && st.duty < 0.98 ? '#bf5af2' : st.level ? '#ff453a' : '#3a86ff';
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(wp.center.x, wp.center.y, Math.max(px * 2.5, Math.min(wp.pad.size.x, wp.pad.size.y) * 0.22), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const lcdModule = Object.values(p.components).find((c) => /^Module_LCD(1602|2004)$/.test(c.footprint));
+  for (const d of sim.devices) {
+    const target = d.kind === 'lcd' && /PCF8574/.test(p.components[d.comp]?.footprint ?? '') && lcdModule ? lcdModule.id : d.comp;
+    const wc = w.componentById.get(target);
+    if (!wc) continue;
+    const bb = boxOfPoints(wc.outline);
+    const cx = (bb.minX + bb.maxX) / 2;
+    const cy = (bb.minY + bb.maxY) / 2;
+    const bw = bb.maxX - bb.minX;
+    const bh = bb.maxY - bb.minY;
+    if (d.kind === 'led' && d.on) {
+      const r = Math.max(2.5, Math.max(bw, bh) * 0.9);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, d.color ?? '#ff3b30');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.25 + 0.7 * (d.brightness ?? 1);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (d.kind === 'button' && d.pressed) {
+      ctx.fillStyle = 'rgba(79,209,255,0.35)';
+      ctx.fillRect(bb.minX, bb.minY, bw, bh);
+    } else if (d.kind === 'lcd' && d.lines) {
+      const rows = d.lines.length;
+      const cols = d.lines[0]?.length ?? 16;
+      const iw = bw * 0.82;
+      const ih = Math.min(bh * 0.7, (iw / cols) * 1.9 * rows);
+      ctx.fillStyle = d.backlight === false ? '#15233f' : '#2458d6';
+      ctx.fillRect(cx - iw / 2, cy - ih / 2, iw, ih);
+      ctx.fillStyle = '#eaf2ff';
+      const ch = ih / rows;
+      ctx.font = `${(ch * 0.8).toFixed(3)}px ui-monospace, monospace`;
+      ctx.textBaseline = 'middle';
+      d.lines.forEach((l, i) => {
+        for (let k = 0; k < l.length; k++) ctx.fillText(l[k], cx - iw / 2 + (k + 0.1) * (iw / cols), cy - ih / 2 + (i + 0.5) * ch);
+      });
+      ctx.textBaseline = 'alphabetic';
+    } else if (d.kind === 'oled' && d.frame && d.width && d.height) {
+      const k = Math.min((bw * 0.85) / d.width, (bh * 0.7) / d.height);
+      const iw = d.width * k;
+      const ih = d.height * k;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(oledImage(d.frame, d.width, d.height), cx - iw / 2, cy - ih / 2, iw, ih);
+      ctx.imageSmoothingEnabled = true;
+    } else if ((d.kind === 'relay' && d.channels?.some(Boolean)) || (d.kind === 'buzzer' && d.on)) {
+      const r = Math.max(1, Math.min(bw, bh) * 0.12);
+      ctx.fillStyle = d.kind === 'relay' ? '#34c759' : '#ffd60a';
+      ctx.beginPath();
+      ctx.arc(bb.maxX - r * 1.5, bb.minY + r * 1.5, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 function strokePoly(ctx: CanvasRenderingContext2D, pts: Vec2[]): void {

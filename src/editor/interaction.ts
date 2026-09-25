@@ -9,6 +9,7 @@ import { hitTest, type Hit } from '@render/hit-test';
 import { screenToWorld } from '@render/canvas-renderer';
 import { deleteSelection, finishTrack, moveItems, placeComponent, placeVia, placeWire, routeWidthFor, snapPoint, viaSizeFor } from './commands';
 import { PointerInput, isPenBarrel, isPenEraser } from './pointer';
+import { simRuntime } from './sim-runtime';
 import { useEditor, type ToolId } from './store';
 import { boxOfPoints, closestOnSegment } from '@core/math/geom';
 import { getWorld } from '@core/model/world';
@@ -59,6 +60,8 @@ export class CanvasController {
   onOverlay: (() => void) | null = null;
   readonly input = new PointerInput();
   private dragPointer: number | null = null;
+  /** Кнопка схемы, нажатая пальцем во время симуляции. */
+  private simPress: string | null = null;
   private longTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
@@ -206,6 +209,16 @@ export class CanvasController {
     if (s.tool === 'select') {
       const hits = this.hits(wp);
       const hit = hits[0] ?? null;
+      // Идёт симуляция: касание кнопки на плате нажимает её, пока держим.
+      if (simRuntime.active) {
+        const comp = hits.find((h) => h.ref.kind === 'component');
+        const btn = comp ? simRuntime.buttonOf(comp.ref.id) : null;
+        if (btn) {
+          simRuntime.press(btn, true);
+          this.simPress = btn;
+          return;
+        }
+      }
       const selKeys = new Set(s.selection.map((r) => r.kind + ':' + r.id));
       if (hit?.inside) {
         // Внутри полигона, но не на его краю: щелчок выделит полигон, протяжка — рамка (или вид пальцем).
@@ -357,6 +370,12 @@ export class CanvasController {
   onPointerUp(e: PointerEvent): void {
     const s = this.S;
     if (!this.input.accept(e, 'up').ok) return;
+    if (this.simPress) {
+      simRuntime.press(this.simPress, false);
+      this.simPress = null;
+      this.pointers.delete(e.pointerId);
+      return;
+    }
     this.pointers.delete(e.pointerId);
     this.clearLongPress();
     if (this.pinch) {
@@ -406,6 +425,10 @@ export class CanvasController {
 
   onPointerCancel(e: PointerEvent): void {
     this.input.accept(e, 'up');
+    if (this.simPress) {
+      simRuntime.press(this.simPress, false);
+      this.simPress = null;
+    }
     this.clearLongPress();
     this.pointers.delete(e.pointerId);
     if (this.drag && this.dragPointer !== null && e.pointerId !== this.dragPointer && !this.pinch) return;

@@ -6,6 +6,7 @@ import { AdaptiveQuality, gfxProfile } from '@render/quality';
 import { groupSelection, ungroupSelection, copySelection, cutSelection, deleteSelection, duplicateSelection, flipSelection, netOfSelection, pasteClipboard, rotateSelection, selectAll, toggleActiveLayer, translateSelectionBy } from '@editor/commands';
 import { Icon } from './icons';
 import { SelectionBar } from './SelectionBar';
+import { simRuntime } from '@editor/sim-runtime';
 import { findFootprint } from '@editor/userlib';
 import { drcSummary } from '@core/model/drc';
 import { GRID_STEPS, UNIT_LABEL, fmt, fromMm } from '@core/units';
@@ -71,6 +72,7 @@ export function CanvasView() {
         gfx,
         time: now,
         penHover: ctrlRef.current?.penHover ?? null,
+        sim: simRuntime.view,
       });
       // «Авто»: кадры слишком долгие — понижаем качество.
       if (s.quality === 'auto' && adaptive.sample(performance.now() - t0) && adaptive.level !== s.gfxLevel) {
@@ -85,6 +87,7 @@ export function CanvasView() {
     };
     redrawRef.current = schedule;
     const unsub = useEditor.subscribe(schedule);
+    const unsubSim = simRuntime.subscribe(schedule);
     const ro = new ResizeObserver(schedule);
     ro.observe(stage);
     // Первый показ: вписать плату.
@@ -93,6 +96,7 @@ export function CanvasView() {
     schedule();
     return () => {
       unsub();
+      unsubSim();
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };

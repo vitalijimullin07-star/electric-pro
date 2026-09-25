@@ -110,6 +110,7 @@ async function openPage(viewport, touch = false) {
     Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
     Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону или слой', 'Перенос между слоями', 'Заменить корпуса у деталей', 'Свойства компонента'],
     Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
+    Симуляция: ['Загрузить прошивку', 'Старт', 'Сброс', 'Стоп', 'Монитор порта'],
     Упорядочить: ['Дорожки тянутся за компонентом', 'Выровнять по левому краю', 'Выровнять по правому краю', 'Выровнять по верху', 'Выровнять по низу', 'Центры по вертикали', 'Центры по горизонтали', 'Распределить по горизонтали', 'Распределить по вертикали', 'Сгруппировать', 'Разгруппировать'],
     Вид: ['Сетка', 'Воздушные линии', 'Отметки проверки', 'Позиционные обозначения', 'Номиналы', 'Габариты корпусов', 'Сборочный слой', '3D-вид платы', 'Графика: авто', 'Графика: максимальное', 'Графика: сбалансированное', 'Графика: экономное', 'Вся плата', 'Переключить активный слой', 'Боковая панель'],
     Разместить: ['Компонент из библиотеки', 'Цепи', 'Надпись', 'Размерная линия', 'Область правил', 'Полигон меди', 'Новый контур платы'],
@@ -1243,6 +1244,40 @@ async function openPage(viewport, touch = false) {
     expect(downloads.slice(before).some((f) => f.endsWith('-schematic.pdf')), 'нет PDF схемы');
   });
 
+  await step('симуляция: пример с Arduino — ЖК, кнопка, зуммер, монитор порта, стоп', async () => {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+    await fc.setFiles(new URL('../import/arduino-simulation-demo.plata.json', import.meta.url).pathname);
+    await page.waitForTimeout(800);
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(2200);
+    const lcd = (await page.locator('.sim-lcd').first().innerText()).replace(/\u00a0/g, ' ');
+    expect(/T=24\.5°C H=45%/.test(lcd), 'ЖК: ' + lcd);
+    // Кнопка из панели: держим — появляется BTN:1.
+    const hold = page.locator('.sim-hold').first();
+    const b = await hold.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(1300);
+    const lcd2 = (await page.locator('.sim-lcd').first().innerText()).replace(/\u00a0/g, ' ');
+    const buzz = await page.locator('.sim-dev.k-buzzer').innerText();
+    await page.mouse.up();
+    expect(/BTN:1/.test(lcd2), 'после нажатия: ' + lcd2);
+    expect(/Гц/.test(buzz), 'зуммер: ' + buzz);
+    // Монитор порта: пришли строки, отправка работает (прошивка на ввод не отвечает, но не падает).
+    await h.hit(page.locator('.sim-tabs button', { hasText: 'Монитор порта' }));
+    const ser = await page.locator('.sim-serial').innerText();
+    expect(/Plata simulation demo/.test(ser) && /T=245 H=450/.test(ser), 'порт: ' + ser.slice(0, 80));
+    await page.fill('.sim-panel input.inp', 'hello');
+    await h.hit(page.locator('.sim-panel button', { hasText: 'Отправить' }));
+    // Выводы и логический анализатор.
+    await h.hit(page.locator('.sim-tabs button', { hasText: 'Выводы' }));
+    await page.locator('.sim-pins input[type=checkbox]').first().check();
+    await page.waitForTimeout(400);
+    expect(await page.locator('.sim-scope').isVisible(), 'нет логического анализатора');
+    await h.menu('Симуляция', 'Стоп');
+    expect(!(await page.$('.sim-lcd')), 'после стопа экран остался');
+  });
+
   await page.screenshot({ path: `${out}/desktop.png` });
   await page.context().close();
 }
@@ -1258,7 +1293,7 @@ async function openPage(viewport, touch = false) {
     await h.closeDialog();
   });
   await step('телефон: все меню доступны (строка прокручивается)', async () => {
-    for (const top of ['Файл', 'Правка', 'Схема', 'Упорядочить', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
+    for (const top of ['Файл', 'Правка', 'Схема', 'Симуляция', 'Упорядочить', 'Вид', 'Разместить', 'Трассировка', 'Справка']) {
       const b = page.getByRole('button', { name: top, exact: true });
       await b.scrollIntoViewIfNeeded();
       await page.waitForTimeout(80);

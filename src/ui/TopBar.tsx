@@ -28,6 +28,8 @@ import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
 import { askConfirm } from './dialogs/AskDialog';
 import { QUALITY_NAMES, detectLevel, type QualityMode } from '@render/quality';
+import { simRuntime } from '@editor/sim-runtime';
+import { loadFirmware } from './panels/SimPanel';
 
 /* Верхняя строка меню в духе EasyEDA: Файл, Правка, Вид, Плата, Трассировка, Экспорт, Справка. */
 
@@ -223,6 +225,20 @@ export function TopBar() {
         { label: 'Зеркально', kbd: 'X', action: mirrorSchSelection, disabled: s.mode !== 'sch' || !s.schSelection.some((r) => r.kind === 'symbol') },
         'sep',
         { label: 'Печать схемы (PDF)', action: () => void printSchematic(), disabled: !p.schematic || !Object.keys(p.schematic.symbols).length },
+      ],
+    },
+    {
+      id: 'sim',
+      label: 'Симуляция',
+      items: [
+        { label: 'Загрузить прошивку (.hex)…', action: () => void loadFirmware() },
+        s.sim.status === 'running'
+          ? { label: 'Пауза', action: () => simRuntime.pause() }
+          : { label: s.sim.status === 'paused' ? 'Продолжить' : 'Старт', action: () => (s.sim.status === 'paused' ? simRuntime.resume() : (simRuntime.start(), s.patch({ panelTab: 'sim', panelOpen: true }))), disabled: !p.firmware },
+        { label: 'Сброс (с начала)', action: () => simRuntime.start(), disabled: s.sim.status === 'off' },
+        { label: 'Стоп', action: () => simRuntime.stop(), disabled: s.sim.status === 'off' },
+        'sep',
+        { label: 'Монитор порта, датчики, выводы…', action: () => s.patch({ panelTab: 'sim', panelOpen: true }) },
       ],
     },
     {
