@@ -2,7 +2,7 @@ import { newId } from '../../ids';
 import { libraryFootprint } from '../../library';
 import { addComponent, addRuleArea, addTrack, addVia, addZone, connectPad, ensureNet } from '../../model/edit';
 import { getWorld } from '../../model/world';
-import { autoroute, type RouteResult } from '../../router/autoroute';
+import { autoroute, type RouteOptions, type RouteResult } from '../../router/autoroute';
 import { autorouteWithZones } from '../../router/zone-aware';
 import { createProject } from '../../model/project';
 import { MAINS_CLASS, MAINS_CLEARANCE } from '../../model/rules';
@@ -214,13 +214,15 @@ const FINE_GRID = 1.27 / 3;
  */
 export async function routeVacuumEsp32(
   p0: Project,
-  o: { iterations?: number; congestionGrowth?: number; hopCost?: number } = {},
+  o: { iterations?: number; congestionGrowth?: number; hopCost?: number; extra?: RouteOptions } = {},
 ): Promise<{ project: Project; report: string[]; hot: RouteResult['hot']; failedLinks: RouteResult['wires'] }> {
   let p = structuredClone(p0);
   const report: string[] = [];
   const it = o.iterations ?? 60;
   const ids = (f: (cls: string, name: string, id: string) => boolean) => Object.values(p.nets).filter((n) => f(n.netClass, n.name, n.id)).map((n) => n.id);
-  const r1 = await autoroute(p, { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 1.27, nets: ids((c) => c === 'Mains') });
+  // Расстановка подогнана под дорожки под прямым углом на мелкой сетке: без диагоналей и точный поиск.
+  const x: RouteOptions = o.extra ?? { greed: 1, diagonal: false };
+  const r1 = await autoroute(p, { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 1.27, nets: ids((c) => c === 'Mains'), ...x });
   report.push(`230 В: дорожек ${r1.tracks.length}, не проведено ${r1.failed}`);
   p = apply(p, r1);
 
@@ -239,7 +241,7 @@ export async function routeVacuumEsp32(
     if (width) for (const k of Object.keys(c.netClasses)) if (k !== 'Mains') c.netClasses[k] = { ...c.netClasses[k], trackWidth: width };
     return c;
   };
-  const r2 = await autoroute(quiet(p), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: [...psu] });
+  const r2 = await autoroute(quiet(p), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: [...psu], ...x });
   report.push(`блок питания: дорожек ${r2.tracks.length}, переходных ${r2.vias.length}, не проведено ${r2.failed}`);
   p = apply(p, r2);
 
@@ -251,6 +253,7 @@ export async function routeVacuumEsp32(
     grid: FINE_GRID,
     keepExisting: true,
     nets: ids((c, _n, id) => c !== 'Mains' && !psu.has(id)),
+    ...x,
   });
   report.push(`низковольтная часть: дорожек ${r3.tracks.length}, переходных ${r3.vias.length}, сшивок ${r3.stitches}, не проведено ${r3.failed}`);
   p = apply(p, r3);

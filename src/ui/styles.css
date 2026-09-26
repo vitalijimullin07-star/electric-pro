@@ -1825,3 +1825,119 @@ textarea:focus {
     border-radius: 12px;
   }
 }
+
+/* Окно «Автотрассировка и расстановка»: слева галочки, справа варианты карточками. */
+.ad-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+.ad-grid h4 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--mute);
+  font-weight: 600;
+}
+.ad-grid section > h4:first-child {
+  margin-top: 0;
+}
+.ad-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.ad-check input {
+  margin-top: 3px;
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.ad-check span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ad-check small {
+  color: var(--mute);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.ad-seg {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.ad-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 4px 10px;
+  margin: 8px 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.ad-roles label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ad-roles select {
+  max-width: 120px;
+  font-size: 12px;
+}
+.ad-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.ad-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ad-card.on {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok);
+}
+.ad-thumb {
+  display: block;
+  width: 100%;
+  background: #0d1a12;
+}
+.ad-card-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ad-card-body b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.ad-card-body small {
+  color: var(--mute);
+  line-height: 1.35;
+}
+.ad-card-body .btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+@media (max-width: 760px) {
+  .ad-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ad-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

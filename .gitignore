@@ -10,3 +10,4 @@ tests/_tmp/
 tools/_shot.mjs
 tools/_fs.mjs
 tools/_crop.mjs
+tools/_ad.mjs

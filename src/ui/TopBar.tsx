@@ -381,7 +381,7 @@ export function TopBar() {
           s.setMessage(on ? 'Капли включены: дорожки плавно расширяются у площадок и переходных (где хватает зазора).' : 'Капли выключены.');
         } },
         'sep',
-        { label: 'Автотрассировка…', action: () => s.openDialog('autoroute') },
+        { label: 'Автотрассировка и расстановка…', action: () => s.openDialog('autoroute') },
         { label: 'Стереть все дорожки', action: () =>
           askConfirm({ title: 'Стереть все дорожки', message: 'Стереть все дорожки, переходные и перемычки? Вернуть можно через Ctrl+Z.', okLabel: 'Стереть', danger: true, onOk: () => s.commit((d) => clearRouting(d)) }) },
         'sep',

@@ -12,7 +12,8 @@ import { ComponentDialog } from '@ui/dialogs/ComponentDialog';
 import { OpenDialog } from '@ui/dialogs/OpenDialog';
 import { AskDialog } from '@ui/dialogs/AskDialog';
 import type { AskData } from '@editor/store';
-import { AboutDialog, AutorouteDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
+import { AboutDialog, NetDialog, ShortcutsDialog, TextDialog } from '@ui/dialogs/SmallDialogs';
+import { AutoDesignDialog } from '@ui/dialogs/AutoDesignDialog';
 import { FootprintEditorDialog, type FootprintEditorData } from '@ui/dialogs/FootprintEditor';
 import { DfmDialog } from '@ui/dialogs/DfmDialog';
 import { LayerMoveDialog } from '@ui/dialogs/LayerMoveDialog';
@@ -63,7 +64,7 @@ export function App() {
       {dialog === 'component' && typeof dialogData === 'string' && <ComponentDialog id={dialogData} />}
       {dialog === 'net' && typeof dialogData === 'string' && <NetDialog id={dialogData} />}
       {dialog === 'text' && <TextDialog data={dialogData} />}
-      {dialog === 'autoroute' && <AutorouteDialog />}
+      {dialog === 'autoroute' && <AutoDesignDialog />}
       {dialog === 'shortcuts' && <ShortcutsDialog />}
       {dialog === 'about' && <AboutDialog />}
       {dialog === '3d' && <View3D />}

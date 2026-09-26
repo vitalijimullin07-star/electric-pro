@@ -5,10 +5,6 @@ import { TextInput, LenInput, useUnits } from '../common/NumberInput';
 import { addDrawing } from '@core/model/edit';
 import { renameNetChecked } from '@editor/commands';
 import type { Vec2 } from '@core/math/vec';
-import { startAutoroute } from '@core/router/client';
-import { autoGrid } from '@core/router/autoroute';
-import { addTrack, addVia, addWire, clearRouting } from '@core/model/edit';
-import { computeConnectivity } from '@core/model/connectivity';
 import type { LayerId } from '@core/model/types';
 import { LAYERS } from '@core/model/layers';
 
@@ -104,119 +100,6 @@ export function TextDialog({ data }: { data: unknown }) {
         </select>
       </div>
       <p className="hint">Шрифт штриховой: латиница, цифры и кириллица. Так надпись одинаково выглядит на экране, в SVG и в Gerber.</p>
-    </Dialog>
-  );
-}
-
-export function AutorouteDialog() {
-  const s = useEditor();
-  const p = s.project;
-  const conn = computeConnectivity(p);
-  const [keep, setKeep] = useState(conn.total - conn.unrouted > 0);
-  const [grid, setGrid] = useState<number>(autoGrid(p));
-  const [iters, setIters] = useState(30);
-  const hasZones = Object.values(p.zones).some((z) => z.net);
-  const [stitch, setStitch] = useState(true);
-  const [job, setJob] = useState<ReturnType<typeof startAutoroute> | null>(null);
-  const r = s.routing;
-  const oneLayer = p.board.copperLayers === 1;
-
-  const run = () => {
-    const base = keep ? p : (() => p)();
-    s.patch({ routing: { running: true, iteration: 0, conflicts: 0, fraction: 0, message: 'Подготовка…' } });
-    const j = startAutoroute(base, { grid, iterations: iters, keepExisting: keep, allowWires: oneLayer, allowVias: !oneLayer, stitch }, (info) =>
-      s.patch({ routing: { running: true, iteration: info.iteration, conflicts: info.conflicts, fraction: info.fraction, message: `Проход ${info.iteration}: спорных клеток ${info.conflicts}` } }),
-    );
-    setJob(j);
-    j.promise
-      .then((res) => {
-        s.commit((d) => {
-          if (!keep) clearRouting(d);
-          for (const t of res.tracks) addTrack(d, t);
-          for (const v of res.vias) addVia(d, v);
-          for (const w of res.wires) addWire(d, w.a, w.b);
-        });
-        const c2 = computeConnectivity(useEditor.getState().project);
-        s.patch({
-          routing: { running: false, iteration: res.iterations, conflicts: res.conflicts, fraction: 1 },
-          message: `Разведено за ${(res.ms / 1000).toFixed(1)} с: дорожек ${res.tracks.length}, ${oneLayer ? 'перемычек' : 'переходных'} ${oneLayer ? res.wires.length : res.vias.length}${res.zoneNets ? `, цепей соединено заливкой: ${res.zoneNets}` : ''}${res.stitches ? `, сшивок: ${res.stitches}` : ''}${res.failed ? `, не проведено связей: ${res.failed} (заменены перемычками)` : ''}. Не разведено цепей: ${c2.unrouted}.`,
-        });
-        s.closeDialog();
-      })
-      .catch((e: Error) => {
-        s.patch({ routing: { running: false, iteration: 0, conflicts: 0, fraction: 0 }, message: 'Автотрассировка прервана: ' + e.message });
-        setJob(null);
-      });
-  };
-  const cancel = () => {
-    job?.cancel();
-    setJob(null);
-    s.patch({ routing: { running: false, iteration: 0, conflicts: 0, fraction: 0 }, message: 'Автотрассировка отменена.' });
-  };
-
-  return (
-    <Dialog
-      title="Автотрассировка"
-      size="narrow"
-      footer={
-        r.running ? (
-          <button className="btn danger" onClick={cancel}>
-            Остановить
-          </button>
-        ) : (
-          <>
-            <button className="btn" onClick={s.closeDialog}>
-              Отмена
-            </button>
-            <button className="btn primary" onClick={run} disabled={!conn.total}>
-              Развести
-            </button>
-          </>
-        )
-      }
-    >
-      <p className="hint">
-        {oneLayer
-          ? 'Односторонняя плата: дорожки по нижней меди, где не пройти — перемычки проводом с площадками. '
-          : 'Двусторонняя плата: дорожки на обоих слоях, переходные отверстия где нужно. '}
-        Метод согласования конфликтов: несколько проходов, спорные места дорожают. Учитываются зазоры классов, области правил и зона 230 В.
-        {hasZones ? ' Цепи, которые соединяет заливка полигона (обычно земля), дорожками не ведутся — только недостающие связи.' : ''}
-      </p>
-      <div className="field">
-        <label>Сетка, мм</label>
-        <select className="sel" value={String(grid)} onChange={(e) => setGrid(+e.target.value)} disabled={r.running}>
-          {[...new Set([autoGrid(p), 0.5, 0.635, 0.8, 1.0, 1.27, 2.54])].sort((a, b) => a - b).map((g) => (
-            <option key={g} value={String(g)}>
-              {String(g).replace('.', ',')}
-              {Math.abs(g - autoGrid(p)) < 1e-9 ? ' — по правилам' : ''}
-            </option>
-          ))}
-        </select>
-        <label>Проходов, до</label>
-        <input className="inp" type="number" min={4} max={80} value={iters} onChange={(e) => setIters(+e.target.value || 30)} disabled={r.running} />
-        {hasZones && !oneLayer && (
-          <>
-            <label>Сшить полигоны переходными</label>
-            <input type="checkbox" checked={stitch} onChange={(e) => setStitch(e.target.checked)} disabled={r.running} />
-          </>
-        )}
-        <label>Существующие дорожки</label>
-        <select className="sel" value={keep ? 'keep' : 'redo'} onChange={(e) => setKeep(e.target.value === 'keep')} disabled={r.running}>
-          <option value="redo">стереть и развести всё заново</option>
-          <option value="keep">оставить, развести только недоведённые цепи</option>
-        </select>
-      </div>
-      <p className="hint">
-        Цепей к разводке: {keep ? conn.unrouted : conn.total}. Результат можно отменить (Ctrl+Z).
-      </p>
-      {r.running && (
-        <>
-          <div className="progress">
-            <div style={{ width: `${Math.round(r.fraction * 100)}%` }} />
-          </div>
-          <p className="hint">{r.message}</p>
-        </>
-      )}
     </Dialog>
   );
 }

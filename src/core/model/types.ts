@@ -206,12 +206,17 @@ export type Drawing = Graphic & { id: Id; locked?: boolean };
 
 /* ---------------- цепи и правила ---------------- */
 
+/** Роль цепи для расстановки и трассировки (см. model/net-roles.ts). */
+export type NetRole = 'hv' | 'power' | 'noisy' | 'sensitive' | 'signal';
+
 export interface Net {
   id: Id;
   name: string;
   description?: string;
   /** Имя класса цепей из project.netClasses. */
   netClass: string;
+  /** Роль, заданная вручную; без неё — угадывается по классу, имени и деталям. */
+  role?: NetRole;
 }
 
 export interface NetClass {

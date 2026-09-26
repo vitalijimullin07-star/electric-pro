@@ -155,7 +155,7 @@ async function openPage(viewport, touch = false) {
     ['Правка', 'Перенос между слоями', 'Перенос между слоями'],
     ['Правка', 'Заменить корпуса у деталей', 'Замена корпусов'],
     ['Файл', 'Настройки платы', 'Плата, правила и классы цепей'],
-    ['Трассировка', 'Автотрассировка', 'Автотрассировка'],
+    ['Трассировка', 'Автотрассировка', 'Автотрассировка и расстановка'],
     ['Справка', 'Горячие клавиши', 'Горячие клавиши'],
     ['Справка', 'О программе', 'Plata'],
   ];
@@ -854,13 +854,19 @@ async function openPage(viewport, touch = false) {
     await h.hit('.zoombar button[aria-label="Вся плата"]');
   });
 
-  await step('автотрассировка «только недоведённые» не ломает имеющиеся дорожки', async () => {
+  await step('автотрассировка «оставить проведённые»: варианты на всех ядрах, «Применить» не ломает имеющиеся дорожки', async () => {
     const n0 = Object.keys((await h.project()).tracks).length;
     await h.menu('Трассировка', 'Автотрассировка');
-    await h.hit(page.locator('.modal footer button', { hasText: 'Развести' }));
-    await page.waitForSelector('.modal', { state: 'detached', timeout: 60000 });
+    const keep = page.locator('.modal .ad-check', { hasText: 'Оставить уже проведённые' });
+    if (await keep.count()) await keep.locator('input').check();
+    await h.hit(page.locator('.modal .ad-seg button', { hasText: '15 с' }));
+    await h.hit(page.locator('.modal footer button', { hasText: 'Искать' }));
+    await page.locator('.modal .ad-card').first().waitFor({ timeout: 60000 });
+    await page.locator('.modal footer button', { hasText: 'Искать' }).waitFor({ timeout: 60000 });
+    await h.hit(page.locator('.modal .ad-card button', { hasText: 'Применить' }).first());
     const n1 = Object.keys((await h.project()).tracks).length;
     expect(n1 >= n0, `дорожек было ${n0}, стало ${n1}`);
+    await h.closeDialog();
   });
 
   await step('единицы: mil в строке состояния — поля и ввод в mil, обратно в мм', async () => {
