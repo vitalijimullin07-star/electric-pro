@@ -9,6 +9,7 @@ import { SelectionBar } from './SelectionBar';
 import { simRuntime } from '@editor/sim-runtime';
 import { findFootprint } from '@editor/userlib';
 import { drcSummary } from '@core/model/drc';
+import { peekUntangled, untangledRatsnest } from '@core/model/untangle';
 import { GRID_STEPS, UNIT_LABEL, fmt, fromMm } from '@core/units';
 
 /* Холст платы: отрисовка по requestAnimationFrame, события мыши/касаний, клавиатура. */
@@ -101,6 +102,21 @@ export function CanvasView() {
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
+
+  // Распутанная паутина: считается с задержкой после правок (не на каждом кадре), потом — перерисовка.
+  const [tangle, setTangle] = useState<{ crossings: number; before: number } | null>(null);
+  useEffect(() => {
+    if (!show.ratsnest) return;
+    const t = setTimeout(() => {
+      const s = useEditor.getState();
+      if (s.transaction || s.project !== project) return;
+      const had = peekUntangled(project);
+      const r = untangledRatsnest(project);
+      setTangle(r.edges.length ? { crossings: r.crossings, before: r.before.crossings } : null);
+      if (!had) redrawRef.current();
+    }, 250);
+    return () => clearTimeout(t);
+  }, [project, show.ratsnest]);
 
   // Вписать при смене проекта.
   const projectId = project.meta.created + project.meta.name;
@@ -345,6 +361,12 @@ export function CanvasView() {
           </span>
         )}
         {!show.ratsnest && <span className="chip">воздушные линии скрыты</span>}
+        {show.ratsnest && tangle && tangle.crossings > 0 && (
+          <span className="chip" title="Воздушные линии распутаны: каждая цепь соединена так, чтобы линии меньше пересекались">
+            пересечений связей {tangle.crossings}
+            {tangle.before > tangle.crossings ? ` (было ${tangle.before})` : ''}
+          </span>
+        )}
       </div>
       <button className="ibtn panel-toggle" onClick={() => useEditor.setState({ panelOpen: !panelOpen })} aria-label="Панель">
         <Icon name="panel" />

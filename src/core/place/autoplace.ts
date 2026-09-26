@@ -2,6 +2,7 @@ import { boxOfPoints, distToPolygonEdge, pointInPolygon } from '../math/geom';
 import { rng } from '../math/random';
 import type { Vec2 } from '../math/vec';
 import { netsByRole, type RoleSets } from '../model/net-roles';
+import { untangle, type TangleNet, type TangleWall } from '../model/untangle';
 import { footprintBounds } from '../model/placement';
 import { boardPolygon } from '../model/project';
 import { netClassOf } from '../model/rules';
@@ -45,6 +46,8 @@ export interface PlaceOptions {
   progress?: (fraction: number) => void | Promise<void>;
   /** Отдавать управление каждые столько ходов (для основного потока). */
   yieldEvery?: number;
+  /** Доводка по распутанной паутине (по умолчанию — да). */
+  untangle?: boolean;
 }
 
 export interface PlaceScore {
@@ -440,9 +443,10 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
     const pt = parts[pi];
     let c = 0;
     for (let a = 0; a < e.length; a += 2) {
+      // Свои стены детали тоже считаются: связь от верхнего ряда вниз сквозь нижний ряд той же
+      // микросхемы на одной стороне меди не пройдёт. Касание у своего вывода — не пересечение.
       const e0 = e[a];
       const e1 = e[a + 1];
-      if (padPart[e0] === pi || padPart[e1] === pi) continue;
       const ax = padX[e0];
       const ay = padY[e0];
       const bx = padX[e1];
@@ -640,6 +644,28 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
   const tick = () => new Promise<void>((r) => setTimeout(r, 0));
   const saveParts = (M: number[]) => M.map((i) => ({ i, x: parts[i].x, y: parts[i].y, rot: parts[i].rot }));
 
+  // На доводке деревья цепей — распутанные и не пересчитываются на каждом ходу (выводы те же,
+  // меняются только их места); время от времени распутываются заново.
+  let fixedTrees = false;
+  const retangle = () => {
+    const nets: TangleNet[] = [];
+    const idx: number[] = [];
+    for (let n = 0; n < netIds.length; n++) {
+      if (!netCross[n]) continue;
+      idx.push(n);
+      nets.push({ id: netIds[n], nodes: netPads[n].map((g) => [{ x: padX[g], y: padY[g], pad: String(g) }]), jumpCost: role[n] === ROLE_HV ? 20 : role[n] === ROLE_POWER ? 3 : 1 });
+    }
+    const tw: TangleWall[] = [];
+    for (let w = 0; w < walls.length / 2; w++) tw.push({ a: { x: padX[walls[w * 2]], y: padY[walls[w * 2]] }, b: { x: padX[walls[w * 2 + 1]], y: padY[walls[w * 2 + 1]] }, owner: String(padPart[walls[w * 2]]) });
+    const r = untangle(nets, tw, { rounds: 4, wallWeight: 70 * (wallW / crossW) });
+    for (const n of idx) netEdges[n] = [];
+    for (const e of r.edges) netEdges[idx[e.net]].push(+e.a.pad!, +e.b.pad!);
+    crossTotal = 0;
+    for (let a = 0; a < netIds.length; a++) for (let b = a + 1; b < netIds.length; b++) if (netEdges[a].length && netEdges[b].length) crossTotal += edgeCross(netEdges[a], netEdges[b]);
+    wallTotal = 0;
+    for (let n = 0; n < netIds.length; n++) wallTotal += edgeWalls(netEdges[n]);
+  };
+
   const tryMove = (M: number[], apply: () => void, T: number): boolean => {
     const A = affectedNets(M);
     const old = localCost(M, A);
@@ -650,7 +676,7 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
     for (const i of M) place(i);
     for (const n of A) {
       netLen[n] = hpwl(n);
-      netEdges[n] = mst(n);
+      if (!fixedTrees) netEdges[n] = mst(n);
     }
     // Метки A сохранились (affectedNets не вызывался) — считаем новую стоимость.
     const now = localCost(M, A);
@@ -846,8 +872,25 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
       wallTotal = 0;
       for (let n = 0; n < netIds.length; n++) wallTotal += edgeWalls(netEdges[n]);
     }
+    // Доводка по распутанной паутине: деревья — распутанные, ходы — только улучшения и
+    // слабый отжиг; каждые четверть — распутать заново под новые места.
+    if (o.untangle !== false) {
+      fixedTrees = true;
+      const refine = Math.round(movable.length * 60 * Math.max(1, o.effort ?? 1));
+      for (let part = 0; part < 4; part++) {
+        retangle();
+        let Tr = T0 * 0.01;
+        for (let q = 0; q < refine / 4; q++) {
+          randomMove(Tr, T0 * 0.3);
+          Tr *= 0.999;
+          if (q % yieldEvery === yieldEvery - 1) await tick();
+        }
+      }
+      retangle();
+    }
     // Доводка без случайности: только улучшения.
     for (let q = 0; q < movable.length * 30; q++) randomMove(0, T0 * 50);
+    if (fixedTrees) retangle();
   }
 
   const after = score();

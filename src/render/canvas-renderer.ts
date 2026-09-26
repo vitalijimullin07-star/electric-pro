@@ -3,6 +3,7 @@ import { shapeOutline, type Shape } from '@core/math/shape';
 import type { Vec2 } from '@core/math/vec';
 import { computeConnectivity } from '@core/model/connectivity';
 import { runDrc } from '@core/model/drc';
+import { peekUntangled } from '@core/model/untangle';
 import { LAYERS, boardCopperLayers } from '@core/model/layers';
 import { padLocalShape, placementOf, shapeToWorld } from '@core/model/placement';
 import { boardPolygon } from '@core/model/project';
@@ -526,7 +527,11 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   // Воздушные линии.
   if (inp.show.ratsnest) {
     ctx.lineWidth = px;
-    for (const r of conn.ratsnest) {
+    // Распутанная паутина (связи с минимумом пересечений), если уже посчитана; во время
+    // перетаскивания — обычные кратчайшие связи.
+    const unt = inp.base ? undefined : peekUntangled(p);
+    const lines = unt ? unt.edges.map((e) => ({ netId: unt.nets[e.net].id, a: e.a, b: e.b })) : conn.ratsnest;
+    for (const r of lines) {
       const hl = hlNet === r.netId;
       if (hlNet && !hl) continue;
       ctx.strokeStyle = hl ? COLORS.netHighlight : COLORS.rats;

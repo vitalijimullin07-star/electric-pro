@@ -2,6 +2,7 @@ import { computeConnectivity } from '../model/connectivity';
 import { runDrc } from '../model/drc';
 import { addTrack, addVia, addWire, clearRouting } from '../model/edit';
 import { netsByRole, type RoleSets } from '../model/net-roles';
+import { routePlan, untangledRatsnest } from '../model/untangle';
 import { MAINS_CLASS, MAINS_CLEARANCE } from '../model/rules';
 import type { Project, Track, Via } from '../model/types';
 import type { Vec2 } from '../math/vec';
@@ -46,6 +47,8 @@ export interface VariantJob {
   order: 'short' | 'long' | 'random';
   hopCost: number;
   greed: number;
+  /** Трассировать по плану распутанной паутины (порядок соединений, прыжки, слои). */
+  plan: boolean;
   label: string;
 }
 
@@ -62,6 +65,8 @@ export interface VariantStats {
   /** Ошибок проверки правил. */
   drc: number;
   place?: PlaceScore;
+  /** Паутина перед трассировкой: пересечений после распутывания и оценка снизу прыжков. */
+  tangle?: { crossings: number; before: number; minJumps: number; minVias: number };
 }
 
 export interface VariantResult {
@@ -123,12 +128,15 @@ export function planVariant(index: number, p: Project, o: SearchOptions): Varian
   const hops = layers === 1 ? [100, 160, 60, 130] : [25, 40, 18, 30];
   const hopCost = hops[Math.floor(index / 3) % hops.length];
   const greed = index % 2 ? 1 : 1.15;
+  // Каждый шестой — по плану распутанной паутины: ещё одна стратегия для разнообразия
+  // (в среднем не лучше и не хуже прочих, но на отдельных платах выигрывает).
+  const plan = index % 6 === 5;
   const crossWeight = (layers === 1 ? 14 : 4) * [1, 1.8, 0.6, 2.5][index % 4];
   const parts: string[] = [];
   if (start) parts.push(start === 'current' ? 'расстановка от текущей' : 'расстановка с нуля');
-  if (o.route) parts.push(order === 'short' ? 'короткие цепи первыми' : order === 'long' ? 'длинные цепи первыми' : 'случайный порядок');
+  if (o.route) parts.push(plan ? 'по распутанной паутине' : order === 'short' ? 'короткие цепи первыми' : order === 'long' ? 'длинные цепи первыми' : 'случайный порядок');
   if (layers === 2 && one) parts.push('на двух слоях');
-  return { index, seed: 1 + index * 7919, start, crossWeight, layers, order, hopCost, greed, label: `№${index + 1}: ${parts.join(', ')}` };
+  return { index, seed: 1 + index * 7919, start, crossWeight, layers, order, hopCost, greed, plan, label: `№${index + 1}: ${parts.join(', ')}` };
 }
 
 function trackLength(tracks: Omit<Track, 'id'>[]): number {
@@ -164,6 +172,10 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
   // Старые дорожки остаются только без расстановки и без смены слоёв; иначе они не к месту.
   const keep = o.keepExisting && !job.start && job.layers === base.board.copperLayers;
   if (!keep && (o.route || job.start)) clearRouting(q);
+  // Паутина перед трассировкой: распутанная — и план, и честная оценка «сколько прыжков минимум».
+  const tq = structuredClone(q);
+  const tr = untangledRatsnest(tq);
+  const tangle = { crossings: tr.crossings, before: tr.before.crossings, minJumps: tr.minJumps, minVias: tr.minViaPairs * 2 };
   let tracks: Omit<Track, 'id'>[] = [];
   let vias: Omit<Via, 'id'>[] = [];
   let wires: { a: Vec2; b: Vec2 }[] = [];
@@ -182,6 +194,8 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
       greed: job.greed,
       noisy: roles.noisy,
       sensitive: roles.sensitive,
+      plan: job.plan ? routePlan(tr) : undefined,
+      planHop: [0.7, 1.5],
       // В основном потоке — чаще отдавать управление, чтобы интерфейс не замирал.
       yieldEvery: run.inline ? 2 : 1000,
       progress: (i) => progress?.(0.4 + 0.6 * i.fraction),
@@ -205,6 +219,7 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
     length: Math.round(trackLength(Object.values(done.tracks))),
     drc,
     place: placeScore,
+    tangle,
   };
   return { index: job.index, label: job.label, layers: job.layers, moves, tracks, vias, wires, stats, score: Math.round(scoreOf(stats, job.layers, base.board.copperLayers)), ms: Date.now() - t0 };
 }

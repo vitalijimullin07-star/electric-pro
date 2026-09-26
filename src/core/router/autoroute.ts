@@ -70,6 +70,24 @@ export interface RouteOptions {
   greed?: number;
   /** Чистовой проход после согласования (по умолчанию — да). */
   polish?: boolean;
+  /**
+   * План (из распутывания паутины): какие выводы с какими соединять, какие связи пускать
+   * перемычкой (на одной стороне) и на каком слое вести (0 — верхний, 1 — нижний).
+   */
+  plan?: RoutePlanEdge[];
+  /** Множители цены перемычки по плану: запланированной и остальным (по умолчанию 0,5 и 3). */
+  planHop?: [number, number];
+  /** Соединять выводы в порядке дерева плана (по умолчанию — да). */
+  planOrder?: boolean;
+}
+
+export interface RoutePlanEdge {
+  net: Id;
+  /** Ключи выводов (padKey). */
+  a: string;
+  b: string;
+  jump?: boolean;
+  layer?: 0 | 1;
 }
 
 export interface RouteResult {
@@ -554,8 +572,11 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
   let histW = 1;
   let hopMul = 1;
   const minStep = Math.min(...stepCost);
+  // Связь по плану: предпочтительный слой (другой дороже) и цена перемычки.
+  let prefLayer = -1;
+  let connHop = 1;
   const cc = (n: number, l: number, k: number) => {
-    let c = stepCost[l] + histW * hist[l][k] + pf * (occ[l][k] - use[n][l][k]);
+    let c = stepCost[l] * (prefLayer >= 0 && l !== prefLayer ? 1.8 : 1) + histW * hist[l][k] + pf * (occ[l][k] - use[n][l][k]);
     const role = roleOf[n];
     if (role === 2 && noiseF[k]) c += noiseCost;
     else if (role === 1 && sensF[k]) c += noiseCost * 0.5;
@@ -719,7 +740,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
         }
         for (let l2 = 0; l2 < nl; l2++) {
           if (l2 === l || !landOK(n, l2, k)) continue;
-          relax(sid(l2, k, dir), d + hopCost * hopMul + cc(n, l2, k) + vc, s, 2, k);
+          relax(sid(l2, k, dir), d + hopCost * hopMul * connHop + cc(n, l2, k) + vc, s, 2, k);
         }
       }
       // Перемычка проводом: прыжок по прямой на том же слое.
@@ -732,7 +753,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
             if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= ny) break;
             const k2 = cell(i2, j2);
             if (!landOK(n, l, k2)) continue;
-            const c = d + hopCost * hopMul + L * 0.5 + cc(n, l, k2) + lc + around(k2, viaFoot[n])!.reduce((a, q) => a + pf * (occ[l][q] - use[n][l][q]), 0);
+            const c = d + hopCost * hopMul * connHop + L * 0.5 + cc(n, l, k2) + lc + around(k2, viaFoot[n])!.reduce((a, q) => a + pf * (occ[l][q] - use[n][l][q]), 0);
             relax(sid(l, k2, nd), c, s, 1, k2);
           }
       }
@@ -825,6 +846,38 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     return out;
   }
 
+  // План: связи по цепям в индексах площадок.
+  const plan = o.plan?.length ? o.plan : null;
+  const planByNet = new Map<number, { a: number; b: number; edge: RoutePlanEdge }[]>();
+  if (plan)
+    for (const e of plan) {
+      const n = netIndex.get(e.net);
+      const a = padIndexByKey.get(e.a);
+      const b = padIndexByKey.get(e.b);
+      if (n === undefined || a === undefined || b === undefined) continue;
+      (planByNet.get(n) ?? planByNet.set(n, []).get(n)!).push({ a, b, edge: e });
+    }
+  /** Порядок выводов по дереву плана: обход от уже соединённых. */
+  function planOrder(n: number, inTree: Set<number>, left: number[]): { pad: number; edge: RoutePlanEdge }[] {
+    const es = planByNet.get(n);
+    if (!es) return [];
+    const out: { pad: number; edge: RoutePlanEdge }[] = [];
+    const seen = new Set<number>(inTree);
+    const queue = [...inTree];
+    const want = new Set(left);
+    while (queue.length) {
+      const v = queue.shift()!;
+      for (const e of es) {
+        const u = e.a === v ? e.b : e.b === v ? e.a : -1;
+        if (u < 0 || seen.has(u)) continue;
+        seen.add(u);
+        queue.push(u);
+        if (want.has(u)) out.push({ pad: u, edge: e.edge });
+      }
+    }
+    return out;
+  }
+
   function routeNet(n: number) {
     clearNet(n);
     const conns: Conn[] = [];
@@ -862,22 +915,38 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       for (const lk of keptTree(n, [...inTree])) seed(lk);
     }
     const left = mem.filter((pi) => !inTree.has(pi));
+    const planned = o.planOrder === false || !plan ? [] : planOrder(n, inTree, left);
     while (left.length) {
-      // Ближайшая к дереву площадка.
-      let bi = 0;
-      let bd = 1e18;
-      left.forEach((pi, i) => {
-        for (const q of inTree) {
-          const d = dist(pads[pi].wp.center, pads[q].wp.center);
-          if (d < bd) {
-            bd = d;
-            bi = i;
+      let pi: number;
+      let edge: RoutePlanEdge | undefined;
+      const nextPlanned = planned.shift();
+      if (nextPlanned && left.includes(nextPlanned.pad)) {
+        // По плану: следующий вывод дерева распутанной паутины.
+        pi = nextPlanned.pad;
+        edge = nextPlanned.edge;
+        left.splice(left.indexOf(pi), 1);
+      } else {
+        // Ближайшая к дереву площадка.
+        let bi = 0;
+        let bd = 1e18;
+        left.forEach((q0, i) => {
+          for (const q of inTree) {
+            const d = dist(pads[q0].wp.center, pads[q].wp.center);
+            if (d < bd) {
+              bd = d;
+              bi = i;
+            }
           }
-        }
-      });
-      const pi = left.splice(bi, 1)[0];
+        });
+        pi = left.splice(bi, 1)[0];
+      }
       const src = cellsOfPad(pi, n);
+      // Запланированной «через верх» связи перемычка дешевле, остальным — дороже; слой — по плану.
+      prefLayer = edge?.layer !== undefined && nl > 1 ? edge.layer : -1;
+      connHop = !plan ? 1 : edge?.jump ? (o.planHop?.[0] ?? 0.5) : (o.planHop?.[1] ?? 3);
       const path = src.length ? astar(n, src, (l, k) => tree[l * N + k] === 1, tb) : null;
+      prefLayer = -1;
+      connHop = 1;
       if (!path) {
         let best: number | null = null;
         let bdist = 1e18;

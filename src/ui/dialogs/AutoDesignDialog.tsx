@@ -309,7 +309,11 @@ function statsText(v: VariantResult): string {
   if (v.layers > 1) parts.push(`переходных ${st.vias}`);
   parts.push(`дорожки ${(st.length / 1000).toFixed(2).replace('.', ',')} м`);
   if (st.drc) parts.push(`ошибок ${st.drc}`);
-  if (st.place) parts.push(`пересечений связей ${st.place.crossings}`);
+  if (st.tangle) {
+    // Оценка по распутанной паутине (прямые линии): дорожка может и обойти, поэтому «около».
+    const est = v.layers === 1 ? st.tangle.minJumps : st.tangle.minVias;
+    parts.push(`по паутине: пересечений ${st.tangle.crossings}, около ${est} ${v.layers === 1 ? 'перемычек' : 'переходных'}`);
+  }
   return parts.join(' · ');
 }
 

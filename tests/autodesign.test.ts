@@ -11,6 +11,7 @@ import { createProject } from '../src/core/model/project';
 import { libraryFootprint } from '../src/core/library';
 import { computeConnectivity } from '../src/core/model/connectivity';
 import { runDrc } from '../src/core/model/drc';
+import { padWalls, routePlan, tangleNets, untangle, untangledRatsnest } from '../src/core/model/untangle';
 import type { Project } from '../src/core/model/types';
 
 /*
@@ -85,6 +86,38 @@ describe('роли цепей', () => {
   });
 });
 
+describe('распутывание паутины', () => {
+  test('плата на выводных деталях: пересечений меньше, план в ключах выводов, оценка прыжков', () => {
+    const p = file('import/plata-dip.plata.json');
+    clearRouting(p);
+    const q = structuredClone(p);
+    const u = untangledRatsnest(q);
+    const plain = untangle(tangleNets(q), padWalls(q), { plain: true });
+    // Кратчайшие деревья: 110 пересечений; распутанные — заметно меньше, связей столько же.
+    expect(plain.crossings).toBeGreaterThan(90);
+    expect(u.crossings).toBeLessThan(plain.crossings * 0.7);
+    expect(u.edges.length).toBe(plain.edges.length);
+    expect(u.edges.length).toBe(computeConnectivity(q).ratsnest.length);
+    expect(u.minJumps).toBeLessThan(plain.minJumps);
+    expect(u.minViaPairs).toBeLessThan(plain.minViaPairs);
+    expect(u.jump.filter(Boolean).length).toBe(u.minJumps);
+    // Каждая цепь остаётся деревом: связей на одну меньше, чем островков.
+    const byNet = new Map<number, number>();
+    for (const e of u.edges) byNet.set(e.net, (byNet.get(e.net) ?? 0) + 1);
+    u.nets.forEach((n, i) => expect(byNet.get(i) ?? 0).toBe(n.nodes.length - 1));
+    const keys = new Set(computeConnectivity(q).world.pads.map((x) => x.key));
+    const plan = routePlan(u);
+    expect(plan.length).toBe(u.edges.length);
+    expect(plan.every((e) => keys.has(e.a) && keys.has(e.b) && q.nets[e.net])).toBe(true);
+  });
+
+  test('разведённая плата — паутины нет', () => {
+    const u = untangledRatsnest(file('import/quasar-avr-desalex.plata.json'));
+    expect(u.edges).toEqual([]);
+    expect(u.minJumps).toBe(0);
+  });
+});
+
 describe('авторасстановка', () => {
   test('плата на выводных деталях: оптроны развёрнуты в свою зону, перекрытий нет, пересечений меньше', async () => {
     const p = file('import/plata-dip.plata.json');
@@ -128,6 +161,7 @@ describe('перебор вариантов', () => {
     expect(job.start).toBe('scratch');
     const v = await runVariant(p, o, job);
     expect(v.stats.unrouted).toBe(0);
+    expect(v.stats.tangle).toBeDefined();
     expect(v.stats.drc).toBe(0);
     expect(v.moves.length).toBeGreaterThan(0);
     const q = structuredClone(p);
@@ -146,5 +180,17 @@ describe('перебор вариантов', () => {
     expect(got.map((r) => r.index).sort()).toEqual([0, 1, 2, 3]);
     expect(got.find((r) => r.index === 3)!.layers).toBe(2);
     expect(got.every((r) => r.stats.unrouted === 0)).toBe(true);
+  });
+
+  test('вариант по плану распутанной паутины разводит плату без ошибок', async () => {
+    const p = small();
+    const o = defaultSearchOptions(p);
+    const job = planVariant(5, p, o);
+    expect(job.plan).toBe(true);
+    expect(job.label).toMatch(/по распутанной паутине/);
+    const v = await runVariant(p, o, job);
+    expect(v.stats.unrouted).toBe(0);
+    expect(v.stats.drc).toBe(0);
+    expect(v.stats.jumpers).toBe(0);
   });
 });

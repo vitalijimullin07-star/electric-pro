@@ -151,9 +151,28 @@ export function startVariantSearch(
 
   // Номера вариантов, которые надо посчитать заново (воркер упал, не начав).
   const retry: number[] = [];
+  // Сколько идут варианты каждого вида (расстановка с нуля дольше): не начинать тот,
+  // что заведомо не успеет к сроку, — иначе его всё равно придётся бросить.
+  const took = new Map<string, number[]>();
+  let got = 0;
+  const kind = (index: number) => {
+    const j = planVariant(index, project, options);
+    return `${j.start}/${j.layers}`;
+  };
+  const noteTime = (r: VariantResult) => {
+    const k = kind(r.index);
+    (took.get(k) ?? took.set(k, []).get(k)!).push(r.ms);
+    got++;
+  };
+  const expected = (index: number): number => {
+    const own = took.get(kind(index));
+    const all = own?.length ? own : [...took.values()].flat();
+    return all.length ? all.reduce((a, b) => a + b, 0) / all.length : 0;
+  };
   const nextIndex = (): number | null => {
     if (retry.length) return retry.shift()!;
     if (stopped || next >= maxVariants || Date.now() >= deadline) return null;
+    if (deadline - Date.now() < expected(next) * 0.6) return null;
     return next++;
   };
   let inlineRunning = false;
@@ -179,6 +198,7 @@ export function startVariantSearch(
           },
           { inline: true },
         );
+        noteTime(r);
         if (!stopped) cfg.onResult(r);
       } catch (e) {
         if (!stopped) cfg.onError?.((e as Error).message);
@@ -232,6 +252,7 @@ export function startVariantSearch(
       if (m.type === 'variant-done') {
         running.delete(m.result.index);
         done++;
+        noteTime(m.result);
         if (!stopped) cfg.onResult(m.result);
       } else if (m.type === 'error') {
         running.delete(idx);
@@ -264,16 +285,23 @@ export function startVariantSearch(
     return { stop: () => (stopped = true), promise, threads: 1 };
   }
   for (const w of workers) feed(w);
-  // Раз в полсекунды — прогресс; после срока — даём досчитать начатое, но не дольше половины срока.
+  // Раз в полсекунды — прогресс; после срока — даём досчитать начатое, но не дольше половины
+  // срока. Если к тому времени нет ни одного готового варианта — ждём первый (без карточек
+  // остаться хуже, чем подождать; «Остановить» всегда под рукой).
   timer = setInterval(() => {
     report();
     finishIfIdle();
   }, 500);
-  hard = setTimeout(() => {
+  const hardStop = () => {
+    if (!got && running.size && !stopped) {
+      hard = setTimeout(hardStop, 1000);
+      return;
+    }
     stopped = true;
     running.clear();
     finishIfIdle();
-  }, cfg.timeMs * 1.5 + 5000);
+  };
+  hard = setTimeout(hardStop, cfg.timeMs * 1.5 + 5000);
   return {
     stop: () => {
       stopped = true;
