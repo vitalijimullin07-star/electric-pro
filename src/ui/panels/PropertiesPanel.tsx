@@ -194,6 +194,9 @@ export function ComponentProps({ id }: { id: string }) {
         <label>
           <input type="checkbox" checked={!!c.excludeFromBom} onChange={(e) => upd((x) => void (x.excludeFromBom = e.target.checked || undefined))} /> не в перечень
         </label>
+        <label title="Дисплей, кнопки на корпусе, динамик, датчик: есть на схеме, в перечне и в симуляции, но не на плате и не в Gerber">
+          <input type="checkbox" checked={!!c.offBoard} onChange={(e) => upd((x) => void (x.offBoard = e.target.checked || undefined))} /> выносная (вне платы)
+        </label>
       </div>
       <div className="row">
         <button className="btn primary" onClick={() => s.openDialog('component', id)}>

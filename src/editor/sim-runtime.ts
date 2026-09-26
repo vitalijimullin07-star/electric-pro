@@ -1,4 +1,4 @@
-import { MCU_FREQ, Simulation, type SimView } from '@core/sim';
+import { Simulation, type SimView } from '@core/sim';
 import { useEditor } from './store';
 
 /*
@@ -98,7 +98,7 @@ class SimRuntime {
     const now = performance.now();
     const dt = Math.min(50, now - this.last);
     this.last = now;
-    const target = Math.round((dt / 1000) * MCU_FREQ);
+    const target = Math.round((dt / 1000) * sim.mcu.freq);
     const t0 = performance.now();
     let done = 0;
     while (done < target && performance.now() - t0 < BUDGET_MS) {
@@ -106,7 +106,7 @@ class SimRuntime {
       sim.run(n);
       done += n;
     }
-    this.speedAcc.sim += done / MCU_FREQ;
+    this.speedAcc.sim += done / sim.mcu.freq;
     this.speedAcc.wall += dt / 1000;
     this.view = sim.view();
     this.updateSound();
@@ -138,6 +138,12 @@ class SimRuntime {
 
   set(id: string, key: string, value: number): void {
     this.sim?.set(id, key, value);
+    if (!this.running) this.refresh();
+  }
+
+  /** Действие устройства: провести катушкой над целью. */
+  act(id: string, key: string): void {
+    this.sim?.act(id, key);
     if (!this.running) this.refresh();
   }
 

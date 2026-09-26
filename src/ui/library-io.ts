@@ -1,10 +1,11 @@
 import { libraryFootprint } from '@core/library';
 import { importKicadBoard, importKicadFootprint } from '@core/io/kicad';
+import { layToProject, parseLay } from '@core/io/sprint-layout';
 import { MY_CATEGORY } from '@core/library/builder';
 import type { FootprintDef } from '@core/model/types';
 import { useEditor } from '@editor/store';
 import { addUserFootprints } from '@editor/userlib';
-import { openTextFile, openTextFiles, saveTextFile } from './files';
+import { openFileBytes, openTextFile, openTextFiles, saveTextFile } from './files';
 
 /* Файлы библиотеки: импорт корпусов KiCad и своих корпусов, выгрузка «Моих корпусов», плата из KiCad. */
 
@@ -82,4 +83,23 @@ export function openKicadBoardText(name: string, text: string): void {
 export async function importKicadBoardFile(): Promise<void> {
   const f = await openTextFile('.kicad_pcb');
   if (f) openKicadBoardText(f.name, f.text);
+}
+
+/** Открывает плату Sprint Layout (.lay, .lay6) как новый проект: медь, площадки, шелкография, цепи по меди. */
+export function openLayBytes(name: string, bytes: Uint8Array): void {
+  const s = useEditor.getState();
+  try {
+    const lay = parseLay(bytes);
+    const r = layToProject(lay, { name: name.replace(/\.lay6?$/i, '') });
+    s.replaceProject(r.project, null);
+    const p = r.project;
+    s.setMessage(`Плата из Sprint Layout ${lay.version}: деталей ${Object.keys(p.components).length}, дорожек ${Object.keys(p.tracks).length}, цепей ${Object.keys(p.nets).length} (по связности меди).${r.warnings.length ? ' ' + r.warnings.slice(0, 2).join(' ') : ''} Группы стали деталями E1, E2… — задайте им обозначения и номиналы.`);
+  } catch (e) {
+    s.setMessage(`Не удалось открыть файл Sprint Layout: ${(e as Error).message}`);
+  }
+}
+
+export async function importLayFile(): Promise<void> {
+  const f = await openFileBytes('.lay,.lay6');
+  if (f) openLayBytes(f.name, f.bytes);
 }

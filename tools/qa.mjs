@@ -107,7 +107,7 @@ async function openPage(viewport, touch = false) {
   });
 
   const menuItems = {
-    Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
+    Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт платы Sprint Layout', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
     Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону или слой', 'Перенос между слоями', 'Заменить корпуса у деталей', 'Свойства компонента'],
     Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
     Симуляция: ['Загрузить прошивку', 'Старт', 'Сброс', 'Стоп', 'Монитор порта'],
@@ -1276,6 +1276,84 @@ async function openPage(viewport, touch = false) {
     expect(await page.locator('.sim-scope').isVisible(), 'нет логического анализатора');
     await h.menu('Симуляция', 'Стоп');
     expect(!(await page.$('.sim-lcd')), 'после стопа экран остался');
+  });
+
+  await step('Sprint Layout: плата «Квазар» из .lay — детали из групп, дорожки, цепи по меди', async () => {
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Импорт платы Sprint Layout')]);
+    await chooser.setFiles(new URL('../tests/fixtures/quasar/quasar-desalex.lay', import.meta.url).pathname);
+    await page.waitForTimeout(800);
+    const p = await h.project();
+    expect(Object.keys(p.tracks).length === 98 && Object.keys(p.components).length === 50, 'плата: ' + (await h.msg()));
+    expect(/Sprint Layout 5/.test(await h.msg()), 'сообщение: ' + (await h.msg()));
+    await page.screenshot({ path: `${out}/sprint-layout.png` });
+  });
+
+  await step('Квазар: плата, схема с выносными деталями, симуляция ATmega32A — экран, кнопки, цель, звук', async () => {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+    await fc.setFiles(new URL('../import/quasar-avr-desalex.plata.json', import.meta.url).pathname);
+    await page.waitForTimeout(1000);
+    const p = await h.project();
+    expect(p.firmware && /Quasar145/.test(p.firmware.name), 'прошивка: ' + p.firmware?.name);
+    const chips = await h.chips();
+    expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
+    await page.screenshot({ path: `${out}/quasar-board.png` });
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(500);
+    await h.hit(page.locator('.sim-tabs button', { hasText: 'Детали' }));
+    const started = await page
+      .locator('.sim-lcd')
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!started) await page.screenshot({ path: `${out}/quasar-fail.png` });
+    expect(started, 'симуляция не запустилась: ' + ((await page.locator('.sim-panel').innerText().catch(() => '')) || (await h.msg())).slice(0, 300));
+    await page.waitForTimeout(2000);
+    const lcdText = async () => (await page.locator('.sim-lcd').first().innerText()).replace(/\u00a0/g, ' ').replace(/\n/g, '');
+    let lcd = await lcdText();
+    expect(/Quasar|fandy|http/.test(lcd), 'заставка: ' + lcd);
+    await page.waitForTimeout(7000);
+    lcd = await lcdText();
+    expect(/\d+\.\dV/.test(lcd) && !/Error/.test(lcd), 'рабочий экран: ' + lcd);
+    expect(await page.locator('.sim-lcd .lcd-glyph').count() > 5, 'нет своих символов ЖК (шкала)');
+    const head = await page.locator('.sim-panel').innerText();
+    expect(/ATmega32A, 11,0592 МГц/.test(head), 'контроллер: ' + head.slice(0, 200));
+    // Катушка: медь, 8 см, провести — метка на шкале и тон.
+    const coil = page.locator('.sim-dev.k-coil');
+    await coil.locator('select').first().selectOption({ label: 'медь (монета)' });
+    let tone = '';
+    let marked = false;
+    for (let k = 0; k < 3 && !(tone && marked); k++) {
+      await h.hit(coil.locator('button', { hasText: 'Провести над целью' }));
+      for (let i = 0; i < 12; i++) {
+        await page.waitForTimeout(120);
+        const b = await page.locator('.sim-dev.k-buzzer').innerText();
+        if (/Гц/.test(b)) tone = b;
+        const t = await lcdText();
+        if (/█/.test(t)) marked = true;
+      }
+    }
+    expect(tone, 'нет звука при проводке над монетой');
+    expect(marked, 'нет метки VDI на шкале');
+    await page.screenshot({ path: `${out}/quasar-sim.png` });
+    // Кнопка «Меню» (SW5): держим и отпускаем — пункт меню на экране.
+    const menuBtn = page.locator('.sim-dev.k-button', { hasText: 'Меню' }).locator('.sim-hold');
+    await menuBtn.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
+    const bb = await menuBtn.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(500);
+    await page.mouse.up();
+    await page.waitForTimeout(1200);
+    lcd = await lcdText();
+    expect(/Audio|options|Volume|Backlight/.test(lcd), 'меню: ' + lcd);
+    // Схема: выносные детали и экран под символом дисплея.
+    await h.menu('Схема', 'Открыть схему');
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${out}/quasar-schematic.png` });
+    await h.menu('Симуляция', 'Стоп');
+    await h.menu('Схема', 'Перейти к плате');
   });
 
   await page.screenshot({ path: `${out}/desktop.png` });

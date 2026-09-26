@@ -124,6 +124,8 @@ export function getWorld(p: Project): World {
   const pads: WorldPad[] = [];
   const padByKey = new Map<string, WorldPad>();
   for (const c of Object.values(p.components)) {
+    // Выносные детали (дисплей, кнопки на корпусе) на плате не стоят.
+    if (c.offBoard) continue;
     const wc = worldComponent(c, p.footprints[c.footprint]);
     components.push(wc);
     componentById.set(c.id, wc);

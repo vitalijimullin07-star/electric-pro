@@ -1199,6 +1199,40 @@ textarea:focus {
   background: #15233f;
   color: #7f93bd;
 }
+.sim-lcd .lcd-glyph {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.05em;
+  margin-right: 0.08em;
+  vertical-align: -0.2em;
+  fill: currentColor;
+}
+.sim-lcd > div {
+  display: flex;
+  align-items: center;
+}
+.sim-lcd > div > span {
+  display: inline-block;
+  width: 0.68em;
+  text-align: center;
+}
+.sim-meter {
+  height: 8px;
+  margin: 6px 0 2px;
+  border-radius: 4px;
+  background: var(--panel-2, #1b2430);
+  overflow: hidden;
+}
+.sim-meter > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #34c759, #ffd60a 60%, #ff3b30);
+  transition: width 0.1s linear;
+}
+.sim-param select {
+  grid-column: span 2;
+  min-width: 0;
+}
 .sim-oled {
   display: block;
   width: 100%;

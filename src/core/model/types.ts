@@ -130,6 +130,11 @@ export interface Component {
   fields?: Record<string, string>;
   hideRef?: boolean;
   hideValue?: boolean;
+  /**
+   * Выносная деталь: стоит вне платы и подключается проводами (дисплей, кнопки на корпусе,
+   * динамик, датчик). Есть на схеме, в перечне и в симуляции, но не на плате и не в Gerber.
+   */
+  offBoard?: boolean;
 }
 
 export interface Track {
@@ -302,6 +307,10 @@ export interface Project {
 export interface Firmware {
   name: string;
   hex: string;
+  /** Контроллер, если его не видно по схеме: 'atmega328p' или 'atmega32'. */
+  mcu?: string;
+  /** Тактовая частота, Гц (если не задана — по кварцу на схеме). */
+  freq?: number;
 }
 
 /* ---------------- схема ---------------- */

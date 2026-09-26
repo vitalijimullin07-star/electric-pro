@@ -1,14 +1,14 @@
 import type { Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
-import { Atmega328, MCU_FREQ, pinTitle, type McuPin, type PinMode } from './mcu';
+import { Avr, pinTitle, type McuPin, type PinMode } from './mcu';
 
 /*
  * Симуляция проекта с прошивкой: контроллер + детали схемы. Время — такты контроллера;
  * интерфейс вызывает run() порциями (обычно раз в кадр) и забирает view().
  */
 
-export { MCU_FREQ } from './mcu';
+export { MCU_FREQ, MCU_TITLES } from './mcu';
 export type { DeviceView, SimParam } from './devices';
 
 export interface PinView {
@@ -29,24 +29,29 @@ export interface SimView {
   /** Состояние цепей по имени группы (для подсветки на плате). */
   nets: Map<string, { level: 0 | 1; duty: number }>;
   baud: number;
+  /** Контроллер и частота: «ATmega32A, 11,0592 МГц (кварц BQ1)». */
+  mcu: string;
 }
 
 export class Simulation {
-  readonly mcu: Atmega328;
+  readonly mcu: Avr;
   readonly circuit: Circuit;
   readonly devices: Device[];
   readonly unknown: string[];
   /** Всё, что контроллер отправил в порт. */
   serial = '';
+  readonly mcuTitle: string;
   onSerial: ((text: string) => void) | null = null;
 
   constructor(
     readonly project: Project,
     hex: string,
   ) {
-    if (!findMcu(project)) throw new Error('Симуляция умеет Arduino Uno, Nano, Pro Mini и ATmega328P: поставьте такой модуль или микросхему на схему. ESP32 и ESP8266 пока не поддерживаются.');
-    this.mcu = Atmega328.fromHex(hex);
-    this.circuit = new Circuit(project, this.mcu);
+    const found = findMcu(project);
+    if (!found) throw new Error('Симуляция умеет Arduino Uno, Nano, Pro Mini, ATmega328P и ATmega32A: поставьте такой модуль или микросхему на схему. ESP32 и ESP8266 пока не поддерживаются.');
+    this.mcu = Avr.fromHex(hex, found.kind, found.freq);
+    this.circuit = new Circuit(project, this.mcu, found);
+    this.mcuTitle = `${this.mcu.title}, ${(found.freq / 1e6).toLocaleString('ru', { maximumFractionDigits: 4 })} МГц (${found.freqFrom})`;
     const b = buildDevices(this.circuit, project);
     this.devices = b.devices;
     this.unknown = b.unknown;
@@ -59,7 +64,7 @@ export class Simulation {
   }
 
   get seconds(): number {
-    return this.mcu.cycles / MCU_FREQ;
+    return this.mcu.cycles / this.mcu.freq;
   }
 
   run(cycles: number): void {
@@ -70,7 +75,7 @@ export class Simulation {
   serialWrite(text: string): void {
     // Байты уходят по одному с паузой, как по настоящей линии.
     const bytes = [...new TextEncoder().encode(text)];
-    const perChar = Math.max(1, Math.round((MCU_FREQ / Math.max(300, this.mcu.usart.baudRate)) * 10));
+    const perChar = Math.max(1, Math.round((this.mcu.freq / Math.max(300, this.mcu.usart.baudRate)) * 10));
     let i = 0;
     const send = () => {
       if (i >= bytes.length) return;
@@ -88,12 +93,17 @@ export class Simulation {
     this.devices.find((d) => d.id === id)?.set?.(key, value);
   }
 
+  /** Действие устройства (провести катушкой над целью). */
+  act(id: string, key: string): void {
+    this.devices.find((d) => d.id === id)?.act?.(key);
+  }
+
   /** Снимок для интерфейса; сбрасывает статистику кадра (яркость ШИМ, частоты). */
   view(): SimView {
     const c = this.circuit;
     const pins: PinView[] = [];
     for (const [pin, g] of [...c.pinGroup].sort((a, b) => a[0].localeCompare(b[0]))) {
-      pins.push({ pin, title: pinTitle(pin), mode: this.mcu.pinMode(pin), level: c.levelOf(g), duty: c.frameStats(g).duty, net: c.groups[g].name, floating: c.isFloating(g), conflict: c.isConflict(g) });
+      pins.push({ pin, title: pinTitle(pin, this.mcu.kind), mode: this.mcu.pinMode(pin), level: c.levelOf(g), duty: c.frameStats(g).duty, net: c.groups[g].name, floating: c.isFloating(g), conflict: c.isConflict(g) });
     }
     const nets = new Map<string, { level: 0 | 1; duty: number }>();
     c.groups.forEach((gr, g) => {
@@ -103,6 +113,6 @@ export class Simulation {
     });
     const devices = this.devices.map((d) => d.view());
     c.endFrame();
-    return { seconds: this.seconds, pins, devices, nets, baud: this.mcu.usart.baudRate };
+    return { seconds: this.seconds, pins, devices, nets, baud: this.mcu.usart.baudRate, mcu: this.mcuTitle };
   }
 }

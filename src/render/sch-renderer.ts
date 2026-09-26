@@ -7,6 +7,7 @@ import { labelShape, symbolWorldBox } from '@core/schematic/layout';
 export { labelShape, symbolWorldBox };
 import type { SchPending, SchRef, ViewState } from '@editor/store';
 import type { SimView } from '@core/sim';
+import { drawLcd } from './lcd-draw';
 
 /*
  * Отрисовка схемы: светлый «лист», символы красно-коричневым с жёлтой заливкой,
@@ -279,15 +280,7 @@ function drawSchSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, pin
       // Экран — под символом (под номиналом), чтобы не закрывать соседей справа.
       const ch = 2.2;
       const w = d.lines[0].length * ch * 0.62 + 2;
-      const x = cx - w / 2;
-      const top = b.maxY + 3;
-      ctx.fillStyle = d.backlight === false ? '#15233f' : '#2458d6';
-      ctx.fillRect(x, top, w, d.lines.length * ch + 2);
-      ctx.fillStyle = '#eaf2ff';
-      ctx.font = `${ch * 0.8}px ui-monospace, monospace`;
-      ctx.textBaseline = 'middle';
-      d.lines.forEach((l, i) => ctx.fillText(l, x + 1, top + 1 + (i + 0.5) * ch));
-      ctx.textBaseline = 'alphabetic';
+      drawLcd(ctx, d, cx - w / 2, b.maxY + 3, w, d.lines.length * ch + 2);
     } else if (d.kind === 'oled' && d.frame && d.width && d.height) {
       const k = 0.3;
       const x = cx - (d.width * k) / 2;

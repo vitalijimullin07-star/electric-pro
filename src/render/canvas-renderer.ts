@@ -14,6 +14,7 @@ import type { EditorState, Pending, ViewState } from '@editor/store';
 import { fmtLen, type DisplayUnit } from '@core/units';
 import { GFX, type GfxProfile } from './quality';
 import type { SimView } from '@core/sim';
+import { drawLcd } from './lcd-draw';
 
 /*
  * Отрисовка платы на Canvas 2D. Вид сверху: нижняя медь под верхней,
@@ -781,16 +782,7 @@ function drawSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, w: Wor
       const cols = d.lines[0]?.length ?? 16;
       const iw = bw * 0.82;
       const ih = Math.min(bh * 0.7, (iw / cols) * 1.9 * rows);
-      ctx.fillStyle = d.backlight === false ? '#15233f' : '#2458d6';
-      ctx.fillRect(cx - iw / 2, cy - ih / 2, iw, ih);
-      ctx.fillStyle = '#eaf2ff';
-      const ch = ih / rows;
-      ctx.font = `${(ch * 0.8).toFixed(3)}px ui-monospace, monospace`;
-      ctx.textBaseline = 'middle';
-      d.lines.forEach((l, i) => {
-        for (let k = 0; k < l.length; k++) ctx.fillText(l[k], cx - iw / 2 + (k + 0.1) * (iw / cols), cy - ih / 2 + (i + 0.5) * ch);
-      });
-      ctx.textBaseline = 'alphabetic';
+      drawLcd(ctx, d, cx - iw / 2, cy - ih / 2, iw, ih);
     } else if (d.kind === 'oled' && d.frame && d.width && d.height) {
       const k = Math.min((bw * 0.85) / d.width, (bh * 0.7) / d.height);
       const iw = d.width * k;

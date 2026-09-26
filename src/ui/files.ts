@@ -89,6 +89,26 @@ export function openTextFile(accept: string): Promise<{ name: string; text: stri
   });
 }
 
+/** Выбор файла любого вида: байты (для двоичных форматов вроде Sprint Layout) и текст. */
+export function openFileBytes(accept: string): Promise<{ name: string; bytes: Uint8Array; text: () => string } | null> {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = accept;
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return resolve(null);
+      try {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        resolve({ name: f.name, bytes, text: () => new TextDecoder().decode(bytes) });
+      } catch {
+        resolve(null);
+      }
+    };
+    inp.click();
+  });
+}
+
 /** Выбор нескольких файлов сразу (импорт корпусов). */
 export function openTextFiles(accept: string): Promise<{ name: string; text: string }[]> {
   return new Promise((resolve) => {

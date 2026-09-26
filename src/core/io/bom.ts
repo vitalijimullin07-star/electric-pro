@@ -57,7 +57,7 @@ export function exportPickPlaceCsv(p: Project): string {
   const y1 = Math.max(...ys);
   const lines = [['Designator', 'Val', 'Package', 'Mid X', 'Mid Y', 'Rotation', 'Layer'].join(';')];
   for (const c of Object.values(p.components)) {
-    if (c.excludeFromBom) continue;
+    if (c.excludeFromBom || c.offBoard) continue;
     const fp = p.footprints[c.footprint];
     lines.push([c.ref, c.value, fp?.name ?? c.footprint, (c.at.x - x0).toFixed(3) + 'mm', (y1 - c.at.y).toFixed(3) + 'mm', c.rotation.toFixed(0), c.side === 'top' ? 'T' : 'B'].map(cell).join(';'));
   }

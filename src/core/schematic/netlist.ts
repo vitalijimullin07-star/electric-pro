@@ -219,7 +219,7 @@ export function applySchematicToBoard(p: Project): SyncSummary {
 /** Пустая схема. */
 export const emptySchematic = (): Schematic => ({ symbols: {}, wires: {}, labels: {} });
 
-const POWER = /^(gnd|agnd|dgnd|pgnd|vcc|vdd|vss|vee|vbat|vin|[+-]?\d+(?:[.,]\d+)?v\d*|[+-]?\d+v\d*|3v3|5v|12v)$/i;
+const POWER = /^(gnd|agnd|dgnd|pgnd|vcc|avcc|vdd|vss|vee|vbat|\+?batt?|vin|[+-]?\d+(?:[.,]\d+)?v\d*|[+-]?\d+v\d*|3v3|5v|12v)$/i;
 
 /**
  * Добавляет символы для компонентов без символа: раскладывает их рядами справа от
@@ -259,23 +259,35 @@ export function syncSymbolsFromBoard(p: Project): number {
     const at = { x: snap(x - def.box.min.x + 8), y: snap(y - def.box.min.y + 6) };
     const sym: SchSymbol = { id: newId('sy'), component: c.id, at, rotation: 0 };
     sch.symbols[sym.id] = sym;
-    for (const pin of def.pins) {
-      const netId = c.padNets[pin.number];
-      const net = netId ? p.nets[netId] : undefined;
-      if (!net) continue;
-      const pa = symToWorld(pin.at, at, 0);
-      const pb = symToWorld(pin.base, at, 0);
-      const L = Math.hypot(pa.x - pb.x, pa.y - pb.y) || 1;
-      const d = { x: (pa.x - pb.x) / L, y: (pa.y - pb.y) / L };
-      const end = { x: +(pa.x + d.x * SCH_GRID).toFixed(4), y: +(pa.y + d.y * SCH_GRID).toFixed(4) };
-      const wire: SchWire = { id: newId('sw'), points: [pa, end] };
-      sch.wires[wire.id] = wire;
-      const rot = Math.abs(d.x) > 0.5 ? (d.x > 0 ? 0 : 180) : d.y < 0 ? 90 : 270;
-      const label: SchLabel = { id: newId('sl'), at: end, text: net.name, rotation: rot, kind: POWER.test(net.name) ? 'power' : 'net' };
-      sch.labels[label.id] = label;
-    }
+    addPinLabels(p, sym);
     x += w;
     rowH = Math.max(rowH, h);
   }
   return todo.length;
+}
+
+/**
+ * К каждому выводу символа с цепью — отвод провода на одну клетку и метка цепи
+ * (для питания и земли — значок питания). Так схема совпадает с платой без проводов.
+ */
+export function addPinLabels(p: Project, sym: SchSymbol): void {
+  const sch = (p.schematic ??= emptySchematic());
+  const c = p.components[sym.component];
+  const def = c ? symbolDef(p.footprints[c.footprint]) : null;
+  if (!c || !def) return;
+  for (const pin of def.pins) {
+    const netId = c.padNets[pin.number];
+    const net = netId ? p.nets[netId] : undefined;
+    if (!net) continue;
+    const pa = symToWorld(pin.at, sym.at, sym.rotation, sym.mirror);
+    const pb = symToWorld(pin.base, sym.at, sym.rotation, sym.mirror);
+    const L = Math.hypot(pa.x - pb.x, pa.y - pb.y) || 1;
+    const d = { x: (pa.x - pb.x) / L, y: (pa.y - pb.y) / L };
+    const end = { x: +(pa.x + d.x * SCH_GRID).toFixed(4), y: +(pa.y + d.y * SCH_GRID).toFixed(4) };
+    const wire: SchWire = { id: newId('sw'), points: [pa, end] };
+    sch.wires[wire.id] = wire;
+    const rot = Math.abs(d.x) > 0.5 ? (d.x > 0 ? 0 : 180) : d.y < 0 ? 90 : 270;
+    const label: SchLabel = { id: newId('sl'), at: end, text: net.name, rotation: rot, kind: POWER.test(net.name) ? 'power' : 'net' };
+    sch.labels[label.id] = label;
+  }
 }

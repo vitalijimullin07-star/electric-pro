@@ -2,7 +2,8 @@ import type { TWIEventHandler, AVRTWI } from 'avr8js';
 import type { Component, FootprintDef, Id, Project } from '../model/types';
 import type { Circuit, Level } from './circuit';
 import { Hd44780 } from './hd44780';
-import { MCU_FREQ, type McuPin } from './mcu';
+import type { McuPin } from './mcu';
+import { CoilModel } from './metal-detector';
 import { Ssd1306 } from './ssd1306';
 
 /*
@@ -19,13 +20,15 @@ export interface SimParam {
   max: number;
   step: number;
   unit: string;
+  /** Выбор из списка: значение — номер варианта. */
+  options?: string[];
 }
 
 export interface DeviceView {
   id: string;
   comp: Id;
   ref: string;
-  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor';
+  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery';
   title: string;
   /** Не подключено к контроллеру как нужно — объяснение. */
   warning?: string;
@@ -41,6 +44,14 @@ export interface DeviceView {
   width?: number;
   height?: number;
   channels?: boolean[];
+  /** Кнопки действий (провести катушкой над целью). */
+  actions?: { key: string; label: string }[];
+  /** Уровень 0…1 для полоски (близость цели, заряд). */
+  level?: number;
+  /** ЖК: свои символы (коды 0…7) по строкам — растр 5×8, биты строк. */
+  glyphs?: number[][];
+  /** ЖК: коды символов по строкам экрана. */
+  codes?: number[][];
 }
 
 export interface Device {
@@ -49,9 +60,8 @@ export interface Device {
   view(): DeviceView;
   press?(down: boolean): void;
   set?(key: string, value: number): void;
+  act?(key: string): void;
 }
-
-const US = MCU_FREQ / 1e6;
 const up = (s: string | undefined) => (s ?? '').toUpperCase();
 
 /** Выводы корпуса по имени (без учёта регистра). */
@@ -128,6 +138,16 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
   const used = new Set<string>();
   const unknown: string[] = [];
   const mcu = c.mcu;
+  const US = mcu.freq / 1e6;
+  // Катушки металлоискателя — первыми: их сигнал читает АЦП приёмника.
+  const coils: CoilModel[] = [];
+  for (const comp of Object.values(p.components)) {
+    const fp = p.footprints[comp.footprint];
+    if (!fp || !(fp.tags ?? []).includes('dd-coil')) continue;
+    const coil = new CoilModel(c, comp, fp, p);
+    coils.push(coil);
+    devices.push({ id: comp.id, comp, view: () => coil.view(), set: (k, v) => coil.set(k, v), act: (k) => coil.act(k) });
+  }
   const bus = new I2cBus(mcu.twi);
   mcu.twi.eventHandler = bus;
   const spiDevs: { cs: number | undefined; next: () => number }[] = [];
@@ -142,7 +162,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
   for (const comp of Object.values(p.components)) {
     if (comp.id === c.mcuComp.id) continue;
     const fp = p.footprints[comp.footprint];
-    if (!fp) continue;
+    if (!fp || (fp.tags ?? []).includes('dd-coil')) continue;
+    const tags = fp.tags ?? [];
     const pads = padsOf(fp);
     const g = (name: string): number | undefined => {
       const nums = pads.get(up(name));
@@ -169,7 +190,7 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         view: () => {
           if (a === undefined || k === undefined) return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'led', title: `${comp.ref} светодиод`, on: false, brightness: 0, color, warning: 'вывод не подключён' };
           const da = c.frameStats(a).duty;
-          const dk = 1 - c.frameStats(k).duty;
+          const dk = c.frameStats(k).lowDuty;
           const b = Math.max(0, Math.min(1, da * dk));
           return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'led', title: `${comp.ref} светодиод`, on: b > 0.02, brightness: b, color };
         },
@@ -221,17 +242,17 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         subs.push({ key: 'SW', label: 'кнопка', press: (d) => ((down = d), c.drive(gg, comp.id + 'SW', d ? 0 : null)), state: () => down });
         use('SW');
       } else {
-        // Тактовая кнопка: при нажатии все её цепи замыкаются; со стороны земли — «0», со стороны питания — «1».
+        // Тактовая кнопка: при нажатии её цепи замыкаются (на землю — «0», на питание — «1»,
+        // между двумя сигналами — одна цепь, как в клавиатуре с диодами).
         const groups = [...new Set(fp.pads.map((x) => c.groupOfPad(comp, x.number)).filter((x): x is number => x !== undefined))];
-        const gnd = groups.some((x) => c.groups[x].power === 'gnd');
-        const vcc = groups.some((x) => c.groups[x].power === 'vcc');
+        const sws = groups.slice(1).map((g) => c.addSwitch(groups[0], g));
         let down = false;
         subs.push({
           key: 'B',
-          label: 'кнопка',
+          label: comp.description && !/^Кнопка/.test(comp.description) ? comp.description : 'кнопка',
           press: (d) => {
             down = d;
-            for (const x of groups) if (!c.groups[x].power) c.drive(x, comp.id, d && (gnd || vcc) ? (gnd ? 0 : 1) : null);
+            for (const s of sws) c.setSwitch(s, d);
           },
           state: () => down,
         });
@@ -264,8 +285,82 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
       continue;
     }
 
-    // --- зуммер ---
-    if (/^Buzzer_|^Module_KY-006$|^Module_KY-012$/.test(id)) {
+    // --- диоды: передают «0» с катода на анод (клавиатуры, развязка) ---
+    if (fp.category === 'Диоды' && pads.has('A') && pads.has('K')) {
+      const a = g('A');
+      const k = g('K');
+      if (a !== undefined && k !== undefined) c.addDiode(a, k);
+      continue;
+    }
+
+    // --- транзисторы как ключи ---
+    const pol = transistorType(fp, comp);
+    if (pol) {
+      const bjt = pol === 'npn' || pol === 'pnp';
+      const ctl = g(bjt ? 'B' : 'G');
+      const out = g(bjt ? 'C' : 'D');
+      const com = g(bjt ? 'E' : 'S');
+      if (ctl === undefined || out === undefined || com === undefined) continue;
+      const nType = pol === 'npn' || pol === 'nmos';
+      const owner = comp.id;
+      // Эмиттер (исток) на земле для NPN/N-канального, на питании — для PNP/P-канального.
+      const comOk = () => (nType ? c.voltsOf(com) < 1.5 : c.voltsOf(com) > 2.5);
+      const update = () => {
+        const on = comOk() && !c.isFloating(ctl) && c.levelOf(ctl) === (nType ? 1 : 0);
+        c.drive(out, owner, on ? (nType ? 0 : 1) : null);
+      };
+      c.onChange((grp) => {
+        if (grp === ctl || grp === com) update();
+      });
+      update();
+      continue;
+    }
+
+    // --- АЦП MCP3201 (SPI, 12 бит) ---
+    if (/MCP3201/i.test(`${id} ${comp.value} ${tags.join(' ')}`)) {
+      const cs = g('CS') ?? g('CS/SHDN');
+      const inp = g('IN+');
+      const inn = g('IN-');
+      const ref = g('VREF');
+      let word = 0;
+      let idx = 0;
+      let last = 0;
+      const coil = coils[0];
+      c.onChange((grp, lvl, cycle) => {
+        if (grp !== cs || lvl !== 0) return;
+        const vref = ref !== undefined ? c.voltsOf(ref) : 5;
+        const vin = coil ? coil.sample(cycle, vref / 2) : (inp !== undefined ? c.voltsOf(inp) : 0) - (inn !== undefined ? c.voltsOf(inn) : 0);
+        word = Math.max(0, Math.min(4095, Math.round((vin / Math.max(0.1, vref)) * 4096)));
+        last = word;
+        idx = 0;
+      });
+      // Два байта: [x x 0 B11…B7] [B6…B0 B1], дальше — младшие биты вперёд (как у микросхемы).
+      spiDevs.push({ cs, next: () => (idx++ === 0 ? (word >> 7) & 0x1f : idx === 2 ? ((word << 1) & 0xfe) | ((word >> 1) & 1) : 0) });
+      use('CS', 'CLK', 'DOUT', 'IN+', 'IN-', 'VREF');
+      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} АЦП MCP3201: ${last} (${((last / 4096) * (ref !== undefined ? c.voltsOf(ref) : 5)).toFixed(3)} В)${coil ? ', сигнал с катушки ' + coil.comp.ref : ''}`, warning: cs === undefined ? 'CS не подключён' : undefined }) });
+      continue;
+    }
+
+    // --- аккумулятор: напряжение цепи питания ---
+    if (tags.includes('battery') && pads.has('+')) {
+      const plus = g('+');
+      const init = plus !== undefined ? c.powerOf(plus) || 12 : 12;
+      const params = [param('u', 'напряжение', +init.toFixed(1), 3, 16, 0.1, 'В')];
+      c.setPowerVolts(plus, init);
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (_k, v) => {
+          params[0].value = v;
+          c.setPowerVolts(plus, v);
+        },
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'battery', title: `${comp.ref} аккумулятор ${comp.value}`, params, warning: plus === undefined || c.groups[plus].power !== 'vcc' ? '«+» не на цепи питания' : undefined }),
+      });
+      continue;
+    }
+
+    // --- зуммер и динамик ---
+    if (/^Buzzer_|^Speaker_|^Module_KY-006$|^Module_KY-012$/.test(id) || tags.includes('speaker')) {
       const sig = /KY-0/.test(id) ? g('S') : [...pads.keys()].map((k) => g(k)).find((x) => x !== undefined && !c.groups[x].power);
       const active = /KY-012|12x9\.5/.test(id);
       devices.push({
@@ -276,7 +371,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
           const st = c.frameStats(sig);
           const tone = st.hz > 40;
           const on = tone || (active && st.duty > 0.5);
-          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'buzzer', title: `${comp.ref} зуммер${active ? ' активный' : ''}`, on, hz: tone ? Math.round(st.hz) : active && on ? 2300 : 0 };
+          const what = /^Speaker_/.test(id) || tags.includes('speaker') ? 'динамик' : 'зуммер';
+          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'buzzer', title: `${comp.ref} ${what}${active ? ' активный' : ''}`, on, hz: tone ? Math.round(st.hz) : active && on ? 2300 : 0 };
         },
       });
       use('S', '+', '-', '1', '2');
@@ -333,7 +429,7 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         if (!/^IC_/.test(id)) bus.devices.set(0x3f, dev);
       }
       use('SDA', 'SCL');
-      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'lcd', title: `${comp.ref} ЖК ${lcd.cols}×${lcd.rows} по I²C (0x${addr.toString(16)})`, lines: lcd.lines(), backlight: lcd.backlight, warning: i2cWarn() }) });
+      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'lcd', title: `${comp.ref} ЖК ${lcd.cols}×${lcd.rows} по I²C (0x${addr.toString(16)})`, lines: lcd.lines(), ...lcdGlyphs(lcd), backlight: lcd.backlight, warning: i2cWarn() }) });
       continue;
     }
 
@@ -352,8 +448,12 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         const lo = (bit(d[3]) << 3) | (bit(d[2]) << 2) | (bit(d[1]) << 1) | bit(d[0]);
         lcd.strobe(rs !== undefined && c.levelOf(rs) === 1, hi, lo);
       });
-      use('RS', 'E', 'RW', 'D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7');
-      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'lcd', title: `${comp.ref} ЖК ${lcd.cols}×${lcd.rows} (параллельный)`, lines: lcd.lines(), backlight: true, warning: rs === undefined ? 'RS не подключён' : undefined }) });
+      use('RS', 'E', 'RW', 'D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'A', 'K');
+      // Подсветка: анод к плюсу, катод через ключ — светит, пока катод держат в «0».
+      const ba = g('A');
+      const bk = g('K');
+      const light = () => (ba === undefined || bk === undefined ? 1 : c.frameStats(ba).duty * c.frameStats(bk).lowDuty);
+      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'lcd', title: `${comp.ref} ЖК ${lcd.cols}×${lcd.rows} (параллельный)`, lines: lcd.lines(), ...lcdGlyphs(lcd), backlight: light() > 0.05, brightness: light(), warning: rs === undefined ? 'RS не подключён' : undefined }) });
       continue;
     }
 
@@ -642,4 +742,33 @@ function potDevice(c: Circuit, comp: Component, id: string, title: string, wiper
     },
     view: () => ({ id, comp: comp.id, ref: comp.ref, kind, title, params, warning: wiper === undefined || !c.groups[wiper].pins.length ? 'выход не подключён к выводу контроллера' : undefined }),
   };
+}
+
+/** Тип транзистора: по меткам корпуса, описанию и номиналу (C945 — NPN, A733 — PNP, IRF9… — P-канальный). */
+export function transistorType(fp: FootprintDef, comp: Component): 'npn' | 'pnp' | 'nmos' | 'pmos' | null {
+  const names = new Set(fp.pads.map((q) => (q.name ?? '').toUpperCase()));
+  const bjt = names.has('B') && names.has('C') && names.has('E');
+  const fet = names.has('G') && names.has('D') && names.has('S');
+  if (!bjt && !fet) return null;
+  const t = `${(fp.tags ?? []).join(' ')} ${fp.id} ${fp.description ?? ''} ${comp.value} ${comp.description ?? ''}`.toLowerCase();
+  if (bjt) {
+    if (/\bpnp\b/.test(t)) return 'pnp';
+    if (/\bnpn\b/.test(t)) return 'npn';
+    const v = comp.value.toUpperCase().replace(/\s+/g, '');
+    if (/^(2S)?A\d{3}|^BC(55[6-9]|85[6-9]|32[78]|636|640)|^2N(2907|3906|4403|5401)|^S(8550|9012|9015)|^KT(361|3107|814|816|818)|^TIP(3[02]|4[24]|12[5-7]|147)|^MJE(2955|350)|^BD(136|138|140)/.test(v)) return 'pnp';
+    return 'npn';
+  }
+  if (/p-mosfet|pmos|p-канал|p-channel/.test(t)) return 'pmos';
+  if (/n-mosfet|nmos|n-канал|n-channel/.test(t)) return 'nmos';
+  const v = comp.value.toUpperCase().replace(/\s+/g, '');
+  if (/^IRF9|^IRF(4905|5305|5210)|^AO340[17]|^SI23(01|05)|^FQP\d+P|^NDP\d+P|^BS250/.test(v)) return 'pmos';
+  return 'nmos';
+}
+
+/** Свои символы ЖК (CGRAM) и коды экрана — чтобы нарисовать шкалы и значки как на дисплее. */
+function lcdGlyphs(lcd: Hd44780): { glyphs?: number[][]; codes?: number[][] } {
+  const codes = Array.from({ length: lcd.rows }, (_, r) => lcd.codes(r));
+  if (!codes.some((row) => row.some((c) => c < 16))) return {};
+  const glyphs = Array.from({ length: 8 }, (_, i) => Array.from(lcd.cgram.subarray(i * 8, i * 8 + 8)));
+  return { glyphs, codes: lcd.displayOn ? codes : codes.map((r) => r.map(() => 32)) };
 }

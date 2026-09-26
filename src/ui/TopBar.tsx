@@ -2,9 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '@editor/store';
 import { parseProjectFile, serializeProject, PROJECT_EXT } from '@core/io/project-file';
-import { openTextFile, saveTextFile } from './files';
+import { openFileBytes, saveTextFile } from './files';
 import { safeName } from '@core/io/gerber';
-import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, openKicadBoardText } from './library-io';
+import { footprintsFromFiles, importFootprintFiles, importKicadBoardFile, importLayFile, openKicadBoardText, openLayBytes } from './library-io';
 import { addUserFootprints } from '@editor/userlib';
 import { installApp } from '../app/pwa';
 import { enterSchematic, leaveSchematic, mirrorSchSelection, rotateSchSelection, setSchTool, updateBoardFromSchematic } from '@editor/sch';
@@ -84,9 +84,11 @@ export async function saveProject(): Promise<void> {
 }
 
 export async function openProject(): Promise<void> {
-  const f = await openTextFile('.json,.kicad_pcb,.kicad_mod,application/json');
-  if (!f) return;
+  const file = await openFileBytes('.json,.kicad_pcb,.kicad_mod,.lay,.lay6,application/json');
+  if (!file) return;
   const s = useEditor.getState();
+  if (/\.lay6?$/i.test(file.name)) return openLayBytes(file.name, file.bytes);
+  const f = { name: file.name, text: file.text() };
   if (/\.kicad_pcb$/i.test(f.name)) return openKicadBoardText(f.name, f.text);
   if (/\.kicad_mod$/i.test(f.name)) {
     const { fps, errors } = footprintsFromFiles([f]);
@@ -180,6 +182,7 @@ export function TopBar() {
         { label: 'Открыть файл проекта…', kbd: 'Ctrl+O', action: () => void openProject() },
         { label: 'Недавние проекты…', action: () => s.openDialog('open') },
         { label: 'Импорт платы KiCad (.kicad_pcb)…', action: () => void importKicadBoardFile() },
+        { label: 'Импорт платы Sprint Layout (.lay)…', action: () => void importLayFile() },
         { label: 'Импорт корпусов KiCad (.kicad_mod)…', action: () => void importFootprintFiles() },
         { label: 'Сохранить проект', kbd: 'Ctrl+S', action: () => void saveProject() },
         'sep',

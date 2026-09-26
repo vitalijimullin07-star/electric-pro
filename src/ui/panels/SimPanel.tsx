@@ -4,6 +4,7 @@ import { simRuntime } from '@editor/sim-runtime';
 import { parseHex } from '@core/sim/hex';
 import type { DeviceView, SimView } from '@core/sim';
 import { openTextFile } from '../files';
+import { charOf } from '@core/sim/hd44780';
 
 /*
  * Вкладка «Симуляция»: прошивка, пуск и пауза, экраны, кнопки, ползунки датчиков,
@@ -90,7 +91,7 @@ export function SimPanel() {
       </div>
       {!fw && (
         <p className="hint">
-          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц.
+          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме.
         </p>
       )}
       {sim.error && <p className="hint" style={{ color: 'var(--err)' }}>{sim.error}</p>}
@@ -98,6 +99,7 @@ export function SimPanel() {
       {status !== 'off' && (
         <p className="hint">
           Время {sim.seconds.toFixed(1).replace('.', ',')} с · скорость {Math.round(sim.speed * 100)} % от реальной{sim.speed && sim.speed < 0.9 ? ' (устройство не успевает — время идёт медленнее)' : ''}
+          {view && <> · {view.mcu}</>}
         </p>
       )}
       {view && (
@@ -123,7 +125,7 @@ export function SimPanel() {
 }
 
 function Devices({ view }: { view: SimView }) {
-  const order: DeviceView['kind'][] = ['lcd', 'oled', 'button', 'pot', 'analog', 'digital', 'sensor', 'led', 'buzzer', 'relay'];
+  const order: DeviceView['kind'][] = ['lcd', 'oled', 'coil', 'button', 'pot', 'analog', 'digital', 'battery', 'sensor', 'led', 'buzzer', 'relay'];
   const list = [...view.devices].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   const unknown = simRuntime.sim?.unknown ?? [];
   return (
@@ -139,7 +141,7 @@ function Devices({ view }: { view: SimView }) {
             {d.kind === 'buzzer' && d.on && <span className="hint">{d.hz} Гц</span>}
           </div>
           {d.warning && <div className="hint" style={{ color: 'var(--warn)' }}>⚠ {d.warning}</div>}
-          {d.kind === 'lcd' && d.lines && <Lcd lines={d.lines} backlight={d.backlight !== false} />}
+          {d.kind === 'lcd' && d.lines && <Lcd d={d} />}
           {d.kind === 'oled' && d.frame && <Oled frame={d.frame} w={d.width!} h={d.height!} />}
           {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} />}
           {d.kind === 'digital' && (
@@ -157,15 +159,42 @@ function Devices({ view }: { view: SimView }) {
               ))}
             </div>
           )}
-          {d.params?.map((p) => (
-            <label key={p.key} className="sim-param">
-              <span>{p.label}</span>
-              <input type="range" min={p.min} max={p.max} step={p.step} defaultValue={p.value} onChange={(e) => simRuntime.set(d.id, p.key, +e.target.value)} />
-              <b>
-                {String(+p.value.toFixed(2)).replace('.', ',')} {p.unit}
-              </b>
-            </label>
-          ))}
+          {d.params?.map((p) =>
+            p.options ? (
+              <label key={p.key} className="sim-param">
+                <span>{p.label}</span>
+                <select value={Math.round(p.value)} onChange={(e) => simRuntime.set(d.id, p.key, +e.target.value)}>
+                  {p.options.map((o, i) => (
+                    <option key={i} value={i}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label key={p.key} className="sim-param">
+                <span>{p.label}</span>
+                <input type="range" min={p.min} max={p.max} step={p.step} defaultValue={p.value} onChange={(e) => simRuntime.set(d.id, p.key, +e.target.value)} />
+                <b>
+                  {String(+p.value.toFixed(2)).replace('.', ',')} {p.unit}
+                </b>
+              </label>
+            ),
+          )}
+          {d.kind === 'coil' && d.level !== undefined && (
+            <div className="sim-meter" title="Насколько цель близко к катушке">
+              <span style={{ width: `${Math.round(Math.min(1, Math.sqrt(d.level)) * 100)}%` }} />
+            </div>
+          )}
+          {d.actions && (
+            <div className="row">
+              {d.actions.map((a) => (
+                <button key={a.key} className="btn sm primary" onClick={() => simRuntime.act(d.id, a.key)}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ))}
       {unknown.length > 0 && <p className="hint">Не участвуют в симуляции: {unknown.join(', ')}.</p>}
@@ -191,11 +220,33 @@ function HoldButton({ id, pressed }: { id: string; pressed: boolean }) {
   );
 }
 
-function Lcd({ lines, backlight }: { lines: string[]; backlight: boolean }) {
+/** Экран ЖК: обычные знаки — текстом, свои символы прошивки (шкалы, значки) — растром 5×8. */
+function Lcd({ d }: { d: DeviceView }) {
+  const lit = d.backlight === false ? 0 : (d.brightness ?? 1);
+  const style = lit < 0.999 && lit > 0.05 ? { filter: `brightness(${(0.45 + 0.55 * lit).toFixed(2)})` } : undefined;
+  if (!d.codes || !d.glyphs)
+    return (
+      <div className={`sim-lcd${lit > 0.05 ? '' : ' dark'}`} style={style}>
+        {d.lines!.map((l, i) => (
+          <div key={i}>{l.replace(/ /g, '\u00a0')}</div>
+        ))}
+      </div>
+    );
+  const glyphs = d.glyphs;
   return (
-    <div className={`sim-lcd${backlight ? '' : ' dark'}`}>
-      {lines.map((l, i) => (
-        <div key={i}>{l.replace(/ /g, ' ')}</div>
+    <div className={`sim-lcd${lit > 0.05 ? '' : ' dark'}`} style={style}>
+      {d.codes.map((row, r) => (
+        <div key={r}>
+          {row.map((c, i) =>
+            c < 16 ? (
+              <svg key={i} className="lcd-glyph" viewBox="0 0 5 8" aria-hidden>
+                {glyphs[c & 7].flatMap((bits, y) => [0, 1, 2, 3, 4].filter((x) => (bits >> (4 - x)) & 1).map((x) => <rect key={`${x}-${y}`} x={x + 0.05} y={y + 0.05} width={0.9} height={0.9} />))}
+              </svg>
+            ) : (
+              <span key={i}>{charOf(c) === ' ' ? '\u00a0' : charOf(c)}</span>
+            ),
+          )}
+        </div>
       ))}
     </div>
   );
@@ -349,7 +400,7 @@ function Scope({ pins, windowMs, tick }: { pins: string[]; windowMs: number; tic
     ctx.fillStyle = '#0b0f14';
     ctx.fillRect(0, 0, W, H);
     const now = sim.mcu.cycles;
-    const span = (windowMs / 1000) * 16e6;
+    const span = (windowMs / 1000) * sim.mcu.freq;
     const x0 = 52;
     const X = (cyc: number) => x0 + ((cyc - (now - span)) / span) * (W - x0 - 4);
     ctx.font = '11px system-ui';

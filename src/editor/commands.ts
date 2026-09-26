@@ -205,7 +205,9 @@ export function selectAll(): void {
   const s = S();
   const p = s.project;
   const sel: ItemRef[] = [
-    ...Object.keys(p.components).map((id) => ({ kind: 'component', id }) as ItemRef),
+    ...Object.values(p.components)
+      .filter((c) => !c.offBoard)
+      .map((c) => ({ kind: 'component', id: c.id }) as ItemRef),
     ...Object.keys(p.tracks).map((id) => ({ kind: 'track', id }) as ItemRef),
     ...Object.keys(p.vias).map((id) => ({ kind: 'via', id }) as ItemRef),
     ...Object.keys(p.wires).map((id) => ({ kind: 'wire', id }) as ItemRef),
