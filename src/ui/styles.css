@@ -1296,3 +1296,32 @@ textarea:focus {
   border: 1px solid var(--line);
   margin: 6px 0;
 }
+.list-head {
+  margin: 10px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.saved-list .item.current {
+  box-shadow: inset 3px 0 0 var(--accent, #4fd1ff);
+}
+.saved-list .item .nm .tag {
+  margin-left: 6px;
+  font-size: 11px;
+}
+.saved-list .item {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+@media (max-width: 520px) {
+  .saved-list .item .grow {
+    flex-basis: 100%;
+  }
+  .saved-btns {
+    margin-left: auto;
+  }
+}

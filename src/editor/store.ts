@@ -132,6 +132,8 @@ export interface EditorState {
   sim: { status: 'off' | 'running' | 'paused'; seconds: number; speed: number; error: string | null; tick: number };
   panelOpen: boolean;
   fileName: string | null;
+  /** Под каким номером проект сохранён в «Мои проекты» на устройстве (Ctrl+S перезаписывает его). */
+  deviceId: string | null;
   dirty: boolean;
   highlightNet: string | null;
 
@@ -141,7 +143,7 @@ export interface EditorState {
   endTransaction(): void;
   undo(): void;
   redo(): void;
-  replaceProject(p: Project, fileName?: string | null): void;
+  replaceProject(p: Project, fileName?: string | null, deviceId?: string | null): void;
   set<K extends keyof EditorState>(key: K, value: EditorState[K]): void;
   patch(partial: Partial<EditorState>): void;
   setTool(t: ToolId): void;
@@ -201,18 +203,18 @@ export function removeRecent(key: string): void {
 
 const allVisible = (): Record<LayerId, boolean> => Object.fromEntries(LAYER_ORDER.map((l) => [l, true])) as Record<LayerId, boolean>;
 
-function loadInitialProject(): { project: Project; fileName: string | null } {
+function loadInitialProject(): { project: Project; fileName: string | null; deviceId: string | null } {
   try {
     const raw = safeStorage.getItem(AUTOSAVE_KEY);
     if (raw) {
-      const obj = JSON.parse(raw) as { project: Project; fileName: string | null };
+      const obj = JSON.parse(raw) as { project: Project; fileName: string | null; deviceId?: string | null };
       // Бывший встроенный пример (плата пылесоса) убран из редактора — не восстанавливаем его.
-      if (obj && obj.project && obj.project.format && !isOldExample(obj.project)) return { project: migrateProject(obj.project), fileName: obj.fileName ?? null };
+      if (obj && obj.project && obj.project.format && !isOldExample(obj.project)) return { project: migrateProject(obj.project), fileName: obj.fileName ?? null, deviceId: obj.deviceId ?? null };
     }
   } catch {
     /* нет сохранения — открываем пример */
   }
-  return { project: createProject(), fileName: null };
+  return { project: createProject(), fileName: null, deviceId: null };
 }
 
 function loadSettings(): Partial<EditorState> {
@@ -234,7 +236,7 @@ const HISTORY_LIMIT = 100;
 export const stableProject = (s: Pick<EditorState, 'transaction' | 'past' | 'project'>): Project => (s.transaction && s.past.length ? s.past[s.past.length - 1] : s.project);
 
 export const useEditor = create<EditorState>((set, get) => {
-  const initial = typeof window !== 'undefined' ? loadInitialProject() : { project: createProject(), fileName: null };
+  const initial = typeof window !== 'undefined' ? loadInitialProject() : { project: createProject(), fileName: null, deviceId: null };
   const settings = typeof window !== 'undefined' ? loadSettings() : {};
   return {
     project: initial.project,
@@ -279,6 +281,7 @@ export const useEditor = create<EditorState>((set, get) => {
     sim: { status: 'off', seconds: 0, speed: 0, error: null, tick: 0 },
     panelOpen: typeof window !== 'undefined' ? window.innerWidth >= 900 : true,
     fileName: initial.fileName,
+    deviceId: initial.deviceId,
     dirty: false,
     highlightNet: null,
 
@@ -323,7 +326,7 @@ export const useEditor = create<EditorState>((set, get) => {
       const next = s.future[0];
       set({ project: next, past: [...s.past, s.project], future: s.future.slice(1), selection: [], pending: null, dirty: true, message: 'Повторено.' });
     },
-    replaceProject(p, fileName = null) {
+    replaceProject(p, fileName = null, deviceId = null) {
       const cur = get().project;
       if (cur !== p && (Object.keys(cur.components).length || Object.keys(cur.tracks).length || Object.keys(cur.drawings).length)) pushRecent(cur);
       set({
@@ -337,6 +340,7 @@ export const useEditor = create<EditorState>((set, get) => {
         highlightNet: null,
         activeLayer: p.board.copperLayers === 1 ? 'B.Cu' : 'F.Cu',
         fileName,
+        deviceId,
         dirty: false,
         tool: 'select',
         schSelection: [],
@@ -425,7 +429,7 @@ let warnedFull = false;
 function saveNow(): void {
   saveTimer = null;
   const s = useEditor.getState();
-  const ok = safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName }));
+  const ok = safeStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ project: s.project, fileName: s.fileName, deviceId: s.deviceId }));
   safeStorage.setItem(SETTINGS_KEY, JSON.stringify(Object.fromEntries(SETTINGS_FIELDS.map((k) => [k, s[k]]))));
   // Место в браузере кончилось (или хранилище запрещено) — предупреждаем один раз, чтобы сохранили файлом.
   if (!ok && safeStorage.available() && !warnedFull) {

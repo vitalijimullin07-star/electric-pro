@@ -26,7 +26,9 @@ async function printSchematic(): Promise<void> {
 import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
-import { askConfirm } from './dialogs/AskDialog';
+import { askConfirm, askText } from './dialogs/AskDialog';
+import { findSaved, saveToDevice } from '@editor/device-files';
+import { onBack } from './back-button';
 import { QUALITY_NAMES, detectLevel, type QualityMode } from '@render/quality';
 import { simRuntime } from '@editor/sim-runtime';
 import { loadFirmware } from './panels/SimPanel';
@@ -72,12 +74,47 @@ function MenuDrop({ items, anchor, onClose, dropRef }: { items: Item[]; anchor: 
   );
 }
 
+/** Сохранить на устройство (в «Мои проекты»): тот же файл перезаписывается, новый — появляется в списке. */
 export async function saveProject(): Promise<void> {
+  const s = useEditor.getState();
+  const p = s.project;
+  try {
+    const id = s.deviceId ?? (await findSaved(p))?.id ?? null;
+    const m = await saveToDevice(p, id);
+    // Пока сохраняли, проект могли поменять — «несохранено» снимаем, только если он тот же.
+    useEditor.setState((cur) => ({ deviceId: m.id, dirty: cur.project === p ? false : cur.dirty, message: `Сохранено на устройстве: «${m.name}». Открыть снова — Файл → Мои проекты.` }));
+  } catch (e) {
+    useEditor.setState({ message: `Не удалось сохранить на устройстве: ${(e as Error).message}. Скачайте файл: Файл → Скачать файл проекта.` });
+  }
+}
+
+/** Сохранить копией под другим именем. */
+export function saveProjectAs(): void {
+  const s = useEditor.getState();
+  askText({
+    title: 'Сохранить как',
+    message: 'Имя проекта на устройстве:',
+    value: s.project.meta.name,
+    okLabel: 'Сохранить',
+    onOk: (v) => {
+      const name = (v ?? '').trim();
+      if (!name) return;
+      useEditor.getState().commit((d) => {
+        d.meta.name = name;
+      });
+      useEditor.setState({ deviceId: null });
+      void saveProject();
+    },
+  });
+}
+
+/** Скачать файл проекта (.plata.json) — чтобы переслать или хранить отдельно. */
+export async function downloadProject(): Promise<void> {
   const s = useEditor.getState();
   const name = s.fileName ?? safeName(s.project.meta.name) + PROJECT_EXT;
   try {
     const ok = await saveTextFile(name, serializeProject(s.project, true), 'application/json');
-    useEditor.setState(ok ? { dirty: false, fileName: name, message: `Сохранено: ${name}` } : { message: 'Сохранение отменено.' });
+    useEditor.setState(ok ? { fileName: name, message: `Файл скачан: ${name}` } : { message: 'Сохранение отменено.' });
   } catch (e) {
     useEditor.setState({ message: `Не удалось сохранить: ${(e as Error).message}` });
   }
@@ -100,8 +137,16 @@ export async function openProject(): Promise<void> {
   }
   try {
     const r = parseProjectFile(f.text);
-    if (r.kind === 'project') s.replaceProject(r.project, f.name);
-    else s.setMessage('Это файл первой версии Plata (плата пылесоса) — такие файлы больше не открываются.');
+    if (r.kind === 'project') {
+      s.replaceProject(r.project, f.name);
+      // Открытый файл сразу попадает в «Мои проекты» (тот же проект не дублируется).
+      try {
+        const m = await saveToDevice(r.project, (await findSaved(r.project))?.id ?? null);
+        useEditor.setState({ deviceId: m.id, message: `Открыт проект «${r.project.meta.name}» — он сохранён в «Мои проекты» на устройстве.` });
+      } catch {
+        /* хранилище недоступно — проект всё равно открыт */
+      }
+    } else s.setMessage('Это файл первой версии Plata (плата пылесоса) — такие файлы больше не открываются.');
   } catch (e) {
     s.setMessage((e as Error).message || 'Не удалось открыть файл.');
   }
@@ -124,6 +169,15 @@ export function TopBar() {
       window.removeEventListener('plata:open', onOpen);
     };
   }, []);
+
+  // «Назад» на телефоне закрывает открытое меню.
+  useEffect(() => {
+    if (!open) return;
+    return onBack(() => {
+      setOpen(null);
+      return true;
+    });
+  }, [open]);
 
   // Пока меню открыто: щелчок мимо, Esc, прокрутка строки меню или изменение окна его закрывают.
   useEffect(() => {
@@ -179,12 +233,14 @@ export function TopBar() {
       label: 'Файл',
       items: [
         { label: 'Новый проект…', kbd: '', action: () => s.openDialog('new') },
+        { label: 'Мои проекты на устройстве…', action: () => s.openDialog('open') },
         { label: 'Открыть файл проекта…', kbd: 'Ctrl+O', action: () => void openProject() },
-        { label: 'Недавние проекты…', action: () => s.openDialog('open') },
         { label: 'Импорт платы KiCad (.kicad_pcb)…', action: () => void importKicadBoardFile() },
         { label: 'Импорт платы Sprint Layout (.lay)…', action: () => void importLayFile() },
         { label: 'Импорт корпусов KiCad (.kicad_mod)…', action: () => void importFootprintFiles() },
-        { label: 'Сохранить проект', kbd: 'Ctrl+S', action: () => void saveProject() },
+        { label: 'Сохранить на устройство', kbd: 'Ctrl+S', action: () => void saveProject() },
+        { label: 'Сохранить как…', action: saveProjectAs },
+        { label: 'Скачать файл проекта (.plata.json)', action: () => void downloadProject() },
         'sep',
         { label: 'Экспорт: Gerber, SVG, BOM…', action: () => s.openDialog('export') },
         { label: 'Проверка для производства…', action: () => s.openDialog('dfm') },
@@ -384,7 +440,10 @@ export function TopBar() {
         <b>{p.meta.name}</b>
         {s.dirty ? ' •' : ''} · {p.board.copperLayers === 1 ? 'односторонняя' : 'двусторонняя'}
       </span>
-      <button className="ibtn" style={{ marginLeft: 6 }} title="Сохранить (Ctrl+S)" aria-label="Сохранить" onClick={() => void saveProject()}>
+      <button className="ibtn" style={{ marginLeft: 6 }} title="Мои проекты на устройстве" aria-label="Мои проекты" onClick={() => s.openDialog('open')}>
+        <Icon name="open" size={18} />
+      </button>
+      <button className="ibtn" title="Сохранить на устройство (Ctrl+S)" aria-label="Сохранить" onClick={() => void saveProject()}>
         <Icon name="save" size={18} />
       </button>
     </header>

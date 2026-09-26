@@ -98,7 +98,12 @@ export function SimPanel() {
       {status !== 'off' && simRuntime.sim && simRuntime.sim.project !== project && <p className="hint" style={{ color: 'var(--warn)' }}>Схема изменилась после запуска — нажмите «Сброс», чтобы симуляция учла правки.</p>}
       {status !== 'off' && (
         <p className="hint">
-          Время {sim.seconds.toFixed(1).replace('.', ',')} с · скорость {Math.round(sim.speed * 100)} % от реальной{sim.speed && sim.speed < 0.9 ? ' (устройство не успевает — время идёт медленнее)' : ''}
+          {/* Длина строки не меняется, иначе панель прыгает, когда скорость колеблется около 90 %. */}
+          Время {sim.seconds.toFixed(1).replace('.', ',')} с · скорость{' '}
+          <span style={sim.speed && sim.speed < 0.9 ? { color: 'var(--warn)' } : undefined} title={sim.speed && sim.speed < 0.9 ? 'Устройство не успевает — время в симуляции идёт медленнее реального' : undefined}>
+            {Math.round(sim.speed * 100)} %
+          </span>{' '}
+          от реальной
           {view && <> · {view.mcu}</>}
         </p>
       )}

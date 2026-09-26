@@ -107,7 +107,7 @@ async function openPage(viewport, touch = false) {
   });
 
   const menuItems = {
-    Файл: ['Новый проект', 'Открыть файл проекта', 'Недавние проекты', 'Импорт платы KiCad', 'Импорт платы Sprint Layout', 'Импорт корпусов KiCad', 'Сохранить проект', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
+    Файл: ['Новый проект', 'Мои проекты на устройстве', 'Открыть файл проекта', 'Импорт платы KiCad', 'Импорт платы Sprint Layout', 'Импорт корпусов KiCad', 'Сохранить на устройство', 'Сохранить как', 'Скачать файл проекта', 'Экспорт', 'Проверка для производства', 'Настройки платы'],
     Правка: ['Отменить', 'Повторить', 'Вырезать', 'Копировать', 'Вставить', 'Дублировать', 'Выделить всё', 'Удалить выделенное', 'Повернуть', 'На другую сторону или слой', 'Перенос между слоями', 'Заменить корпуса у деталей', 'Свойства компонента'],
     Схема: ['Открыть схему', 'Обновить плату по схеме', 'Добавить на схему детали с платы', 'Провод', 'Метка цепи', 'Печать схемы'],
     Симуляция: ['Загрузить прошивку', 'Старт', 'Сброс', 'Стоп', 'Монитор порта'],
@@ -149,7 +149,7 @@ async function openPage(viewport, touch = false) {
 
   const dialogsByMenu = [
     ['Файл', 'Новый проект', 'Новый проект'],
-    ['Файл', 'Недавние проекты', 'Открыть проект'],
+    ['Файл', 'Мои проекты на устройстве', 'Мои проекты'],
     ['Файл', 'Экспорт', 'Экспорт'],
     ['Файл', 'Проверка для производства', 'Проверка для производства'],
     ['Правка', 'Перенос между слоями', 'Перенос между слоями'],
@@ -1032,8 +1032,32 @@ async function openPage(viewport, touch = false) {
   });
 
   let savedFile = null;
-  await step('Ctrl+S сохраняет, Ctrl+O открывает сохранённое', async () => {
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Control+s')]);
+  await step('Ctrl+S сохраняет на устройство, «Мои проекты» открывают сохранённое', async () => {
+    await page.keyboard.press('Control+s');
+    await page.waitForTimeout(400);
+    expect(/Сохранено на устройстве: «QA плата»/.test(await h.msg()), 'сообщение: ' + (await h.msg()));
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.card', { hasText: 'Пустая 50×50' }));
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await h.menu('Файл', 'Мои проекты на устройстве');
+    const item = page.locator('.modal .saved-list .item', { hasText: 'QA плата' });
+    await item.waitFor({ timeout: 3000 });
+    await h.hit(item.locator('button', { hasText: 'Открыть' }));
+    await page.waitForTimeout(300);
+    const p = await h.project();
+    expect(p.meta.name === 'QA плата' && Object.keys(p.components).length === 3, 'открылось: ' + p.meta.name);
+    // Второе сохранение перезаписывает тот же проект, а не создаёт копию.
+    await page.keyboard.press('Control+s');
+    await page.waitForTimeout(400);
+    await h.menu('Файл', 'Мои проекты на устройстве');
+    await page.locator('.modal .saved-list .item').first().waitFor({ timeout: 3000 });
+    expect((await page.locator('.modal .saved-list .item', { hasText: 'QA плата' }).count()) === 1, 'проект задвоился');
+    expect(await page.locator('.modal .saved-list .item.current').count(), 'не отмечен открытый');
+    await h.closeDialog();
+  });
+
+  await step('Скачать файл проекта, Ctrl+O открывает файл', async () => {
+    const [dl] = await Promise.all([page.waitForEvent('download'), h.menu('Файл', 'Скачать файл проекта')]);
     savedFile = `${out}/${dl.suggestedFilename()}`;
     await dl.saveAs(savedFile);
     const saved = JSON.parse(readFileSync(savedFile, 'utf8'));
@@ -1049,7 +1073,8 @@ async function openPage(viewport, touch = false) {
   });
 
   await step('недавние проекты: пустая плата попала в список и открывается', async () => {
-    await h.menu('Файл', 'Недавние проекты');
+    await h.menu('Файл', 'Мои проекты на устройстве');
+    await page.waitForTimeout(300);
     const items = page.locator('.modal .list .item');
     expect((await items.count()) >= 1, 'список пуст');
     await h.closeDialog();
@@ -1070,6 +1095,36 @@ async function openPage(viewport, touch = false) {
     await page.waitForSelector('.stage canvas');
     await page.waitForTimeout(400);
     expect(Object.keys((await h.project()).vias).length === n0 + 1, 'правка перед перезагрузкой потерялась');
+    // «Мои проекты» переживают перезагрузку.
+    await h.menu('Файл', 'Мои проекты на устройстве');
+    await page.locator('.modal .saved-list .item', { hasText: 'QA плата' }).waitFor({ timeout: 3000 });
+    await h.closeDialog();
+  });
+
+  await step('кнопка «Назад»: закрывает меню, окно и инструмент, редактор не покидает', async () => {
+    const back = async () => {
+      await page.evaluate(() => history.back());
+      await page.waitForTimeout(350);
+    };
+    const url = page.url();
+    await h.hit(page.getByRole('button', { name: 'Файл', exact: true }));
+    expect(await page.locator('.menu-drop').count(), 'меню не открылось');
+    await back();
+    expect(!(await page.locator('.menu-drop').count()), 'меню не закрылось по «Назад»');
+    await h.menu('Файл', 'Мои проекты на устройстве');
+    await back();
+    expect(!(await page.locator('.modal').count()), 'окно не закрылось по «Назад»');
+    await page.keyboard.press('w');
+    await back();
+    const tool = await page.evaluate(() => window.__plata.state().tool);
+    expect(tool === 'select', 'инструмент не сброшен: ' + tool);
+    await back();
+    expect(/ещё раз, чтобы выйти/.test(await h.msg()), 'нет подсказки о выходе: ' + (await h.msg()));
+    expect(page.url() === url, 'ушли со страницы');
+    // Через 2,5 с защита возвращается: снова «Назад» — только подсказка.
+    await page.waitForTimeout(2700);
+    await back();
+    expect(page.url() === url && (await page.locator('.stage canvas').count()), 'после паузы «Назад» увёл из редактора');
   });
 
   await step('шаблоны: каждый создаётся без ошибок', async () => {
@@ -1312,8 +1367,11 @@ async function openPage(viewport, touch = false) {
     const lcdText = async () => (await page.locator('.sim-lcd').first().innerText()).replace(/\u00a0/g, ' ').replace(/\n/g, '');
     let lcd = await lcdText();
     expect(/Quasar|fandy|http/.test(lcd), 'заставка: ' + lcd);
-    await page.waitForTimeout(7000);
-    lcd = await lcdText();
+    // Заставка идёт ~5 с времени прибора; в медленном браузере — дольше.
+    for (let i = 0; i < 50 && !/\d+\.\dV/.test(lcd); i++) {
+      await page.waitForTimeout(500);
+      lcd = await lcdText();
+    }
     expect(/\d+\.\dV/.test(lcd) && !/Error/.test(lcd), 'рабочий экран: ' + lcd);
     expect(await page.locator('.sim-lcd .lcd-glyph').count() > 5, 'нет своих символов ЖК (шкала)');
     const head = await page.locator('.sim-panel').innerText();
@@ -1434,7 +1492,7 @@ async function openPage(viewport, touch = false) {
       ['Правка', 'Заменить корпуса у деталей'],
       ['Файл', 'Настройки платы'],
       ['Файл', 'Новый проект'],
-      ['Файл', 'Недавние проекты'],
+      ['Файл', 'Мои проекты на устройстве'],
       ['Трассировка', 'Автотрассировка'],
       ['Справка', 'Горячие клавиши'],
       ['Справка', 'О программе'],

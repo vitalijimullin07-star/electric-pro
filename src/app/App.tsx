@@ -20,6 +20,7 @@ import { ReplaceDialog, type ReplaceData } from '@ui/dialogs/ReplaceDialog';
 import { View3D } from '@ui/dialogs/View3D';
 import { SchematicView } from '@ui/SchematicView';
 import { gfxProfile } from '@render/quality';
+import { installBackButton } from '@ui/back-button';
 
 export function App() {
   const dialog = useEditor((s) => s.dialog);
@@ -34,9 +35,13 @@ export function App() {
     document.documentElement.dataset.gfx = gfxProfile(quality, gfxLevel).level;
   }, [quality, gfxLevel]);
 
+  // Кнопка «Назад» на телефоне закрывает окна и панели, а не приложение.
+  useEffect(() => installBackButton(), []);
+
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty && useEditor.getState().fileName) e.preventDefault();
+      const st = useEditor.getState();
+      if (dirty && (st.fileName || st.deviceId)) e.preventDefault();
     };
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
