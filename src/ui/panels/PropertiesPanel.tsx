@@ -423,6 +423,17 @@ function RuleAreaProps({ id }: { id: string }) {
           <input type="checkbox" checked={!!ra.showLabel} onChange={(e) => upd((x) => void (x.showLabel = e.target.checked))} /> подпись на плате
         </label>
       </div>
+      <div className="field">
+        <label>Слой</label>
+        <select className="sel" value={ra.layers?.length === 1 ? ra.layers[0] : ''} onChange={(e) => upd((x) => void (x.layers = e.target.value ? [e.target.value as CopperLayer] : undefined))}>
+          <option value="">все слои</option>
+          {boardCopperLayers(p.board.copperLayers).map((l) => (
+            <option key={l} value={l}>
+              только {l}
+            </option>
+          ))}
+        </select>
+      </div>
       <h4>Допустимые классы цепей</h4>
       <p className="hint">Если отмечен хотя бы один класс, внутри области разрешены только его дорожки (так делается зона 230 В).</p>
       {classes.map((c) => (

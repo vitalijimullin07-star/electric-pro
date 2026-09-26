@@ -290,7 +290,7 @@ export function TopBar() {
       id: 'sim',
       label: 'Симуляция',
       items: [
-        { label: 'Загрузить прошивку (.hex)…', action: () => void loadFirmware() },
+        { label: 'Загрузить прошивку (.hex, .wasm)…', action: () => void loadFirmware() },
         s.sim.status === 'running'
           ? { label: 'Пауза', action: () => simRuntime.pause() }
           : { label: s.sim.status === 'paused' ? 'Продолжить' : 'Старт', action: () => (s.sim.status === 'paused' ? simRuntime.resume() : (simRuntime.start(), s.patch({ panelTab: 'sim', panelOpen: true }))), disabled: !p.firmware },
@@ -298,6 +298,7 @@ export function TopBar() {
         { label: 'Стоп', action: () => simRuntime.stop(), disabled: s.sim.status === 'off' },
         'sep',
         { label: 'Монитор порта, датчики, выводы…', action: () => s.patch({ panelTab: 'sim', panelOpen: true }) },
+        { label: 'Во весь экран: пульт и графики', action: () => (s.sim.status === 'off' && p.firmware && simRuntime.start(), simRuntime.setFull(true)), disabled: !p.firmware },
       ],
     },
     {

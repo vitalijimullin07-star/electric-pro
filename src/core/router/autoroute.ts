@@ -35,6 +35,16 @@ export interface RouteOptions {
   progress?: (info: { iteration: number; conflicts: number; fraction: number }) => void | Promise<void>;
   /** Отдавать управление между шагами (для интерфейса без воркера). */
   yieldEvery?: number;
+  /**
+   * Во сколько раз за проход дорожает спорная клетка (по умолчанию 1,7). Меньше — мягче
+   * согласование: цепи дольше уступают друг другу, нужно больше проходов.
+   */
+  congestionGrowth?: number;
+  /**
+   * Цена шага по слою (по порядку медных слоёв, по умолчанию 1). Например, [1, 3] — нижний
+   * слой только для переходов через чужие дорожки, чтобы заливка земли на нём оставалась цельной.
+   */
+  layerCost?: number[];
 }
 
 export interface RouteResult {
@@ -47,6 +57,8 @@ export interface RouteResult {
   iterations: number;
   grid: number;
   ms: number;
+  /** Клетки, оставшиеся спорными после согласования (узкие места размещения). */
+  hot?: { x: number; y: number; layer: CopperLayer }[];
 }
 
 const DI = [1, 0, -1, 0];
@@ -198,18 +210,25 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
 
   // Области правил.
   const areas = Object.values(p.ruleAreas).map((ra) => ({ ra, box: boxOfPoints(ra.outline), allowed: ra.onlyClasses ? new Set(ra.onlyClasses) : null }));
-  const areaAt = new Int8Array(N).fill(-1);
+  // По слою: действующая в клетке область (в пересечении — последняя) и запрет переходных.
+  const areaAt = layerIds.map(() => new Int8Array(N).fill(-1));
+  const noVia = new Uint8Array(N);
   areas.forEach((a, ai) => {
     for (let j = 0; j < ny; j++)
       for (let i = 0; i < nx; i++) {
         const k = cell(i, j);
         const q = { x: cx(k), y: cy(k) };
         if (q.x < a.box.minX || q.x > a.box.maxX || q.y < a.box.minY || q.y > a.box.maxY) continue;
-        if (pointInPolygon(q, a.ra.outline)) areaAt[k] = ai;
+        if (!pointInPolygon(q, a.ra.outline)) continue;
+        layerIds.forEach((lid, l) => {
+          if (!a.ra.layers || a.ra.layers.includes(lid)) areaAt[l][k] = ai;
+        });
+        if (a.ra.keepoutVias) noVia[k] = 1;
       }
   });
-  const areaOk = (n: number, k: number, via: boolean): boolean => {
-    const ai = areaAt[k];
+  const areaOk = (n: number, l: number, k: number, via: boolean): boolean => {
+    if (via && noVia[k]) return false;
+    const ai = areaAt[l][k];
     if (ai < 0) return true;
     const a = areas[ai];
     if (a.ra.keepoutTracks) return false;
@@ -218,14 +237,16 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     return true;
   };
 
-  // Сохранённые дорожки и переходные (режим keepExisting): их клетки — медь своей цепи.
-  const keepTrees = new Map<number, number[]>(); // цепь → клетки (l*N+k) уже проведённой меди
+  // Сохранённые дорожки, переходные и заливка (режим keepExisting): их клетки — медь своей цепи.
+  const keepSets = new Map<number, Set<number>>(); // цепь → клетки (l*N+k) уже проведённой меди
+  const keepCopper = (n: number) => keepSets.get(n) ?? keepSets.set(n, new Set()).get(n)!;
+  const viaNet = new Int16Array(N); // n + 1: клетка сохранённого переходного цепи n (связь слоёв)
   if (o.keepExisting) {
     const addKeep = (n: number, l: number, k: number) => {
       if (own[l][k] === -2) return;
       if (own[l][k] === -1 || own[l][k] === n) {
         own[l][k] = n;
-        (keepTrees.get(n) ?? keepTrees.set(n, []).get(n)!).push(l * N + k);
+        keepCopper(n).add(l * N + k);
       } else {
         own[l][k] = -2;
         padAt[l][k] = -1;
@@ -257,7 +278,29 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
           if (n < 0) own[l][k] = -2;
           else addKeep(n, l, k);
         }
+        if (n >= 0 && distPointShape({ x: cx(k), y: cy(k) }, v.shape) <= 1e-6) viaNet[k] = n + 1;
       });
+    }
+    // Заливка полигонов своей цепи — тоже медь: островок можно довести до ближайшего её места.
+    for (const zf of conn.zoneFills) {
+      const n = zf.zone.net ? netIndex.get(zf.zone.net) : undefined;
+      const l = layerIds.indexOf(zf.zone.layer as CopperLayer);
+      if (n === undefined || l < 0 || !zf.loops.length) continue;
+      const set = keepCopper(n);
+      for (let j = 0; j < ny; j++) {
+        // Строка сетки: пересечения с контурами, заливка — между парами (правило чётности).
+        const y = y0 + j * G;
+        const xs: number[] = [];
+        for (const loop of zf.loops)
+          for (let a = 0, b = loop.length - 1; a < loop.length; b = a++)
+            if (loop[b].y > y !== loop[a].y > y) xs.push(loop[b].x + ((y - loop[b].y) * (loop[a].x - loop[b].x)) / (loop[a].y - loop[b].y));
+        xs.sort((u, v) => u - v);
+        for (let q = 0; q + 1 < xs.length; q += 2)
+          for (let i = Math.max(0, Math.ceil((xs[q] - x0) / G)); i <= Math.min(nx - 1, Math.floor((xs[q + 1] - x0) / G)); i++) {
+            const k = cell(i, j);
+            if (own[l][k] === -1 || own[l][k] === n) set.add(l * N + k);
+          }
+      }
     }
   }
 
@@ -283,21 +326,48 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     if (ow === -2) return false;
     if (ow !== -1 && ow !== n) return false;
     if (forbidden(n, k)) return false;
-    return areaOk(n, k, false);
+    return areaOk(n, l, k, false);
   };
-  const nb = (k: number): number[] | null => {
+  // Место под переходное (или площадку перемычки): клетки ближе радиус + зазор + полуширина
+  // дорожки — на мелкой сетке это и диагональные клетки. Переходные друг от друга — отдельно.
+  const viaR = (n: number) => Math.max(cls[n].viaDiameter, R.minViaDiameter) / 2;
+  const maxViaR = Math.max(R.minViaDiameter, ...Object.values(p.netClasses).map((c) => c.viaDiameter)) / 2;
+  const offsets = (r: number): number[][] => {
+    const m = Math.ceil(r / G);
+    const out: number[][] = [];
+    for (let dj = -m; dj <= m; dj++) for (let di = -m; di <= m; di++) if ((di || dj) && Math.hypot(di, dj) * G < r - 1e-9) out.push([di, dj]);
+    return out;
+  };
+  const viaFoot = cls.map((_, n) => offsets(Math.max(viaR(n) + maxClr + maxHw, G * 1.01)));
+  // Переходные чужих цепей — не ближе суммы радиусов и зазора; своей — не ближе допуска между отверстиями.
+  const viaGap = cls.map((_, n) => offsets(viaR(n) + maxClr + maxViaR));
+  const holeFoot = offsets(Math.max(R.minViaDrill, ...Object.values(p.netClasses).map((c) => c.viaDrill)) + R.holeToHole);
+  const viaAt = new Int16Array(N); // n + 1: переходное, поставленное при этой разводке
+  const netVias: number[][] = netList.map(() => []);
+  const around = (k: number, offs: number[][]): number[] | null => {
     const i = k % nx;
     const j = (k - i) / nx;
-    if (i <= 0 || j <= 0 || i >= nx - 1 || j >= ny - 1) return null;
-    return [k + 1, k + nx, k - 1, k - nx];
+    const out: number[] = [];
+    for (const [di, dj] of offs) {
+      const i2 = i + di;
+      const j2 = j + dj;
+      if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= ny) return null;
+      out.push(cell(i2, j2));
+    }
+    return out;
   };
-  /** Клетка годится под площадку перемычки или переходное: свободна вместе с соседями и не на чужой площадке. */
+  /** Клетка годится под площадку перемычки или переходное: свободна вместе с окрестностью и не на чужой площадке. */
   const landOK = (n: number, l: number, k: number): boolean => {
     if (!allow(n, l, k) || padAt[l][k] >= 0) return false;
-    if (!areaOk(n, k, true)) return false;
-    const a = nb(k);
+    if (!areaOk(n, l, k, true)) return false;
+    const a = around(k, viaFoot[n]);
     if (!a) return false;
-    return a.every((k2) => (own[l][k2] === -1 || own[l][k2] === n) && !forbidden(n, k2));
+    if (!a.every((k2) => (own[l][k2] === -1 || own[l][k2] === n) && !forbidden(n, k2))) return false;
+    if (viaNet[k] || viaAt[k]) return false;
+    const g = around(k, viaGap[n]);
+    if (!g || g.some((k2) => (viaAt[k2] && viaAt[k2] !== n + 1) || (viaNet[k2] && viaNet[k2] !== n + 1))) return false;
+    const h = around(k, holeFoot);
+    return !!h && !h.some((k2) => viaAt[k2] === n + 1 || viaNet[k2] === n + 1);
   };
 
   const addUse = (n: number, l: number, k: number) => {
@@ -317,6 +387,8 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     }
     for (const kk of haloCells[n]) haloCnt[kk >> 24][kk & 0xffffff]--;
     haloCells[n] = [];
+    for (const kk of netVias[n]) if (viaAt[kk] === n + 1) viaAt[kk] = 0;
+    netVias[n] = [];
   };
   const addHalo = (n: number, k: number) => {
     for (const h of haloOf[n]) {
@@ -330,13 +402,14 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       });
     }
   };
-  const cc = (n: number, l: number, k: number) => 1 + hist[l][k] + pf * (occ[l][k] - use[n][l][k]);
+  const stepCost = layerIds.map((_, l) => o.layerCost?.[l] ?? 1);
+  const cc = (n: number, l: number, k: number) => stepCost[l] + hist[l][k] + pf * (occ[l][k] - use[n][l][k]);
 
   // Поиск A* по состояниям (слой, клетка, направление).
   const NS = N * nl * 4;
   const dist_ = new Float64Array(NS);
   const prev = new Int32Array(NS);
-  const hop = new Uint8Array(NS); // 0 — шаг, 1 — перемычка, 2 — переходное
+  const hop = new Uint8Array(NS); // 0 — шаг, 1 — перемычка, 2 — переходное, 3 — сохранённое переходное
   const closed = new Uint8Array(NS);
   const sid = (l: number, k: number, d: number) => ((l * N + k) << 2) | d;
   type Step = { l: number; k: number; hop: number };
@@ -431,11 +504,31 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
           push(s2, c + hh(k2));
         }
       }
-      // Переходное: смена слоя в этой же клетке.
+      // Переходное: смена слоя в этой же клетке. Площадка переходного занимает и соседние
+      // клетки на всех слоях — их занятость входит в цену, иначе спор не виден поиску.
+      // Сохранённое переходное своей цепи — смена слоя без нового отверстия.
+      if (nl > 1 && viaNet[k] === n + 1)
+        for (let l2 = 0; l2 < nl; l2++) {
+          if (l2 === l || !allow(n, l2, k)) continue;
+          const c = d + cc(n, l2, k);
+          const s2 = sid(l2, k, dir);
+          if (c < dist_[s2]) {
+            dist_[s2] = c;
+            prev[s2] = s;
+            hop[s2] = 3;
+            push(s2, c + hh(k));
+          }
+        }
       if (allowVias && nl > 1 && landOK(n, l, k)) {
+        const foot = around(k, viaFoot[n])!;
+        let vc = 0;
+        for (let l3 = 0; l3 < nl; l3++) {
+          for (const q of foot) vc += pf * (occ[l3][q] - use[n][l3][q]);
+          if (l3 !== l) vc += pf * (occ[l3][k] - use[n][l3][k]);
+        }
         for (let l2 = 0; l2 < nl; l2++) {
           if (l2 === l || !landOK(n, l2, k)) continue;
-          const c = d + hopCost + cc(n, l2, k);
+          const c = d + hopCost + cc(n, l2, k) + vc;
           const s2 = sid(l2, k, dir);
           if (c < dist_[s2]) {
             dist_[s2] = c;
@@ -447,7 +540,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       }
       // Перемычка проводом: прыжок по прямой на 3…12 клеток на том же слое.
       if (allowWires && landOK(n, l, k) && !(padAt[l][k] >= 0 && !srcSet.has(lk))) {
-        const lc = nb(k)!.reduce((a, k2) => a + pf * (occ[l][k2] - use[n][l][k2]), 0);
+        const lc = around(k, viaFoot[n])!.reduce((a, k2) => a + pf * (occ[l][k2] - use[n][l][k2]), 0);
         for (let nd = 0; nd < 4; nd++)
           for (let L = 3; L <= 12; L++) {
             const i2 = i + DI[nd] * L;
@@ -455,7 +548,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
             if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= ny) break;
             const k2 = cell(i2, j2);
             if (!landOK(n, l, k2)) continue;
-            const c = d + hopCost + L + cc(n, l, k2) + lc + nb(k2)!.reduce((a, q) => a + pf * (occ[l][q] - use[n][l][q]), 0);
+            const c = d + hopCost + L + cc(n, l, k2) + lc + around(k2, viaFoot[n])!.reduce((a, q) => a + pf * (occ[l][q] - use[n][l][q]), 0);
             const s2 = sid(l, k2, nd);
             if (c < dist_[s2]) {
               dist_[s2] = c;
@@ -511,6 +604,48 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     return out;
   };
 
+  /**
+   * Сохранённая медь цепи, связанная с данными площадками: обход клеток по слою и между
+   * слоями — в переходных и выводах со сквозным отверстием. Считается один раз на цепь.
+   */
+  const keptCache = new Map<number, number[]>();
+  function keptTree(n: number, padIdx: number[]): number[] {
+    const hit = keptCache.get(n);
+    if (hit) return hit;
+    const set = keepSets.get(n);
+    const out: number[] = [];
+    if (set?.size) {
+      const seen = new Set<number>();
+      const stack: number[] = [];
+      for (const pi of padIdx) for (const lk of cellsOfPad(pi, n)) if (!seen.has(lk)) (seen.add(lk), stack.push(lk));
+      const copper = (l: number, k: number) => set.has(l * N + k) || (own[l][k] === n && padAt[l][k] >= 0);
+      while (stack.length) {
+        const lk = stack.pop()!;
+        const l = Math.floor(lk / N);
+        const k = lk - l * N;
+        if (set.has(lk)) out.push(lk);
+        const i = k % nx;
+        const j = (k - i) / nx;
+        const next: number[] = [];
+        if (i > 0) next.push(l * N + k - 1);
+        if (i < nx - 1) next.push(l * N + k + 1);
+        if (j > 0) next.push(l * N + k - nx);
+        if (j < ny - 1) next.push(l * N + k + nx);
+        const pa = padAt[l][k];
+        if (viaNet[k] === n + 1 || (pa >= 0 && pads[pa].layers.length > 1)) for (let l2 = 0; l2 < nl; l2++) if (l2 !== l) next.push(l2 * N + k);
+        for (const q of next) {
+          if (seen.has(q)) continue;
+          const l2 = Math.floor(q / N);
+          if (!copper(l2, q - l2 * N)) continue;
+          seen.add(q);
+          stack.push(q);
+        }
+      }
+    }
+    keptCache.set(n, out);
+    return out;
+  }
+
   function routeNet(n: number) {
     clearNet(n);
     const conns: Conn[] = [];
@@ -531,11 +666,9 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       addUse(n, Math.floor(lk / N), lk % N);
       grow(lk % N);
     };
-    // Начальное дерево: первая площадка и сохранённая медь этой цепи.
+    // Начальное дерево: первая площадка, площадки её островка и связанная с ними сохранённая медь.
     for (const lk of cellsOfPad(mem[0], n)) seed(lk);
     inTree.add(mem[0]);
-    for (const lk of keepTrees.get(n) ?? []) seed(lk);
-    // Площадки, уже соединённые сохранёнными дорожками, — в дереве.
     if (o.keepExisting) {
       const st = conn.nets.get(netList[n].id);
       const first = pads[mem[0]].wp.key;
@@ -547,6 +680,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
           inTree.add(pi);
         }
       }
+      for (const lk of keptTree(n, [...inTree])) seed(lk);
     }
     const left = mem.filter((pi) => !inTree.has(pi));
     while (left.length) {
@@ -582,16 +716,20 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
           const st = path[i];
           seed(st.l * N + st.k);
           addHalo(n, st.k);
-          if (i > 0 && st.hop) {
-            // Площадки перемычки или переходного занимают и соседние клетки.
+          if (i > 0 && (st.hop === 1 || st.hop === 2)) {
+            // Площадки перемычки или переходного занимают и окрестность.
             const pr = path[i - 1];
             for (const [ll, kk] of [[pr.l, pr.k], [st.l, st.k]] as [number, number][]) {
-              const a = nb(kk);
+              const a = around(kk, viaFoot[n]);
               if (a) for (const q of a) addUse(n, ll, q);
               if (st.hop === 2) for (let l2 = 0; l2 < nl; l2++) {
                 addUse(n, l2, kk);
                 if (a) for (const q of a) addUse(n, l2, q);
               }
+            }
+            if (st.hop === 2 && !viaAt[st.k]) {
+              viaAt[st.k] = n + 1;
+              netVias[n].push(st.k);
             }
           }
         }
@@ -606,7 +744,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
   let over = 0;
   let it = 0;
   for (it = 0; it < iters; it++) {
-    pf = 0.5 * Math.pow(1.7, it);
+    pf = 0.5 * Math.pow(o.congestionGrowth ?? 1.7, it);
     for (let q = 0; q < order.length; q++) {
       routeNet(order[q]);
       if (q % yieldEvery === yieldEvery - 1) await tick();
@@ -620,18 +758,62 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     await tick();
     if (!over) break;
   }
-  // Последняя попытка: спорные цепи по очереди с запретительной ценой конфликта.
+  // Последняя попытка: спорные цепи снимаются все сразу и ведутся заново по одной с
+  // запретительной ценой конфликта — то в прямом, то в обратном порядке; со второго круга
+  // снимаются и цепи, проходящие рядом со спорными клетками, чтобы освободить место.
   if (over) {
     pf = 1e5;
-    for (let pass = 0; pass < 3 && over; pass++) {
+    // Лучшее состояние (меньше всего спорных клеток): круг может и ухудшить — тогда вернёмся.
+    const snap = () => ({
+      over,
+      use: use.map((a) => a.map((u) => u.slice())),
+      occ: occ.map((u) => u.slice()),
+      results: results.slice(),
+      haloCnt: haloCnt.map((u) => u.slice()),
+      haloCells: haloCells.map((u) => u.slice()),
+      viaAt: viaAt.slice(),
+      netVias: netVias.map((u) => u.slice()),
+    });
+    let best = snap();
+    for (let pass = 0; pass < 8 && over; pass++) {
       const bad = new Set<number>();
-      for (let l = 0; l < nl; l++) for (let k = 0; k < N; k++) if (occ[l][k] > 1) for (let n = 0; n < NN; n++) if (use[n][l][k]) bad.add(n);
-      for (const n of order) if (bad.has(n)) routeNet(n);
+      const r = pass >= 2 ? 2 : 0;
+      for (let l = 0; l < nl; l++)
+        for (let k = 0; k < N; k++) {
+          if (occ[l][k] < 2) continue;
+          const i = k % nx;
+          const j = (k - i) / nx;
+          for (let dj = -r; dj <= r; dj++)
+            for (let di = -r; di <= r; di++) {
+              const i2 = i + di;
+              const j2 = j + dj;
+              if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= ny) continue;
+              const k2 = cell(i2, j2);
+              for (let l2 = 0; l2 < nl; l2++) if (occ[l2][k2]) for (let n = 0; n < NN; n++) if (use[n][l2][k2]) bad.add(n);
+            }
+        }
+      const list = order.filter((n) => bad.has(n));
+      if (pass % 2) list.reverse();
+      for (const n of list) clearNet(n);
+      for (const n of list) routeNet(n);
       over = 0;
       for (let l = 0; l < nl; l++) for (let k = 0; k < N; k++) if (occ[l][k] > 1) over++;
+      if (over < best.over) best = snap();
       await tick();
     }
+    if (over > best.over) {
+      over = best.over;
+      best.use.forEach((a, n) => a.forEach((u, l) => use[n][l].set(u)));
+      best.occ.forEach((u, l) => occ[l].set(u));
+      best.results.forEach((r, n) => (results[n] = r));
+      best.haloCnt.forEach((u, c) => haloCnt[c].set(u));
+      best.haloCells.forEach((u, n) => (haloCells[n] = u));
+      viaAt.set(best.viaAt);
+      best.netVias.forEach((u, n) => (netVias[n] = u));
+    }
   }
+  const hot: { x: number; y: number; layer: CopperLayer }[] = [];
+  if (over) for (let l = 0; l < nl; l++) for (let k = 0; k < N; k++) if (occ[l][k] > 1) hot.push({ x: +cx(k).toFixed(3), y: +cy(k).toFixed(3), layer: layerIds[l] });
   // Что осталось в конфликте — превращаем в прямые перемычки.
   if (over)
     for (const n of order)
@@ -704,7 +886,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       // Прыжки: перемычка между концами соседних кусков или переходное.
       for (let i = 1; i < c.path.length; i++) {
         const st = c.path[i];
-        if (!st.hop) continue;
+        if (!st.hop || st.hop === 3) continue;
         const pr = c.path[i - 1];
         if (st.hop === 2) addViaAt(pt(st.k), n);
         else {
@@ -718,5 +900,5 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       inTree.add(c.padIdx);
     }
   }
-  return { tracks, vias, wires, failed, conflicts: over, iterations: it + 1, grid: G, ms: Date.now() - t0 };
+  return { tracks, vias, wires, failed, conflicts: over, iterations: it + 1, grid: G, ms: Date.now() - t0, hot };
 }

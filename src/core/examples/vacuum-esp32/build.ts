@@ -1,6 +1,7 @@
 import { newId } from '../../ids';
 import { libraryFootprint } from '../../library';
 import { addComponent, addRuleArea, addTrack, addVia, addZone, connectPad, ensureNet } from '../../model/edit';
+import { getWorld } from '../../model/world';
 import { autoroute, type RouteResult } from '../../router/autoroute';
 import { autorouteWithZones } from '../../router/zone-aware';
 import { createProject } from '../../model/project';
@@ -20,6 +21,42 @@ import { MAINS_NETS, POWER_NETS, VAC_FOOTPRINTS, VAC_NET_DESCRIPTIONS, VAC_PARTS
 
 export const VAC_BOARD = { w: 110, h: 74 };
 
+/**
+ * Переходные на землю у площадок, к которым заливка сверху не подходит: деталь, вывод и
+ * сдвиг от его центра, мм. В середине аналоговой части дорожки датчиков окружают выводы
+ * GND со всех сторон; у модуля ESP32 выводы GND — между сигналами и запретом под антенной.
+ */
+const GND_VIAS: [string, string, number, number][] = [
+  ['C12', '2', 0, 1.46],
+  ['C11', '2', 0, 1.46],
+  ['R28', '2', 0, 1.46],
+  ['C10', '2', 0, 1.46],
+  ['R21', '2', 0, 1.46],
+  ['C14', '2', 0, 1.46],
+  ['A1', '38', 0, 1.8],
+  ['C9', '2', 0, -1.5],
+];
+
+/**
+ * Шина аналоговой земли снизу: переходные под конденсаторами — вместе и к выводу GND
+ * разъёма датчиков X4 (туда же приходят экраны и общий провод термисторов).
+ */
+const GND_BUS: [number, number][][] = [
+  [
+    [67.31, 52.45],
+    [77.47, 52.45],
+  ],
+  [
+    [72.39, 52.45],
+    [72.39, 56.895],
+  ],
+  [
+    [74.93, 52.45],
+    [74.93, 68.9],
+    [74.4, 69.95],
+  ],
+];
+
 function footprintOf(id: string): FootprintDef {
   const f = VAC_FOOTPRINTS.find((x) => x.id === id) ?? libraryFootprint(id);
   if (!f) throw new Error(`нет корпуса ${id}`);
@@ -33,7 +70,9 @@ export function buildVacuumEsp32(firmware?: { name: string; wasm: string }): Pro
   p.meta.author = 'Plata';
   p.meta.description =
     'Контроллер строительного пылесоса на ESP32-WROOM-32E без готовых модулей (кроме ESP32 и датчиков): две турбины с плавным пуском и фазовым управлением (MOC3023 + BTA41), розетка инструмента с автозапуском (MOC3063 + BTA41), два клапана продувки фильтра (MOC3063 + BT134W), трансформатор 230/9 В, AP63205 и AMS1117, детектор нуля со вторичной обмотки, трансформаторы тока, термисторы двигателей, датчики разрежения MPX5050DP и SDP810, экран OLED, энкодер и кнопки на панели.';
-  p.netClasses.Mains = { ...MAINS_CLASS, clearance: 0.9, trackWidth: 0.8, viaDiameter: 1.6, viaDrill: 0.8 };
+  // Ток сети по самой плате — десятки миллиампер (трансформатор 2 ВА, клапаны, поджиг симисторов):
+  // дорожки 0,35 мм. Ширина + зазор = 1,25 мм — укладываются в шаг сетки разводки 1,27 мм.
+  p.netClasses.Mains = { ...MAINS_CLASS, clearance: 0.9, trackWidth: 0.35, viaDiameter: 1.6, viaDrill: 0.8 };
   p.netClasses.Power.trackWidth = 0.4;
   p.rules.classClearances = [{ a: 'Mains', b: '*', clearance: MAINS_CLEARANCE }];
   p.rules.edgeClearance = 0.4;
@@ -119,6 +158,33 @@ export function buildVacuumEsp32(firmware?: { name: string; wasm: string }): Pro
     keepoutVias: true,
     showLabel: false,
   });
+  // Под брюхом модуля (открытая площадка GND) — без меди сверху и без переходных; снизу дорожки можно.
+  addRuleArea(p, {
+    name: 'Под модулем ESP32',
+    outline: [
+      { x: 85.6, y: 45.0 },
+      { x: 103.2, y: 45.0 },
+      { x: 103.2, y: 60.55 },
+      { x: 85.6, y: 60.55 },
+    ],
+    keepoutTracks: true,
+    keepoutVias: true,
+    layers: ['F.Cu'],
+    showLabel: false,
+  });
+  // Переходные на землю у площадок GND в середине аналоговой части: дорожки датчиков
+  // окружают их со всех сторон, и заливка сверху до них не доходит — земля берётся снизу.
+  const world = getWorld(p);
+  const viaD = p.netClasses.Power.viaDiameter;
+  const viaDrill = p.netClasses.Power.viaDrill;
+  for (const [ref, pad, dx, dy] of GND_VIAS) {
+    const wp = world.pads.find((q) => q.component.ref === ref && q.pad.number === pad);
+    if (!wp || wp.net !== gnd) throw new Error(`${ref}.${pad}: не вывод GND`);
+    const at = { x: +(wp.center.x + dx).toFixed(3), y: +(wp.center.y + dy).toFixed(3) };
+    addVia(p, { at, diameter: viaD, drill: viaDrill });
+    addTrack(p, { layer: 'F.Cu', width: p.netClasses.Power.trackWidth, points: [wp.center, at] });
+  }
+  for (const pts of GND_BUS) addTrack(p, { layer: 'B.Cu', width: p.netClasses.Power.trackWidth, points: pts.map(([x, y]) => ({ x, y })) });
   layoutSchematic(p);
   if (firmware) p.firmware = { name: firmware.name, hex: '', mcu: 'esp32', wasm: firmware.wasm };
   return structuredClone(p);
@@ -133,33 +199,58 @@ function apply(p: Project, r: Pick<RouteResult, 'tracks' | 'vias' | 'wires'>): P
   return structuredClone(p);
 }
 
+/** Шаг сетки низковольтной части: треть шага выводов ESP32 (1,27 мм) — ряды выводов на сетке. */
+const FINE_GRID = 1.27 / 3;
+
 /**
- * Разводка в три прохода: цепи 230 В (крупная сетка, широкие дорожки), питание,
- * затем сигналы с учётом заливки земли. Возвращает новый проект и отчёт.
+ * Разводка: цепи 230 В (крупная сетка, широкие дорожки); силовые цепи блока питания
+ * (всё, что целиком слева, — широкими дорожками); затем вся остальная низковольтная часть
+ * одним согласованием на мелкой сетке дорожками 0,2 мм (земля — заливкой, недостающее —
+ * дорожками). Возвращает новый проект и отчёт.
  */
-export async function routeVacuumEsp32(p0: Project, o: { iterations?: number } = {}): Promise<{ project: Project; report: string[] }> {
+export async function routeVacuumEsp32(
+  p0: Project,
+  o: { iterations?: number; congestionGrowth?: number; hopCost?: number } = {},
+): Promise<{ project: Project; report: string[]; hot: RouteResult['hot']; failedLinks: RouteResult['wires'] }> {
   let p = structuredClone(p0);
   const report: string[] = [];
-  const it = o.iterations ?? 40;
-  const ids = (f: (cls: string, name: string) => boolean) => Object.values(p.nets).filter((n) => f(n.netClass, n.name)).map((n) => n.id);
+  const it = o.iterations ?? 60;
+  const ids = (f: (cls: string, name: string, id: string) => boolean) => Object.values(p.nets).filter((n) => f(n.netClass, n.name, n.id)).map((n) => n.id);
   const r1 = await autoroute(p, { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 1.27, nets: ids((c) => c === 'Mains') });
   report.push(`230 В: дорожек ${r1.tracks.length}, не проведено ${r1.failed}`);
   p = apply(p, r1);
-  // Логику разводим на копии, где у класса 230 В обычные ширина и зазор: иначе трассировщик
-  // держит у каждой площадки запас по самому широкому классу и не подходит к выводам ESP32.
-  // 6 мм до сети обеспечивают зоны правил (дорожки логики туда не заходят).
-  const narrow = (q: Project): Project => {
+
+  // Цепи блока питания: все выводы левее 36 мм (трансформатор, мост, преобразователь).
+  const world = getWorld(p);
+  const psu = new Set<string>();
+  for (const n of Object.values(p.nets)) {
+    const pads = world.pads.filter((q) => q.net === n.id);
+    if (n.netClass !== 'Mains' && n.name !== 'GND' && pads.length > 1 && pads.every((q) => q.center.x < 36)) psu.add(n.id);
+  }
+  // У класса 230 В на копиях — обычные ширина и зазор: иначе трассировщик держит у каждой
+  // площадки запас по самому широкому классу. 6 мм до сети держат зоны правил.
+  const quiet = (q: Project, width?: number): Project => {
     const c = structuredClone(q);
-    c.netClasses.Mains = { ...c.netClasses.Mains, clearance: 0.2, trackWidth: 0.25 };
+    c.netClasses.Mains = { ...c.netClasses.Mains, clearance: 0.2, trackWidth: width ?? 0.25 };
+    if (width) for (const k of Object.keys(c.netClasses)) if (k !== 'Mains') c.netClasses[k] = { ...c.netClasses[k], trackWidth: width };
     return c;
   };
-  const r2 = await autoroute(narrow(p), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: ids((c, n) => c === 'Power' && n !== 'GND') });
-  report.push(`питание: дорожек ${r2.tracks.length}, переходных ${r2.vias.length}, не проведено ${r2.failed}`);
+  const r2 = await autoroute(quiet(p), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: [...psu] });
+  report.push(`блок питания: дорожек ${r2.tracks.length}, переходных ${r2.vias.length}, не проведено ${r2.failed}`);
   p = apply(p, r2);
-  const r3 = await autorouteWithZones(narrow(p), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: ids((c, n) => c !== 'Mains' && (c !== 'Power' || n === 'GND')) });
-  report.push(`сигналы: дорожек ${r3.tracks.length}, переходных ${r3.vias.length}, сшивок ${r3.stitches}, не проведено ${r3.failed}`);
+
+  const r3 = await autorouteWithZones(quiet(p, 0.2), {
+    iterations: it,
+    hopCost: o.hopCost ?? 12,
+    congestionGrowth: o.congestionGrowth ?? 1.3,
+    yieldEvery: 1e9,
+    grid: FINE_GRID,
+    keepExisting: true,
+    nets: ids((c, _n, id) => c !== 'Mains' && !psu.has(id)),
+  });
+  report.push(`низковольтная часть: дорожек ${r3.tracks.length}, переходных ${r3.vias.length}, сшивок ${r3.stitches}, не проведено ${r3.failed}`);
   p = apply(p, r3);
-  return { project: p, report };
+  return { project: p, report, hot: r3.hot, failedLinks: r3.wires };
 }
 
 /* ---------------- схема ---------------- */
@@ -167,7 +258,7 @@ export async function routeVacuumEsp32(p0: Project, o: { iterations?: number } =
 const BLOCKS: { title: string; at: [number, number]; width: number; parts: (string | [string, number])[] }[] = [
   { title: 'Сеть и питание', at: [10, 10], width: 230, parts: ['XP1', 'XT1', ['FU1', 90], ['RU1', 90], 'TV1', 'VDS1', 'VD1', ['C1', 90], 'DA1', ['C2', 90], 'C3', 'L1', ['C4', 90], ['C5', 90], 'DA2', ['C6', 90]] },
   { title: 'Детектор нуля', at: [250, 10], width: 110, parts: ['R1', ['R2', 90], 'VT1', ['R3', 90]] },
-  { title: 'ESP32', at: [250, 70], width: 170, parts: ['A1', ['R4', 90], ['C7', 90], ['R5', 90], ['C8', 90], ['C9', 90], 'SB1', 'SB2', 'X6'] },
+  { title: 'ESP32', at: [250, 70], width: 170, parts: ['A1', ['R4', 90], ['C7', 90], ['C8', 90], ['C9', 90], 'X6'] },
   { title: 'Турбины и розетка (230 В)', at: [10, 110], width: 230, parts: ['R6', 'U1', 'R11', 'R7', 'U2', 'R12', 'R8', 'U3', 'R13', 'XT3', 'VS3', 'VS4', 'VS5', 'TA1', 'TA2', 'TA3', 'M1', 'M2', 'XS1'] },
   { title: 'Клапаны продувки', at: [10, 215], width: 230, parts: ['R9', 'U4', 'R14', 'VS1', 'R10', 'U5', 'R15', 'VS2', 'XT2', 'YA1', 'YA2'] },
   { title: 'Датчики', at: [430, 10], width: 200, parts: ['X4', ['R20', 90], ['R21', 90], ['C10', 90], ['R22', 90], ['R23', 90], ['R24', 90], ['R25', 90], ['R26', 90], ['C11', 90], ['C12', 90], 'RK1', 'RK2', 'B1', 'R27', ['R28', 90], ['C13', 90], ['C14', 90]] },

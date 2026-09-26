@@ -561,7 +561,7 @@ static void status_line(char *out) {
   char n[16];
   out[0] = 0;
   str_cat(out, vac.state == VAC_ACTIVE ? (vac.mode == VAC_AUTO ? "АВТО" : "РУЧН") : "СТОП");
-  str_cat(out, vac.running ? " работа" : " стоит");
+  str_cat(out, vac.purging ? " продувка" : vac.running ? " работа" : " стоит");
   str_cat(out, " P="), str_cat(out, fmt_int(n, (long)(vac.pcmd[0] > vac.pcmd[1] ? vac.pcmd[0] : vac.pcmd[1]))), str_cat(out, "%");
   str_cat(out, " I1="), str_cat(out, fmt_num(n, vac.amps[0], 2));
   str_cat(out, " I2="), str_cat(out, fmt_num(n, vac.amps[1], 2));

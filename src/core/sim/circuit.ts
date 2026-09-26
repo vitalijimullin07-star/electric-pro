@@ -201,7 +201,8 @@ export class Circuit {
   private derived: boolean[] = [];
   /** Источники напряжения и тока на отдельных цепях (датчики с выходом через делитель, трансформаторы тока). */
   private netSources = new Map<Id, Source>();
-  private netCurrents = new Map<Id, Source>();
+  /** Токи, втекающие в цепь (несколько источников на одну цепь — по ключу). */
+  private netCurrents = new Map<Id, Map<string, Source>>();
   private groupHasSources: boolean[] = [];
   /** Напряжение цепей питания (по группе). */
   private powerVolts: number[] = [];
@@ -495,7 +496,7 @@ export class Circuit {
       const src = this.netSources.get(nets[i]);
       if (src) fixed[i] = src(now);
       const cur = this.netCurrents.get(nets[i]);
-      if (cur) I[i] += cur(now);
+      if (cur) for (const f of cur.values()) I[i] += f(now);
     }
     for (const r of info.res) {
       const a = idx.get(r.a);
@@ -540,10 +541,16 @@ export class Circuit {
   }
 
   /** Источник тока в цепь (трансформатор тока), А; null — убрать. */
-  setNetCurrent(net: Id | undefined, fn: Source | null): void {
+  setNetCurrent(net: Id | undefined, fn: Source | null, key = ''): void {
     if (!net) return;
-    if (fn) this.netCurrents.set(net, fn);
-    else this.netCurrents.delete(net);
+    let m = this.netCurrents.get(net);
+    if (fn) {
+      if (!m) this.netCurrents.set(net, (m = new Map()));
+      m.set(key, fn);
+    } else if (m) {
+      m.delete(key);
+      if (!m.size) this.netCurrents.delete(net);
+    }
     this.markSources(net);
   }
 

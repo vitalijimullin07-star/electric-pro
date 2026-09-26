@@ -138,5 +138,6 @@ export async function autorouteWithZones(p: Project, o: ZoneRouteOptions = {}): 
     ms: r1.ms + (r2?.ms ?? 0),
     zoneNets: byZone.length - left.length,
     stitches: vias.length,
+    hot: [...(r1.hot ?? []), ...(r2?.hot ?? [])],
   };
 }

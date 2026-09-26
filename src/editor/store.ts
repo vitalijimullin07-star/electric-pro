@@ -129,7 +129,8 @@ export interface EditorState {
   routing: RouteProgress;
   panelTab: 'props' | 'layers' | 'nets' | 'library' | 'drc' | 'sim';
   /** Симуляция: состояние для интерфейса (сама симуляция — в sim-runtime.ts). */
-  sim: { status: 'off' | 'running' | 'paused'; seconds: number; speed: number; error: string | null; tick: number };
+  /** Симуляция; full — открыта во весь экран. */
+  sim: { status: 'off' | 'running' | 'paused' | 'loading'; seconds: number; speed: number; error: string | null; tick: number; full?: boolean };
   panelOpen: boolean;
   fileName: string | null;
   /** Под каким номером проект сохранён в «Мои проекты» на устройстве (Ctrl+S перезаписывает его). */

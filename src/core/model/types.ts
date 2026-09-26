@@ -192,6 +192,11 @@ export interface RuleArea {
   onlyClasses?: string[];
   keepoutTracks?: boolean;
   keepoutVias?: boolean;
+  /**
+   * Слои, на которых действуют запрет дорожек и допустимые классы; нет — на всех.
+   * Переходное проходит через все слои, поэтому запрет переходных действует всегда.
+   */
+  layers?: CopperLayer[];
   /** Показывать подпись с названием на шелкографии. */
   showLabel?: boolean;
 }

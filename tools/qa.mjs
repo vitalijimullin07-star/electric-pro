@@ -1414,6 +1414,65 @@ async function openPage(viewport, touch = false) {
     await h.menu('Схема', 'Перейти к плате');
   });
 
+  await step('Пылесос ESP32: плата разведена; симуляция во весь экран — пуск турбин, экран, графики, настройки, «Назад»', async () => {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+    await fc.setFiles(new URL('../import/vacuum-esp32.plata.json', import.meta.url).pathname);
+    await page.waitForTimeout(1200);
+    const p = await h.project();
+    expect(p.firmware?.wasm && p.firmware.mcu === 'esp32', 'прошивка ESP32 не в проекте');
+    const chips = await h.chips();
+    expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
+    await page.screenshot({ path: `${out}/vacuum-board.png` });
+    await h.menu('Симуляция', 'Во весь экран');
+    const shown = await page
+      .locator('.simfs .sim-oled')
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    expect(shown, 'во весь экран нет экрана пульта: ' + (await page.locator('.simfs').innerText().catch(() => '')).slice(0, 200));
+    // «Пуск/Стоп» — держим 0,3 с, как пальцем.
+    const start = page.locator('.simfs-keys .sim-hold', { hasText: 'Пуск' });
+    const bb = await start.boundingBox();
+    expect(bb, 'нет кнопки «Пуск/Стоп»');
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+    let scheme = '';
+    for (let i = 0; i < 60; i++) {
+      await page.waitForTimeout(250);
+      scheme = (await page.locator('.simfs-scheme').textContent()) ?? '';
+      if (/M1 (2\d|3\d),\d тыс/.test(scheme) && /M2 (2\d|3\d),\d тыс/.test(scheme)) break;
+    }
+    expect(/M1 (2\d|3\d),\d тыс/.test(scheme) && /M2 (2\d|3\d),\d тыс/.test(scheme), 'турбины не разогнались: ' + scheme.slice(0, 300));
+    expect(/разрежение [1-9]/.test(scheme) && /расход [1-9]\d/.test(scheme), 'нет воздуха: ' + scheme.slice(0, 300));
+    expect((await page.locator('.simfs-chart canvas').count()) >= 4, 'нет графиков');
+    // Настройки: сеть 170 В — прошивка замечает по ширине импульса детектора нуля.
+    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Настройки' }));
+    const set = await page.evaluate(() => {
+      const card = [...document.querySelectorAll('.simfs-card')].find((c) => /сеть/.test(c.querySelector('summary')?.textContent ?? ''));
+      const r = card?.querySelector('input[type=range]');
+      if (!r) return false;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(r, '170');
+      r.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    });
+    expect(set, 'нет ползунка напряжения сети');
+    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Порт' }));
+    let port = '';
+    for (let i = 0; i < 40 && !/Напряжение сети/.test(port); i++) {
+      await page.waitForTimeout(250);
+      port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
+    }
+    expect(/Напряжение сети/.test(port), 'прошивка не заметила низкое напряжение: ' + port.slice(-300));
+    await page.screenshot({ path: `${out}/vacuum-fullscreen.png` });
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(400);
+    expect(!(await page.locator('.simfs').count()), '«Назад» не закрыл полноэкранную симуляцию');
+    await h.menu('Симуляция', 'Стоп');
+  });
+
   await page.screenshot({ path: `${out}/desktop.png` });
   await page.context().close();
 }

@@ -303,7 +303,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         let down = false;
         subs.push({
           key: 'B',
-          label: comp.description && !/^Кнопка/.test(comp.description) ? comp.description : 'кнопка',
+          // Подпись: название кнопки («Пуск/Стоп», RESET), иначе описание, если оно не общее.
+          label: (/[А-Яа-яЁё]/.test(comp.value) && !/^кнопк/i.test(comp.value)) || /^[A-Z]{3,8}$/.test(comp.value) ? comp.value : comp.description && !/^Кнопка/.test(comp.description) ? comp.description : 'кнопка',
           press: (d) => {
             down = d;
             for (const s of sws) c.setSwitch(s, d);
@@ -930,8 +931,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
       const ratio = +(/(\d+)\s*[:/]\s*1\b/.exec(comp.value)?.[1] ?? 1000);
       const params = [param('i', 'ток через окно', 2, 0, 20, 0.1, 'А')];
       const inst = (cy: number) => (params[0].value * Math.SQRT2 * Math.sin((2 * Math.PI * 50 * cy) / mcu.freq)) / ratio;
-      c.setNetCurrent(s1, inst);
-      c.setNetCurrent(s2, (cy) => -inst(cy));
+      c.setNetCurrent(s1, inst, comp.id);
+      c.setNetCurrent(s2, (cy) => -inst(cy), comp.id);
       devices.push({ id: comp.id, comp, set: (_k, v) => void (params[0].value = v), view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} трансформатор тока ${comp.value}`, params }) });
       continue;
     }

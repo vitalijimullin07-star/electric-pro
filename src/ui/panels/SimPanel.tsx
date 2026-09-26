@@ -3,7 +3,8 @@ import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
 import { parseHex } from '@core/sim/hex';
 import type { DeviceView, SimView } from '@core/sim';
-import { openTextFile } from '../files';
+import { openFileBytes } from '../files';
+import { bytesToBase64 } from '@core/sim';
 import { charOf } from '@core/sim/hd44780';
 
 /*
@@ -38,20 +39,30 @@ function useSimView(): SimView | null {
 }
 
 export async function loadFirmware(): Promise<void> {
-  const f = await openTextFile('.hex,.ihex,.txt');
+  const f = await openFileBytes('.hex,.ihex,.txt,.wasm');
   if (!f) return;
   const s = useEditor.getState();
+  if (/\.wasm$/i.test(f.name)) {
+    // Ядро прошивки ESP32, собранное в WebAssembly: проверяем, что браузер его примет.
+    if (!WebAssembly.validate(f.bytes as BufferSource)) return s.setMessage(`«${f.name}» — не модуль WebAssembly.`);
+    s.commit((d) => void (d.firmware = { name: f.name, hex: '', mcu: 'esp32', wasm: bytesToBase64(f.bytes) }));
+    s.setMessage(`Прошивка для симуляции ESP32 «${f.name}» загружена: ${(f.bytes.length / 1024).toFixed(1).replace('.', ',')} КБ. Нажмите «Старт».`);
+    if (simRuntime.active) simRuntime.start();
+    return;
+  }
   try {
-    const flash = parseHex(f.text);
+    const flash = parseHex(f.text());
     let used = flash.length;
     while (used > 0 && flash[used - 1] === 0xff) used--;
-    s.commit((d) => void (d.firmware = { name: f.name, hex: f.text }));
+    s.commit((d) => void (d.firmware = { name: f.name, hex: f.text() }));
     s.setMessage(`Прошивка «${f.name}» загружена: ${(used / 1024).toFixed(1).replace('.', ',')} КБ. Нажмите «Старт».`);
     if (simRuntime.active) simRuntime.start();
   } catch (e) {
     s.setMessage((e as Error).message);
   }
 }
+
+export { useSimView };
 
 export function SimPanel() {
   const sim = useEditor((s) => s.sim);
@@ -69,8 +80,8 @@ export function SimPanel() {
             ⏸ Пауза
           </button>
         ) : (
-          <button className="btn primary" onClick={() => (status === 'paused' ? simRuntime.resume() : simRuntime.start())} disabled={!fw}>
-            ▶ {status === 'paused' ? 'Дальше' : 'Старт'}
+          <button className="btn primary" onClick={() => (status === 'paused' ? simRuntime.resume() : simRuntime.start())} disabled={!fw || status === 'loading'}>
+            ▶ {status === 'paused' ? 'Дальше' : status === 'loading' ? 'Запуск…' : 'Старт'}
           </button>
         )}
         <button className="btn" onClick={() => simRuntime.start()} disabled={!fw || status === 'off'} title="Сначала: сброс контроллера, схема заново">
@@ -84,14 +95,19 @@ export function SimPanel() {
         </label>
       </div>
       <div className="row">
+        <button className="btn primary" onClick={() => (status === 'off' && simRuntime.start(), simRuntime.setFull(true))} disabled={!fw} title="Пульт, мнемосхема, графики и все настройки на весь экран">
+          ⛶ Во весь экран
+        </button>
+      </div>
+      <div className="row">
         <button className="btn" onClick={() => void loadFirmware()}>
-          Загрузить прошивку (.hex)…
+          Загрузить прошивку (.hex, .wasm)…
         </button>
         <span className="hint">{fw ? fw.name : 'не загружена'}</span>
       </div>
       {!fw && (
         <p className="hint">
-          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме.
+          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме. Для ESP32 — ядро прошивки, собранное в WebAssembly (<b>.wasm</b>, см. firmware/vacuum-esp32/build-sim.sh).
         </p>
       )}
       {sim.error && <p className="hint" style={{ color: 'var(--err)' }}>{sim.error}</p>}
@@ -129,8 +145,8 @@ export function SimPanel() {
   );
 }
 
-function Devices({ view }: { view: SimView }) {
-  const order: DeviceView['kind'][] = ['lcd', 'oled', 'coil', 'button', 'pot', 'analog', 'digital', 'battery', 'sensor', 'led', 'buzzer', 'relay'];
+export function Devices({ view }: { view: SimView }) {
+  const order: DeviceView['kind'][] = ['lcd', 'oled', 'coil', 'button', 'encoder', 'pot', 'analog', 'digital', 'battery', 'mains', 'motor', 'valve', 'tool', 'plant', 'sensor', 'triac', 'led', 'buzzer', 'relay'];
   const list = [...view.devices].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   const unknown = simRuntime.sim?.unknown ?? [];
   return (
@@ -146,6 +162,7 @@ function Devices({ view }: { view: SimView }) {
             {d.kind === 'buzzer' && d.on && <span className="hint">{d.hz} Гц</span>}
           </div>
           {d.warning && <div className="hint" style={{ color: 'var(--warn)' }}>⚠ {d.warning}</div>}
+          {d.readings && d.readings.length > 0 && <Readings d={d} />}
           {d.kind === 'lcd' && d.lines && <Lcd d={d} />}
           {d.kind === 'oled' && d.frame && <Oled frame={d.frame} w={d.width!} h={d.height!} />}
           {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} />}
@@ -207,7 +224,23 @@ function Devices({ view }: { view: SimView }) {
   );
 }
 
-function HoldButton({ id, pressed }: { id: string; pressed: boolean }) {
+/** Показания детали: «ток 4,93 А · температура 41 °C». */
+export function Readings({ d }: { d: DeviceView }) {
+  return (
+    <div className="sim-readings">
+      {d.readings!.map((r) => (
+        <span key={r.label}>
+          {r.label} <b>{fmtNum(r.value)}</b>
+          {r.unit ? ` ${r.unit}` : ''}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export const fmtNum = (v: number): string => (Math.abs(v) >= 100 ? String(Math.round(v)) : String(+v.toFixed(Math.abs(v) >= 10 ? 1 : 2))).replace('.', ',');
+
+export function HoldButton({ id, pressed, label }: { id: string; pressed: boolean; label?: string }) {
   const up = () => simRuntime.press(id, false);
   return (
     <button
@@ -220,7 +253,7 @@ function HoldButton({ id, pressed }: { id: string; pressed: boolean }) {
       onPointerCancel={up}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {pressed ? 'нажата' : 'нажать и держать'}
+      {label ?? (pressed ? 'нажата' : 'нажать и держать')}
     </button>
   );
 }
@@ -257,7 +290,7 @@ function Lcd({ d }: { d: DeviceView }) {
   );
 }
 
-function Oled({ frame, w, h }: { frame: Uint8Array; w: number; h: number }) {
+export function Oled({ frame, w, h }: { frame: Uint8Array; w: number; h: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const cv = ref.current;
@@ -276,7 +309,7 @@ function Oled({ frame, w, h }: { frame: Uint8Array; w: number; h: number }) {
   return <canvas ref={ref} className="sim-oled" width={w} height={h} style={{ aspectRatio: `${w} / ${h}` }} />;
 }
 
-function Serial({ baud }: { baud: number }) {
+export function Serial({ baud }: { baud: number }) {
   const [text, setText] = useState(simRuntime.sim?.serial ?? '');
   const [input, setInput] = useState('');
   const [eol, setEol] = useState('\n');

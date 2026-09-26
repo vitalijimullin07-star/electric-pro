@@ -114,6 +114,7 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey, teardrops: 
     for (const cut of p.board.cutouts) grid.polygon(cut, false, p.rules.edgeClearance);
     for (const hole of holes) grid.shape(hole, baseClr + margin);
     for (const ra of Object.values(p.ruleAreas)) {
+      if (ra.layers && !ra.layers.includes(z.layer as CopperLayer)) continue;
       const forbidden = ra.keepoutTracks || (ra.onlyClasses?.length && !ra.onlyClasses.includes(zoneCls?.name ?? netClassOf(p, null).name));
       if (forbidden) grid.polygon(ra.outline, false, 0);
     }

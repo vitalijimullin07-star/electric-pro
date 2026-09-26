@@ -252,6 +252,8 @@ export function runDrc(p: Project): DrcReport {
       const isTrack = it.owner.startsWith('track:');
       if (!isVia && !isTrack) continue;
       if (isVia && it.layer === 'F.Cu') continue;
+      // Область одного слоя: дорожки других слоёв её не касаются, переходное — всегда (оно сквозное).
+      if (isTrack && ra.layers && !ra.layers.includes(it.layer as CopperLayer)) continue;
       if (!inArea(it.shape)) continue;
       if ((isTrack && ra.keepoutTracks) || (isVia && ra.keepoutVias)) add('keepout', 'error', centerOf(it.shape), `${cap(it.label)} в запретной области «${ra.name}»`, [it.ref, { kind: 'ruleArea', id: ra.id }]);
       else if (ra.onlyClasses && ra.onlyClasses.length && !(it.cls && ra.onlyClasses.includes(it.cls.name)))

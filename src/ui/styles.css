@@ -1325,3 +1325,374 @@ textarea:focus {
     margin-left: auto;
   }
 }
+
+/* ---------------- симуляция во весь экран ---------------- */
+.simfs {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+}
+.simfs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  padding-top: max(6px, env(safe-area-inset-top));
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.simfs-name {
+  font-size: 14px;
+}
+.simfs-mcu {
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.simfs-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--mute);
+}
+.simfs-grow {
+  flex: 1;
+}
+.simfs-sound {
+  color: var(--mute);
+}
+.simfs-error {
+  margin: 6px 10px;
+  color: var(--err);
+}
+.simfs-empty {
+  margin: auto;
+  color: var(--mute);
+}
+.simfs-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+.simfs-main {
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.simfs-side {
+  min-width: 0;
+  overflow: auto;
+  padding: 8px 10px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+.simfs-scheme {
+  width: 100%;
+  max-height: 62vh;
+  background: #0d1218;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.simfs-t {
+  fill: #c9d3dd;
+  font: 16px system-ui, sans-serif;
+}
+.simfs-t.small {
+  font-size: 13px;
+  fill: #93a0ae;
+}
+.simfs-t.big {
+  font-size: 18px;
+  font-weight: 600;
+}
+.simfs-t.warn {
+  fill: var(--warn);
+}
+.simfs-pipe {
+  fill: none;
+  stroke: #394656;
+  stroke-width: 22;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.simfs-pipe.thin {
+  stroke-width: 14;
+}
+.simfs-air {
+  fill: none;
+  stroke: #64d2ff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 3 14;
+  opacity: 0.25;
+}
+.simfs-air.run {
+  opacity: 0.9;
+  animation: simfs-flow 1s linear infinite;
+}
+@keyframes simfs-flow {
+  to {
+    stroke-dashoffset: -34;
+  }
+}
+.simfs-venturi {
+  fill: #2a3542;
+  stroke: #64d2ff;
+  stroke-width: 1.5;
+}
+.simfs-tank {
+  fill: #151c24;
+  stroke: #4b5a6b;
+  stroke-width: 3;
+}
+.simfs-chamber {
+  fill: #131a22;
+  stroke: #4b5a6b;
+  stroke-width: 2;
+}
+.simfs-filter {
+  fill: #e8e2d0;
+  fill-opacity: 0.12;
+  stroke: #cfc6ad;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+.simfs-valve rect {
+  fill: #2a3542;
+  stroke: #93a0ae;
+  stroke-width: 2;
+}
+.simfs-valve.open rect {
+  fill: #0a84ff;
+  stroke: #64d2ff;
+}
+.simfs-puff {
+  fill: none;
+  stroke: #64d2ff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: simfs-puff 0.3s ease-out infinite alternate;
+}
+@keyframes simfs-puff {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.simfs-motor {
+  fill: #18212b;
+  stroke-width: 5;
+}
+.simfs-motor.bad {
+  stroke-dasharray: 10 6;
+}
+.simfs-fan {
+  fill: #7d8fa3;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.simfs-fan.spin {
+  animation: simfs-spin 1s linear infinite;
+}
+@keyframes simfs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.simfs-box {
+  fill: #18212b;
+  stroke: #4b5a6b;
+  stroke-width: 2;
+}
+.simfs-box.ctl {
+  stroke: #57d69b;
+}
+.simfs-phase line,
+.simfs-phase polyline {
+  fill: none;
+  stroke: #5b6775;
+  stroke-width: 1.5;
+}
+.simfs-phase polygon {
+  fill: #ffd60a;
+  opacity: 0.85;
+}
+.simfs-wire {
+  fill: none;
+  stroke: #a07b3c;
+  stroke-width: 3;
+}
+.simfs-bus {
+  fill: none;
+  stroke: #a07b3c;
+  stroke-width: 5;
+}
+.simfs-tool circle {
+  fill: #2a3542;
+  stroke: #93a0ae;
+  stroke-width: 2;
+}
+.simfs-tool.on circle:first-of-type {
+  stroke: #bf5af2;
+  fill: #3a2350;
+}
+.simfs-block circle {
+  fill: #ff453a;
+  opacity: 0.85;
+}
+.simfs-block text {
+  fill: #fff;
+  font: 11px system-ui;
+}
+.simfs-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.simfs-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px;
+}
+.simfs-chart {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.simfs-chart-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.simfs-chart canvas {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+.simfs-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mute);
+  font-size: 12px;
+}
+.simfs-key i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+.simfs-pult {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+}
+.simfs-pult .sim-oled {
+  max-width: 100%;
+}
+.simfs-enc {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  gap: 8px;
+  align-items: center;
+}
+.simfs-enc .hint {
+  grid-column: 1 / -1;
+}
+.simfs-knob {
+  min-height: 56px;
+  font-size: 26px;
+}
+.simfs-enc .sim-hold {
+  min-width: 0;
+  margin: 0;
+  min-height: 56px;
+  font-size: 22px;
+}
+.simfs-keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+.simfs-keys .sim-hold {
+  min-width: 0;
+  margin: 0;
+  min-height: 52px;
+}
+.simfs-ind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.simfs-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+.simfs-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--panel-2);
+}
+.simfs-card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.sim-readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  color: var(--mute);
+}
+.sim-readings b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.simfs-generic {
+  max-width: 560px;
+}
+@media (max-width: 900px) {
+  /* Телефон: пульт сверху, под ним мнемосхема (шире экрана — листается вбок) и графики. */
+  .simfs-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .simfs-main,
+  .simfs-side {
+    overflow: visible;
+  }
+  .simfs-side {
+    order: -1;
+    border-left: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .simfs-scheme-wrap {
+    overflow-x: auto;
+  }
+  .simfs-scheme {
+    min-width: 620px;
+    max-height: none;
+  }
+  .simfs-mcu {
+    display: none;
+  }
+}

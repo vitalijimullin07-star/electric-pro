@@ -653,8 +653,8 @@ export class VacuumPlant {
       const t = (cycle / this.freq) * 1e6;
       return ct.loads.reduce((a, l) => a + this.loadAmps(l, t), 0);
     };
-    c.setNetCurrent(ct.s1, (cy) => amps(cy) / ct.ratio);
-    c.setNetCurrent(ct.s2, (cy) => -amps(cy) / ct.ratio);
+    c.setNetCurrent(ct.s1, (cy) => amps(cy) / ct.ratio, ct.comp.id);
+    c.setNetCurrent(ct.s2, (cy) => -amps(cy) / ct.ratio, ct.comp.id);
     const comp = ct.comp;
     this.devices.push({
       id: comp.id,

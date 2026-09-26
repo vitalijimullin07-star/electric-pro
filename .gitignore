@@ -8,3 +8,5 @@ qa-out/
 firmware/*/build/
 tests/_tmp/
 tools/_shot.mjs
+tools/_fs.mjs
+tools/_crop.mjs
