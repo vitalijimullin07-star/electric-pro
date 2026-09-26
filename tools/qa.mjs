@@ -1414,27 +1414,49 @@ async function openPage(viewport, touch = false) {
     await h.menu('Схема', 'Перейти к плате');
   });
 
-  await step('Пылесос ESP32: плата разведена; симуляция во весь экран — пуск турбин, экран, графики, настройки, «Назад»', async () => {
+  await step('Пылесос ESP32: плата разведена; во весь экран — сенсорный пульт 800×480, пуск турбин, касания, графики, настройки, «Назад»', async () => {
     const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
     await fc.setFiles(new URL('../import/vacuum-esp32.plata.json', import.meta.url).pathname);
     await page.waitForTimeout(1200);
     const p = await h.project();
     expect(p.firmware?.wasm && p.firmware.mcu === 'esp32', 'прошивка ESP32 не в проекте');
+    expect(p.firmware?.modules?.HG1?.wasm, 'прошивки пульта нет в проекте');
     const chips = await h.chips();
     expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
     await page.screenshot({ path: `${out}/vacuum-board.png` });
     await h.menu('Симуляция', 'Во весь экран');
-    const shown = await page
-      .locator('.simfs .sim-oled')
-      .first()
+    const screen = page.locator('.simfs .sim-panel-screen').first();
+    const shown = await screen
       .waitFor({ timeout: 15000 })
       .then(() => true)
       .catch(() => false);
     expect(shown, 'во весь экран нет экрана пульта: ' + (await page.locator('.simfs').innerText().catch(() => '')).slice(0, 200));
-    // «Пуск/Стоп» — держим 0,3 с, как пальцем.
-    const start = page.locator('.simfs-keys .sim-hold', { hasText: 'Пуск' });
+    // Экран нарисован прошивкой пульта: светлых точек много.
+    let litPx = 0;
+    for (let i = 0; i < 20 && litPx < 5000; i++) {
+      await page.waitForTimeout(250);
+      litPx = await screen.evaluate((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let n = 0;
+        for (let k = 0; k < d.length; k += 4) if (d[k] + d[k + 1] + d[k + 2] > 150) n++;
+        return n;
+      });
+    }
+    expect(litPx > 5000, 'экран пульта пуст: ' + litPx);
+    // Касание экрана: «Режим» (слева сверху) → «Ручной».
+    const sb = await screen.boundingBox();
+    const touch = async (x, y) => {
+      await page.mouse.click(sb.x + (x / 800) * sb.width, sb.y + (y / 480) * sb.height);
+      await page.waitForTimeout(250);
+    };
+    await touch(60, 78);
+    await touch(60, 182);
+    await page.screenshot({ path: `${out}/vacuum-pult-mode.png` });
+    await touch(740, 286);
+    // «Пуск турбин» — держим 0,3 с, как пальцем.
+    const start = page.locator('.simfs-round', { hasText: 'пуск' });
     const bb = await start.boundingBox();
-    expect(bb, 'нет кнопки «Пуск/Стоп»');
+    expect(bb, 'нет кнопки «Пуск турбин»');
     await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.mouse.down();
     await page.waitForTimeout(300);
@@ -1466,6 +1488,7 @@ async function openPage(viewport, touch = false) {
       port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
     }
     expect(/Напряжение сети/.test(port), 'прошивка не заметила низкое напряжение: ' + port.slice(-300));
+    expect(/Режим: ручной/.test(port) && /Пульт на связи/.test(port), 'касания пульта не дошли до контроллера: ' + port.slice(0, 400));
     await page.screenshot({ path: `${out}/vacuum-fullscreen.png` });
     await page.evaluate(() => history.back());
     await page.waitForTimeout(400);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
 import { parseHex } from '@core/sim/hex';
@@ -146,7 +146,7 @@ export function SimPanel() {
 }
 
 export function Devices({ view }: { view: SimView }) {
-  const order: DeviceView['kind'][] = ['lcd', 'oled', 'coil', 'button', 'encoder', 'pot', 'analog', 'digital', 'battery', 'mains', 'motor', 'valve', 'tool', 'plant', 'sensor', 'triac', 'led', 'buzzer', 'relay'];
+  const order: DeviceView['kind'][] = ['panel', 'lcd', 'oled', 'coil', 'button', 'encoder', 'pot', 'analog', 'digital', 'battery', 'mains', 'motor', 'valve', 'tool', 'plant', 'sensor', 'triac', 'led', 'buzzer', 'relay'];
   const list = [...view.devices].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   const unknown = simRuntime.sim?.unknown ?? [];
   return (
@@ -165,6 +165,7 @@ export function Devices({ view }: { view: SimView }) {
           {d.readings && d.readings.length > 0 && <Readings d={d} />}
           {d.kind === 'lcd' && d.lines && <Lcd d={d} />}
           {d.kind === 'oled' && d.frame && <Oled frame={d.frame} w={d.width!} h={d.height!} />}
+          {d.kind === 'panel' && d.pixels && <PanelScreen d={d} />}
           {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} />}
           {d.kind === 'digital' && (
             <button className={`btn sm ${d.on ? 'primary' : ''}`} onClick={() => simRuntime.set(d.id, 'v', d.on ? 0 : 1)}>
@@ -307,6 +308,68 @@ export function Oled({ frame, w, h }: { frame: Uint8Array; w: number; h: number 
     ctx.putImageData(img, 0, 0);
   }, [frame, w, h]);
   return <canvas ref={ref} className="sim-oled" width={w} height={h} style={{ aspectRatio: `${w} / ${h}` }} />;
+}
+
+/**
+ * Экран пульта (кадр RGB565 из прошивки пульта) с касаниями: палец или мышь — как по
+ * сенсору, координаты пересчитываются в точки кадра.
+ */
+export function PanelScreen({ d }: { d: DeviceView }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const img = useRef<ImageData | null>(null);
+  const w = d.width!;
+  const h = d.height!;
+  useEffect(() => {
+    const cv = ref.current;
+    const px = d.pixels;
+    if (!cv || !px) return;
+    const ctx = cv.getContext('2d')!;
+    if (!img.current) img.current = ctx.createImageData(w, h);
+    const out = img.current.data;
+    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+      const c = px[i];
+      const r = c >> 11;
+      const g = (c >> 5) & 63;
+      const b = c & 31;
+      out[j] = (r << 3) | (r >> 2);
+      out[j + 1] = (g << 2) | (g >> 4);
+      out[j + 2] = (b << 3) | (b >> 2);
+      out[j + 3] = 255;
+    }
+    ctx.putImageData(img.current, 0, 0);
+    // Кадр перерисовывается, только когда пульт его поменял.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d.version, w, h]);
+  const at = (e: RPointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return [((e.clientX - r.left) / r.width) * w, ((e.clientY - r.top) / r.height) * h] as const;
+  };
+  const down = useRef(false);
+  return (
+    <canvas
+      ref={ref}
+      className="sim-panel-screen"
+      width={w}
+      height={h}
+      style={{ aspectRatio: `${w} / ${h}` }}
+      aria-label="Экран пульта: касания работают"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        down.current = true;
+        simRuntime.touch(d.id, ...at(e), true);
+      }}
+      onPointerMove={(e) => down.current && simRuntime.touch(d.id, ...at(e), true)}
+      onPointerUp={(e) => {
+        down.current = false;
+        simRuntime.touch(d.id, ...at(e), false);
+      }}
+      onPointerCancel={(e) => {
+        down.current = false;
+        simRuntime.touch(d.id, ...at(e), false);
+      }}
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  );
 }
 
 export function Serial({ baud }: { baud: number }) {

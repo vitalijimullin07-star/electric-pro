@@ -2,7 +2,8 @@ import type { FootprintDef, PadDef } from '../../model/types';
 
 /*
  * Контроллер строительного пылесоса на ESP32-WROOM-32E — перечень деталей и соединений.
- * Готовых модулей нет, кроме ESP32 и датчиков: блок питания — трансформатор, мост,
+ * Готовых модулей нет, кроме ESP32, платы пульта с экраном и датчиков: блок питания — трансформатор
+ * на шасси, мост,
  * понижающий преобразователь AP63205 и стабилизатор AMS1117; «диммер» — детектор нуля
  * с вторичной обмотки, оптроны MOC3023 (турбины, фаза) и MOC3063 (розетка, клапаны, у нуля),
  * симисторы; токи — трансформаторы тока, температура двигателей — термисторы NTC.
@@ -23,7 +24,7 @@ export interface VacPart {
 }
 
 /** Цепи сети 230 В: класс Mains, 6 мм до всего остального. */
-export const MAINS_NETS = ['L', 'N', 'PE', 'L_F', 'M1_SW', 'M1_A', 'M1_R', 'G1', 'M2_SW', 'M2_A', 'M2_R', 'G2', 'XS_SW', 'XS_L', 'XS_R', 'G3', 'Y1_SW', 'Y1_R', 'Y1_G', 'Y2_SW', 'Y2_R', 'Y2_G'];
+export const MAINS_NETS = ['L_IN', 'N_IN', 'L', 'N', 'PE', 'L_F', 'M1_SW', 'M1_A', 'M1_R', 'G1', 'M2_SW', 'M2_A', 'M2_R', 'G2', 'XS_SW', 'XS_L', 'XS_R', 'G3', 'Y1_SW', 'Y1_R', 'Y1_G', 'Y2_SW', 'Y2_R', 'Y2_G'];
 export const POWER_NETS = ['GND', '3V3', '5V', '+12V'];
 
 /* ---------------- выносные детали: корпуса «на проводах» ---------------- */
@@ -60,6 +61,9 @@ export const VAC_FOOTPRINTS: FootprintDef[] = [
   wired('Socket_Tool_Outlet', 'Розетка для инструмента', 'Розетка 16 А на корпусе пылесоса — для электроинструмента (автозапуск)', 'Разъёмы', 'XS', [['L', 'L'], ['N', 'N'], ['PE', 'PE']], ['tool-outlet']),
   wired('R_NTC_Probe_Wires', 'Термистор NTC на проводах', 'Термистор NTC 10 кОм B3950 в изолированной гильзе на корпусе двигателя (провода в изоляции на 230 В)', 'Резисторы', 'RK', [['1', '1'], ['2', '2']], ['ntc', 'thermistor']),
   wired('Sensor_SDP810_Wires', 'Sensirion SDP810', 'Датчик перепада давления Sensirion SDP810 (I²C 0x25), трубки 5 мм, 4 провода', 'Датчики', 'B', [['1', 'VDD'], ['2', 'GND'], ['3', 'SCL'], ['4', 'SDA']], ['sdp810', 'pressure']),
+  wired('Display_ESP32-S3_800x480_Wires', 'Плата ESP32-S3 с экраном 800×480', 'Пульт: плата ESP32-S3 с сенсорным RGB-экраном 5″ или 7″ 800×480 (Sunton ESP32-8048S050C/070C или аналог с GT911), в крышке пылесоса; к контроллеру — 5 В, земля и UART', 'Дисплеи', 'HG', [['1', '5V'], ['2', 'GND'], ['3', 'TX'], ['4', 'RX']], ['panel-s3', 'display'], [40, 26]),
+  wired('SW_Mains_2P_16A', 'Выключатель сети 2P 16 А', 'Двухполюсный клавишный выключатель 250 В 16 А на корпус: полное отключение (фаза и ноль)', 'Кнопки и переключатели', 'SA', [['1', 'L1'], ['2', 'L2'], ['3', 'N1'], ['4', 'N2']], ['mains-switch']),
+  wired('Transformer_Chassis_Wires', 'Трансформатор на корпус', 'Сетевой трансформатор на шасси (EI48 или тороидальный), 230 В → 9 В, 10 ВА: первичная P1–P2, вторичная S1–S2 — проводами к клеммникам на плате', 'Питание', 'TV', [['P1', 'P1'], ['P2', 'P2'], ['S1', 'S1'], ['S2', 'S2']], ['transformer'], [44, 36]),
   wired('SW_PUSH_Panel_16mm', 'Кнопка на панель Ø16', 'Кнопка без фиксации Ø16 мм на панель пылесоса, нормально разомкнутая', 'Кнопки и переключатели', 'SB', [['1', '1'], ['2', '2']], ['panel', 'button']),
 ];
 
@@ -103,10 +107,11 @@ export const VAC_PARTS: VacPart[] = [
   { ref: 'XT1', value: 'Сеть', description: 'Клеммник сети 230 В: L, N', fp: 'TerminalBlock_1x02_P5.08mm', pins: { '1': 'L', '2': 'N' }, at: [13, 5.8] },
   { ref: 'FU1', value: 'T1A', description: 'Предохранитель 1 А (TR5, с задержкой): трансформатор и клапаны', fp: 'Fuse_TR5_P5.08mm', pins: { '1': 'L', '2': 'L_F' }, at: [27, 5.8] },
   { ref: 'RU1', value: 'S07K275', description: 'Варистор 275 В, Ø7: защита от выбросов сети', fp: 'RV_Disc_D7mm_P5mm', pins: { '1': 'L_F', '2': 'N' }, at: [27, 14] },
-  { ref: 'TV1', value: '230/9 В 2 ВА', description: 'Трансформатор 230 → 9 В, 2 ВА, на плату (Block VB 2,0/1/9, Myrra 44232 или аналог EI30)', fp: 'Transformer_EI30_PCB', pins: { P1: 'L_F', P2: 'N', S1: 'AC1', S2: 'AC2' }, at: [18, 35] },
-  { ref: 'VDS1', value: 'MB6S', description: 'Диодный мост 0,5 А 600 В (SOP-4)', fp: 'D_Bridge_MBS_SOP-4', pins: { '1': 'AC2', '3': 'AC1', '4': 'VRECT', '2': 'GND' }, at: [8, 53] },
+  { ref: 'XT4', value: '~230 В', description: 'Клеммник первичной обмотки трансформатора TV1 (после предохранителя)', fp: 'TerminalBlock_1x02_P5.08mm', pins: { '1': 'L_F', '2': 'N' }, at: [12, 18] },
+  { ref: 'XT5', value: '~9 В', description: 'Клеммник вторичной обмотки трансформатора TV1', fp: 'TerminalBlock_1x02_P5.08mm', pins: { '1': 'AC1', '2': 'AC2' }, at: [12, 40] },
+  { ref: 'VDS1', value: 'MB6S', description: 'Диодный мост 0,5 А 600 В (SOP-4): средний ток ≈0,25 А с пультом', fp: 'D_Bridge_MBS_SOP-4', pins: { '1': 'AC2', '3': 'AC1', '4': 'VRECT', '2': 'GND' }, at: [8, 53] },
   { ref: 'VD1', value: 'SS14', description: 'Диод Шоттки 1 А: развязка детектора нуля от накопительного конденсатора', fp: 'D_SMA', pins: { A: 'VRECT', K: '+12V' }, at: [14, 51, 180] },
-  C('C1', '470 мкФ 25 В', 'Накопительный конденсатор после моста', '+12V', 'GND', [24, 54], 'CP_Elec_8x10.5'),
+  C('C1', '680 мкФ 25 В', 'Накопительный конденсатор после моста (пульсации ≈3 В при 0,25 А)', '+12V', 'GND', [24, 51], 'CP_Elec_10x10.5'),
   { ref: 'DA1', value: 'AP63205WU', description: 'Понижающий преобразователь 3,8–32 В → 5 В, 2 А (SOT-23-6)', fp: 'REG_AP63205_SOT-23-6', pins: { VIN: '+12V', EN: '+12V', GND: 'GND', SW: 'SW5', BST: 'BST', FB: '5V' }, at: [8.5, 61.5] },
   C('C2', '10 мкФ 35 В', 'Вход преобразователя (X5R, 1206)', '+12V', 'GND', [4, 61.5, 90], 'C_1206_3216Metric'),
   C('C3', '100 нФ', 'Вольтодобавка BST–SW', 'BST', 'SW5', [9, 65.5]),
@@ -136,7 +141,7 @@ export const VAC_PARTS: VacPart[] = [
       SENSOR_VP: 'CT1', SENSOR_VN: 'CT2', IO34: 'CT3', IO35: 'VAC', IO32: 'NTC1', IO33: 'NTC2',
       IO12: 'T1', IO27: 'T2', IO26: 'OUT', IO13: 'Y1', IO25: 'Y2', IO4: 'ZC',
       IO18: 'SDA0', IO5: 'SCL0', IO16: 'SDA1', IO17: 'SCL1', IO19: 'ENC_A', IO21: 'ENC_B', IO22: 'ENC_SW',
-      IO14: 'K_START', IO23: 'K_MODE', IO15: 'K_PURGE', IO2: 'BZ',
+      IO14: 'K_START', IO23: 'PNL_TX', IO15: 'PNL_RX', IO2: 'BZ',
     },
     at: [97, 52.77, 270],
   },
@@ -185,7 +190,7 @@ export const VAC_PARTS: VacPart[] = [
   R('R32', '4,7k', 'Подтяжка SCL1', 'SCL1', '3V3', [44.1, 66.0], 'R_0603_1608Metric'),
 
   // --- панель и звук ---
-  { ref: 'X1', value: 'Панель', description: 'Экран OLED, энкодер, кнопки и зуммер на панели — плоский кабель 2×6 (IDC). Верхний ряд — сигналы от ESP32, нижний — кнопки, зуммер и питание', fp: 'PinHeader_2x06_P2.54mm', pins: { '1': 'SCL0', '3': 'SDA0', '5': 'ENC_A', '7': 'ENC_B', '9': 'ENC_SW', '11': 'K_MODE', '2': 'K_START', '4': 'K_PURGE', '6': 'BZ_K', '8': '5V', '10': '3V3', '12': 'GND' }, at: [85.1, 69.05] },
+  { ref: 'X1', value: 'Пульт', description: 'Пульт — плоский кабель 2×6 (IDC): плата с экраном (5 В, земля, UART), энкодер, кнопка «Пуск турбин», зуммер. Питание экрана — по двум проводам 5 В и трём земли', fp: 'PinHeader_2x06_P2.54mm', pins: { '1': '5V', '3': 'GND', '5': 'ENC_A', '7': 'ENC_B', '9': 'ENC_SW', '11': 'PNL_TX', '2': 'K_START', '4': 'PNL_RX', '6': 'BZ_K', '8': '5V', '10': 'GND', '12': 'GND' }, at: [85.1, 69.05] },
   { ref: 'VT2', value: 'MMBT3904', description: 'Ключ зуммера', fp: 'Q_MMBT3904_SOT-23', pins: { B: 'BZ_B', E: 'GND', C: 'BZ_K' }, at: [60.3, 55.31] },
   R('R33', '1k', 'База ключа зуммера', 'BZ', 'BZ_B', [60.3, 51.4], 'R_0603_1608Metric'),
   { ref: 'VD2', value: '1N4148W', description: 'Диод на катушке зуммера', fp: 'D_SOD-123', pins: { A: 'BZ_K', K: '5V' }, at: [60.3, 59.4] },
@@ -197,7 +202,9 @@ export const VAC_PARTS: VacPart[] = [
   { ref: 'H4', value: '', description: 'Крепёжное отверстие M3', fp: 'MountingHole_3.2mm_M3', pins: {}, at: [38.3, 40.6] },
 
   // --- выносные детали ---
-  { ref: 'XP1', value: '3×1,5 мм²', description: 'Сетевой шнур с вилкой', fp: 'Mains_Plug_Cord', pins: { L: 'L', N: 'N', PE: 'PE' }, offBoard: true },
+  { ref: 'TV1', value: '230/9 В 10 ВА', description: 'Трансформатор 230 → 9 В, 10 ВА, на шасси (Block VC 10/1/9, тороидальный TTR 10 ВА или аналог): хватает на контроллер и пульт с экраном (до 0,5 А от 5 В)', fp: 'Transformer_Chassis_Wires', pins: { P1: 'L_F', P2: 'N', S1: 'AC1', S2: 'AC2' }, offBoard: true },
+  { ref: 'XP1', value: '3×1,5 мм²', description: 'Сетевой шнур с вилкой', fp: 'Mains_Plug_Cord', pins: { L: 'L_IN', N: 'N_IN', PE: 'PE' }, offBoard: true },
+  { ref: 'SA2', value: '2P 16 А', description: 'Выключатель «Питание» на пульте: полное отключение фазы и нуля (всё, включая розетку инструмента)', fp: 'SW_Mains_2P_16A', pins: { L1: 'L_IN', L2: 'L', N1: 'N_IN', N2: 'N' }, offBoard: true },
   { ref: 'M1', value: '1200 Вт', description: 'Турбина 1 (коллекторный двигатель с вентилятором)', fp: 'Motor_Universal_Wires', pins: { '1': 'M1_A', '2': 'N' }, offBoard: true },
   { ref: 'M2', value: '1200 Вт', description: 'Турбина 2', fp: 'Motor_Universal_Wires', pins: { '1': 'M2_A', '2': 'N' }, offBoard: true },
   { ref: 'VS3', value: 'BTA41-600B', description: 'Симистор турбины 1 на радиаторе', fp: 'Triac_BTA41_TOP3_Heatsink', pins: { T1: 'L', T2: 'M1_SW', G: 'G1' }, offBoard: true },
@@ -213,15 +220,17 @@ export const VAC_PARTS: VacPart[] = [
   { ref: 'RK2', value: '10k B3950', description: 'Термистор на корпусе турбины 2', fp: 'R_NTC_Probe_Wires', pins: { '1': 'NTC2', '2': 'GND' }, offBoard: true, fields: { 'Где стоит': 'M2' } },
   { ref: 'B2', value: 'SDP810-500Pa', description: 'Перепад давления на фильтре (трубки до и после фильтра)', fp: 'Sensor_SDP810_Wires', pins: { VDD: '3V3', GND: 'GND', SCL: 'SCL0', SDA: 'SDA0' }, offBoard: true, fields: { 'Где стоит': 'фильтр' } },
   { ref: 'B3', value: 'SDP810-125Pa', description: 'Расходомер: сопло Вентури на входе шланга в бак', fp: 'Sensor_SDP810_Wires', pins: { VDD: '3V3', GND: 'GND', SCL: 'SCL1', SDA: 'SDA1' }, offBoard: true, fields: { 'Где стоит': 'расходомер' } },
-  { ref: 'HG1', value: 'OLED 0,96″', description: 'Экран OLED 128×64 SSD1306 (I²C 0x3C) на панели', fp: 'Module_OLED_0.96_I2C', pins: { GND: 'GND', VCC: '3V3', SCL: 'SCL0', SDA: 'SDA0' }, offBoard: true },
-  { ref: 'SA1', value: 'EC11', description: 'Энкодер с кнопкой на панели: мощность, меню', fp: 'RotaryEncoder_Alps_EC11E_Vertical_H20mm', pins: { A: 'ENC_A', B: 'ENC_B', C: 'GND', S1: 'ENC_SW', S2: 'GND' }, offBoard: true },
-  { ref: 'SB3', value: 'Пуск/Стоп', description: 'Кнопка «Пуск/Стоп» на панели', fp: 'SW_PUSH_Panel_16mm', pins: { '1': 'K_START', '2': 'GND' }, offBoard: true },
-  { ref: 'SB4', value: 'Режим', description: 'Кнопка «Режим» (ручной / авто от инструмента)', fp: 'SW_PUSH_Panel_16mm', pins: { '1': 'K_MODE', '2': 'GND' }, offBoard: true },
-  { ref: 'SB5', value: 'Продувка', description: 'Кнопка «Продувка» фильтра', fp: 'SW_PUSH_Panel_16mm', pins: { '1': 'K_PURGE', '2': 'GND' }, offBoard: true },
+  { ref: 'HG1', value: 'ESP32-S3 5″ 800×480', description: 'Пульт: плата ESP32-S3 с сенсорным экраном 800×480 (Sunton ESP32-8048S050C или аналог), прошивка firmware/vacuum-panel. TX платы — к PNL_RX контроллера, RX — к PNL_TX', fp: 'Display_ESP32-S3_800x480_Wires', pins: { '5V': '5V', GND: 'GND', TX: 'PNL_RX', RX: 'PNL_TX' }, offBoard: true },
+  { ref: 'SA1', value: 'EC11', description: 'Энкодер с кнопкой под экраном пульта: уставка, параметры на экране', fp: 'RotaryEncoder_Alps_EC11E_Vertical_H20mm', pins: { A: 'ENC_A', B: 'ENC_B', C: 'GND', S1: 'ENC_SW', S2: 'GND' }, offBoard: true },
+  { ref: 'SB3', value: 'Пуск турбин', description: 'Кнопка «Пуск турбин» под экраном: коротко — пуск и стоп, удержание — пресеты на экране', fp: 'SW_PUSH_Panel_16mm', pins: { '1': 'K_START', '2': 'GND' }, offBoard: true },
   { ref: 'BA1', value: 'Зуммер 5 В', description: 'Зуммер электромагнитный без генератора 5 В, Ø12, на панели', fp: 'Buzzer_12x8.5mm_P6mm', pins: { '1': '5V', '2': 'BZ_K' }, offBoard: true },
 ];
 
 export const VAC_NET_DESCRIPTIONS: Record<string, string> = {
+  L_IN: 'Сеть от вилки до выключателя SA2',
+  N_IN: 'Ноль от вилки до выключателя SA2',
+  PNL_TX: 'UART к пульту: IO23 → RX платы с экраном',
+  PNL_RX: 'UART от пульта: TX платы с экраном → IO15',
   L: 'Сеть, фаза',
   N: 'Сеть, ноль',
   PE: 'Защитная земля',
@@ -232,6 +241,6 @@ export const VAC_NET_DESCRIPTIONS: Record<string, string> = {
   '+12V': 'Постоянное после моста, 11–15 В',
   '5V': 'Питание 5 В (AP63205)',
   '3V3': 'Питание 3,3 В (AMS1117)',
-  ZC: 'Детектор нуля → IO23',
+  ZC: 'Детектор нуля → IO4',
   VMID: 'Середина 1,65 В для трансформаторов тока',
 };

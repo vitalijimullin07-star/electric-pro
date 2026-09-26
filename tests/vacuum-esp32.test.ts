@@ -12,83 +12,137 @@ import { Simulation, bytesToBase64 } from '../src/core/sim';
 import type { Device } from '../src/core/sim/devices';
 
 /*
- * Контроллер пылесоса на ESP32: ядро прошивки (firmware/vacuum-esp32, собранное в
- * WebAssembly) управляет моделью установки — турбины, клапаны продувки, розетка
- * инструмента, датчики. Проверяем, что прошивка и модель понимают друг друга, а
- * разведённая плата в import/ — без ошибок.
+ * Контроллер пылесоса на ESP32 и пульт на ESP32-S3 с экраном: ядра обеих прошивок
+ * (firmware/vacuum-esp32 и firmware/vacuum-panel, собранные в WebAssembly) работают
+ * вместе — строки по UART, — и управляют моделью установки: турбины, клапаны продувки,
+ * розетка инструмента, датчики. Проверяем, что прошивки и модель понимают друг друга,
+ * а разведённая плата в import/ — без ошибок.
  * С VAC_WRITE=1 плата разводится заново и файлы в import/ пишутся заново (около минуты).
  */
 
 const wasm = bytesToBase64(readFileSync('firmware/vacuum-esp32/vacuum-esp32.wasm'));
+const panelWasm = bytesToBase64(readFileSync('firmware/vacuum-panel/vacuum-panel.wasm'));
 
-function start() {
-  const sim = Simulation.createSync(buildVacuumEsp32({ name: 'vacuum-esp32.wasm', wasm }));
+function start(withPanel = true) {
+  const sim = Simulation.createSync(buildVacuumEsp32({ name: 'vacuum-esp32.wasm', wasm }, withPanel ? { name: 'vacuum-panel.wasm', wasm: panelWasm } : undefined));
   const sec = (s: number) => sim.run(Math.round(s * 1e6));
   const dev = (re: RegExp): Device => {
     const d = sim.devices.find((x) => re.test(x.view().title));
     if (!d) throw new Error(`нет устройства ${re}`);
     return d;
   };
-  const click = (re: RegExp) => {
+  const click = (re: RegExp, hold = 0.1) => {
     const d = dev(re);
     d.press!(true);
-    sec(0.1);
+    sec(hold);
     d.press!(false);
     sec(0.1);
   };
+  // Касание экрана пульта: боковые подписи — x 60 / 740, строки y 78, 182, 286.
+  const tap = (x: number, y: number) => {
+    const id = sim.devices.find((d) => d.view().kind === 'panel')!.id;
+    sim.touch(id, x, y, true);
+    sec(0.05);
+    sim.touch(id, x, y, false);
+    sec(0.15);
+  };
   const plant = () => sim.view().plant!;
+  const flow = () => plant().air.flow / 3.6;
   // Последнее значение из строки состояния прошивки: «I1=4,93».
   const logged = (key: string) => {
     const m = [...sim.serial.matchAll(new RegExp(`${key}=(-?[\\d,]+)`, 'g'))].pop();
     return m ? +m[1].replace(',', '.') : NaN;
   };
+  const cmd = (line: string) => {
+    sim.serialWrite(line + '\n');
+    sec(0.2);
+  };
   sec(1);
-  return { sim, sec, dev, click, plant, logged };
+  return { sim, sec, dev, click, tap, plant, flow, logged, cmd };
 }
 
-describe('Пылесос на ESP32: прошивка в симуляции', () => {
-  test('запуск: приветствие, детектор нуля, экран, все детали узнаны', () => {
-    const { sim, plant } = start();
+/** Сколько точек кадра пульта не цвета фона. */
+function lit(sim: Simulation): number {
+  const px = sim.view().devices.find((d) => d.kind === 'panel')!.pixels!;
+  let n = 0;
+  for (let i = 0; i < px.length; i++) if (px[i] !== px[0]) n++;
+  return n;
+}
+
+describe('Пылесос на ESP32: прошивки в симуляции', () => {
+  test('запуск: пульт на связи, экран нарисован, все детали узнаны', () => {
+    const { sim } = start();
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса');
-    expect(sim.serial).not.toContain('Нет синхронизации');
+    expect(sim.serial).toContain('Контроллер пылесоса 2.0');
+    expect(sim.serial).toContain('Пульт на связи');
+    expect(sim.serial).not.toMatch(/Нет (синхронизации|связи)/);
     const v = sim.view();
     expect(v.mcu).toMatch(/ESP32/);
-    expect(plant().zc.width).toBeGreaterThan(1000);
-    expect(plant().motors.map((m) => m.rpm)).toEqual([0, 0]);
-    const oled = v.devices.find((d) => d.kind === 'oled')!;
-    const lit = oled.frame!.reduce((a, x) => a + x, 0);
-    expect(lit).toBeGreaterThan(300);
-    for (const k of ['motor', 'valve', 'tool', 'triac', 'mains', 'plant', 'encoder', 'buzzer']) expect(v.devices.some((d) => d.kind === k)).toBe(true);
+    expect(v.plant!.zc.width).toBeGreaterThan(1000);
+    expect(v.plant!.motors.map((m) => m.rpm)).toEqual([0, 0]);
+    const panel = v.devices.find((d) => d.kind === 'panel')!;
+    expect(panel.warning).toBeUndefined();
+    expect([panel.width, panel.height]).toEqual([800, 480]);
+    expect(lit(sim)).toBeGreaterThan(20000);
+    for (const k of ['motor', 'valve', 'tool', 'triac', 'mains', 'plant', 'encoder', 'buzzer', 'panel']) expect(v.devices.some((d) => d.kind === k)).toBe(true);
   });
 
-  test('«Пуск»: мягкий разгон турбин по очереди, ток по трансформаторам — как в модели', () => {
-    const { click, sec, plant, logged, sim } = start();
-    click(/Пуск/);
+  test('авто: регулятор выводит расход на уставку, вторая турбина — когда одной мало', () => {
+    const { click, sec, plant, flow, logged, sim } = start();
+    click(/Пуск турбин/);
     sec(1);
-    // Вторая турбина стартует на секунду позже первой.
+    // Первая турбина раньше второй.
     expect(plant().motors[0].rpm).toBeGreaterThan(plant().motors[1].rpm + 3000);
-    sec(8);
+    sec(34);
+    expect(sim.serial).toContain('Регулятор: вторая турбина включена');
+    expect(Math.abs(flow() - 32)).toBeLessThan(1.5);
+    expect(plant().motors[1].rpm).toBeGreaterThan(10000);
+    // Токи — трансформаторами тока через АЦП: сходятся с моделью до 10 %.
     const m = plant().motors;
-    expect(m[0].rpm).toBeGreaterThan(20000);
-    expect(m[1].rpm).toBeGreaterThan(20000);
-    expect(plant().air.flow).toBeGreaterThan(100);
-    expect(plant().air.vacuum).toBeGreaterThan(5);
-    // Прошивка меряет ток трансформаторами тока через АЦП: сходится с моделью до 10 %.
     expect(Math.abs(logged('I1') - m[0].amps)).toBeLessThan(m[0].amps * 0.1);
     expect(Math.abs(logged('I2') - m[1].amps)).toBeLessThan(m[1].amps * 0.1);
     expect(logged('U')).toBeGreaterThan(215);
     expect(logged('U')).toBeLessThan(245);
     expect(sim.serial).not.toMatch(/! (Перегрузка|Пробит|Нет тока)/);
-    click(/Пуск/);
-    sec(3);
+    // Стоп после долгой работы: сначала серия ударов на ходу, потом турбины встают.
+    click(/Пуск турбин/);
+    sec(9);
+    expect(sim.serial).toContain('Продувка закончена');
     expect(plant().motors.every((x) => x.amps === 0)).toBe(true);
   });
 
-  test('авто: инструмент в розетке запускает турбины, после выключения — выбег', () => {
-    const { click, sec, plant, dev, sim, logged } = start();
-    click(/Режим/);
-    click(/Пуск/);
+  test('ручной режим с пульта: касание «Режим» → «Ручной», энкодер меняет мощность', () => {
+    const { tap, sec, dev, click, logged, sim } = start();
+    tap(60, 78); // «Режим»
+    tap(60, 182); // «Ручной»
+    expect(sim.serial).toContain('Режим: ручной');
+    tap(740, 286); // «Назад»
+    click(/Пуск турбин/);
+    sec(5);
+    expect(logged('P')).toBe(80);
+    expect(logged('P2')).toBe(80);
+    const enc = dev(/энкодер:/);
+    for (let i = 0; i < 4; i++) enc.act!('ccw'), sec(0.05);
+    sec(4);
+    // Пульт получил повороты и прислал новую мощность: 80 − 4·5.
+    expect(logged('P')).toBe(60);
+  });
+
+  test('без пульта энкодер сам меняет уставку', () => {
+    const { dev, sec, sim, logged, cmd } = start(false);
+    expect(sim.serial).not.toContain('Пульт на связи');
+    const enc = dev(/энкодер:/);
+    for (let i = 0; i < 3; i++) enc.act!('cw'), sec(0.05);
+    sec(1.2);
+    expect(sim.serial).toContain('Уставка 35 л/с');
+    cmd('status');
+    expect(logged('уст')).toBe(35);
+  });
+
+  test('розетка: инструмент запускает турбины, после выключения — уборка остатка', () => {
+    const { click, sec, plant, dev, sim, logged, cmd } = start();
+    cmd('sock 1');
+    click(/Пуск турбин/);
     sec(1);
     expect(plant().motors[0].amps).toBe(0);
     dev(/розетка/).act!('switch');
@@ -98,40 +152,80 @@ describe('Пылесос на ESP32: прошивка в симуляции', ()
     expect(logged('Iинстр')).toBeGreaterThan(5);
     dev(/розетка/).act!('switch');
     sec(2);
-    expect(sim.serial).toContain('Инструмент выключен');
+    expect(sim.serial).toContain('уборка остатка');
     expect(plant().motors[0].amps).toBeGreaterThan(0);
-    sec(6);
+    sec(8);
     expect(plant().motors[0].amps).toBe(0);
   });
 
-  test('продувка: клапаны открываются по очереди, турбины потом останавливаются', () => {
-    const { click, sec, plant, sim } = start();
-    click(/Продувка/);
-    const opened = new Set<number>();
-    let pulses = 0;
+  test('продувка с пульта: серия из трёх ударов по очереди, R падает, R нового обучен', () => {
+    const { click, sec, plant, sim, tap } = start();
+    click(/Пуск турбин/);
+    sec(12);
+    const air = sim.devices.find((d) => d.id.endsWith(':air'))!;
+    air.act!('dust');
+    sec(3);
+    tap(740, 182); // «Продуть»
+    const opened: number[] = [];
     let last = '';
-    for (let i = 0; i < 150; i++) {
-      sec(0.1);
-      const st = plant().valves.map((v) => (v.open ? 1 : 0));
-      st.forEach((x, k) => x && opened.add(k));
-      const s = st.join('');
-      if (s !== last && s !== '00') pulses++;
-      // Оба клапана сразу не открываются: разрежение сбрасывается по одному фильтру.
-      expect(s).not.toBe('11');
-      last = s;
+    for (let i = 0; i < 800; i++) {
+      sec(0.01);
+      const st = plant().valves.map((v) => (v.open ? 1 : 0)).join('');
+      // Оба клапана сразу не открываются: разрежение сбрасывается через один фильтр.
+      expect(st).not.toBe('11');
+      if (st !== last && st !== '00') opened.push(st === '10' ? 0 : 1);
+      last = st;
     }
-    expect([...opened].sort()).toEqual([0, 1]);
-    expect(pulses).toBeGreaterThanOrEqual(4);
+    expect(opened).toEqual([0, 1, 0]);
+    sec(3);
+    const m = /Продувка закончена: R ([\d,]+) → ([\d,]+)/.exec(sim.serial)!;
+    const [before, after] = [+m[1].replace(',', '.'), +m[2].replace(',', '.')];
+    expect(after).toBeLessThan(before * 0.9);
+    // Пульт получил R нового: экран «Фильтр» показывает его.
+    tap(463, 450);
+    expect(lit(sim)).toBeGreaterThan(20000);
+  });
+
+  test('пресеты: удержание «Пуск турбин» открывает их на пульте, «Пуск» применяет, серии по периоду', () => {
+    const { click, sec, sim, tap, logged } = start();
+    click(/Пуск турбин/, 1.2);
+    expect(sim.serial).not.toContain('Пуск: авто');
+    tap(60, 182); // «Бурение»
+    tap(740, 286); // «Пуск»
+    expect(sim.serial).toContain('Пресет: бурение');
+    expect(sim.serial).toContain('Пуск: авто по расходу');
+    sec(1);
+    expect(logged('уст')).toBe(30);
+    sec(40);
+    expect(sim.serial).toContain('Очистка по периоду');
     expect(sim.serial).toContain('Продувка закончена');
-    expect(plant().motors[0].amps).toBe(0);
+  });
+
+  test('фильтр: забит насовсем — продувка не помогает, «пора мыть»; «Сброс» на пульте', () => {
+    const { click, sec, sim, tap, cmd } = start();
+    cmd('clean o');
+    click(/Пуск турбин/);
+    sec(12);
+    cmd('purge');
+    sec(6);
+    expect(sim.serial).toContain('Продувка закончена');
+    const air = sim.devices.find((d) => d.id.endsWith(':air'))!;
+    air.set!('deep', 100);
+    sec(3);
+    cmd('purge');
+    sec(6);
+    expect(sim.serial).toContain('! Фильтр: пора мыть');
+    tap(740, 286); // «Сброс»
+    expect(sim.serial).toContain('Аварии сброшены');
   });
 
   test('перегрев: при засоре турбины греются, прошивка снижает мощность и отключает на 110 °C', () => {
-    const { click, sec, plant, sim } = start();
+    const { click, sec, plant, sim, cmd } = start();
+    cmd('mode m');
     const air = sim.devices.find((d) => d.id.endsWith(':air'))!;
     air.set!('boost', 60);
     air.set!('block', 100);
-    click(/Пуск/);
+    click(/Пуск турбин/);
     sec(20);
     expect(sim.serial).toContain('Шланг/бак забит');
     expect(sim.serial).toMatch(/Турбина \d горячая/);
@@ -143,7 +237,8 @@ describe('Пылесос на ESP32: прошивка в симуляции', ()
   });
 
   test('неисправности: обрыв обмотки, пробитый симистор, низкое напряжение сети', () => {
-    const { click, sec, sim, dev } = start();
+    const { click, sec, sim, dev, cmd } = start();
+    cmd('mode m');
     dev(/^VS3 /).set!('state', 1);
     sec(2);
     expect(sim.serial).toContain('Пробит симистор 1');
@@ -151,7 +246,7 @@ describe('Пылесос на ESP32: прошивка в симуляции', ()
     dev(/^M2 /).set!('fault', 1);
     sec(1);
     expect(sim.serial).toContain('снято: Пробит симистор 1');
-    click(/Пуск/);
+    click(/Пуск турбин/);
     // Ток проверяется после мягкого пуска, три секунды подряд.
     sec(9);
     expect(sim.serial).toContain('Нет тока турбины 2');
@@ -162,34 +257,24 @@ describe('Пылесос на ESP32: прошивка в симуляции', ()
     expect(sim.serial).toContain('Напряжение сети');
   });
 
-  test('монитор порта и энкодер: команды, мощность', () => {
-    const { sim, sec, dev, logged, click } = start();
-    sim.serialWrite('power 50\n');
-    sec(0.3);
-    expect(sim.serial).toContain('Мощность задана');
-    sim.serialWrite('start\n');
-    sec(4);
-    sim.serialWrite('status\n');
-    sec(0.3);
-    expect(logged('P')).toBe(50);
-    const enc = dev(/энкодер:/);
-    for (let i = 0; i < 4; i++) enc.act!('cw'), sec(0.05);
-    sec(3);
-    sim.serialWrite('status\n');
-    sec(0.3);
-    expect(logged('P')).toBeGreaterThan(50);
-    sim.serialWrite('stop\n');
-    sec(0.3);
-    click(/Пуск/);
-    sim.serialWrite('help\n');
-    sec(0.3);
+  test('монитор порта: команды и журнал', () => {
+    const { sim, cmd, logged } = start();
+    cmd('sp 40');
+    expect(logged('уст')).toBe(NaN);
+    cmd('status');
+    expect(logged('уст')).toBe(40);
+    cmd('help');
     expect(sim.serial).toContain('Команды:');
+    cmd('export');
+    expect(sim.serial).toContain('Журнал пылесоса:');
+    cmd('что-то');
+    expect(sim.serial).toContain('Не понял');
   });
 });
 
 describe('Пылесос на ESP32: плата', () => {
   test.runIf(!!process.env.VAC_WRITE)('разводка и файлы для импорта', { timeout: 600_000 }, async () => {
-    const { project, report, failedLinks } = await routeVacuumEsp32(buildVacuumEsp32({ name: 'vacuum-esp32.wasm', wasm }));
+    const { project, report, failedLinks } = await routeVacuumEsp32(buildVacuumEsp32({ name: 'vacuum-esp32.wasm', wasm }, { name: 'vacuum-panel.wasm', wasm: panelWasm }));
     console.log(report.join('\n'));
     expect(failedLinks).toEqual([]);
     expect(runDrc(project).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
@@ -203,6 +288,13 @@ describe('Пылесос на ESP32: плата', () => {
       let n = b.length;
       while (n > 0 && b[n - 1] === 0xff) n--;
       writeFileSync('import/vacuum-esp32-proshivka.bin', b.subarray(0, (n + 0xfff) & ~0xfff));
+    }
+    const panelBin = 'firmware/vacuum-panel/build/vacuum-panel.ino.merged.bin';
+    if (existsSync(panelBin)) {
+      const b = readFileSync(panelBin);
+      let n = b.length;
+      while (n > 0 && b[n - 1] === 0xff) n--;
+      writeFileSync('import/vacuum-panel-proshivka.bin', b.subarray(0, (n + 0xfff) & ~0xfff));
     }
   });
 
@@ -228,24 +320,26 @@ describe('Пылесос на ESP32: плата', () => {
     expect(p.rules.classClearances).toEqual([{ a: 'Mains', b: '*', clearance: 6 }]);
     // Прошивка в проекте та же, что в firmware/.
     expect(p.firmware?.wasm).toBe(wasm);
+    expect(p.firmware?.modules?.HG1.wasm).toBe(panelWasm);
   });
 
   test('файл в import/ открывается и запускается: пуск турбин', () => {
     const sim = Simulation.createSync(file());
     sim.run(1e6);
-    const start = sim.devices.find((d) => /Пуск/.test(d.view().title))!;
+    const start = sim.devices.find((d) => /Пуск турбин/.test(d.view().title))!;
     start.press!(true);
     sim.run(1e5);
     start.press!(false);
     sim.run(5e6);
     expect(sim.view().plant!.motors[0].rpm).toBeGreaterThan(15000);
-    expect(sim.serial).toContain('Пуск: ручной');
+    expect(sim.serial).toContain('Пуск: авто по расходу');
+    expect(sim.serial).toContain('Пульт на связи');
   });
 
   test('памятка и перечень', () => {
     const p = file();
     const notes = vacuumNotes(p);
-    for (const s of ['ESP32', 'Прошивка', 'Защиты', 'WebAssembly', 'X1', 'X4', 'XT3']) expect(notes).toContain(s);
+    for (const s of ['ESP32-S3', 'Прошивки', 'Пульт', 'Защиты', 'WebAssembly', 'X1', 'X4', 'XT3', 'XT5', 'PNL_TX']) expect(notes).toContain(s);
     const bom = exportBomCsv(p);
     expect(bom).toContain('ESP32-WROOM-32E');
     expect(bom).toContain('MOC3023');

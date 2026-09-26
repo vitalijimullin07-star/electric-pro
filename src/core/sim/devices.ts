@@ -30,7 +30,7 @@ export interface DeviceView {
   id: string;
   comp: Id;
   ref: string;
-  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery' | 'encoder' | 'motor' | 'valve' | 'tool' | 'triac' | 'mains' | 'plant';
+  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery' | 'encoder' | 'motor' | 'valve' | 'tool' | 'triac' | 'mains' | 'plant' | 'panel';
   title: string;
   /** Не подключено к контроллеру как нужно — объяснение. */
   warning?: string;
@@ -54,6 +54,9 @@ export interface DeviceView {
   glyphs?: number[][];
   /** ЖК: коды символов по строкам экрана. */
   codes?: number[][];
+  /** Пульт с экраном: кадр RGB565 и его номер (растёт при перерисовке). */
+  pixels?: Uint16Array;
+  version?: number;
   /** Показания: обороты, ток, давление… */
   readings?: { label: string; value: number; unit: string }[];
 }

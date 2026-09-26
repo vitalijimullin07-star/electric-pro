@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
 import type { DeviceView, SimView, VacuumView } from '@core/sim';
 import { onBack } from './back-button';
-import { Devices, HoldButton, Oled, Readings, Serial, fmtNum, useSimView } from './panels/SimPanel';
+import { Devices, HoldButton, Oled, PanelScreen, Readings, Serial, fmtNum, useSimView } from './panels/SimPanel';
 
 /*
  * Симуляция во весь экран: пульт (экран, энкодер, кнопки), мнемосхема установки с
@@ -41,6 +41,7 @@ function FullSim() {
   }, []);
 
   const status = sim.status;
+  const hasPanel = useEditor((s) => Object.keys(s.project.firmware?.modules ?? {}).length > 0);
   return (
     <div ref={root} className="simfs" role="dialog" aria-label="Симуляция во весь экран">
       <div className="simfs-bar">
@@ -71,7 +72,14 @@ function FullSim() {
       </div>
       {sim.error && <p className="simfs-error">{sim.error}</p>}
       {!view ? (
-        <div className="simfs-empty">{status === 'loading' ? 'Запуск симуляции…' : 'Нажмите «Старт».'}</div>
+        <div className="simfs-empty">
+          {status === 'loading' ? 'Запуск симуляции…' : hasPanel ? 'Питание выключено.' : 'Нажмите «Старт».'}
+          {hasPanel && status !== 'loading' && (
+            <button className="simfs-round simfs-power" onClick={() => simRuntime.start()}>
+              питание
+            </button>
+          )}
+        </div>
       ) : view.plant ? (
         <PlantLayout view={view} plant={view.plant} />
       ) : (
@@ -86,9 +94,11 @@ function FullSim() {
 function PlantLayout({ view, plant }: { view: SimView; plant: VacuumView }) {
   const [side, setSide] = useState<'pult' | 'params' | 'serial'>('pult');
   const quick = quickActions(view);
+  const panel = view.devices.find((d) => d.kind === 'panel');
   return (
-    <div className="simfs-body">
+    <div className={`simfs-body${panel ? ' has-panel' : ''}`}>
       <div className="simfs-main">
+        {panel && <PultFront view={view} panel={panel} />}
         <div className="simfs-scheme-wrap">
           <VacuumScheme v={plant} />
         </div>
@@ -123,6 +133,127 @@ function PlantLayout({ view, plant }: { view: SimView; plant: VacuumView }) {
   );
 }
 
+/**
+ * Пульт как на макете: экран 800×480 с касаниями (прошивка пульта), под ним кнопка
+ * «Пуск турбин» (удержание — пресеты), энкодер (крутить пальцем или колёсиком, нажать —
+ * в середине) и «Питание» — полное отключение: симуляция останавливается, настройки
+ * контроллера сохраняются, следующее включение — новая смена в журнале.
+ */
+function PultFront({ view, panel }: { view: SimView; panel: DeviceView }) {
+  const start = view.devices.find((d) => d.kind === 'button' && /пуск/i.test(d.title));
+  const enc = view.devices.find((d) => d.kind === 'encoder');
+  const sw = enc && view.devices.find((d) => d.kind === 'button' && d.comp === enc.comp);
+  return (
+    <div className="simfs-pultfront">
+      <div className="simfs-screen">
+        <PanelScreen d={panel} />
+      </div>
+      {panel.warning && <p className="hint" style={{ color: 'var(--warn)' }}>⚠ {panel.warning}</p>}
+      <div className="simfs-controls">
+        {start && (
+          <div className="simfs-ctl">
+            <RoundHold id={start.id} pressed={!!start.pressed} label={'пуск\nтурбин'} />
+            <span>удержание — пресеты</span>
+          </div>
+        )}
+        {enc && (
+          <div className="simfs-ctl">
+            <Knob id={enc.id} swId={sw?.id} pressed={!!sw?.pressed} />
+            <span>энкодер</span>
+          </div>
+        )}
+        <div className="simfs-ctl">
+          <button className="simfs-round simfs-power" onClick={() => simRuntime.stop()}>
+            питание
+          </button>
+          <span>полное отключение</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoundHold({ id, pressed, label }: { id: string; pressed: boolean; label: string }) {
+  const up = () => simRuntime.press(id, false);
+  return (
+    <button
+      className={`simfs-round${pressed ? ' on' : ''}`}
+      onPointerDown={(e) => {
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        simRuntime.press(id, true);
+      }}
+      onPointerUp={up}
+      onPointerCancel={up}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Энкодер: поворот пальцем по кругу (шаг — 18°), колёсиком мыши; середина — кнопка. */
+function Knob({ id, swId, pressed }: { id: string; swId?: string; pressed: boolean }) {
+  const [angle, setAngle] = useState(35);
+  const drag = useRef<{ a: number; acc: number } | null>(null);
+  const turn = (dir: 1 | -1) => {
+    simRuntime.act(id, dir > 0 ? 'cw' : 'ccw');
+    setAngle((a) => a + dir * 18);
+  };
+  const angleOf = (e: RPointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI;
+  };
+  const swUp = () => swId && simRuntime.press(swId, false);
+  return (
+    <div
+      className="simfs-knob2"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        drag.current = { a: angleOf(e), acc: 0 };
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        const a = angleOf(e);
+        let da = a - d.a;
+        if (da > 180) da -= 360;
+        if (da < -180) da += 360;
+        d.a = a;
+        d.acc += da;
+        while (d.acc >= 18) (d.acc -= 18), turn(1);
+        while (d.acc <= -18) (d.acc += 18), turn(-1);
+      }}
+      onPointerUp={() => (drag.current = null)}
+      onPointerCancel={() => (drag.current = null)}
+      onWheel={(e) => turn(e.deltaY < 0 ? 1 : -1)}
+      role="slider"
+      aria-label="Энкодер: крутите пальцем или колёсиком"
+      aria-valuenow={angle}
+    >
+      <i style={{ transform: `rotate(${angle}deg)` }} />
+      {swId && (
+        <button
+          className={`simfs-knob-sw${pressed ? ' on' : ''}`}
+          aria-label="Нажать энкодер"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+            simRuntime.press(swId, true);
+          }}
+          onPointerUp={swUp}
+          onPointerCancel={swUp}
+        />
+      )}
+      <button className="simfs-knob-arrow l" aria-label="Повернуть влево" onPointerDown={(e) => e.stopPropagation()} onClick={() => turn(-1)}>
+        ⟲
+      </button>
+      <button className="simfs-knob-arrow r" aria-label="Повернуть вправо" onPointerDown={(e) => e.stopPropagation()} onClick={() => turn(1)}>
+        ⟳
+      </button>
+    </div>
+  );
+}
+
 /** Быстрые действия под мнемосхемой: инструмент, насадка, пыль, провал сети. */
 function quickActions(view: SimView): { id: string; key: string; label: string }[] {
   const out: { id: string; key: string; label: string }[] = [];
@@ -132,6 +263,7 @@ function quickActions(view: SimView): { id: string; key: string; label: string }
 
 /** Пульт на корпусе: экран, энкодер, кнопки, зуммер. */
 function Pult({ view }: { view: SimView }) {
+  if (view.devices.some((d) => d.kind === 'panel')) return <PultExtras view={view} />;
   const oled = view.devices.filter((d) => d.kind === 'oled' || d.kind === 'lcd');
   const enc = view.devices.filter((d) => d.kind === 'encoder');
   const buttons = view.devices.filter((d) => d.kind === 'button');
@@ -177,6 +309,32 @@ function Pult({ view }: { view: SimView }) {
         </div>
       )}
       <p className="hint">Кнопки держатся, пока нажаты (долгое нажатие — как на настоящей). Энкодер — стрелками, его кнопка — в середине.</p>
+    </div>
+  );
+}
+
+/** При пульте с экраном основное — над мнемосхемой; здесь — зуммер и кнопки на плате. */
+function PultExtras({ view }: { view: SimView }) {
+  const buzzer = view.devices.filter((d) => d.kind === 'buzzer');
+  const enc = view.devices.filter((d) => d.kind === 'encoder');
+  const buttons = view.devices.filter((d) => d.kind === 'button' && !/пуск/i.test(d.title) && !enc.some((e) => e.comp === d.comp));
+  return (
+    <div className="simfs-pult">
+      <div className="simfs-ind">
+        {buzzer.map((b) => (
+          <span key={b.id} className={`tag ${b.on ? 'ok' : ''}`}>
+            {b.on ? `♪ ${b.hz} Гц` : '♪ тихо'}
+          </span>
+        ))}
+      </div>
+      {buttons.length > 0 && (
+        <div className="simfs-keys">
+          {buttons.map((b) => (
+            <HoldButton key={b.id} id={b.id} pressed={!!b.pressed} label={b.title.replace(/^\S+\s+/, '')} />
+          ))}
+        </div>
+      )}
+      <p className="hint">Экран пульта — сенсорный: касайтесь подписей по бокам и вкладок внизу. Энкодер — пальцем по кругу или колёсиком, его кнопка — в середине. «Пуск турбин»: коротко — пуск и стоп, держать дольше секунды — пресеты на экране.</p>
     </div>
   );
 }

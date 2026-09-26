@@ -64,12 +64,12 @@ function footprintOf(id: string): FootprintDef {
 }
 
 /** Сборка проекта без дорожек (разводит автотрассировка — см. тест). */
-export function buildVacuumEsp32(firmware?: { name: string; wasm: string }): Project {
+export function buildVacuumEsp32(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }): Project {
   const { w, h } = VAC_BOARD;
   const p = createProject({ name: 'Пылесос ESP32 (контроллер)', width: w, height: h, copperLayers: 2, cornerRadius: 1.5 });
   p.meta.author = 'Plata';
   p.meta.description =
-    'Контроллер строительного пылесоса на ESP32-WROOM-32E без готовых модулей (кроме ESP32 и датчиков): две турбины с плавным пуском и фазовым управлением (MOC3023 + BTA41), розетка инструмента с автозапуском (MOC3063 + BTA41), два клапана продувки фильтра (MOC3063 + BT134W), трансформатор 230/9 В, AP63205 и AMS1117, детектор нуля со вторичной обмотки, трансформаторы тока, термисторы двигателей, датчики разрежения MPX5050DP и SDP810, экран OLED, энкодер и кнопки на панели.';
+    'Контроллер строительного пылесоса на ESP32-WROOM-32E без готовых модулей (кроме ESP32 и датчиков): две турбины с плавным пуском и фазовым управлением (MOC3023 + BTA41), розетка инструмента с автозапуском (MOC3063 + BTA41), два клапана продувки фильтра (MOC3063 + BT134W), трансформатор 230/9 В 10 ВА на шасси, AP63205 и AMS1117, детектор нуля со вторичной обмотки, трансформаторы тока, термисторы двигателей, датчики разрежения MPX5050DP и SDP810. Пульт — плата ESP32-S3 с сенсорным экраном 800×480 по UART, энкодер и кнопка «Пуск турбин»; регулятор расхода, серии продувки с обучением сопротивления фильтра, пресеты и журнал.';
   // Ток сети по самой плате — десятки миллиампер (трансформатор 2 ВА, клапаны, поджиг симисторов):
   // дорожки 0,35 мм. Ширина + зазор = 1,25 мм — укладываются в шаг сетки разводки 1,27 мм.
   p.netClasses.Mains = { ...MAINS_CLASS, clearance: 0.9, trackWidth: 0.35, viaDiameter: 1.6, viaDrill: 0.8 };
@@ -186,7 +186,11 @@ export function buildVacuumEsp32(firmware?: { name: string; wasm: string }): Pro
   }
   for (const pts of GND_BUS) addTrack(p, { layer: 'B.Cu', width: p.netClasses.Power.trackWidth, points: pts.map(([x, y]) => ({ x, y })) });
   layoutSchematic(p);
-  if (firmware) p.firmware = { name: firmware.name, hex: '', mcu: 'esp32', wasm: firmware.wasm };
+  if (firmware) {
+    p.firmware = { name: firmware.name, hex: '', mcu: 'esp32', wasm: firmware.wasm };
+    // Пульт HG1 — своя плата ESP32-S3 со своей прошивкой (ядро интерфейса в WebAssembly).
+    if (panel) p.firmware.modules = { HG1: { name: panel.name, wasm: panel.wasm } };
+  }
   return structuredClone(p);
 }
 
@@ -256,14 +260,14 @@ export async function routeVacuumEsp32(
 /* ---------------- схема ---------------- */
 
 const BLOCKS: { title: string; at: [number, number]; width: number; parts: (string | [string, number])[] }[] = [
-  { title: 'Сеть и питание', at: [10, 10], width: 230, parts: ['XP1', 'XT1', ['FU1', 90], ['RU1', 90], 'TV1', 'VDS1', 'VD1', ['C1', 90], 'DA1', ['C2', 90], 'C3', 'L1', ['C4', 90], ['C5', 90], 'DA2', ['C6', 90]] },
+  { title: 'Сеть и питание', at: [10, 10], width: 230, parts: ['XP1', 'SA2', 'XT1', 'XT4', 'XT5', ['FU1', 90], ['RU1', 90], 'TV1', 'VDS1', 'VD1', ['C1', 90], 'DA1', ['C2', 90], 'C3', 'L1', ['C4', 90], ['C5', 90], 'DA2', ['C6', 90]] },
   { title: 'Детектор нуля', at: [250, 10], width: 110, parts: ['R1', ['R2', 90], 'VT1', ['R3', 90]] },
   { title: 'ESP32', at: [250, 70], width: 170, parts: ['A1', ['R4', 90], ['C7', 90], ['C8', 90], ['C9', 90], 'X6'] },
   { title: 'Турбины и розетка (230 В)', at: [10, 110], width: 230, parts: ['R6', 'U1', 'R11', 'R7', 'U2', 'R12', 'R8', 'U3', 'R13', 'XT3', 'VS3', 'VS4', 'VS5', 'TA1', 'TA2', 'TA3', 'M1', 'M2', 'XS1'] },
   { title: 'Клапаны продувки', at: [10, 215], width: 230, parts: ['R9', 'U4', 'R14', 'VS1', 'R10', 'U5', 'R15', 'VS2', 'XT2', 'YA1', 'YA2'] },
   { title: 'Датчики', at: [430, 10], width: 200, parts: ['X4', ['R20', 90], ['R21', 90], ['C10', 90], ['R22', 90], ['R23', 90], ['R24', 90], ['R25', 90], ['R26', 90], ['C11', 90], ['C12', 90], 'RK1', 'RK2', 'B1', 'R27', ['R28', 90], ['C13', 90], ['C14', 90]] },
   { title: 'Давление и расход (I²C)', at: [430, 150], width: 200, parts: ['X2', 'X3', ['R29', 90], ['R30', 90], ['R31', 90], ['R32', 90], 'B2', 'B3'] },
-  { title: 'Панель и звук', at: [250, 200], width: 170, parts: ['X1', 'HG1', 'SA1', 'SB3', 'SB4', 'SB5', 'BA1', 'VT2', ['R33', 90], ['VD2', 90]] },
+  { title: 'Панель и звук', at: [250, 200], width: 170, parts: ['X1', 'HG1', 'SA1', 'SB3', 'BA1', 'VT2', ['R33', 90], ['VD2', 90]] },
 ];
 
 function layoutSchematic(p: Project): void {

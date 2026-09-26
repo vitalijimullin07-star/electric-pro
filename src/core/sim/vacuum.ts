@@ -257,7 +257,7 @@ export class VacuumPlant {
     for (const t of this.triacs) this.addTriacDevice(t);
     this.findZeroCross();
     for (const ct of this.cts) this.addCt(ct);
-    for (const m of this.tagged('mains')) this.claimed.add(m.comp.id);
+    for (const m of [...this.tagged('mains'), ...this.tagged('mains-switch')]) this.claimed.add(m.comp.id);
     this.addMainsDevice();
     this.addAirDevice();
 
@@ -450,11 +450,14 @@ export class VacuumPlant {
       const on = !!tr && tr.lastCond > 0.5 && V > 0 && v.params[1].value === 0;
       v.amps = on ? (v.params[0].value / Math.max(1, V)) * 2.5 : 0;
       v.openMs = on ? v.openMs + dt * 1000 : 0;
+      const was = v.open;
       v.open = v.openMs >= 15;
-      // Продувка: пока клапан открыт, пыль с его секции сбивается.
+      // Продувка: удар воздуха при открытии сбивает часть пыли с секции (тем больше, чем
+      // сильнее разрежение), пока клапан открыт — ещё немного.
       if (v.open) {
         const k = this.valves.indexOf(v) % 2;
         const strength = Math.min(1, this.air.p / 12_000);
+        if (!was) this.cake[k] *= 1 - 0.3 * strength;
         this.cake[k] = Math.max(0, this.cake[k] * (1 - 3.5 * strength * dt));
       }
     }

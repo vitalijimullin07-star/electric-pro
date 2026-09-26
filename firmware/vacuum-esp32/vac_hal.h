@@ -42,6 +42,10 @@ int hal_i2c_read(int bus, int addr, uint8_t *data, int len);
 /* Меандр на выводе (зуммер), 0 — выключить. */
 void hal_tone(int pin, uint32_t hz);
 
+/* UART к пульту: байты от него ядро получает через vac_uart(). */
+void hal_uart_begin(int tx, int rx, uint32_t baud);
+void hal_uart_write(const char *data, int len);
+
 /* Строка в монитор порта (без перевода строки). */
 void hal_log(const char *line);
 

@@ -21,6 +21,8 @@ interface WasmExports {
   vac_tick(): void;
   vac_on_pin(pin: number, level: number, us: number): void;
   vac_serial(ch: number): void;
+  /** Байт от пульта по UART2 (прошивки без пульта его не экспортируют). */
+  vac_uart?(ch: number): void;
 }
 
 interface Ev {
@@ -51,6 +53,9 @@ export class Esp32 implements SimMcu {
   onLog: ((text: string) => void) | null = null;
   /** Скорость порта (для подписи). */
   readonly baud = 115200;
+  /** Второй UART (к пульту): выводы из hal_uart_begin и байты, которые прошивка отправила. */
+  uart: { tx: McuPin; rx: McuPin; baud: number } | null = null;
+  onUart: ((bytes: Uint8Array) => void) | null = null;
 
   private now = 0;
   private ex: WasmExports | null = null;
@@ -153,6 +158,14 @@ export class Esp32 implements SimMcu {
           return 0;
         },
         hal_tone: (n: number, hz: number) => this.tone(pin(n), hz),
+        hal_uart_begin: (tx: number, rx: number, baud: number) => {
+          this.uart = { tx: pin(tx), rx: pin(rx), baud };
+        },
+        hal_uart_write: (ptr: number, len: number) => {
+          // Получатель — другая прошивка: байты доходят после окончания текущего вызова.
+          const data = this.mem().slice(ptr, ptr + len);
+          if (this.onUart) this.schedule(() => this.onUart?.(data), 1);
+        },
         hal_log: (ptr: number) => this.onLog?.(this.cstr(ptr) + '\n'),
         hal_settings_load: (ptr: number, len: number) => {
           if (!this.nvs || this.nvs.length !== len) return 0;
@@ -333,6 +346,15 @@ export class Esp32 implements SimMcu {
       }
     }
     this.now = end;
+  }
+
+  /** Байты от пульта во второй UART прошивки (без задержки по байтам: строки короткие). */
+  uartWrite(bytes: Uint8Array): void {
+    const ex = this.ex;
+    if (!ex?.vac_uart) return;
+    this.schedule(() => {
+      for (const b of bytes) this.call(() => ex.vac_uart!(b));
+    }, 1);
   }
 
   /** Байты в порт прошивки (как из монитора порта, 115200 бод). */

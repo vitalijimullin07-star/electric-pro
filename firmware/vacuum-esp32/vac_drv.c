@@ -1,9 +1,8 @@
 /*
- * Драйверы и мелочи ядра: экран SSD1306/SH1106 по I²C, датчики Sensirion SDP810,
+ * Драйверы и мелочи ядра: датчики Sensirion SDP810,
  * математика без libm, числа и строки без printf (ядро собирается и для браузера).
  */
 #include "vac_core.h"
-#include "vac_font.h"
 
 /* ---------------- без стандартной библиотеки (сборка в WebAssembly) ---------------- */
 
@@ -132,125 +131,6 @@ char *fmt_num(char *out, float v, int decimals) {
     *p = 0;
   }
   return out;
-}
-
-/* ---------------- экран 128×64 ---------------- */
-
-#define OLED_ADDR 0x3C
-static uint8_t fb[8][128];
-static int oled_col0;
-int oled_ok;
-
-static int oled_cmd(const uint8_t *c, int n) {
-  uint8_t buf[32];
-  buf[0] = 0x00;
-  for (int i = 0; i < n; i++) buf[i + 1] = c[i];
-  return hal_i2c_write(0, OLED_ADDR, buf, n + 1);
-}
-
-void oled_init(int sh1106) {
-  static const uint8_t ssd[] = {0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x02, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6};
-  static const uint8_t sh[] = {0xAE, 0xD5, 0x80, 0xA8, 0x3F, 0xD3, 0x00, 0x40, 0xAD, 0x8B, 0xA1, 0xC8, 0xDA, 0x12, 0x81, 0xCF, 0xD9, 0x22, 0xDB, 0x35, 0xA4, 0xA6};
-  oled_col0 = sh1106 ? 2 : 0;
-  oled_ok = oled_cmd(sh1106 ? sh : ssd, sh1106 ? (int)sizeof sh : (int)sizeof ssd) == 0;
-  oled_clear();
-  oled_flush();
-  static const uint8_t on[] = {0xAF};
-  if (oled_ok) oled_cmd(on, 1);
-}
-
-void oled_clear(void) {
-  for (int p = 0; p < 8; p++)
-    for (int x = 0; x < 128; x++) fb[p][x] = 0;
-}
-
-/* Постранично: подходит и SSD1306, и SH1106 (у него 132 столбца, видимые — со второго). */
-void oled_flush(void) {
-  if (!oled_ok) return;
-  for (int p = 0; p < 8; p++) {
-    uint8_t c[3] = {(uint8_t)(0xB0 | p), (uint8_t)(oled_col0 & 0x0F), (uint8_t)(0x10 | (oled_col0 >> 4))};
-    if (oled_cmd(c, 3)) {
-      oled_ok = 0;
-      return;
-    }
-    for (int x = 0; x < 128; x += 32) {
-      uint8_t buf[33];
-      buf[0] = 0x40;
-      for (int i = 0; i < 32; i++) buf[i + 1] = fb[p][x + i];
-      hal_i2c_write(0, OLED_ADDR, buf, 33);
-    }
-  }
-}
-
-void oled_pixel(int x, int y, int on) {
-  if (x < 0 || x >= 128 || y < 0 || y >= 64) return;
-  if (on)
-    fb[y >> 3][x] |= (uint8_t)(1 << (y & 7));
-  else
-    fb[y >> 3][x] &= (uint8_t)~(1 << (y & 7));
-}
-
-void oled_fill(int x, int y, int w, int h, int on) {
-  for (int j = y; j < y + h; j++)
-    for (int i = x; i < x + w; i++) oled_pixel(i, j, on);
-}
-
-void oled_frame(int x, int y, int w, int h) {
-  for (int i = x; i < x + w; i++) oled_pixel(i, y, 1), oled_pixel(i, y + h - 1, 1);
-  for (int j = y; j < y + h; j++) oled_pixel(x, j, 1), oled_pixel(x + w - 1, j, 1);
-}
-
-/* Следующий знак UTF-8. */
-static uint32_t utf8_next(const char **ps) {
-  const uint8_t *s = (const uint8_t *)*ps;
-  uint32_t c = *s++;
-  if (c >= 0xE0 && s[0] && s[1]) {
-    c = ((c & 0x0F) << 12) | ((uint32_t)(s[0] & 0x3F) << 6) | (s[1] & 0x3F);
-    s += 2;
-  } else if (c >= 0xC0 && s[0]) {
-    c = ((c & 0x1F) << 6) | (s[0] & 0x3F);
-    s += 1;
-  }
-  *ps = (const char *)s;
-  return c;
-}
-
-static const uint8_t *glyph(uint32_t c) {
-  int lo = 0, hi = VAC_FONT_COUNT - 1;
-  while (lo <= hi) {
-    int mid = (lo + hi) / 2;
-    if (VAC_FONT_CODES[mid] == c) return VAC_FONT_BITS[mid];
-    if (VAC_FONT_CODES[mid] < c)
-      lo = mid + 1;
-    else
-      hi = mid - 1;
-  }
-  return VAC_FONT_BITS[0x3F - 0x20]; /* «?» */
-}
-
-int oled_text_width(const char *s, int scale) {
-  int n = 0;
-  while (*s) {
-    utf8_next(&s);
-    n++;
-  }
-  return n * 5 * scale;
-}
-
-/* Текст шрифтом 5×8 (scale — увеличение); возвращает x после строки. */
-int oled_text(int x, int y, const char *s, int scale, int invert) {
-  while (*s) {
-    const uint8_t *g = glyph(utf8_next(&s));
-    for (int cx = 0; cx < 5; cx++)
-      for (int cy = 0; cy < 8; cy++) {
-        int on = (g[cx] >> cy) & 1;
-        if (invert) on = !on;
-        for (int a = 0; a < scale; a++)
-          for (int b = 0; b < scale; b++) oled_pixel(x + cx * scale + a, y + cy * scale + b, on);
-      }
-    x += 5 * scale;
-  }
-  return x;
 }
 
 /* ---------------- Sensirion SDP810 (I²C 0x25) ---------------- */

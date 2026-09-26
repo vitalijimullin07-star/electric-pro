@@ -3,6 +3,7 @@ import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
 import { Esp32 } from './esp32';
 import { Avr, pinTitle } from './mcu';
+import { PANEL_H, PANEL_W, PanelS3 } from './panel-s3';
 import type { McuPin, PinMode, SimMcu } from './types';
 import type { VacuumPlant, VacuumView } from './vacuum';
 
@@ -13,6 +14,7 @@ import type { VacuumPlant, VacuumView } from './vacuum';
  */
 
 export { MCU_FREQ, MCU_TITLES } from './mcu';
+export { PANEL_H, PANEL_W } from './panel-s3';
 export type { DeviceView, SimParam } from './devices';
 export type { VacuumView } from './vacuum';
 
@@ -70,7 +72,7 @@ export class Simulation {
   readonly mcu: SimMcu;
   readonly circuit: Circuit;
   readonly devices: Device[];
-  readonly unknown: string[];
+  unknown: string[];
   readonly plant: VacuumPlant | null;
   /** Всё, что контроллер отправил в порт. */
   serial = '';
@@ -81,6 +83,7 @@ export class Simulation {
   constructor(
     readonly project: Project,
     firmware: string | SimMcu,
+    panels: Map<string, PanelS3> = new Map(),
   ) {
     const found = findMcu(project);
     if (!found) throw noMcu();
@@ -100,6 +103,50 @@ export class Simulation {
     this.unknown = b.unknown;
     this.plant = b.plant;
     if (this.mcu instanceof Avr) this.mcu.usart.onByteTransmit = (v) => this.log(String.fromCharCode(v));
+    for (const [ref, panel] of panels) this.attachPanel(ref, panel);
+  }
+
+  /** Пульт на своей плате: UART к контроллеру, такт 10 мс, кадр и касания. */
+  private attachPanel(ref: string, panel: PanelS3): void {
+    const esp = this.mcu;
+    const comp = Object.values(this.project.components).find((x) => x.ref === ref);
+    if (!(esp instanceof Esp32) || !comp) return;
+    this.unknown = this.unknown.filter((u) => !u.startsWith(`${ref} `));
+    esp.onUart = (bytes) => panel.rx(bytes);
+    panel.onTx = (bytes) => esp.uartWrite(bytes);
+    const tick = () => {
+      panel.loop(esp.cycles / 1000);
+      esp.schedule(tick, 10_000);
+    };
+    esp.schedule(tick, 1);
+    const fp = this.project.footprints[comp.footprint];
+    const padNet = (name: string) => {
+      const pad = fp?.pads.find((q) => (q.name ?? q.number).toUpperCase() === name);
+      return pad ? comp.padNets[pad.number] : undefined;
+    };
+    const c = this.circuit;
+    // Проводка: TX пульта — к RX контроллера, RX пульта — к TX.
+    const wiring = (): string | undefined => {
+      const u = esp.uart;
+      if (!u) return 'прошивка контроллера не открыла UART к пульту';
+      const same = (net: string | undefined, pin: McuPin) => net !== undefined && c.netGroup.get(net) !== undefined && c.netGroup.get(net) === c.pinGroup.get(pin);
+      if (!same(padNet('TX'), u.rx)) return `TX пульта не соединён с ${u.rx} контроллера (RX)`;
+      if (!same(padNet('RX'), u.tx)) return `RX пульта не соединён с ${u.tx} контроллера (TX)`;
+      return undefined;
+    };
+    this.panels.set(comp.id, panel);
+    this.devices.push({
+      id: comp.id,
+      comp,
+      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: `${ref} пульт: ${comp.value}`, width: PANEL_W, height: PANEL_H, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
+    });
+  }
+
+  private panels = new Map<string, PanelS3>();
+
+  /** Касание экрана пульта (координаты кадра 800×480). */
+  touch(id: string, x: number, y: number, down: boolean): void {
+    this.panels.get(id)?.touch(x, y, down);
   }
 
   /** Создать симуляцию: для ESP32 прошивка WebAssembly компилируется асинхронно. */
@@ -110,7 +157,9 @@ export class Simulation {
     if (found.kind === 'esp32') {
       const key = nvsKey(project);
       const esp = await Esp32.create(espFirmware(fw), { nvs: nvsStore.get(key), onNvs: (d) => nvsStore.set(key, d) });
-      return new Simulation(project, esp);
+      const panels = new Map<string, PanelS3>();
+      for (const [ref, m] of Object.entries(fw?.modules ?? {})) panels.set(ref, await PanelS3.create(base64ToBytes(m.wasm)));
+      return new Simulation(project, esp, panels);
     }
     if (!fw?.hex) throw new Error('Сначала загрузите прошивку (.hex).');
     return new Simulation(project, fw.hex);
@@ -120,7 +169,11 @@ export class Simulation {
   static createSync(project: Project, opts: { nvs?: Uint8Array } = {}): Simulation {
     const found = findMcu(project);
     if (!found) throw noMcu();
-    if (found.kind === 'esp32') return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }));
+    if (found.kind === 'esp32') {
+      const panels = new Map<string, PanelS3>();
+      for (const [ref, m] of Object.entries(project.firmware?.modules ?? {})) panels.set(ref, PanelS3.createSync(base64ToBytes(m.wasm)));
+      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }), panels);
+    }
     return new Simulation(project, project.firmware?.hex ?? '');
   }
 

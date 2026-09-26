@@ -202,6 +202,12 @@ class SimRuntime {
     if (!this.running) this.refresh();
   }
 
+  /** Касание экрана пульта (координаты кадра). */
+  touch(id: string, x: number, y: number, down: boolean): void {
+    this.sim?.touch(id, x, y, down);
+    if (!this.running) this.refresh();
+  }
+
   serialWrite(text: string): void {
     this.sim?.serialWrite(text);
   }

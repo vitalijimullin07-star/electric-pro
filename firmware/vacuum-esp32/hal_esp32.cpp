@@ -60,6 +60,9 @@ void hal_tone(int pin, uint32_t hz) {
   ledcWriteTone(pin, hz);
 }
 
+void hal_uart_begin(int tx, int rx, uint32_t baud) { Serial2.begin(baud, SERIAL_8N1, rx, tx); }
+void hal_uart_write(const char *data, int len) { Serial2.write((const uint8_t *)data, (size_t)len); }
+
 void hal_log(const char *line) { Serial.println(line); }
 
 int hal_settings_load(void *buf, int len) { return (int)prefs.getBytes("cfg", buf, (size_t)len); }

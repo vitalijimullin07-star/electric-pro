@@ -1,6 +1,8 @@
 /*
  * Ядро прошивки: синхронизация с сетью, фазовое управление турбинами с плавным
- * пуском, автопуск от инструмента, продувка фильтра, измерения и защиты.
+ * пуском, регулятор расхода (ПИ, вторая турбина — по потребности), автопуск от
+ * инструмента с уборкой остатка, серии ударов продувки фильтра с обучением его
+ * сопротивления, пресеты, журнал наработки, измерения и защиты.
  * Не зависит от Arduino: железо — через vac_hal.h.
  */
 #include "vac_core.h"
@@ -80,42 +82,54 @@ VAC_ISR void vac_tick(void) {
   }
   if (++tick_div >= 10) {
     tick_div = 0;
-    ui_encoder_poll();
+    link_encoder_poll();
   }
 }
 
 /* ---------------- настройки ---------------- */
 
 #define CFG_MAGIC 0x5643
-#define CFG_VERSION 1
+#define CFG_VERSION 2
 
 static uint8_t cfg_crc(const vac_settings_t *s) {
   const uint8_t *p = (const uint8_t *)s;
+  unsigned n = (unsigned)((const uint8_t *)&s->crc - p);
   uint8_t c = 0x5A;
-  for (unsigned i = 0; i < sizeof(vac_settings_t) - 1; i++) c = (uint8_t)((c << 1 | c >> 7) ^ p[i]);
+  for (unsigned i = 0; i < n; i++) c = (uint8_t)((c << 1 | c >> 7) ^ p[i]);
   return c;
 }
+
+static const uint8_t PRESET_SP[N_PRESETS] = {36, 30, 32, 28};      /* бетон, бурение, гипс, уборка */
+static const uint16_t PRESET_PER[N_PRESETS] = {15, 25, 12, 60};
 
 static void cfg_defaults(void) {
   vac_settings_t d = {0};
   d.magic = CFG_MAGIC;
   d.version = CFG_VERSION;
+  d.mode = VAC_AUTO;
+  d.last_mode = VAC_AUTO;
+  d.sp = 32;
   d.power = 80;
-  d.turbines = 0;
-  d.mode = VAC_MANUAL;
-  d.runon = 5;
+  d.socket = 0;
+  d.runon = 8;
+  d.t2 = 1;
   d.softstart = 20;
+  d.clean_auto = 1;
+  d.pulses = 3;
+  d.preset = 0xFF;
+  d.imp_ms = 35;
+  d.pause_ms = 300;
+  d.thr = 150;
+  d.boost_ms = 500;
+  d.period = 0;
+  for (int i = 0; i < N_PRESETS; i++) d.psp[i] = PRESET_SP[i], d.pper[i] = PRESET_PER[i];
   d.tool_ma = 400;
-  d.purge_pa = 350;
-  d.purge_pulses = 3;
-  d.purge_ms10 = 15;
-  d.purge_stop = 1;
-  d.min_speed = 20;
+  d.min_speed = 12;
   d.hose_mm = 36;
-  d.display = 0;
   d.zc_shift_us = 0;
   d.mains_cal = 1000;
   d.flow_k10 = 216;
+  d.brush_h = 800;
   vac_cfg = d;
 }
 
@@ -123,6 +137,10 @@ void vac_save_settings(void) {
   vac_cfg.crc = cfg_crc(&vac_cfg);
   hal_settings_save(&vac_cfg, sizeof vac_cfg);
 }
+
+/* Отложенная запись: энкодер крутят быстро, а флеш-память любит редкие записи. */
+static uint32_t now_ms, save_at;
+static void save_soon(void) { save_at = now_ms + 2000; if (!save_at) save_at = 1; }
 
 /* ---------------- измерения ---------------- */
 
@@ -159,23 +177,32 @@ static float ntc_temp(int mv, int *bad) {
 
 /* ---------------- состояние управления ---------------- */
 
-static uint32_t now_ms;
 static uint32_t last_zc_ms, seen_zc;
 static int zc_ok;
-static int want_prev;
+static int want_prev, want_last; /* крутились ли турбины / нужны ли были по режиму в прошлый раз */
 static uint32_t start_ms;
 static uint32_t runon_until;
 static uint32_t lock_until[2];
 static uint8_t cnt_over[2], cnt_nocur[2], cnt_leak[2], cnt_tool_on, cnt_tool_off;
-static uint32_t lowair_since, blocked_since, filter_since, run_since;
-static uint32_t last_purge_ms;
-static int purge_step, purge_spin, purge_phase;
-static uint32_t purge_t;
+static uint32_t lowair_since, blocked_since, overload_since, run_since;
 static uint32_t hours_dirty_ms;
 static int sdp_err[2];
-static float filter_norm;       /* перепад на фильтре, приведённый к 200 м³/ч */
-static int filter_check;        /* проверить фильтр после продувки */
 static uint32_t worked_ms;      /* сколько работали с последнего пуска */
+static float wacc[2];           /* доли приведённой секунды */
+static int shift_logged;        /* в этой смене уже есть точка R в журнале */
+
+/* Регулятор расхода: u — суммарная мощность в % одной турбины (до 200 с двумя).
+ * Коэффициенты: % на л/с и % на л/с за секунду. */
+#define KP 2.0f
+#define KI 1.6f
+static float u_pid = 60, e_prev;
+static uint32_t dual_since, single_since;
+static float q_single;           /* сколько дала одна турбина на полной мощности, л/с */
+
+/* Продувка: этапы серии. */
+enum { PH_SPIN, PH_BOOST, PH_OPEN, PH_PAUSE, PH_GAP, PH_SETTLE };
+static int ph, purge_spin, series_left, pulse_i;
+static uint32_t ph_t, last_series_ms, series_s;
 
 static void set_fault(uint32_t bit, int on) {
   if (on && !(vac.faults & bit)) {
@@ -209,7 +236,7 @@ const char *vac_fault_text(uint32_t bit) {
   case F_LEAK2: return "Пробит симистор 2";
   case F_LOWAIR: return "Мало воздуха";
   case F_BLOCKED: return "Шланг/бак забит";
-  case F_FILTER: return "Фильтр забит";
+  case F_FILTER: return "Фильтр: пора мыть";
   case F_MAINS: return "Напряжение сети";
   case F_SDP_F: return "Нет датчика фильтра";
   case F_SDP_Q: return "Нет расходомера";
@@ -253,10 +280,13 @@ static void beep_poll(void) {
 
 /* ---------------- команды ---------------- */
 
+static const char *mode_name(int m) { return m == VAC_AUTO ? "авто (расход)" : m == VAC_MANUAL ? "ручной" : "выкл"; }
+
 void vac_start_stop(void) {
   if (vac.state == VAC_STANDBY) {
+    if (vac.mode == VAC_OFF) vac_set_mode(vac_cfg.last_mode == VAC_MANUAL ? VAC_MANUAL : VAC_AUTO);
     vac.state = VAC_ACTIVE;
-    hal_log(vac.mode == VAC_AUTO ? "Пуск: авто — ждём инструмент" : "Пуск: ручной");
+    hal_log(vac_cfg.socket ? "Пуск: ждём инструмент в розетке" : vac.mode == VAC_AUTO ? "Пуск: авто по расходу" : "Пуск: ручной");
     vac_beep(1);
   } else {
     vac.state = VAC_STANDBY;
@@ -266,36 +296,134 @@ void vac_start_stop(void) {
   }
 }
 
-void vac_toggle_mode(void) {
-  vac.mode = vac.mode == VAC_MANUAL ? VAC_AUTO : VAC_MANUAL;
-  vac_cfg.mode = vac.mode;
-  vac_save_settings();
-  hal_log(vac.mode == VAC_AUTO ? "Режим: авто от инструмента" : "Режим: ручной");
+void vac_set_mode(int m) {
+  if (m == vac.mode) return;
+  vac.mode = (uint8_t)m;
+  vac_cfg.mode = (uint8_t)m;
+  if (m != VAC_OFF) vac_cfg.last_mode = (uint8_t)m;
+  else vac.state = VAC_STANDBY;
+  save_soon();
+  char line[48] = "Режим: ";
+  hal_log(str_cat(line, mode_name(m)));
   vac_beep(0);
 }
 
-void vac_purge_now(void) {
+static void purge_finish(const char *why) {
+  vac.purging = PURGE_NONE;
+  vac.pulse_no = 0;
+  vac.valve[0] = vac.valve[1] = 0;
+  purge_spin = 0;
+  hal_log(why);
+}
+
+void vac_purge_now(int kind) {
   if (vac.purging) {
-    /* Повторное нажатие — отмена. */
-    vac.purging = 0;
-    purge_spin = 0;
-    hal_log("Продувка отменена");
+    /* Повторная команда — отмена. */
+    purge_finish("Продувка отменена");
     vac_beep(0);
     return;
   }
-  vac.purging = 1;
-  purge_step = 0;
-  purge_phase = 0;
-  purge_t = now_ms;
+  vac.purging = (uint8_t)(kind == PURGE_FULL ? PURGE_FULL : PURGE_SERIES);
+  series_left = kind == PURGE_FULL ? 3 : 1;
+  ph = PH_SPIN;
+  ph_t = now_ms;
   purge_spin = 1;
-  worked_ms = 0;
-  hal_log(vac.running ? "Продувка фильтра" : "Продувка: разгон турбин");
+  vac.pulse_no = 0;
+  hal_log(kind == PURGE_FULL ? "Полная продувка: три серии" : vac.running ? "Продувка: серия ударов" : "Продувка: разгон турбин");
   vac_beep(0);
 }
 
-/* ---------------- управление (каждые 10 мс) ---------------- */
+/* Точка R в журнал смен: первая продувка смены — новая точка, дальше — обновляем её. */
+static void rhist_put(float r) {
+  uint16_t v = (uint16_t)(r * 10 + 0.5f);
+  if (!shift_logged || !vac_cfg.nrh) {
+    if (vac_cfg.nrh == N_RHIST) {
+      for (int i = 1; i < N_RHIST; i++) vac_cfg.rhist[i - 1] = vac_cfg.rhist[i];
+      vac_cfg.nrh--;
+    }
+    vac_cfg.rhist[vac_cfg.nrh++] = v;
+    shift_logged = 1;
+  } else
+    vac_cfg.rhist[vac_cfg.nrh - 1] = v;
+}
 
-static int turbine_selected(int k) { return vac_cfg.turbines == 0 || vac_cfg.turbines == k + 1; }
+/* Конец серии: R после ударов, обучение R нового фильтра, порог мойки. */
+static void series_done(void) {
+  vac.purges++;
+  last_series_ms = now_ms;
+  series_s = 0;
+  if (vac.flow_ls > 8 && vac.r_now > 0) {
+    vac.r_after = vac.r_now;
+    if (vac_cfg.r_new <= 0 || vac.r_after < vac_cfg.r_new) vac_cfg.r_new = vac.r_after;
+    float wash = vac_cfg.r_new * 2.5f;
+    if (vac.r_after > wash) set_fault(F_FILTER, 1);
+    else if (vac.r_after < wash * 0.9f) set_fault(F_FILTER, 0);
+    rhist_put(vac.r_after);
+  }
+  if (!hours_dirty_ms) hours_dirty_ms = now_ms;
+  char line[80] = "Продувка закончена: R ", n[12];
+  str_cat(line, fmt_num(n, vac.r_before, 1));
+  str_cat(line, " → ");
+  str_cat(line, fmt_num(n, vac.r_after, 1));
+  purge_finish(line);
+}
+
+/* Этапы продувки (каждые 10 мс). */
+static void purge_step(uint32_t ms) {
+  switch (ph) {
+  case PH_SPIN:
+    /* Турбины должны раскрутиться: разрежение — это сила удара. */
+    if (vac.running && ms - run_since >= 3000) {
+      vac.r_before = vac.r_now;
+      ph = PH_BOOST;
+      ph_t = ms;
+    } else if (ms - ph_t > 10000)
+      purge_finish("Продувка отменена: турбины не раскрутились");
+    break;
+  case PH_BOOST:
+    if (ms - ph_t >= vac_cfg.boost_ms) {
+      pulse_i = 0;
+      ph = PH_OPEN;
+      ph_t = ms;
+      vac.valve[0] = 1;
+      vac.pulse_no = 1;
+    }
+    break;
+  case PH_OPEN:
+    if (ms - ph_t >= vac_cfg.imp_ms) {
+      vac.valve[0] = vac.valve[1] = 0;
+      vac_cfg.pulse_count++;
+      ph = PH_PAUSE;
+      ph_t = ms;
+    }
+    break;
+  case PH_PAUSE:
+    if (ms - ph_t < vac_cfg.pause_ms) break;
+    if (++pulse_i < vac_cfg.pulses) {
+      /* Клапаны по очереди: разрежение сбрасывается через один фильтр. */
+      vac.valve[pulse_i & 1] = 1;
+      vac.pulse_no = (uint8_t)(pulse_i + 1);
+      ph = PH_OPEN;
+    } else if (--series_left > 0) {
+      vac.pulse_no = 0;
+      ph = PH_GAP;
+    } else {
+      vac.pulse_no = 0;
+      ph = PH_SETTLE;
+    }
+    ph_t = ms;
+    break;
+  case PH_GAP:
+    if (ms - ph_t >= 2000) ph = PH_BOOST, ph_t = ms;
+    break;
+  case PH_SETTLE:
+    /* Поток устанавливается — меряем R после ударов. */
+    if (ms - ph_t >= 2000) series_done();
+    break;
+  }
+}
+
+/* ---------------- управление (каждые 10 мс) ---------------- */
 
 static void control(void) {
   uint32_t ms = now_ms;
@@ -308,32 +436,91 @@ static void control(void) {
   set_fault(F_NO_ZC, !zc_ok && ms > 500);
 
   int want = 0;
-  if (vac.state == VAC_ACTIVE) want = vac.mode == VAC_MANUAL || vac.tool_on || (runon_until && (int32_t)(runon_until - ms) > 0);
-  /* Остановка после долгой работы — сначала продувка фильтра (турбины ещё крутятся). */
-  if (!want && want_prev && vac_cfg.purge_stop && worked_ms > 30000 && !vac.purging && zc_ok) vac_purge_now();
-  if (purge_spin) want = 1;
+  if (vac.state == VAC_ACTIVE && vac.mode != VAC_OFF)
+    want = !vac_cfg.socket || vac.tool_on || (runon_until && (int32_t)(runon_until - ms) > 0);
+  /* Остановка после долгой работы — сначала серия ударов (турбины ещё крутятся). */
+  if (!want && want_last && vac_cfg.clean_auto && worked_ms > 30000 && !vac.purging && zc_ok) {
+    worked_ms = 0;
+    vac_purge_now(PURGE_SERIES);
+  }
+  want_last = want;
   if (!zc_ok) want = 0;
-  if (want && !want_prev) {
+  int spin = want || (purge_spin && zc_ok);
+  if (spin && !want_prev) {
     start_ms = ms;
     worked_ms = 0;
+    vac.dual = 0;
+    if (u_pid > 100) u_pid = 100;
   }
-  want_prev = want;
+  want_prev = spin;
   vac.runon_left = runon_until && (int32_t)(runon_until - ms) > 0 && !vac.tool_on ? (uint16_t)((runon_until - ms + 999) / 1000) : 0;
 
-  /* Розетка инструмента: под напряжением, пока пылесос включён. */
-  vac.outlet_on = vac.state == VAC_ACTIVE && zc_ok;
+  /* Розетка инструмента: под напряжением, пока пылесос включён и розетка разрешена. */
+  vac.outlet_on = vac.state == VAC_ACTIVE && vac.mode != VAC_OFF && vac_cfg.socket && zc_ok;
   hal_pin_write(PIN_OUTLET, vac.outlet_on);
 
+  if (vac.purging) purge_step(ms);
+  int boost = vac.purging && ph >= PH_BOOST && ph <= PH_GAP;
+
+  /* Цели турбин. */
+  float tgt[2];
+  int t2 = vac_cfg.t2;
+  int softstart_ms = vac_cfg.softstart * 100 + 1500;
+  if (vac.mode == VAC_AUTO && !(vac.faults & F_SDP_Q) && want) {
+    /* ПИ по расходу: разгон пройден — регулируем. */
+    int settled = vac.running && ms - start_ms > (uint32_t)softstart_ms && !vac.purging;
+    float e = (float)vac_cfg.sp - vac.flow_ls;
+    if (settled) {
+      u_pid += KP * (e - e_prev) + KI * e * 0.01f;
+      float hi = t2 ? 200 : 100;
+      if (u_pid > hi) u_pid = hi;
+      if (u_pid < 30) u_pid = 30;
+      /* Вторая турбина: одной не хватает (полная мощность 2 с, а расхода мало) — включаем;
+       * уставку снизили ниже того, что давала одна, или двух много даже на минимуме — выключаем. */
+      if (!vac.dual && t2 && u_pid >= 99.5f && e > 0.5f) {
+        if (!dual_since) dual_since = ms;
+        if (ms - dual_since > 2000) {
+          vac.dual = 1, dual_since = 0, q_single = vac.flow_ls;
+          hal_log("Регулятор: вторая турбина включена");
+        }
+      } else
+        dual_since = 0;
+      int enough = (float)vac_cfg.sp < q_single * 0.9f || (u_pid <= 60.5f && e < -2);
+      if (vac.dual && (enough || !t2)) {
+        if (!single_since) single_since = ms;
+        if (ms - single_since > 5000 || !t2) {
+          vac.dual = 0, single_since = 0;
+          u_pid = u_pid > 100 ? 100 : u_pid < 60 ? 60 : u_pid;
+          hal_log("Регулятор: хватает одной турбины");
+        }
+      } else
+        single_since = 0;
+    }
+    e_prev = e;
+    if (vac.dual) tgt[0] = tgt[1] = u_pid / 2;
+    else tgt[0] = u_pid > 100 ? 100 : u_pid, tgt[1] = 0;
+  } else {
+    tgt[0] = vac_cfg.power;
+    tgt[1] = t2 ? vac_cfg.power : 0;
+    vac.dual = (uint8_t)t2;
+  }
+  if (!want && purge_spin) tgt[0] = 100, tgt[1] = t2 ? 100 : 0;
+  if (boost) {
+    /* Разгон перед ударами и сами удары — на полной мощности. */
+    tgt[0] = 100;
+    if (tgt[1] > 0) tgt[1] = 100;
+  }
+
   float rate = 10.0f / (vac_cfg.softstart ? vac_cfg.softstart : 1); /* % за 10 мс */
-  int both = vac_cfg.turbines == 0;
   int any = 0;
   for (int k = 0; k < 2; k++) {
-    float target = vac_cfg.power;
+    float target = tgt[k];
+    if (target > 0 && target < 30) target = 30;
+    if (target > 100) target = 100;
     if (vac.faults & (k ? F_WARM2 : F_WARM1)) target = target > 70 ? 70 : target;
     if (vac.faults & (k ? F_NTC2 : F_NTC1)) target = target > 70 ? 70 : target;
-    if (vac.purging && target < 70) target = 70;
     int locked = (vac.faults & (k ? F_HOT2 : F_HOT1)) || (lock_until[k] && (int32_t)(lock_until[k] - ms) > 0);
-    int on = want && turbine_selected(k) && !locked && (!both || k == 0 || ms - start_ms >= 1000);
+    int on = spin && target > 0 && !locked && (k == 0 || ms - start_ms >= 1000);
     float p = vac.pcmd[k];
     if (!on)
       p = 0;
@@ -349,37 +536,10 @@ static void control(void) {
     if (p > 0) any = 1;
   }
   if (any && !vac.running) run_since = ms;
-  vac.running = any;
+  vac.running = (uint8_t)any;
   if (any) worked_ms += 10;
+  if (!any && vac.purging && ph != PH_SPIN) purge_finish("Продувка прервана: турбины остановлены");
 
-  /* Продувка: импульсы по очереди на клапаны, пауза 0,7 с. */
-  if (vac.purging) {
-    if (purge_step == 0 && purge_phase == 0 && ms - run_since < 3000) {
-      /* ждём разгона турбин */
-    } else if (purge_phase == 0) {
-      int v = purge_step & 1;
-      vac.valve[v] = 1;
-      vac.valve[!v] = 0;
-      purge_t = ms;
-      purge_phase = 1;
-    } else if (purge_phase == 1 && ms - purge_t >= (uint32_t)vac_cfg.purge_ms10 * 10) {
-      vac.valve[0] = vac.valve[1] = 0;
-      purge_t = ms;
-      purge_phase = 2;
-    } else if (purge_phase == 2 && ms - purge_t >= 700) {
-      purge_phase = 0;
-      if (++purge_step >= vac_cfg.purge_pulses * 2) {
-        vac.purging = 0;
-        purge_spin = 0;
-        vac.purges++;
-        last_purge_ms = ms;
-        filter_check = 1;
-        filter_since = 0;
-        hal_log("Продувка закончена");
-      }
-    }
-  } else
-    vac.valve[0] = vac.valve[1] = 0;
   hal_pin_write(PIN_Y1, vac.valve[0]);
   hal_pin_write(PIN_Y2, vac.valve[1]);
 }
@@ -387,6 +547,7 @@ static void control(void) {
 /* ---------------- датчики (каждые 50 мс) ---------------- */
 
 static int sens_phase;
+static uint32_t load_since;
 
 static void sensors(void) {
   uint32_t ms = now_ms;
@@ -408,6 +569,7 @@ static void sensors(void) {
         if (pa < 0) pa = 0;
         float q = (float)vac_cfg.flow_k10 / 10.0f * v_sqrtf(pa);
         vac.flow_m3h += (q - vac.flow_m3h) * 0.4f;
+        vac.flow_ls = vac.flow_m3h / 3.6f;
         float d = (float)vac_cfg.hose_mm / 1000.0f;
         vac.speed_ms = vac.flow_m3h / 3600.0f / (3.14159265f * d * d / 4.0f);
       }
@@ -415,6 +577,18 @@ static void sensors(void) {
       sdp_start(b);
     }
     set_fault(b ? F_SDP_Q : F_SDP_F, sdp_err[b] >= 20);
+  }
+
+  /* Сопротивление фильтра R = 100·Δp/Q²: от расхода почти не зависит, растёт с пылью. */
+  int pulsing = vac.purging && ph >= PH_OPEN && ph <= PH_GAP;
+  if (vac.flow_ls > 8 && !pulsing && !vac.valve[0] && !vac.valve[1]) {
+    float r = 100.0f * vac.filter_pa / (vac.flow_ls * vac.flow_ls);
+    vac.r_now = vac.r_now > 0 ? vac.r_now + (r - vac.r_now) * 0.3f : r;
+    if (vac_cfg.r_new > 0) {
+      float top = vac_cfg.r_new * ((float)vac_cfg.thr / 100.0f - 1.0f);
+      float l = top > 0 ? (vac.r_now - vac_cfg.r_new) / top * 100.0f : 0;
+      vac.load = l < 0 ? 0 : l > 100 ? 100 : l;
+    }
   }
 
   /* Температуры — через раз (100 мс). */
@@ -446,27 +620,22 @@ static void sensors(void) {
     blocked_since = 0;
   set_fault(F_BLOCKED, blocked_since && ms - blocked_since > 2000);
 
-  /* Фильтр: перепад, приведённый к 200 м³/ч, против порога автопродувки. */
-  if (vac.flow_m3h > 60) {
-    float r = 200.0f / vac.flow_m3h;
-    filter_norm = vac.filter_pa * r * r;
+  /* Автоочистка: по периоду пресета (время работы) и по порогу R. */
+  if (up && vac_cfg.clean_auto && vac.state == VAC_ACTIVE) {
+    if (vac_cfg.period && series_s >= vac_cfg.period) {
+      hal_log("Очистка по периоду");
+      vac_purge_now(PURGE_SERIES);
+    } else if (vac_cfg.r_new > 0 && vac.load >= 100 && ms - last_series_ms > 10000) {
+      if (!load_since) load_since = ms;
+      if (ms - load_since > 2000) {
+        load_since = 0;
+        hal_log("Очистка по порогу R");
+        vac_purge_now(PURGE_SERIES);
+      }
+    } else
+      load_since = 0;
   }
-  if (up && vac_cfg.purge_pa && vac.flow_m3h > 60 && filter_norm > vac_cfg.purge_pa) {
-    if (!filter_since) filter_since = ms;
-  } else
-    filter_since = 0;
-  if (filter_since && ms - filter_since > 3000) {
-    if (filter_check && ms - last_purge_ms < 15000) {
-      set_fault(F_FILTER, 1);
-      filter_check = 0;
-    } else if (!vac.purging && (!last_purge_ms || ms - last_purge_ms > 60000)) {
-      hal_log("Автопродувка: фильтр засорился");
-      vac_purge_now();
-    }
-    filter_since = 0;
-  }
-  if (up && filter_norm < vac_cfg.purge_pa * 0.8f) set_fault(F_FILTER, 0);
-  if (filter_check && ms - last_purge_ms > 15000) filter_check = 0;
+  (void)overload_since;
 }
 
 /* ---------------- токи (каждые 200 мс) ---------------- */
@@ -486,21 +655,21 @@ static void currents(void) {
   vac.amps[1] = amps[1];
   vac.tool_amps = amps[2];
 
-  /* Инструмент: включился — пылесос следом, выключился — выбег. */
+  /* Инструмент: включился — пылесос следом, выключился — уборка остатка. */
   float thr = (float)vac_cfg.tool_ma / 1000.0f;
   if (vac.outlet_on && amps[2] > thr) {
     cnt_tool_off = 0;
     if (!vac.tool_on && ++cnt_tool_on >= 1) {
       vac.tool_on = 1;
       runon_until = 0;
-      if (vac.mode == VAC_AUTO && vac.state == VAC_ACTIVE) hal_log("Инструмент включён — пуск турбин");
+      hal_log("Инструмент включён — пуск турбин");
     }
   } else if (amps[2] < thr * 0.7f || !vac.outlet_on) {
     cnt_tool_on = 0;
     if (vac.tool_on && ++cnt_tool_off >= 2) {
       vac.tool_on = 0;
-      runon_until = ms + (uint32_t)vac_cfg.runon * 1000;
-      if (vac.mode == VAC_AUTO && vac.state == VAC_ACTIVE) hal_log("Инструмент выключен — выбег");
+      runon_until = (ms + (uint32_t)vac_cfg.runon * 1000) | 1;
+      hal_log("Инструмент выключен — уборка остатка");
     }
   }
 
@@ -508,7 +677,7 @@ static void currents(void) {
   for (int k = 0; k < 2; k++) {
     float a = amps[k];
     uint32_t over = k ? F_OVER2 : F_OVER1, nocur = k ? F_NOCUR2 : F_NOCUR1, leak = k ? F_LEAK2 : F_LEAK1;
-    int settled = vac.pcmd[k] > 0 && ms - start_ms > (uint32_t)vac_cfg.softstart * 100 + 1500 + (k && vac_cfg.turbines == 0 ? 1000 : 0);
+    int settled = vac.pcmd[k] > 0 && ms - start_ms > (uint32_t)vac_cfg.softstart * 100 + 1500 + (k ? 1000 : 0);
     if (settled && a > 9.0f) {
       if (++cnt_over[k] >= 5) {
         set_fault(over, 1);
@@ -537,8 +706,8 @@ static void currents(void) {
 
 /* ---------------- раз в секунду ---------------- */
 
-static char serial_line[64];
-static int serial_len;
+static char serial_line[80], uart_line[80];
+static int serial_len, uart_len;
 static uint32_t last_status_ms;
 
 static void mains(void) {
@@ -560,9 +729,10 @@ static void mains(void) {
 static void status_line(char *out) {
   char n[16];
   out[0] = 0;
-  str_cat(out, vac.state == VAC_ACTIVE ? (vac.mode == VAC_AUTO ? "АВТО" : "РУЧН") : "СТОП");
+  str_cat(out, vac.state == VAC_ACTIVE ? (vac.mode == VAC_AUTO ? "АВТО" : vac.mode == VAC_MANUAL ? "РУЧН" : "ВЫКЛ") : "СТОП");
   str_cat(out, vac.purging ? " продувка" : vac.running ? " работа" : " стоит");
   str_cat(out, " P="), str_cat(out, fmt_int(n, (long)(vac.pcmd[0] > vac.pcmd[1] ? vac.pcmd[0] : vac.pcmd[1]))), str_cat(out, "%");
+  str_cat(out, " P2="), str_cat(out, fmt_int(n, (long)vac.pcmd[1])), str_cat(out, "%");
   str_cat(out, " I1="), str_cat(out, fmt_num(n, vac.amps[0], 2));
   str_cat(out, " I2="), str_cat(out, fmt_num(n, vac.amps[1], 2));
   str_cat(out, " Iинстр="), str_cat(out, fmt_num(n, vac.tool_amps, 2));
@@ -570,9 +740,11 @@ static void status_line(char *out) {
   str_cat(out, " t2="), str_cat(out, fmt_num(n, vac.temp[1], 0));
   str_cat(out, " U="), str_cat(out, fmt_num(n, vac.mains_v, 0));
   str_cat(out, " разр="), str_cat(out, fmt_num(n, vac.vacuum_kpa, 1));
-  str_cat(out, " Q="), str_cat(out, fmt_num(n, vac.flow_m3h, 0));
+  str_cat(out, " Q="), str_cat(out, fmt_num(n, vac.flow_ls, 1));
+  str_cat(out, " уст="), str_cat(out, fmt_int(n, vac_cfg.sp));
   str_cat(out, " v="), str_cat(out, fmt_num(n, vac.speed_ms, 1));
   str_cat(out, " фильтр="), str_cat(out, fmt_num(n, vac.filter_pa, 0));
+  str_cat(out, " R="), str_cat(out, fmt_num(n, vac.r_now, 1));
 }
 
 static void each_second(void) {
@@ -580,17 +752,23 @@ static void each_second(void) {
   mains();
   for (int k = 0; k < 2; k++)
     if (vac.pcmd[k] > 0) {
-      if (k) vac_cfg.hours2++;
-      else vac_cfg.hours1++;
+      /* Приведённые часы: износ щёток растёт с мощностью и нагревом. */
+      float p = vac.pcmd[k] / 100.0f;
+      float w = p * v_sqrtf(p) * (vac.temp[k] > 90 ? 1.5f : 1.0f);
+      vac_cfg.hours[k]++;
+      wacc[k] += w;
+      while (wacc[k] >= 1) vac_cfg.whours[k]++, wacc[k] -= 1;
       if (!hours_dirty_ms) hours_dirty_ms = now_ms;
     }
+  if (vac.running && !vac.purging) series_s++;
+  vac.next_series = vac_cfg.clean_auto && vac_cfg.period && vac.running ? (uint16_t)(series_s < vac_cfg.period ? vac_cfg.period - series_s : 0) : 0;
   /* Наработку — в память раз в 10 минут или после остановки. */
   if (hours_dirty_ms && ((!vac.running && now_ms - hours_dirty_ms > 5000) || now_ms - hours_dirty_ms > 600000)) {
     vac_save_settings();
     hours_dirty_ms = 0;
   }
   if (vac.running || vac.state == VAC_ACTIVE || now_ms - last_status_ms > 10000) {
-    char line[200];
+    char line[240];
     status_line(line);
     hal_log(line);
     last_status_ms = now_ms;
@@ -620,20 +798,22 @@ void vac_setup(void) {
   hal_pin_mode(PIN_BUZZER, HAL_OUT);
   hal_pin_write(PIN_BUZZER, 0);
 
-  hal_i2c_begin(0, PIN_SDA0, PIN_SCL0, 400000);
+  hal_i2c_begin(0, PIN_SDA0, PIN_SCL0, 100000);
   hal_i2c_begin(1, PIN_SDA1, PIN_SCL1, 100000);
   sdp_start(0);
   sdp_start(1);
-  ui_init();
+  link_init();
 
   now_ms = hal_millis();
   next_sample = hal_micros();
   hal_log("Контроллер пылесоса " VAC_VERSION ", ESP32. Команды: help");
-  char line[80] = "Настройки: мощность ";
-  char n2[12];
+  char line[96] = "Настройки: режим ", n2[12];
+  str_cat(line, mode_name(vac.mode));
+  str_cat(line, ", уставка ");
+  str_cat(line, fmt_int(n2, vac_cfg.sp));
+  str_cat(line, " л/с, мощность ");
   str_cat(line, fmt_int(n2, vac_cfg.power));
-  str_cat(line, "%, режим ");
-  str_cat(line, vac.mode == VAC_AUTO ? "авто" : "ручной");
+  str_cat(line, " %");
   hal_log(line);
 }
 
@@ -659,25 +839,76 @@ void vac_loop(void) {
     if (now_ms - t1000 > 1000) t1000 = now_ms;
     each_second();
   }
-  ui_poll(now_ms);
+  if (save_at && (int32_t)(now_ms - save_at) >= 0) {
+    save_at = 0;
+    vac_save_settings();
+  }
+  link_poll(now_ms);
   beep_poll();
 }
 
-void vac_serial(int ch) {
+static void line_in(char *buf, int *len, int ch) {
   if (ch == '\r') return;
   if (ch == '\n') {
-    serial_line[serial_len] = 0;
-    if (serial_len) vac_command(serial_line);
-    serial_len = 0;
+    buf[*len] = 0;
+    if (*len) vac_command(buf);
+    *len = 0;
     return;
   }
-  if (serial_len < (int)sizeof serial_line - 1) serial_line[serial_len++] = (char)ch;
+  if (*len < 79) buf[(*len)++] = (char)ch;
+}
+
+void vac_serial(int ch) { line_in(serial_line, &serial_len, ch); }
+void vac_uart(int ch) { line_in(uart_line, &uart_len, ch); }
+
+/* Следующее слово строки. */
+static const char *word(const char *s) {
+  while (*s && *s != ' ') s++;
+  while (*s == ' ') s++;
+  return s;
+}
+
+static int in_range(long v, long lo, long hi) { return v >= lo && v <= hi; }
+
+static void cfg_changed(void) {
+  save_soon();
+  link_send_config();
+}
+
+static void export_journal(void) {
+  char line[200], n[16];
+  hal_log("Журнал пылесоса:");
+  for (int k = 0; k < 2; k++) {
+    line[0] = 0;
+    str_cat(line, k ? "  турбина 2: " : "  турбина 1: ");
+    str_cat(line, fmt_num(n, vac_cfg.hours[k] / 3600.0f, 1)), str_cat(line, " ч, приведённые ");
+    str_cat(line, fmt_num(n, vac_cfg.whours[k] / 3600.0f, 1)), str_cat(line, " ч");
+    hal_log(line);
+  }
+  line[0] = 0;
+  str_cat(line, "  ударов клапанов: "), str_cat(line, fmt_int(n, (long)vac_cfg.pulse_count));
+  str_cat(line, ", R нового: "), str_cat(line, fmt_num(n, vac_cfg.r_new, 1));
+  hal_log(line);
+  line[0] = 0;
+  str_cat(line, "  R по сменам:");
+  for (int i = 0; i < vac_cfg.nrh; i++) str_cat(line, " "), str_cat(line, fmt_num(n, vac_cfg.rhist[i] / 10.0f, 1));
+  hal_log(line);
 }
 
 void vac_command(const char *c) {
-  char line[200];
-  if (str_eq(c, "help")) {
-    hal_log("Команды: status, start, stop, auto, manual, purge, power 30…100, turbines 0|1|2");
+  char line[240];
+  const char *a = word(c);
+  long v = str_to_int(a);
+  if (str_eq(c, "hi")) {
+    link_on_hello();
+  } else if (str_eq(c, "get")) {
+    link_on_hello();
+    link_send_config();
+    link_send_journal();
+  } else if (str_eq(c, "help")) {
+    hal_log("Команды: status, start, stop, mode a|m|o, sp 10…60, pw 30…100, sock 0|1, runon 0…60, t2 0|1,");
+    hal_log("  clean a|o, set n|imp|pause|thr|boost N, purge [full], filter new, pulses reset, preset 0…3,");
+    hal_log("  preset set I SP PERIOD, ack, export");
   } else if (str_eq(c, "status")) {
     status_line(line);
     hal_log(line);
@@ -692,26 +923,80 @@ void vac_command(const char *c) {
     if (vac.state == VAC_STANDBY) vac_start_stop();
   } else if (str_eq(c, "stop")) {
     if (vac.state == VAC_ACTIVE) vac_start_stop();
-  } else if (str_eq(c, "auto")) {
-    if (vac.mode != VAC_AUTO) vac_toggle_mode();
-  } else if (str_eq(c, "manual")) {
-    if (vac.mode != VAC_MANUAL) vac_toggle_mode();
+  } else if (str_starts(c, "mode ") || str_eq(c, "auto") || str_eq(c, "manual")) {
+    char m = str_eq(c, "auto") ? 'a' : str_eq(c, "manual") ? 'm' : a[0];
+    if (m == 'a' || m == 'm' || m == 'o') vac_set_mode(m == 'a' ? VAC_AUTO : m == 'm' ? VAC_MANUAL : VAC_OFF), link_send_config();
+  } else if (str_starts(c, "sp ")) {
+    if (in_range(v, 10, 60)) vac_cfg.sp = (uint8_t)v, cfg_changed();
+  } else if (str_starts(c, "pw ") || str_starts(c, "power ")) {
+    if (in_range(v, 30, 100)) vac_cfg.power = (uint8_t)v, cfg_changed();
+  } else if (str_starts(c, "sock ")) {
+    vac_cfg.socket = v ? 1 : 0;
+    hal_log(v ? "Розетка: турбины — по инструменту" : "Розетка выключена: турбины работают постоянно");
+    cfg_changed();
+  } else if (str_starts(c, "runon ")) {
+    if (in_range(v, 0, 60)) vac_cfg.runon = (uint8_t)v, cfg_changed();
+  } else if (str_starts(c, "t2 ")) {
+    vac_cfg.t2 = v ? 1 : 0, cfg_changed();
+  } else if (str_starts(c, "clean ")) {
+    vac_cfg.clean_auto = a[0] == 'a';
+    hal_log(vac_cfg.clean_auto ? "Автоочистка включена" : "Автоочистка выключена");
+    cfg_changed();
+  } else if (str_starts(c, "set ")) {
+    const char *b = word(a);
+    long x = str_to_int(b);
+    if (str_starts(a, "n ") && in_range(x, 1, 10)) vac_cfg.pulses = (uint8_t)x;
+    else if (str_starts(a, "imp ") && in_range(x, 10, 300)) vac_cfg.imp_ms = (uint16_t)x;
+    else if (str_starts(a, "pause ") && in_range(x, 100, 3000)) vac_cfg.pause_ms = (uint16_t)x;
+    else if (str_starts(a, "thr ") && in_range(x, 110, 300)) vac_cfg.thr = (uint16_t)x;
+    else if (str_starts(a, "boost ") && in_range(x, 0, 3000)) vac_cfg.boost_ms = (uint16_t)x;
+    else if (str_starts(a, "period ") && in_range(x, 0, 600)) vac_cfg.period = (uint16_t)x;
+    else return;
+    cfg_changed();
   } else if (str_eq(c, "purge")) {
-    vac_purge_now();
-  } else if (str_starts(c, "power ")) {
-    long p = str_to_int(c + 6);
-    if (p >= 30 && p <= 100) {
-      vac_cfg.power = (uint8_t)p;
-      vac_save_settings();
-      hal_log("Мощность задана");
+    vac_purge_now(PURGE_SERIES);
+  } else if (str_eq(c, "purge full")) {
+    vac_purge_now(PURGE_FULL);
+  } else if (str_eq(c, "filter new")) {
+    vac_cfg.r_new = 0;
+    vac.r_after = vac.r_before = vac.load = 0;
+    set_fault(F_FILTER, 0);
+    hal_log("Фильтр новый: R нового определится после продувки");
+    save_soon();
+  } else if (str_eq(c, "pulses reset")) {
+    vac_cfg.pulse_count = 0;
+    hal_log("Счётчик ударов сброшен");
+    save_soon();
+  } else if (str_starts(c, "preset set ")) {
+    const char *b = word(a), *d = word(b);
+    long i = str_to_int(b), sp = str_to_int(d), per = str_to_int(word(d));
+    if (in_range(i, 0, N_PRESETS - 1) && in_range(sp, 10, 60) && in_range(per, 0, 600)) {
+      vac_cfg.psp[i] = (uint8_t)sp;
+      vac_cfg.pper[i] = (uint16_t)per;
+      if (vac_cfg.preset == i) vac_cfg.sp = (uint8_t)sp, vac_cfg.period = (uint16_t)per;
+      cfg_changed();
     }
-  } else if (str_starts(c, "turbines ")) {
-    long t = str_to_int(c + 9);
-    if (t >= 0 && t <= 2) {
-      vac_cfg.turbines = (uint8_t)t;
-      vac_save_settings();
-      hal_log("Турбины заданы");
-    }
+  } else if (str_starts(c, "preset ")) {
+    if (!in_range(v, 0, N_PRESETS - 1)) return;
+    static const char *const NAME[N_PRESETS] = {"бетон", "бурение", "гипс", "уборка"};
+    vac_cfg.preset = (uint8_t)v;
+    vac_cfg.sp = vac_cfg.psp[v];
+    vac_cfg.period = vac_cfg.pper[v];
+    vac_cfg.clean_auto = 1;
+    series_s = 0;
+    vac_set_mode(VAC_AUTO);
+    line[0] = 0;
+    str_cat(line, "Пресет: ");
+    hal_log(str_cat(line, NAME[v]));
+    if (vac.state == VAC_STANDBY) vac_start_stop();
+    cfg_changed();
+  } else if (str_eq(c, "ack")) {
+    /* Сброс защёлкнутых аварий: перегрузка (блокировка 30 с), «пора мыть». */
+    lock_until[0] = lock_until[1] = 0;
+    set_fault(F_OVER1, 0), set_fault(F_OVER2, 0), set_fault(F_FILTER, 0);
+    hal_log("Аварии сброшены");
+  } else if (str_eq(c, "export")) {
+    export_journal();
   } else {
     line[0] = 0;
     str_cat(line, "Не понял: ");
@@ -733,13 +1018,14 @@ static char *json_num(char *out, const char *key, float v, int dec) {
 }
 
 int vac_status_json(char *buf, int len) {
-  char out[480];
+  char out[560];
   out[0] = 0;
   str_cat(out, "{");
   json_num(out, "state", vac.state, 0);
   json_num(out, "mode", vac.mode, 0);
   json_num(out, "running", vac.running, 0);
   json_num(out, "purging", vac.purging, 0);
+  json_num(out, "sp", vac_cfg.sp, 0);
   json_num(out, "power", vac_cfg.power, 0);
   json_num(out, "p1", vac.pcmd[0], 0);
   json_num(out, "p2", vac.pcmd[1], 0);
@@ -750,10 +1036,13 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "t2", vac.temp[1], 1);
   json_num(out, "mains", vac.mains_v, 0);
   json_num(out, "vacuum", vac.vacuum_kpa, 2);
-  json_num(out, "flow", vac.flow_m3h, 0);
+  json_num(out, "flow", vac.flow_ls, 1);
   json_num(out, "speed", vac.speed_ms, 1);
   json_num(out, "filter", vac.filter_pa, 0);
+  json_num(out, "r", vac.r_now, 1);
+  json_num(out, "load", vac.load, 0);
   json_num(out, "runon", vac.runon_left, 0);
+  json_num(out, "panel", vac.panel, 0);
   json_num(out, "faults", (float)vac.faults, 0);
   int n = str_len(out);
   out[n - 1] = '}';
