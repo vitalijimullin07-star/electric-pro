@@ -1,10 +1,12 @@
 import type { TWIEventHandler, AVRTWI } from 'avr8js';
 import type { Component, FootprintDef, Id, Project } from '../model/types';
-import type { Circuit, Level } from './circuit';
+import { parseOhms, type Circuit, type Level } from './circuit';
+import { Esp32 } from './esp32';
 import { Hd44780 } from './hd44780';
-import type { McuPin } from './mcu';
+import { Avr, type McuPin } from './mcu';
 import { CoilModel } from './metal-detector';
 import { Ssd1306 } from './ssd1306';
+import { placeOf, VacuumPlant } from './vacuum';
 
 /*
  * Детали вокруг контроллера: распознаются по корпусу из библиотеки и именам выводов,
@@ -28,7 +30,7 @@ export interface DeviceView {
   id: string;
   comp: Id;
   ref: string;
-  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery';
+  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery' | 'encoder' | 'motor' | 'valve' | 'tool' | 'triac' | 'mains' | 'plant';
   title: string;
   /** Не подключено к контроллеру как нужно — объяснение. */
   warning?: string;
@@ -52,6 +54,8 @@ export interface DeviceView {
   glyphs?: number[][];
   /** ЖК: коды символов по строкам экрана. */
   codes?: number[][];
+  /** Показания: обороты, ток, давление… */
+  readings?: { label: string; value: number; unit: string }[];
 }
 
 export interface Device {
@@ -90,16 +94,50 @@ const param = (key: string, label: string, value: number, min: number, max: numb
 /* ---------------- I²C ---------------- */
 
 interface I2cDevice {
-  start(write: boolean): void;
+  /** Начало обмена; false — устройство не отвечает (NACK на адрес). */
+  start(write: boolean): boolean | void;
   write(v: number): boolean;
   read(): number;
   stop(): void;
 }
 
-class I2cBus implements TWIEventHandler {
-  readonly devices = new Map<number, I2cDevice>();
+/** Устройства I²C по цепям SDA и SCL: у ESP32 шину можно назначить на любые выводы. */
+export class I2cNetwork {
+  private list: { sda: number; scl: number; addr: number; dev: I2cDevice }[] = [];
+  attach(sda: number | undefined, scl: number | undefined, addr: number, dev: I2cDevice): void {
+    if (sda === undefined || scl === undefined) return;
+    this.list.push({ sda, scl, addr, dev });
+  }
+  find(sda: number | undefined, scl: number | undefined, addr: number): I2cDevice | null {
+    return this.list.find((x) => x.sda === sda && x.scl === scl && x.addr === addr)?.dev ?? null;
+  }
+  /** Обмен целиком (ESP32): запись байтов или чтение; null — нет ответа. */
+  transfer(sda: number | undefined, scl: number | undefined, addr: number, write: Uint8Array | null, readLen: number): number[] | null {
+    const d = this.find(sda, scl, addr);
+    if (!d || d.start(!!write) === false) return null;
+    try {
+      if (write) {
+        for (const b of write) if (!d.write(b)) return null;
+        return [];
+      }
+      const out: number[] = [];
+      for (let i = 0; i < readLen; i++) out.push(d.read() & 0xff);
+      return out;
+    } finally {
+      d.stop();
+    }
+  }
+}
+
+/** Аппаратный TWI у AVR: шина на A4/A5 (PC4/PC5). */
+class TwiBus implements TWIEventHandler {
   private cur: I2cDevice | null = null;
-  constructor(private twi: AVRTWI) {}
+  constructor(
+    private twi: AVRTWI,
+    private net: I2cNetwork,
+    private sda: number | undefined,
+    private scl: number | undefined,
+  ) {}
   start(): void {
     this.twi.completeStart();
   }
@@ -110,9 +148,10 @@ class I2cBus implements TWIEventHandler {
   }
   connectToSlave(addr: number, write: boolean): void {
     this.cur?.stop();
-    this.cur = this.devices.get(addr) ?? null;
-    this.cur?.start(write);
-    this.twi.completeConnect(!!this.cur);
+    this.cur = this.net.find(this.sda, this.scl, addr);
+    const ok = !!this.cur && this.cur.start(write) !== false;
+    if (!ok) this.cur = null;
+    this.twi.completeConnect(ok);
   }
   writeByte(v: number): void {
     this.twi.completeWrite(this.cur ? this.cur.write(v) : false);
@@ -131,6 +170,8 @@ export interface BuildResult {
   devices: Device[];
   /** Детали, которые симуляция не знает (для подсказки). */
   unknown: string[];
+  /** Установка «пылесос», если она есть на схеме. */
+  plant: VacuumPlant | null;
 }
 
 export function buildDevices(c: Circuit, p: Project): BuildResult {
@@ -148,19 +189,25 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
     coils.push(coil);
     devices.push({ id: comp.id, comp, view: () => coil.view(), set: (k, v) => coil.set(k, v), act: (k) => coil.act(k) });
   }
-  const bus = new I2cBus(mcu.twi);
-  mcu.twi.eventHandler = bus;
-  const spiDevs: { cs: number | undefined; next: () => number }[] = [];
-  mcu.spi.onTransfer = () => {
-    for (const d of spiDevs) if (d.cs !== undefined && c.levelOf(d.cs) === 0) return d.next();
-    return 0xff;
-  };
+  // Установка «пылесос»: сеть, симисторы, двигатели, пневматика.
+  const plant = VacuumPlant.detect(c, p);
+  if (plant) devices.push(...plant.devices);
+  const i2c = new I2cNetwork();
+  const avr = mcu instanceof Avr ? mcu : null;
   const sda = c.pinGroup.get('PC4');
   const scl = c.pinGroup.get('PC5');
+  if (avr) avr.twi.eventHandler = new TwiBus(avr.twi, i2c, sda, scl);
+  if (mcu instanceof Esp32) mcu.i2cTransfer = (sdaPin, sclPin, addr, write, len) => i2c.transfer(c.pinGroup.get(sdaPin), c.pinGroup.get(sclPin), addr, write, len);
+  const spiDevs: { cs: number | undefined; next: () => number }[] = [];
+  if (avr)
+    avr.spi.onTransfer = () => {
+      for (const d of spiDevs) if (d.cs !== undefined && c.levelOf(d.cs) === 0) return d.next();
+      return 0xff;
+    };
   const hasLcd2004 = Object.values(p.components).some((x) => /LCD2004/.test(x.footprint));
 
   for (const comp of Object.values(p.components)) {
-    if (comp.id === c.mcuComp.id) continue;
+    if (comp.id === c.mcuComp.id || plant?.claimed.has(comp.id)) continue;
     const fp = p.footprints[comp.footprint];
     if (!fp || (fp.tags ?? []).includes('dd-coil')) continue;
     const tags = fp.tags ?? [];
@@ -176,8 +223,15 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
     };
     const use = (...names: string[]) => names.forEach((n) => used.add(comp.id + ':' + up(n)));
     const id = fp.id;
-    const onI2c = () => g('SDA') !== undefined && g('SDA') === sda && g('SCL') === scl;
-    const i2cWarn = () => (onI2c() ? undefined : 'SDA и SCL не соединены с A4 и A5 контроллера');
+    // У AVR шина — только A4/A5; у ESP32 — любые выводы (назначает прошивка).
+    const onI2c = () => {
+      const a = g('SDA');
+      const b = g('SCL');
+      if (a === undefined || b === undefined) return false;
+      return avr ? a === sda && b === scl : c.groups[a].pins.length > 0 && c.groups[b].pins.length > 0;
+    };
+    const i2cWarn = () => (onI2c() ? undefined : avr ? 'SDA и SCL не соединены с A4 и A5 контроллера' : 'SDA и SCL не подключены к выводам контроллера');
+    const attachI2c = (addr: number, dev: I2cDevice) => i2c.attach(g('SDA'), g('SCL'), addr, dev);
 
     // --- светодиоды ---
     if (fp.category === 'Светодиоды' && pads.has('A') && pads.has('K')) {
@@ -363,6 +417,9 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
     if (/^Buzzer_|^Speaker_|^Module_KY-006$|^Module_KY-012$/.test(id) || tags.includes('speaker')) {
       const sig = /KY-0/.test(id) ? g('S') : [...pads.keys()].map((k) => g(k)).find((x) => x !== undefined && !c.groups[x].power);
       const active = /KY-012|12x9\.5/.test(id);
+      // Зуммер между плюсом и ключом: пока ключ закрыт, вывод подтянут к плюсу через катушку.
+      const plus = [...pads.keys()].map((k) => g(k)).find((x) => x !== undefined && c.groups[x].power === 'vcc');
+      if (!/KY-0/.test(id) && sig !== undefined && plus !== undefined) c.addPull(sig, plus, 40);
       devices.push({
         id: comp.id,
         comp,
@@ -425,8 +482,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         stop: () => undefined,
       };
       if (onI2c()) {
-        bus.devices.set(addr, dev);
-        if (!/^IC_/.test(id)) bus.devices.set(0x3f, dev);
+        attachI2c(addr, dev);
+        if (!/^IC_/.test(id)) attachI2c(0x3f, dev);
       }
       use('SDA', 'SCL');
       devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'lcd', title: `${comp.ref} ЖК ${lcd.cols}×${lcd.rows} по I²C (0x${addr.toString(16)})`, lines: lcd.lines(), ...lcdGlyphs(lcd), backlight: lcd.backlight, warning: i2cWarn() }) });
@@ -463,8 +520,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
       const oled = new Ssd1306(128, small ? 32 : 64, /1\.3/.test(id));
       const dev: I2cDevice = { start: () => oled.begin(), write: (v) => (oled.byte(v), true), read: () => 0, stop: () => undefined };
       if (onI2c()) {
-        bus.devices.set(0x3c, dev);
-        bus.devices.set(0x3d, dev);
+        attachI2c(0x3c, dev);
+        attachI2c(0x3d, dev);
       }
       use('SDA', 'SCL');
       devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'oled', title: `${comp.ref} OLED ${oled.width}×${oled.height}${oled.sh1106 ? ' SH1106' : ''} (0x3C)`, frame: oled.frame(), width: oled.width, height: oled.height, warning: i2cWarn() }) });
@@ -508,7 +565,7 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         },
         stop: () => undefined,
       };
-      if (onI2c()) bus.devices.set(0x68, dev);
+      if (onI2c()) attachI2c(0x68, dev);
       use('SDA', 'SCL');
       devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} часы (0x68): ${new Date(Date.now() + offset).toLocaleTimeString('ru')}`, warning: i2cWarn() }) });
       continue;
@@ -553,7 +610,7 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         },
         stop: () => undefined,
       };
-      if (onI2c()) bus.devices.set(addr, dev);
+      if (onI2c()) attachI2c(addr, dev);
       use('SDA', 'SCL', 'ADDR', 'A0', 'A1', 'A2', 'A3');
       devices.push({
         id: comp.id,
@@ -594,9 +651,9 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
           const [, lvl] = seq[k];
           c.drive(data, owner, lvl);
           k++;
-          if (k < seq.length) mcu.cpu.addClockEvent(step, seq[k][0] * US);
+          if (k < seq.length) mcu.schedule(step, seq[k][0] * US);
         };
-        mcu.cpu.addClockEvent(step, seq[0][0] * US);
+        mcu.schedule(step, seq[0][0] * US);
       };
       c.onMcuPin((_pin, grp, mode, cycle) => {
         if (grp !== data) return;
@@ -631,9 +688,9 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
         else if (riseAt >= 0 && cycle - riseAt >= 8 * US) {
           riseAt = -1;
           const us = params[0].value * 58.3;
-          mcu.cpu.addClockEvent(() => {
+          mcu.schedule(() => {
             c.drive(echo, comp.id, 1);
-            mcu.cpu.addClockEvent(() => c.drive(echo, comp.id, 0), us * US);
+            mcu.schedule(() => c.drive(echo, comp.id, 0), us * US);
           }, 250 * US);
         }
       });
@@ -688,6 +745,197 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
       continue;
     }
 
+    // --- энкодер: A и B замыкаются на общий вывод, щелчок — полный цикл кода ---
+    if (/RotaryEncoder|Encoder_EC1|KY-040/i.test(id) && (pads.has('A') || pads.has('CLK'))) {
+      const ga = g('A') ?? g('CLK');
+      const gb = g('B') ?? g('DT');
+      const key = comp.id;
+      let pos = 0;
+      let queue = 0;
+      let busy = false;
+      const setAB = (st: number) => {
+        c.drive(ga, key + 'A', st & 2 ? null : 0);
+        c.drive(gb, key + 'B', st & 1 ? null : 0);
+      };
+      const next = () => {
+        if (!queue) {
+          busy = false;
+          return;
+        }
+        busy = true;
+        const dir = Math.sign(queue);
+        queue -= dir;
+        pos += dir;
+        const seq = dir > 0 ? [1, 0, 2, 3] : [2, 0, 1, 3];
+        seq.forEach((st, i) => mcu.schedule(() => (setAB(st), i === 3 && next()), (i + 1) * 1500 * US));
+      };
+      devices.push({
+        id: key,
+        comp,
+        act: (k) => {
+          queue += k === 'cw' ? 1 : -1;
+          if (!busy) next();
+        },
+        view: () => ({ id: key, comp: comp.id, ref: comp.ref, kind: 'encoder', title: `${comp.ref} энкодер: ${pos > 0 ? '+' : ''}${pos}`, actions: [{ key: 'ccw', label: '⟲ влево' }, { key: 'cw', label: 'вправо ⟳' }], warning: ga === undefined || gb === undefined ? 'A или B не подключены' : undefined }),
+      });
+      // Кнопка энкодера: два вывода SW (замыкаются между собой) или SW модуля KY-040.
+      const sw = pads.get('SW') ?? [];
+      const swGroups = [...new Set(sw.map((n) => c.groupOfPad(comp, n)).filter((x): x is number => x !== undefined))];
+      if (swGroups.length) {
+        let down = false;
+        const sws = swGroups.length > 1 ? swGroups.slice(1).map((x) => c.addSwitch(swGroups[0], x)) : [];
+        devices.push({
+          id: `${key}:SW`,
+          comp,
+          press: (d) => {
+            down = d;
+            if (sws.length) for (const s2 of sws) c.setSwitch(s2, d);
+            else c.drive(swGroups[0], key + 'SW', d ? 0 : null);
+          },
+          view: () => ({ id: `${key}:SW`, comp: comp.id, ref: comp.ref, kind: 'button', title: `${comp.ref} кнопка энкодера`, pressed: down }),
+        });
+      }
+      continue;
+    }
+
+    // --- термистор NTC: сопротивление по температуре (B-формула) ---
+    if ((tags.includes('ntc') || /NTC/i.test(id)) && fp.pads.filter((q) => q.type !== 'npth').length === 2) {
+      const r25 = parseOhms(comp.value) ?? 10_000;
+      const b = +(/B\s*=?\s*(\d{4})/i.exec(comp.value)?.[1] ?? 3950);
+      const src = plant?.temperatureOf(placeOf(comp)) ?? null;
+      const params = [...(src ? [] : [param('t', 'температура', 25, -40, 200, 0.5, '°C')]), { ...param('fault', 'датчик', 0, 0, 2, 1, ''), options: ['исправен', 'обрыв', 'замыкание'] }];
+      const temp = () => (src ? src() : params[0].value);
+      const ohms = () => {
+        const f = params[params.length - 1].value;
+        if (f === 1) return 1e9;
+        if (f === 2) return 1;
+        return r25 * Math.exp(b * (1 / (temp() + 273.15) - 1 / 298.15));
+      };
+      let last = -1;
+      const update = () => {
+        const r = ohms();
+        if (Math.abs(r - last) / Math.max(1, last) > 0.002) c.setResistance(comp.id, (last = r));
+      };
+      update();
+      if (src) {
+        const tick = () => (update(), mcu.schedule(tick, mcu.freq / 10));
+        mcu.schedule(tick, mcu.freq / 10);
+      }
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+          update();
+        },
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} термистор ${comp.value}${src ? ` на ${placeOf(comp)}` : ''}`, params, readings: [{ label: 'температура', value: +temp().toFixed(1), unit: '°C' }, { label: 'сопротивление', value: Math.round(ohms()), unit: 'Ом' }] }),
+      });
+      continue;
+    }
+
+    // --- датчик перепада давления Sensirion SDP8xx (I²C 0x25) ---
+    if (/SDP8\d\d/i.test(`${comp.value} ${id}`) || tags.includes('sdp810')) {
+      const range = /125/.test(comp.value) ? 125 : /25\s*Pa/i.test(comp.value) ? 25 : 500;
+      const scale = range === 125 ? 240 : range === 25 ? 1200 : 60;
+      const src = plant?.pressureOf(placeOf(comp)) ?? null;
+      const params = [...(src ? [] : [param('dp', 'перепад', 0, -range, range, 1, 'Па')]), { ...param('fault', 'связь', 0, 0, 1, 1, ''), options: ['есть', 'нет (обрыв провода)'] }];
+      const dp = () => (src ? src() : params[0].value);
+      let measuring = false;
+      let readyAt = 0;
+      let cmd: number[] = [];
+      let out: number[] = [];
+      let ptr = 0;
+      const crc = (a: number, b2: number) => {
+        let x = 0xff;
+        for (const v of [a, b2]) {
+          x ^= v;
+          for (let i = 0; i < 8; i++) x = x & 0x80 ? ((x << 1) ^ 0x31) & 0xff : (x << 1) & 0xff;
+        }
+        return x;
+      };
+      const word = (v: number) => {
+        const u = v & 0xffff;
+        return [u >> 8, u & 0xff, crc(u >> 8, u & 0xff)];
+      };
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (params[params.length - 1].value) return false;
+          cmd = [];
+          ptr = 0;
+          if (!write) {
+            if (!measuring || mcu.cycles < readyAt) return false;
+            const raw = Math.max(-32768, Math.min(32767, Math.round(Math.max(-range * 1.2, Math.min(range * 1.2, dp())) * scale)));
+            out = [...word(raw), ...word(25 * 200), ...word(scale)];
+          }
+          return true;
+        },
+        write: (v) => {
+          cmd.push(v);
+          if (cmd.length === 2) {
+            const c16 = (cmd[0] << 8) | cmd[1];
+            if ([0x3603, 0x3608, 0x3615, 0x361e].includes(c16)) {
+              measuring = true;
+              readyAt = mcu.cycles + mcu.freq * 0.008;
+            } else if (c16 === 0x3ff9) measuring = false;
+          }
+          return true;
+        },
+        read: () => out[ptr++] ?? 0xff,
+        stop: () => undefined,
+      };
+      if (onI2c()) attachI2c(0x25, dev);
+      use('SDA', 'SCL', 'VDD', 'GND');
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+        },
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} ${comp.value} (I²C 0x25)${src ? `: ${placeOf(comp)}` : ''}`, params, readings: [{ label: 'перепад', value: +dp().toFixed(1), unit: 'Па' }], warning: i2cWarn() }),
+      });
+      continue;
+    }
+
+    // --- датчик давления MPX5xxx (аналоговый выход) ---
+    if (/MPX(V)?5\d{3}|Sensor_MPX/i.test(`${id} ${comp.value}`)) {
+      const vout = comp.padNets[fp.pads.find((q) => up(q.name) === 'VOUT')?.number ?? ''];
+      const vs = g('VS');
+      const k = /5050/.test(comp.value) ? 0.018 : /5010/.test(comp.value) ? 0.09 : /5500/.test(comp.value) ? 0.0018 : 0.009;
+      const fullKpa = /5050/.test(comp.value) ? 50 : /5010/.test(comp.value) ? 10 : /5500/.test(comp.value) ? 500 : 100;
+      const src = plant?.pressureOf(placeOf(comp)) ?? null;
+      const params = [...(src ? [] : [param('p', 'давление', fullKpa / 5, 0, fullKpa, fullKpa / 500, 'кПа')]), { ...param('fault', 'датчик', 0, 0, 1, 1, ''), options: ['исправен', 'обрыв выхода'] }];
+      const kpa = () => (src ? src() / 1000 : params[0].value);
+      const volts = () => (params[params.length - 1].value ? 0 : (vs !== undefined ? c.voltsOf(vs) || 5 : 5) * (k * Math.max(0, kpa()) + 0.04));
+      c.setNetSource(vout, () => volts());
+      use('VOUT', 'VS', 'GND');
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (key, v) => {
+          const pp = params.find((x) => x.key === key);
+          if (pp) pp.value = v;
+          c.setNetSource(vout, () => volts());
+        },
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} датчик давления ${comp.value}${src ? `: ${placeOf(comp)}` : ''}`, params, readings: [{ label: 'давление', value: +kpa().toFixed(2), unit: 'кПа' }, { label: 'выход', value: +volts().toFixed(3), unit: 'В' }], warning: !vout ? 'VOUT не подключён' : undefined }),
+      });
+      continue;
+    }
+
+    // --- трансформатор тока без установки: ток задаётся ползунком (50 Гц) ---
+    if (tags.includes('current-transformer') && !plant) {
+      const s1 = comp.padNets[fp.pads.find((q) => up(q.name) === 'S1')?.number ?? ''];
+      const s2 = comp.padNets[fp.pads.find((q) => up(q.name) === 'S2')?.number ?? ''];
+      const ratio = +(/(\d+)\s*[:/]\s*1\b/.exec(comp.value)?.[1] ?? 1000);
+      const params = [param('i', 'ток через окно', 2, 0, 20, 0.1, 'А')];
+      const inst = (cy: number) => (params[0].value * Math.SQRT2 * Math.sin((2 * Math.PI * 50 * cy) / mcu.freq)) / ratio;
+      c.setNetCurrent(s1, inst);
+      c.setNetCurrent(s2, (cy) => -inst(cy));
+      devices.push({ id: comp.id, comp, set: (_k, v) => void (params[0].value = v), view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} трансформатор тока ${comp.value}`, params }) });
+      continue;
+    }
+
     // --- общий случай: выходы модулей и датчиков → ползунок или переключатель ---
     const isModule = /^Module_|^Sensor_/.test(id) || fp.category === 'Датчики';
     let added = false;
@@ -720,7 +968,7 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
       if (!added && Object.keys(comp.padNets).length) unknown.push(`${comp.ref} (${fp.name})`);
     }
   }
-  return { devices, unknown };
+  return { devices, unknown, plant };
 }
 
 /** Потенциометр или аналоговый выход: напряжение на цепи = доля × (верх − низ) + низ. */

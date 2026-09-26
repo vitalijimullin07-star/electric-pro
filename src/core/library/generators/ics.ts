@@ -1,6 +1,6 @@
 import type { FootprintDef, Graphic, PadDef } from '../../model/types';
 import { CAT } from '../categories';
-import { dualRow, msop, qfp, soic, soicWide, tssop } from './smd';
+import { dualRow, msop, qfp, soic, soicWide, sot23, tssop } from './smd';
 import { dip } from './tht';
 import { CRT_SMD, FAB_W, boxFootprint, courtyardAround, crtGraphic, fmtP, fp, line, poly, refText, rowX, smd, tht, valueText } from './util';
 
@@ -127,6 +127,8 @@ export function allIcs(): FootprintDef[] {
   for (const n of [8, 16, 20, 24, 28] as const) out.push(ssop(n));
   for (const n of [16, 20, 24, 28] as const) out.push(qsop(n));
   out.push({ ...msop(8), group: G.tssop }, { ...msop(10), group: G.tssop });
+  // SOT-23-5 и SOT-23-6: стабилизаторы, преобразователи, мелкая логика.
+  out.push({ ...sot23('SOT-23-5'), category: CAT.U, group: G.tssop }, { ...sot23('SOT-23-6'), category: CAT.U, group: G.tssop });
   out.push({ ...dualRow({ id: 'SOT-23-8', name: 'SOT-23-8', description: 'SOT-23-8 (TSOT-8), корпус 2,9×1,6 мм, шаг 0,65 мм', pins: 8, pitch: 0.65, body: [1.6, 2.9], padSpan: 2.6, pad: [1.0, 0.4], verified: false, height: 1.0, tags: ['sot-23-8'] }), group: G.tssop });
   out.push(
     { ...qfp({ pins: 32, body: 7, pitch: 0.8, leadSpan: 9, verified: true }), group: G.qfp },

@@ -32,6 +32,7 @@ import {
   type AVRTimerConfig,
 } from 'avr8js';
 import { flashWords, parseHex } from './hex';
+import { MCU_TITLES, type McuKind, type McuPin, type PinListener, type PinMode, type PortLetter, type SimMcu } from './types';
 
 /*
  * Контроллеры AVR на эмуляторе avr8js:
@@ -43,18 +44,8 @@ import { flashWords, parseHex } from './hex';
 /** Частота Arduino по умолчанию. */
 export const MCU_FREQ = 16_000_000;
 
-export type PortLetter = 'A' | 'B' | 'C' | 'D';
-type Bit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-/** Выводы контроллера: порт и бит (ADC6/ADC7 — отдельные входы АЦП у ATmega328P в TQFP). */
-export type McuPin = `P${PortLetter}${Bit}` | 'ADC6' | 'ADC7';
-
-export type PinMode = 'low' | 'high' | 'input' | 'pullup';
-
-export type PinListener = (pin: McuPin, mode: PinMode, cycle: number) => void;
-
-export type McuKind = 'atmega328p' | 'atmega32';
-
-export const MCU_TITLES: Record<McuKind, string> = { atmega328p: 'ATmega328P', atmega32: 'ATmega32A' };
+export { MCU_TITLES } from './types';
+export type { McuKind, McuPin, PinListener, PinMode, PortLetter } from './types';
 
 /** Выводы Arduino → выводы контроллера. */
 export const ARDUINO_PINS: Record<string, McuPin> = {
@@ -212,7 +203,7 @@ const adc32: ADCConfig = {
 
 /* ---------------- контроллер ---------------- */
 
-export class Avr {
+export class Avr implements SimMcu {
   readonly cpu: CPU;
   readonly ports: Partial<Record<PortLetter, AVRIOPort>>;
   readonly usart: AVRUSART;
@@ -223,6 +214,7 @@ export class Avr {
   readonly title: string;
   /** Опорное напряжение АЦП снаружи (AREF соединён с питанием) — перекрывает встроенное. */
   forcedRef: number | null = null;
+  readonly vdd = 5;
   private readonly timers: AVRTimer[];
   private listeners: PinListener[] = [];
   private last: Record<string, PinMode> = {};
@@ -360,6 +352,10 @@ export class Avr {
 
   get cycles(): number {
     return this.cpu.cycles;
+  }
+
+  schedule(fn: () => void, cycles: number): void {
+    this.cpu.addClockEvent(fn, Math.max(1, Math.round(cycles)));
   }
 
   onPin(l: PinListener): void {

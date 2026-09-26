@@ -105,9 +105,9 @@ export class CoilModel {
     // Раз в миллисекунду: не остановился ли передатчик.
     const tick = () => {
       this.updateCurrent();
-      c.mcu.cpu.addClockEvent(tick, Math.round(this.freq / 1000));
+      c.mcu.schedule(tick, Math.round(this.freq / 1000));
     };
-    c.mcu.cpu.addClockEvent(tick, Math.round(this.freq / 1000));
+    c.mcu.schedule(tick, Math.round(this.freq / 1000));
     this.updateCurrent();
   }
 

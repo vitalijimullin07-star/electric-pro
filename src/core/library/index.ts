@@ -9,6 +9,7 @@ import { allIcs } from './generators/ics';
 import { allInductors } from './generators/inductors';
 import { allMisc } from './generators/misc';
 import { allModules } from './generators/modules';
+import { allSpecial } from './generators/special';
 import { allResistors } from './generators/resistors';
 import { allSwitches } from './generators/switches';
 import { allTransistors } from './generators/transistors';
@@ -26,7 +27,7 @@ let byId: Map<string, FootprintDef> | null = null;
 /** Вся встроенная библиотека корпусов. Одинаковые идентификаторы схлопываются: побеждает первый. */
 export function libraryFootprints(): FootprintDef[] {
   if (!cache) {
-    const all = [...allResistors(), ...allCapacitors(), ...allInductors(), ...allDiodes(), ...allLeds(), ...allTransistors(), ...allIcs(), ...allConnectors(), ...allSwitches(), ...allDisplays(), ...allCrystals(), ...allMisc(), ...allModules()];
+    const all = [...allResistors(), ...allCapacitors(), ...allInductors(), ...allDiodes(), ...allLeds(), ...allTransistors(), ...allIcs(), ...allConnectors(), ...allSwitches(), ...allDisplays(), ...allCrystals(), ...allMisc(), ...allModules(), ...allSpecial()];
     byId = new Map();
     for (const f of all) if (!byId.has(f.id)) byId.set(f.id, f);
     // Микросхемы и транзисторы с распиновкой строятся на готовых корпусах.

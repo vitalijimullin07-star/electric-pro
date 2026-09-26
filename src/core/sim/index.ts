@@ -1,15 +1,20 @@
-import type { Project } from '../model/types';
+import type { Firmware, Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
-import { Avr, pinTitle, type McuPin, type PinMode } from './mcu';
+import { Esp32 } from './esp32';
+import { Avr, pinTitle } from './mcu';
+import type { McuPin, PinMode, SimMcu } from './types';
+import type { VacuumPlant, VacuumView } from './vacuum';
 
 /*
- * Симуляция проекта с прошивкой: контроллер + детали схемы. Время — такты контроллера;
- * интерфейс вызывает run() порциями (обычно раз в кадр) и забирает view().
+ * Симуляция проекта с прошивкой: контроллер + детали схемы. Время — такты контроллера
+ * (у ESP32 такт — микросекунда); интерфейс вызывает run() порциями (обычно раз в кадр)
+ * и забирает view().
  */
 
 export { MCU_FREQ, MCU_TITLES } from './mcu';
 export type { DeviceView, SimParam } from './devices';
+export type { VacuumView } from './vacuum';
 
 export interface PinView {
   pin: McuPin;
@@ -31,36 +36,98 @@ export interface SimView {
   baud: number;
   /** Контроллер и частота: «ATmega32A, 11,0592 МГц (кварц BQ1)». */
   mcu: string;
+  /** Установка «пылесос» (мнемосхема во весь экран). */
+  plant?: VacuumView;
+}
+
+/** Настройки ESP32 между запусками — как энергонезависимая память (по проекту). */
+const nvsStore = new Map<string, Uint8Array>();
+const nvsKey = (p: Project) => `${p.meta.created}|${p.meta.name}`;
+
+export function base64ToBytes(b64: string): Uint8Array {
+  const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+export function bytesToBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return typeof btoa === 'function' ? btoa(s) : Buffer.from(s, 'binary').toString('base64');
+}
+
+function noMcu(): Error {
+  return new Error('Симуляция умеет Arduino Uno, Nano, Pro Mini, ATmega328P, ATmega32A и ESP32 (WROOM, DevKit): поставьте такой модуль или микросхему на схему.');
+}
+
+function espFirmware(fw: Firmware | undefined): Uint8Array {
+  if (!fw?.wasm) throw new Error('Для ESP32 нужна прошивка для симуляции (.wasm): ядро прошивки, собранное в WebAssembly (firmware/vacuum-esp32/build-sim.sh).');
+  return base64ToBytes(fw.wasm);
 }
 
 export class Simulation {
-  readonly mcu: Avr;
+  readonly mcu: SimMcu;
   readonly circuit: Circuit;
   readonly devices: Device[];
   readonly unknown: string[];
+  readonly plant: VacuumPlant | null;
   /** Всё, что контроллер отправил в порт. */
   serial = '';
   readonly mcuTitle: string;
   onSerial: ((text: string) => void) | null = null;
 
+  /** AVR: прошивка .hex текстом; ESP32 — готовый контроллер (см. create). */
   constructor(
     readonly project: Project,
-    hex: string,
+    firmware: string | SimMcu,
   ) {
     const found = findMcu(project);
-    if (!found) throw new Error('Симуляция умеет Arduino Uno, Nano, Pro Mini, ATmega328P и ATmega32A: поставьте такой модуль или микросхему на схему. ESP32 и ESP8266 пока не поддерживаются.');
-    this.mcu = Avr.fromHex(hex, found.kind, found.freq);
+    if (!found) throw noMcu();
+    if (typeof firmware === 'string') {
+      if (found.kind === 'esp32') throw new Error('Для ESP32 прошивка .hex не подходит: нужна прошивка для симуляции (.wasm).');
+      this.mcu = Avr.fromHex(firmware, found.kind, found.freq);
+    } else this.mcu = firmware;
     this.circuit = new Circuit(project, this.mcu, found);
-    this.mcuTitle = `${this.mcu.title}, ${(found.freq / 1e6).toLocaleString('ru', { maximumFractionDigits: 4 })} МГц (${found.freqFrom})`;
+    if (this.mcu instanceof Esp32) {
+      const esp = this.mcu;
+      esp.analogRead = (pin) => this.circuit.pinVolts(pin);
+      esp.onLog = (text) => this.log(text);
+      this.mcuTitle = `${esp.title}, 240 МГц · ядро прошивки в WebAssembly`;
+    } else this.mcuTitle = `${this.mcu.title}, ${(found.freq / 1e6).toLocaleString('ru', { maximumFractionDigits: 4 })} МГц (${found.freqFrom})`;
     const b = buildDevices(this.circuit, project);
     this.devices = b.devices;
     this.unknown = b.unknown;
-    this.mcu.usart.onByteTransmit = (v) => {
-      const ch = String.fromCharCode(v);
-      this.serial += ch;
-      if (this.serial.length > 20000) this.serial = this.serial.slice(-15000);
-      this.onSerial?.(ch);
-    };
+    this.plant = b.plant;
+    if (this.mcu instanceof Avr) this.mcu.usart.onByteTransmit = (v) => this.log(String.fromCharCode(v));
+  }
+
+  /** Создать симуляцию: для ESP32 прошивка WebAssembly компилируется асинхронно. */
+  static async create(project: Project): Promise<Simulation> {
+    const found = findMcu(project);
+    if (!found) throw noMcu();
+    const fw = project.firmware;
+    if (found.kind === 'esp32') {
+      const key = nvsKey(project);
+      const esp = await Esp32.create(espFirmware(fw), { nvs: nvsStore.get(key), onNvs: (d) => nvsStore.set(key, d) });
+      return new Simulation(project, esp);
+    }
+    if (!fw?.hex) throw new Error('Сначала загрузите прошивку (.hex).');
+    return new Simulation(project, fw.hex);
+  }
+
+  /** Синхронно (Node, тесты). */
+  static createSync(project: Project, opts: { nvs?: Uint8Array } = {}): Simulation {
+    const found = findMcu(project);
+    if (!found) throw noMcu();
+    if (found.kind === 'esp32') return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }));
+    return new Simulation(project, project.firmware?.hex ?? '');
+  }
+
+  private log(text: string): void {
+    this.serial += text;
+    if (this.serial.length > 20000) this.serial = this.serial.slice(-15000);
+    this.onSerial?.(text);
   }
 
   get seconds(): number {
@@ -73,14 +140,17 @@ export class Simulation {
 
   /** Отправить текст в порт контроллера (как из монитора порта). */
   serialWrite(text: string): void {
+    const mcu = this.mcu;
+    if (mcu instanceof Esp32) return mcu.serialWrite(text);
+    if (!(mcu instanceof Avr)) return;
     // Байты уходят по одному с паузой, как по настоящей линии.
     const bytes = [...new TextEncoder().encode(text)];
-    const perChar = Math.max(1, Math.round((this.mcu.freq / Math.max(300, this.mcu.usart.baudRate)) * 10));
+    const perChar = Math.max(1, Math.round((mcu.freq / Math.max(300, mcu.usart.baudRate)) * 10));
     let i = 0;
     const send = () => {
       if (i >= bytes.length) return;
-      this.mcu.usart.writeByte(bytes[i++]);
-      this.mcu.cpu.addClockEvent(send, perChar);
+      mcu.usart.writeByte(bytes[i++]);
+      mcu.cpu.addClockEvent(send, perChar);
     };
     send();
   }
@@ -93,16 +163,22 @@ export class Simulation {
     this.devices.find((d) => d.id === id)?.set?.(key, value);
   }
 
-  /** Действие устройства (провести катушкой над целью). */
+  /** Действие устройства (провести катушкой над целью, включить инструмент). */
   act(id: string, key: string): void {
     this.devices.find((d) => d.id === id)?.act?.(key);
+  }
+
+  private get baud(): number {
+    const m = this.mcu;
+    return m instanceof Avr ? m.usart.baudRate : m instanceof Esp32 ? m.baud : 0;
   }
 
   /** Снимок для интерфейса; сбрасывает статистику кадра (яркость ШИМ, частоты). */
   view(): SimView {
     const c = this.circuit;
     const pins: PinView[] = [];
-    for (const [pin, g] of [...c.pinGroup].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const order = (x: string) => (/^IO\d+$/.test(x) ? x.slice(0, 2) + x.slice(2).padStart(2, '0') : x);
+    for (const [pin, g] of [...c.pinGroup].sort((a, b) => order(a[0]).localeCompare(order(b[0])))) {
       pins.push({ pin, title: pinTitle(pin, this.mcu.kind), mode: this.mcu.pinMode(pin), level: c.levelOf(g), duty: c.frameStats(g).duty, net: c.groups[g].name, floating: c.isFloating(g), conflict: c.isConflict(g) });
     }
     const nets = new Map<string, { level: 0 | 1; duty: number }>();
@@ -113,6 +189,6 @@ export class Simulation {
     });
     const devices = this.devices.map((d) => d.view());
     c.endFrame();
-    return { seconds: this.seconds, pins, devices, nets, baud: this.mcu.usart.baudRate, mcu: this.mcuTitle };
+    return { seconds: this.seconds, pins, devices, nets, baud: this.baud, mcu: this.mcuTitle, plant: this.plant?.view() };
   }
 }

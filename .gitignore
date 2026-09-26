@@ -5,3 +5,6 @@ coverage/
 *.local
 e2e-out/
 qa-out/
+firmware/*/build/
+tests/_tmp/
+tools/_shot.mjs

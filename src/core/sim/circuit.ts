@@ -1,16 +1,19 @@
 import type { Component, FootprintDef, Id, Project } from '../model/types';
-import { ARDUINO_PINS, Avr, MCU_FREQ, type McuKind, type McuPin, type PinMode } from './mcu';
+import { ARDUINO_PINS, MCU_FREQ } from './mcu';
+import type { McuKind, McuPin, PinMode, SimMcu } from './types';
 
 /*
  * Схема для симуляции на уровне логики: цепи проекта объединяются в группы (резистор
- * между двумя сигнальными цепями передаёт уровень), у каждой группы — уровень 0/1 и
- * напряжение для АЦП. Кто задаёт уровень, по старшинству:
+ * между двумя сигнальными цепями передаёт уровень), у каждой группы — уровень 0/1.
+ * Кто задаёт уровень, по старшинству:
  *   питание → выход контроллера → устройства (кнопка, датчик, транзисторный ключ; «0»
  *   сильнее «1», как у открытого стока) → аналоговый источник → подтяжка резисторами
  *   (делитель считается по номиналам) → подтяжка в контроллере.
  * Диоды и нажатые кнопки между сигнальными цепями связывают группы: кнопка замыкает две
  * группы в одну, диод передаёт «0» от катода к аноду и «1» от анода к катоду.
  * Группа, которую никто не задаёт, «висит в воздухе» (читается как 0 и отмечается).
+ * Напряжения для АЦП считаются по узлам группы (закон Кирхгофа): резисторы между её
+ * цепями, подтяжки к питанию, источники напряжения и тока от датчиков.
  */
 
 export type Level = 0 | 1;
@@ -20,19 +23,23 @@ export interface GroupInfo {
   nets: Id[];
   name: string;
   power: Power;
-  /** Резисторы на цепи питания (для делителей): цепь питания и сопротивление. */
-  pulls: { net: Id; ohms: number }[];
+  /** Резисторы на цепи питания (для делителей): цепь питания, сопротивление, к какой цепи группы, какая деталь. */
+  pulls: { net: Id; ohms: number; at?: Id; comp?: Id }[];
+  /** Резисторы между цепями группы. */
+  res: { a: Id; b: Id; ohms: number; comp: Id }[];
   pins: McuPin[];
   /** Цепь «жёсткая»: через шунт в несколько ом сидит на питании — выход контроллера её не пересилит. */
   stiff?: boolean;
 }
 
 /** Имена выводов контроллера, которые означают питание. */
-const MCU_GND = /^(GND|GNDL|GNDR|AGND|VSS)$/i;
+const MCU_GND = /^(GND|GNDL|GNDR|AGND|VSS|EPAD)$/i;
 const MCU_VCC = /^(5V|\+5V|VCC|VDD|AVCC|3V3|3\.3V|VIN|RAW|IOREF)$/i;
 /** Цепи с такими именами — питание, даже если к контроллеру не подключены. */
 const NET_GND = /^(GND|GNDA|GNDD|AGND|DGND|PGND|0V|VSS|-VO|ЗЕМЛЯ)$/i;
 const NET_VCC = /^(\+?5V|\+?5VD|VCC|VDD|AVCC|\+?3V3|\+?3\.3V|VIN|VBUS|\+?12V|\+?9V|\+?24V|\+?VBAT|\+?BATT?|RAW|\+VO)$/i;
+/** Встроенная подтяжка вывода, Ом. */
+const PULL_INTERNAL = 45_000;
 
 /** Напряжение цепи питания по имени: +12V → 12, 3V3 → 3,3, аккумулятор — 12, остальное — 5 В. */
 export function powerVoltsOf(name: string): number {
@@ -69,9 +76,18 @@ export function parseHz(value: string): number | null {
   return v;
 }
 
-/** Имена выводов → выводы контроллера (включая синонимы Arduino). */
+/** Выводы ESP32, которые есть у модулей WROOM/WROVER. */
+const ESP32_GPIO = new Set([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39]);
+
+/** Имена выводов → выводы контроллера (включая синонимы Arduino и платок ESP32). */
 export function mcuPinOf(name: string, kind: McuKind = 'atmega328p'): McuPin | null {
   const n = name.toUpperCase().replace(/\s+/g, '');
+  if (kind === 'esp32') {
+    const alias: Record<string, number> = { VP: 36, SVP: 36, SENSOR_VP: 36, VN: 39, SVN: 39, SENSOR_VN: 39, TX: 1, TX0: 1, TXD0: 1, TXD: 1, RX: 3, RX0: 3, RXD0: 3, RXD: 3, TX2: 17, RX2: 16 };
+    const m = /^(?:GPIO|IO|D)(\d{1,2})$/.exec(n);
+    const io = m ? +m[1] : alias[n];
+    return io !== undefined && ESP32_GPIO.has(io) ? (`IO${io}` as McuPin) : null;
+  }
   if (kind === 'atmega328p') {
     if (n in ARDUINO_PINS) return ARDUINO_PINS[n];
     const alias: Record<string, McuPin> = { RX: 'PD0', RX0: 'PD0', RXD: 'PD0', 'D0/RX': 'PD0', RX1: 'PD0', TX: 'PD1', TX0: 'PD1', TX1: 'PD1', TXD: 'PD1', 'D1/TX': 'PD1', SDA: 'PC4', SCL: 'PC5' };
@@ -96,18 +112,23 @@ export interface McuFound {
 
 const NOT_AVR = /esp|stm32|pico|rp2040|teensy|xiao|attiny|digispark|32u4|leonardo|micro\b|atmega(164|324|644|1284|2560|1280|8u2|16u2)/i;
 const MEGA32 = /atmega\s*(16|32)a?(?![0-9u])/i;
+/** Классический ESP32 (WROOM, WROVER, DevKit), не S2/S3/C3. */
+const ESP32 = /esp32(?![-_ ]?(s2|s3|c2|c3|c5|c6|h2|p4|cam))|wroom-?32|wrover/i;
 
-/** Контроллеры, которые умеет симуляция: Arduino Uno/Nano/Pro Mini, ATmega328P, ATmega32A/16A. */
+/** Контроллеры, которые умеет симуляция: Arduino Uno/Nano/Pro Mini, ATmega328P, ATmega32A/16A, ESP32. */
 export function findMcu(p: Project): McuFound | null {
   let best: McuFound | null = null;
   for (const c of Object.values(p.components)) {
     const fp = p.footprints[c.footprint];
     if (!fp) continue;
     const text = `${fp.id} ${fp.name} ${(fp.tags ?? []).join(' ')} ${c.value}`;
-    // Модули ESP32/ESP8266/STM32 не подходят, даже если выводы названы D0…D8.
-    if (NOT_AVR.test(text)) continue;
-    const want = p.firmware?.mcu === 'atmega32' || p.firmware?.mcu === 'atmega328p' ? (p.firmware.mcu as McuKind) : null;
-    const kind: McuKind = want ?? (MEGA32.test(`${c.value} ${fp.id} ${fp.name}`) ? 'atmega32' : 'atmega328p');
+    let kind: McuKind;
+    if (ESP32.test(text)) kind = 'esp32';
+    else if (NOT_AVR.test(text)) continue; // ESP8266, STM32…: не подходят, даже если выводы названы D0…D8
+    else {
+      const want = p.firmware?.mcu === 'atmega32' || p.firmware?.mcu === 'atmega328p' ? (p.firmware.mcu as McuKind) : null;
+      kind = want ?? (MEGA32.test(`${c.value} ${fp.id} ${fp.name}`) ? 'atmega32' : 'atmega328p');
+    }
     const pins = new Map<string, McuPin>();
     for (const pad of fp.pads) {
       const m = pad.name ? mcuPinOf(pad.name, kind) : null;
@@ -124,6 +145,7 @@ export function findMcu(p: Project): McuFound | null {
 }
 
 function mcuFrequency(p: Project, m: McuFound): { freq: number; from: string } {
+  if (m.kind === 'esp32') return { freq: 240e6, from: 'ESP32' };
   if (p.firmware?.freq) return { freq: p.firmware.freq, from: 'задана в проекте' };
   const isArduino = /arduino|^module_/i.test(m.fp.id + ' ' + (m.fp.tags ?? []).join(' '));
   if (isArduino && m.kind === 'atmega328p') return { freq: MCU_FREQ, from: 'Arduino' };
@@ -160,19 +182,27 @@ interface Base {
   derived?: boolean;
 }
 
+type Source = (cycle: number) => number;
+
 export class Circuit {
-  readonly mcu: Avr;
+  readonly mcu: SimMcu;
   readonly mcuComp: Component;
   readonly found: McuFound;
   readonly groups: GroupInfo[] = [];
   readonly netGroup = new Map<Id, number>();
   readonly pinGroup = new Map<McuPin, number>();
+  /** Цепь, к которой подключён вывод контроллера. */
+  readonly pinNet = new Map<McuPin, Id>();
   private level: Level[] = [];
   private floating: boolean[] = [];
   private conflict: boolean[] = [];
   private drivers: Map<string, Level>[] = [];
   private analog: (number | null)[] = [];
   private derived: boolean[] = [];
+  /** Источники напряжения и тока на отдельных цепях (датчики с выходом через делитель, трансформаторы тока). */
+  private netSources = new Map<Id, Source>();
+  private netCurrents = new Map<Id, Source>();
+  private groupHasSources: boolean[] = [];
   /** Напряжение цепей питания (по группе). */
   private powerVolts: number[] = [];
   private listeners: ((g: number, lvl: Level, cycle: number) => void)[] = [];
@@ -197,12 +227,12 @@ export class Circuit {
 
   constructor(
     readonly project: Project,
-    mcu: Avr,
+    mcu: SimMcu,
     found?: McuFound,
   ) {
     this.mcu = mcu;
     const f = found ?? findMcu(project);
-    if (!f) throw new Error('На схеме нет Arduino Uno/Nano/Pro Mini, ATmega328P или ATmega32A.');
+    if (!f) throw new Error('На схеме нет Arduino Uno/Nano/Pro Mini, ATmega328P, ATmega32A или ESP32.');
     this.found = f;
     this.mcuComp = f.comp;
     this.buildGroups(f);
@@ -214,6 +244,10 @@ export class Circuit {
     });
     for (let g = 0; g < this.groups.length; g++) this.resolve(g, 0, true);
     this.applyPowerPins();
+  }
+
+  private get hi(): number {
+    return this.mcu.vdd;
   }
 
   private buildGroups(found: McuFound): void {
@@ -245,11 +279,13 @@ export class Circuit {
       const nets = fp.pads.filter((x) => x.type !== 'npth').map((x) => c.padNets[x.number]);
       if (nets.length !== 2 || !nets[0] || !nets[1] || nets[0] === nets[1]) continue;
       const [a, b] = nets as [Id, Id];
-      if (power.has(a) && !power.has(b)) power.set(b, power.get(a)!);
-      else if (power.has(b) && !power.has(a)) power.set(a, power.get(b)!);
+      if (power.has(a) && power.has(b)) continue;
+      if (power.has(a)) power.set(b, power.get(a)!);
+      else if (power.has(b)) power.set(a, power.get(b)!);
       parent.set(find(a), find(b));
     }
-    const pulls: [Id, Id, number][] = [];
+    const pulls: [Id, Id, number, Id][] = [];
+    const res: [Id, Id, number, Id][] = [];
     for (const c of Object.values(p.components)) {
       const fp = p.footprints[c.footprint];
       if (!fp || !isResistor(fp)) continue;
@@ -260,9 +296,12 @@ export class Circuit {
       const pb = power.get(b);
       const ohms = parseOhms(c.value) ?? 10_000;
       if (pa && pb) continue;
-      if (pa) pulls.push([b, a, ohms]);
-      else if (pb) pulls.push([a, b, ohms]);
-      else parent.set(find(a), find(b));
+      if (pa) pulls.push([b, a, ohms, c.id]);
+      else if (pb) pulls.push([a, b, ohms, c.id]);
+      else {
+        parent.set(find(a), find(b));
+        res.push([a, b, ohms, c.id]);
+      }
     }
     const rootGroup = new Map<Id, number>();
     for (const n of Object.values(p.nets)) {
@@ -271,17 +310,21 @@ export class Circuit {
       if (g === undefined) {
         g = this.groups.length;
         rootGroup.set(root, g);
-        this.groups.push({ nets: [], name: n.name, power: power.get(n.id) ?? null, pulls: [], pins: [] });
+        this.groups.push({ nets: [], name: n.name, power: power.get(n.id) ?? null, pulls: [], res: [], pins: [] });
       }
       this.groups[g].nets.push(n.id);
       this.netGroup.set(n.id, g);
       if (!this.groups[g].power && power.has(n.id)) this.groups[g].power = power.get(n.id)!;
     }
-    for (const [net, pnet, ohms] of pulls) {
+    for (const [net, pnet, ohms, comp] of pulls) {
       const g = this.netGroup.get(net);
       if (g === undefined) continue;
-      this.groups[g].pulls.push({ net: pnet, ohms });
+      this.groups[g].pulls.push({ net: pnet, ohms, at: net, comp });
       if (ohms <= 10) this.groups[g].stiff = true;
+    }
+    for (const [a, b, ohms, comp] of res) {
+      const g = this.netGroup.get(a);
+      if (g !== undefined) this.groups[g].res.push({ a, b, ohms, comp });
     }
     for (const [padNo, pin] of found.pins) {
       const net = found.comp.padNets[padNo];
@@ -290,6 +333,7 @@ export class Circuit {
       if (this.groups[g].power) continue;
       if (!this.pinGroup.has(pin)) {
         this.pinGroup.set(pin, g);
+        this.pinNet.set(pin, net);
         if (!this.groups[g].pins.includes(pin)) this.groups[g].pins.push(pin);
       }
     }
@@ -306,6 +350,7 @@ export class Circuit {
     this.drivers = Array.from({ length: n }, () => new Map());
     this.analog = new Array(n).fill(null);
     this.derived = new Array(n).fill(false);
+    this.groupHasSources = new Array(n).fill(false);
     this.powerVolts = this.groups.map((gr) => (gr.power === 'vcc' ? powerVoltsOf(gr.name) : 0));
     this.highAcc = new Array(n).fill(0);
     this.lowAcc = new Array(n).fill(0);
@@ -378,29 +423,152 @@ export class Circuit {
     let num = 0;
     let den = 0;
     for (const q of pulls) {
-      const pg = this.netGroup.get(q.net);
-      const v = pg === undefined ? 0 : this.groups[pg].power === 'vcc' ? this.powerVolts[pg] : 0;
+      const v = this.netPowerVolts(q.net);
       num += v / q.ohms;
       den += 1 / q.ohms;
     }
     return num / den;
   }
 
-  /** Напряжение группы, В: питание, выход, источник или делитель. */
+  private netPowerVolts(net: Id): number {
+    const pg = this.netGroup.get(net);
+    return pg === undefined ? 0 : this.groups[pg].power === 'vcc' ? this.powerVolts[pg] : 0;
+  }
+
+  /** Группу держит цифровой источник: выход контроллера, устройство или связь через кнопку/диод. */
+  private digitallyDriven(g: number): boolean {
+    const info = this.groups[g];
+    if (info.pins.some((p) => this.mcu.pinMode(p) === 'low' || this.mcu.pinMode(p) === 'high')) return true;
+    return this.drivers[g].size > 0 || this.derived[g];
+  }
+
+  /** Напряжение группы, В: питание, выход, источник или делитель (в первой её цепи с выводом контроллера). */
   voltsOf(g: number): number {
+    const info = this.groups[g];
+    const net = (info.pins.length ? this.pinNet.get(info.pins[0]) : undefined) ?? info.nets[0];
+    return this.netVolts(net);
+  }
+
+  /** Напряжение на входе контроллера, В. */
+  pinVolts(pin: McuPin): number {
+    const net = this.pinNet.get(pin);
+    return net ? this.netVolts(net) : 0;
+  }
+
+  /** Напряжение цепи, В: по узлам группы с учётом резисторов, подтяжек и источников. */
+  netVolts(net: Id): number {
+    const g = this.netGroup.get(net);
+    if (g === undefined) return 0;
     const info = this.groups[g];
     if (info.power) return this.powerVolts[g];
     if (info.stiff) return this.analog[g] ?? this.pullVolts(g) ?? 0;
-    const hi = 5;
-    const pins = info.pins.map((p) => this.mcu.pinMode(p));
-    if (pins.some((m) => m === 'low' || m === 'high')) return this.level[g] ? hi : 0;
-    if (this.drivers[g].size) return this.level[g] ? hi : 0;
+    if (this.digitallyDriven(g)) return this.level[g] ? this.hi : 0;
     const a = this.analog[g];
     if (a !== null) return a;
-    if (this.derived[g]) return this.level[g] ? hi : 0;
-    const pv = this.pullVolts(g);
-    if (pv !== null) return pv;
-    return this.level[g] ? hi : 0;
+    return this.solveNode(g, net);
+  }
+
+  /**
+   * Узловой метод для одной группы: G·V = I, цепи с источником напряжения закреплены.
+   * Групп обычно несколько цепей — считаем каждый раз заново (источники меняются во времени).
+   */
+  private solveNode(g: number, net: Id): number {
+    const info = this.groups[g];
+    const nets = info.nets;
+    const n = nets.length;
+    const idx = new Map<Id, number>(nets.map((x, i) => [x, i]));
+    const at = idx.get(net);
+    if (at === undefined) return 0;
+    const now = this.mcu.cycles;
+    // Без резисторов внутри и без источников — одна точка: делитель подтяжек.
+    if (!info.res.length && !this.groupHasSources[g]) {
+      const pv = this.pullVolts(g);
+      const pins = info.pins.map((p) => this.mcu.pinMode(p));
+      if (pv === null) return pins.includes('pullup') ? this.hi : 0;
+      return pv;
+    }
+    const G: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+    const I: number[] = new Array(n).fill(0);
+    const fixed: (number | null)[] = new Array(n).fill(null);
+    for (let i = 0; i < n; i++) {
+      G[i][i] += 1e-9;
+      const src = this.netSources.get(nets[i]);
+      if (src) fixed[i] = src(now);
+      const cur = this.netCurrents.get(nets[i]);
+      if (cur) I[i] += cur(now);
+    }
+    for (const r of info.res) {
+      const a = idx.get(r.a);
+      const b = idx.get(r.b);
+      if (a === undefined || b === undefined) continue;
+      const c = 1 / Math.max(1e-3, r.ohms);
+      G[a][a] += c;
+      G[b][b] += c;
+      G[a][b] -= c;
+      G[b][a] -= c;
+    }
+    for (const q of info.pulls) {
+      const i = idx.get(q.at ?? nets[0]);
+      if (i === undefined) continue;
+      const c = 1 / Math.max(1e-3, q.ohms);
+      G[i][i] += c;
+      I[i] += c * this.netPowerVolts(q.net);
+    }
+    for (const pin of info.pins) {
+      const m = this.mcu.pinMode(pin);
+      const i = idx.get(this.pinNet.get(pin) ?? '');
+      if (i === undefined || (m !== 'pullup' && m !== 'pulldown')) continue;
+      G[i][i] += 1 / PULL_INTERNAL;
+      if (m === 'pullup') I[i] += this.hi / PULL_INTERNAL;
+    }
+    for (let i = 0; i < n; i++) {
+      if (fixed[i] === null) continue;
+      G[i].fill(0);
+      G[i][i] = 1;
+      I[i] = fixed[i]!;
+    }
+    const v = solveLinear(G, I);
+    return v[at];
+  }
+
+  /** Источник напряжения на цепи (выход датчика), В; null — убрать. */
+  setNetSource(net: Id | undefined, fn: Source | null): void {
+    if (!net) return;
+    if (fn) this.netSources.set(net, fn);
+    else this.netSources.delete(net);
+    this.markSources(net);
+  }
+
+  /** Источник тока в цепь (трансформатор тока), А; null — убрать. */
+  setNetCurrent(net: Id | undefined, fn: Source | null): void {
+    if (!net) return;
+    if (fn) this.netCurrents.set(net, fn);
+    else this.netCurrents.delete(net);
+    this.markSources(net);
+  }
+
+  private markSources(net: Id): void {
+    const g = this.netGroup.get(net);
+    if (g === undefined) return;
+    this.groupHasSources[g] = this.groups[g].nets.some((n) => this.netSources.has(n) || this.netCurrents.has(n));
+    this.resolve(g, this.mcu.cycles);
+  }
+
+  /** Новое сопротивление резистора (термистор нагрелся). */
+  setResistance(comp: Id, ohms: number): void {
+    for (let g = 0; g < this.groups.length; g++) {
+      let hit = false;
+      for (const q of this.groups[g].pulls) if (q.comp === comp) (q.ohms = ohms), (hit = true);
+      for (const r of this.groups[g].res) if (r.comp === comp) (r.ohms = ohms), (hit = true);
+      if (hit) this.resolve(g, this.mcu.cycles);
+    }
+  }
+
+  /** Подтяжка группы к цепи питания (нагрузка: зуммер к плюсу), Ом. */
+  addPull(g: number | undefined, powerGroup: number | undefined, ohms: number): void {
+    if (g === undefined || powerGroup === undefined || this.groups[g].power || !this.groups[powerGroup].power) return;
+    this.groups[g].pulls.push({ net: this.groups[powerGroup].nets[0], ohms, at: this.groups[g].nets[0] });
+    this.resolve(g, this.mcu.cycles);
   }
 
   onChange(l: (g: number, lvl: Level, cycle: number) => void): void {
@@ -424,7 +592,7 @@ export class Circuit {
     this.resolve(g, this.mcu.cycles);
   }
 
-  /** Аналоговый источник (потенциометр, датчик), В; null — убрать. */
+  /** Аналоговый источник на всю группу (потенциометр, датчик), В; null — убрать. */
   setVolts(g: number | undefined, v: number | null): void {
     if (g === undefined || this.groups[g].power) return;
     if (this.analog[g] === v) return;
@@ -456,6 +624,7 @@ export class Circuit {
   /** Уровень группы без учёта связей. */
   private base(g: number): Base {
     const info = this.groups[g];
+    const half = this.hi / 2;
     if (info.power) return { lvl: info.power === 'vcc' ? 1 : 0, str: POWER, conflict: false };
     const modes = info.pins.map((p) => this.mcu.pinMode(p));
     const hasHigh = modes.includes('high');
@@ -463,15 +632,17 @@ export class Circuit {
     const d = [...this.drivers[g].values()];
     if (info.stiff) {
       const v = this.analog[g] ?? this.pullVolts(g) ?? 0;
-      const lvl: Level = v > 2.5 ? 1 : 0;
+      const lvl: Level = v > half ? 1 : 0;
       return { lvl, str: POWER, conflict: (lvl === 1 && hasLow) || (lvl === 0 && hasHigh) };
     }
     if (hasHigh || hasLow) return { lvl: hasLow ? 0 : 1, str: STRONG, conflict: (hasHigh && hasLow) || (hasHigh && d.includes(0)) || (hasLow && d.includes(1)) };
     if (d.length) return { lvl: d.includes(0) ? 0 : 1, str: STRONG, conflict: false };
-    if (this.analog[g] !== null) return { lvl: this.analog[g]! > 2.5 ? 1 : 0, str: ANALOG, conflict: false };
+    if (this.analog[g] !== null) return { lvl: this.analog[g]! > half ? 1 : 0, str: ANALOG, conflict: false };
+    if (this.groupHasSources[g]) return { lvl: this.solveNode(g, info.nets[0]) > half ? 1 : 0, str: ANALOG, conflict: false };
     const pv = this.pullVolts(g);
-    if (pv !== null) return { lvl: pv > 2.5 ? 1 : 0, str: PULL, conflict: false };
+    if (pv !== null) return { lvl: pv > half ? 1 : 0, str: PULL, conflict: false };
     if (modes.includes('pullup')) return { lvl: 1, str: PULL, conflict: false };
+    if (modes.includes('pulldown')) return { lvl: 0, str: PULL, conflict: false };
     return { lvl: 0, str: FLOAT, conflict: false };
   }
 
@@ -555,7 +726,7 @@ export class Circuit {
     for (const p of info.pins) {
       this.mcu.setInput(p, lvl === 1);
       if (info.stiff) this.mcu.forcePin(p, lvl === 1);
-      this.mcu.setAnalog(p, this.voltsOf(g));
+      this.mcu.setAnalog(p, this.pinVolts(p));
     }
     const state = info.power ? (info.power === 'vcc' ? 1 : 0) : lvl === 1 ? 1 : float ? 2 : 0;
     if (init) this.lastEdge[g] = cycle;
@@ -615,10 +786,41 @@ export class Circuit {
   }
 }
 
-/** Дроссель, предохранитель, перемычка: по постоянному току — провод. */
+/** Гаусс с выбором ведущего элемента (матрицы — несколько строк). */
+function solveLinear(A: number[][], b: number[]): number[] {
+  const n = b.length;
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    if (p !== c) {
+      [A[p], A[c]] = [A[c], A[p]];
+      [b[p], b[c]] = [b[c], b[p]];
+    }
+    const d = A[c][c];
+    if (Math.abs(d) < 1e-15) continue;
+    for (let r = c + 1; r < n; r++) {
+      const f = A[r][c] / d;
+      if (!f) continue;
+      for (let k = c; k < n; k++) A[r][k] -= f * A[c][k];
+      b[r] -= f * b[c];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let s = b[r];
+    for (let k = r + 1; k < n; k++) s -= A[r][k] * x[k];
+    x[r] = Math.abs(A[r][r]) < 1e-15 ? 0 : s / A[r][r];
+  }
+  return x;
+}
+
+/** Дроссель, предохранитель, перемычка: по постоянному току — провод. Варистор и супрессор — нет. */
 function isWireLike(fp: FootprintDef): boolean {
   const two = fp.pads.filter((x) => x.type !== 'npth').length === 2;
-  return two && (fp.category === 'Индуктивности' || fp.category === 'Предохранители и защита' || /^(L|FB|F|JP)$/.test(fp.refPrefix ?? ''));
+  if (!two) return false;
+  const pre = (fp.refPrefix ?? '').toUpperCase();
+  if (/^(RV|RU|VR|TVS|GDT|FV)$/.test(pre) || /varistor|варистор|tvs|gdt|разрядник/i.test(`${fp.id} ${fp.name} ${(fp.tags ?? []).join(' ')}`)) return false;
+  return fp.category === 'Индуктивности' || /^(L|FB|F|FU|JP)$/.test(pre) || (fp.category === 'Предохранители и защита' && /fuse|предохран|ptc/i.test(`${fp.id} ${fp.name}`));
 }
 
 export function isResistor(fp: FootprintDef): boolean {

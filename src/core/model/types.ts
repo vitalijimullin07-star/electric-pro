@@ -306,11 +306,17 @@ export interface Project {
 
 export interface Firmware {
   name: string;
+  /** Intel HEX для AVR (у ESP32 — пусто). */
   hex: string;
-  /** Контроллер, если его не видно по схеме: 'atmega328p' или 'atmega32'. */
+  /** Контроллер, если его не видно по схеме: 'atmega328p', 'atmega32' или 'esp32'. */
   mcu?: string;
   /** Тактовая частота, Гц (если не задана — по кварцу на схеме). */
   freq?: number;
+  /**
+   * ESP32: ядро прошивки, собранное в WebAssembly (base64) — его исполняет симуляция.
+   * Та же прошивка для самого ESP32 — отдельным файлом .bin.
+   */
+  wasm?: string;
 }
 
 /* ---------------- схема ---------------- */
