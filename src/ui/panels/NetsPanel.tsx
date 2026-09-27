@@ -4,6 +4,7 @@ import { computeConnectivity } from '@core/model/connectivity';
 import { ensureNet, removeNet } from '@core/model/edit';
 import { getWorld, padLabel } from '@core/model/world';
 import { askConfirm } from '../dialogs/AskDialog';
+import { formatAmps, netWidth } from '@core/model/currents';
 
 export function NetsPanel() {
   const s = useEditor();
@@ -68,6 +69,16 @@ export function NetsPanel() {
                 <div className="ds">{members.length ? members.join(', ') : 'нет выводов'}</div>
               </span>
               {cls && n.netClass !== 'Default' && <span className="tag cls">{cls.name}</span>}
+              {(() => {
+                // Ток цепи и ширина под него — если ток заметный или требует шире класса.
+                const nw = netWidth(p, n.id);
+                if (!nw.current || (nw.current < 0.3 && nw.width <= nw.classWidth)) return null;
+                return (
+                  <span className={`tag${nw.capped ? ' warn' : ''}`} title={nw.capped ? 'По току нужна дорожка шире предела — провод или шина' : 'Ток по плате и ширина дорожки'}>
+                    {formatAmps(nw.current)} · {String(nw.width).replace('.', ',')} мм
+                  </span>
+                );
+              })()}
               <span className={`tag ${done ? 'ok' : 'warn'}`}>{members.length < 2 ? `${members.length} выв.` : done ? 'готово' : `осталось ${st!.islands.length - 1}`}</span>
             </button>
           );

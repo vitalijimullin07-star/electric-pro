@@ -3,6 +3,8 @@ import { newId, nextRef } from '@core/ids';
 import { addComponent, addTrack, addVia, addWire, changeFootprint as changeFp, pruneFootprints, removeComponent } from '@core/model/edit';
 import { otherCopper } from '@core/model/layers';
 import { netClassOf } from '@core/model/rules';
+import { netWidth } from '@core/model/currents';
+import { applyFit, fitTrackWidths, fitTrackWidthsSafe } from '@core/model/track-fit';
 import type { Component, Drawing, FootprintDef, ItemRef, Project, RuleArea, Side, Track, Via, Wire, Zone } from '@core/model/types';
 import { computeConnectivity } from '@core/model/connectivity';
 import { groupOf, pruneGroups } from '@core/model/groups';
@@ -245,7 +247,7 @@ export function selectedTrackWidth(s: { selection: ItemRef[]; project: Project }
 
 /**
  * Ширина дорожки: у выделенных дорожек, у проводимой сейчас и для новых.
- * 'auto' — новые дорожки по классу цепи (выделенные не меняются).
+ * 'auto' — новые дорожки по току и классу цепи (выделенные не меняются).
  */
 export function setTrackWidth(w: number | 'auto'): void {
   const s = S();
@@ -258,18 +260,19 @@ export function setTrackWidth(w: number | 'auto'): void {
     });
   }
   s.patch({ routeWidth: w, ...(pending && width !== null ? { pending: { ...pending, width } } : {}) });
-  const txt = w === 'auto' ? 'по классу цепи' : `${String(w).replace('.', ',')} мм`;
+  const txt = w === 'auto' ? 'авто — по току и классу цепи' : `${String(w).replace('.', ',')} мм`;
   s.setMessage(w !== 'auto' && tracks.length ? `Ширина ${txt}: у выделенных дорожек (${tracks.length}) и для новых.` : `Ширина новых дорожек: ${txt}.`);
 }
 
 function routeWidthForNet(p: Project, netId: string | null): number {
-  return Math.max(netClassOf(p, netId).trackWidth, p.rules.minTrackWidth);
+  return netWidth(p, netId).width;
 }
 
+/** Ширина новой дорожки: ручная или авто — по классу и току цепи. */
 export function routeWidthFor(netId: string | null): number {
   const s = S();
   if (s.routeWidth !== 'auto') return s.routeWidth;
-  return Math.max(netClassOf(s.project, netId).trackWidth, s.project.rules.minTrackWidth);
+  return netWidth(s.project, netId).width;
 }
 
 export function viaSizeFor(netId: string | null): { diameter: number; drill: number } {
@@ -278,12 +281,48 @@ export function viaSizeFor(netId: string | null): { diameter: number; drill: num
   return { diameter: Math.max(c.viaDiameter, p.rules.minViaDiameter), drill: Math.max(c.viaDrill, p.rules.minViaDrill) };
 }
 
-export function finishTrack(points: Vec2[], layer: Project['tracks'][string]['layer'], width: number): void {
+export function finishTrack(points: Vec2[], layer: Project['tracks'][string]['layer'], width: number, net: string | null = null): void {
   const clean = points.filter((q, i) => i === 0 || Math.hypot(q.x - points[i - 1].x, q.y - points[i - 1].y) > 1e-6);
   if (clean.length < 2) return;
-  S().commit((d) => {
+  const s = S();
+  // Авто-ширина шире класса (по току): дорожка кладётся по классу и расширяется до нужной,
+  // насколько позволяют зазоры, — у тонких выводов и чужой меди остаётся уже.
+  const nw = net ? netWidth(s.project, net) : null;
+  if (s.routeWidth === 'auto' && net && nw && width > nw.classWidth + 1e-6) {
+    const q = structuredClone(s.project);
+    const t = addTrack(q, { layer, width: nw.classWidth, points: clean });
+    const fit = fitTrackWidths(structuredClone(q), { tracks: [t.id] });
+    if (fit.remove.length) {
+      s.commit((d) => {
+        for (const x of fit.add) addTrack(d, x);
+      });
+      const narrowest = Math.min(...fit.add.map((x) => x.width));
+      if (narrowest < width - 1e-6) s.setMessage(`Дорожка ${String(width).replace('.', ',')} мм по току; у выводов и чужой меди сужена до ${String(narrowest).replace('.', ',')} мм.`);
+      return;
+    }
+  }
+  s.commit((d) => {
     addTrack(d, { layer, width, points: clean });
   });
+}
+
+/**
+ * Ширина дорожек по токам: дорожки цепей, которым по току нужно шире класса, расширяются,
+ * насколько позволяют зазоры (у тонких выводов остаются сужения). Заливку не рвёт.
+ */
+export function fitWidthsByCurrent(): void {
+  const s = S();
+  const r = fitTrackWidthsSafe(s.project);
+  const name = (id: string) => s.project.nets[id]?.name ?? id;
+  const mm = (x: number) => String(+x.toFixed(2)).replace('.', ',');
+  if (!r.nets.length) {
+    s.setMessage(r.reverted.length ? `Расширить не удалось: перерезало бы заливку (${r.reverted.map(name).join(', ')}).` : 'Все дорожки уже не уже нужного по току (или токи цепей неизвестны: их можно задать в свойствах цепи).');
+    return;
+  }
+  s.commit((d) => applyFit(d, r));
+  const parts = r.nets.map((n) => `${name(n.net)} ${mm(n.need)} мм`);
+  const short = r.short.map((n) => `${name(n.net)} (местами ${mm(n.got)} мм)`);
+  s.setMessage(`Шире по току: ${parts.join(', ')}.${short.length ? ` Не хватило места: ${short.join(', ')}.` : ''}${r.reverted.length ? ` Не тронуты (перерезали бы заливку): ${r.reverted.map(name).join(', ')}.` : ''} Ctrl+Z — отменить.`);
 }
 
 export function placeVia(at: Vec2, netId: string | null): void {

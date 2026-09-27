@@ -18,6 +18,9 @@ export function StatusBar() {
   if (typeof shownWidth === 'number' && !widths.includes(shownWidth)) widths.push(shownWidth);
   widths.sort((a, b) => a - b);
   const mode = useEditor((s) => s.mode);
+  // Ширина проводимой сейчас дорожки (авто — по току цепи) и что поставить, сняв галочку.
+  const pendingWidth = useEditor((s) => (s.pending?.kind === 'route' && s.pending.width ? s.pending.width : null));
+  const autoNow = pendingWidth ?? Math.max(project.netClasses.Default?.trackWidth ?? 0.25, project.rules.minTrackWidth);
   const copper = boardCopperLayers(project.board.copperLayers);
   return (
     <footer className="statusbar">
@@ -39,14 +42,21 @@ export function StatusBar() {
       {mode === 'pcb' && (
       <span>
         Ширина{' '}
-        <select value={String(shownWidth)} onChange={(e) => setTrackWidth(e.target.value === 'auto' ? 'auto' : +e.target.value)} aria-label="Ширина дорожки" title={selWidth !== null ? 'Ширина выделенных дорожек и новых' : 'Ширина новых дорожек'}>
-          <option value="auto">по классу</option>
+        <label title="Авто: ширина новой дорожки — по классу цепи и её току (по деталям: стабилизаторы, модули, нагрузки); у тонких выводов дорожка сама сужается">
+          <input type="checkbox" checked={routeWidth === 'auto'} onChange={(e) => setTrackWidth(e.target.checked ? 'auto' : autoNow)} aria-label="Авто-ширина" /> авто
+        </label>{' '}
+        {routeWidth === 'auto' && selWidth === null ? (
+          <span style={{ color: "var(--mute)" }} title="Ширина для проводимой дорожки">{pendingWidth !== null ? `${String(pendingWidth).replace('.', ',')} мм` : 'по току'}</span>
+        ) : (
+        <select value={String(shownWidth)} onChange={(e) => setTrackWidth(+e.target.value)} aria-label="Ширина дорожки" title={selWidth !== null ? 'Ширина выделенных дорожек и новых' : 'Ширина новых дорожек'}>
+          {shownWidth === 'auto' && <option value="auto">—</option>}
           {widths.map((w) => (
             <option key={w} value={String(w)}>
               {String(w).replace('.', ',')} мм
             </option>
           ))}
         </select>
+        )}
       </span>
       )}
       <label>

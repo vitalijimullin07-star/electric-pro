@@ -23,7 +23,7 @@ async function printSchematic(): Promise<void> {
   const ok = await saveTextFile(`${safeName(s.project.meta.name)}-schematic.pdf`, r.bytes, 'application/pdf');
   if (ok !== false) s.setMessage(`Схема сохранена в PDF (лист ${r.paper}).`);
 }
-import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
+import { alignSelection, copySelection, cutSelection, deleteSelection, distributeSelection, duplicateSelection, fitWidthsByCurrent, flipSelection, groupSelection, hasClipboard, pasteClipboard, rotateSelection, selectAll, ungroupSelection } from '@editor/commands';
 import { clearRouting } from '@core/model/edit';
 import { Icon } from './icons';
 import { askConfirm, askText } from './dialogs/AskDialog';
@@ -380,6 +380,7 @@ export function TopBar() {
           s.commit((d) => void (d.rules.teardrops = on || undefined));
           s.setMessage(on ? 'Капли включены: дорожки плавно расширяются у площадок и переходных (где хватает зазора).' : 'Капли выключены.');
         } },
+        { label: 'Ширина дорожек по токам', action: () => fitWidthsByCurrent() },
         'sep',
         { label: 'Автотрассировка и расстановка…', action: () => s.openDialog('autoroute') },
         { label: 'Стереть все дорожки', action: () =>

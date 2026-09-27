@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
-import { TextInput, LenInput, useUnits } from '../common/NumberInput';
+import { TextInput, LenInput, NumInput, useUnits } from '../common/NumberInput';
+import { currentLabel, formatAmps, netCurrents, netWidth } from '@core/model/currents';
 import { addDrawing } from '@core/model/edit';
 import { renameNetChecked } from '@editor/commands';
 import type { Vec2 } from '@core/math/vec';
@@ -14,6 +15,8 @@ export function NetDialog({ id }: { id: string }) {
   const s = useEditor();
   const n = s.project.nets[id];
   if (!n) return null;
+  const est = netCurrents({ ...s.project, nets: { ...s.project.nets, [id]: { ...n, current: undefined } } }).get(id);
+  const nw = netWidth(s.project, id);
   return (
     <Dialog title={`Цепь ${n.name}`} size="narrow">
       <div className="field">
@@ -29,7 +32,22 @@ export function NetDialog({ id }: { id: string }) {
             </option>
           ))}
         </select>
+        <label>Ток по плате, А</label>
+        <NumInput
+          value={n.current ?? null}
+          min={0}
+          allowEmpty
+          placeholder={est ? `оценка ${formatAmps(est.current)}` : 'не известен'}
+          onChange={(v) => s.commit((d) => void (d.nets[id] && (d.nets[id].current = v ?? undefined)))}
+        />
       </div>
+      <p className="hint">
+        {nw.current ? `Ширина по току: ${currentLabel(nw)}; для дорожек — ${String(nw.width).replace('.', ',')} мм (класс — ${String(nw.classWidth).replace('.', ',')} мм). ` : 'Ток цепи не известен: ширина — по классу. '}
+        {n.current === undefined && est?.parts.length ? `Оценка по деталям${est.bySum ? ' (сумма потребителей)' : ''}: ${est.parts.slice(0, 5).map((x) => `${x.ref} — ${x.why}`).join('; ')}.` : ''}
+        {est?.offBoard && n.current === undefined ? ' Учтены выносные детали: если их провода идут мимо платы, впишите ток по плате вручную.' : ''}
+        {n.current !== undefined ? ' Ток задан вручную; очистите поле — вернётся оценка по деталям.' : ''}
+      </p>
+      {nw.capped && <p className="hint warn">По току нужна дорожка {String(nw.need).replace('.', ',')} мм — это провод или медная шина; дорожка будет не шире {String(nw.width).replace('.', ',')} мм.</p>}
     </Dialog>
   );
 }

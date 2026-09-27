@@ -9,6 +9,7 @@ import { groupOf } from '@core/model/groups';
 import { dimensionLabel } from '@core/render/graphic';
 import { boardBox, rectSize } from '@core/model/project';
 import { polygonLength } from '@core/math/geom';
+import { componentPinCurrents, formatAmps } from '@core/model/currents';
 
 /* Свойства выделенного объекта; если ничего не выбрано — свойства платы. */
 
@@ -145,6 +146,15 @@ export function ComponentProps({ id }: { id: string }) {
       if (x) fn(x);
     });
   const connected = Object.keys(c.padNets).length;
+  // Токи выводов: одинаковые подряд — одной записью («3V3, GND — 0,5 А»).
+  const byCur = new Map<string, string[]>();
+  for (const [pin, e] of componentPinCurrents(p, c)) {
+    const k = `${formatAmps(e.current)} (${e.why})`;
+    const nm = fp?.pads.find((x) => x.number === pin)?.name || pin;
+    const a = byCur.get(k) ?? byCur.set(k, []).get(k)!;
+    if (!a.includes(nm)) a.push(nm);
+  }
+  const pinI = [...byCur].map(([k, names]) => `${names.join(', ')} — ${k}`);
   const pads = fp ? fp.pads.filter((x) => x.type !== 'npth').length : 0;
   return (
     <div>
@@ -184,6 +194,11 @@ export function ComponentProps({ id }: { id: string }) {
           подключено {connected} из {pads}
         </span>
       </div>
+      {pinI.length > 0 && (
+        <p className="hint" title="Ток выводов по детали; ширина дорожек цепи — по нему (галочка «авто» у ширины, «Трассировка → Ширина дорожек по токам»)">
+          Токи: {pinI.join(' · ')}
+        </p>
+      )}
       <div className="row">
         <label>
           <input type="checkbox" checked={!!c.locked} onChange={(e) => upd((x) => void (x.locked = e.target.checked || undefined))} /> закрепить

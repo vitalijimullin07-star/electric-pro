@@ -231,7 +231,7 @@ a {
   pointer-events: auto;
 }
 .chip {
-  background: rgba(26, 32, 40, 0.9);
+  background: #1a2028;
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 3px 10px;
@@ -275,7 +275,7 @@ a {
   height: 32px;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: rgba(26, 32, 40, 0.92);
+  background: #1a2028;
   color: var(--ink);
   display: grid;
   place-items: center;
@@ -290,7 +290,7 @@ a {
   pointer-events: none;
   color: var(--accent);
   font-size: 12px;
-  background: rgba(0, 0, 0, 0.6);
+  background: #0b0f14;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -430,6 +430,9 @@ textarea:focus {
   color: var(--mute);
   font-size: 12px;
   margin: 6px 0;
+}
+.hint.warn {
+  color: var(--warn);
 }
 .list {
   display: flex;
@@ -581,7 +584,7 @@ textarea:focus {
   background: #f7f5ee;
 }
 .stage.sch .chip {
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   color: #303030;
   border-color: rgba(0, 0, 0, 0.12);
 }
@@ -910,7 +913,8 @@ table.grid select {
   --accent-2: #6d8bff;
   --accent-ink: #04121c;
   --radius: 10px;
-  --glass: rgba(24, 31, 40, 0.78);
+  /* Фон меню, чипов и кнопок на холсте — непрозрачный (плата сквозь них не просвечивает). */
+  --glass: #18202a;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .topbar {
@@ -986,8 +990,6 @@ textarea:focus {
 .menu-drop,
 .stage .ghost {
   background: var(--glass);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border-color: rgba(255, 255, 255, 0.07);
 }
 .stage .zoombar button,
@@ -1002,9 +1004,7 @@ textarea:focus {
   transform-origin: top left;
 }
 .modal-bg {
-  background: rgba(4, 8, 12, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(4, 8, 12, 0.82);
 }
 .modal {
   border-radius: 16px;
@@ -1098,8 +1098,6 @@ textarea:focus {
   padding: 4px;
   border-radius: 14px;
   background: var(--glass);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 5;

@@ -71,3 +71,39 @@ export function TextInput({ value, onChange, className = 'inp', placeholder, lis
     />
   );
 }
+
+/** Число без единиц длины (ток, °C, мкм): запятая или точка; пустое поле — null (если можно). */
+export function NumInput({ value, onChange, min, allowEmpty, className = 'inp', placeholder }: { value: number | null; onChange: (v: number | null) => void; min?: number; allowEmpty?: boolean; className?: string; placeholder?: string }) {
+  const show = (v: number | null) => (v === null ? '' : String(+v.toFixed(4)).replace('.', ','));
+  const [text, setText] = useState(show(value));
+  useEffect(() => setText(show(value)), [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  const apply = () => {
+    if (text === show(value)) return;
+    if (!text.trim()) {
+      if (allowEmpty) onChange(null);
+      else setText(show(value));
+      return;
+    }
+    const v = parseFloat(text.replace(',', '.'));
+    if (!Number.isFinite(v) || (min !== undefined && v < min)) {
+      setText(show(value));
+      return;
+    }
+    onChange(v);
+  };
+  return (
+    <input
+      className={className}
+      value={text}
+      placeholder={placeholder}
+      inputMode="decimal"
+      onChange={(e) => setText(e.target.value)}
+      onBlur={apply}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        if (e.key === 'Escape') setText(show(value));
+        e.stopPropagation();
+      }}
+    />
+  );
+}

@@ -10,6 +10,7 @@ import { applyRoleClasses, applyVariant, type SearchOptions, type VariantResult 
 import { applyPlacement } from '@core/place/autoplace';
 import { boardPolygon } from '@core/model/project';
 import { getWorld } from '@core/model/world';
+import { netCurrents, netWidth } from '@core/model/currents';
 
 /*
  * Расстановка и трассировка: галочки — что делать и что учитывать (роли цепей), сколько
@@ -42,6 +43,7 @@ export function AutoDesignDialog() {
   const [useHv, setUseHv] = useState(true);
   const [usePower, setUsePower] = useState(true);
   const [useNoise, setUseNoise] = useState(true);
+  const [useCurrent, setUseCurrent] = useState(true);
   const [timeIdx, setTimeIdx] = useState(1);
   const [threads, setThreads] = useState(searchThreads());
   const [grid, setGrid] = useState<number>(autoGrid(p));
@@ -58,7 +60,7 @@ export function AutoDesignDialog() {
 
   const start = () => {
     // Роли → классы цепей (сеть — Mains с большим зазором, питание — Power): прямо в проект.
-    const use = { hv: useHv, power: usePower, noise: useNoise };
+    const use = { hv: useHv, power: usePower, noise: useNoise, current: useCurrent };
     const probe = structuredClone(p);
     if (applyRoleClasses(probe, { roles, use }).length) s.commit((d) => void applyRoleClasses(d, { roles, use }));
     const base = useEditor.getState().project;
@@ -120,6 +122,13 @@ export function AutoDesignDialog() {
     const names = ids.map((id) => p.nets[id]?.name ?? '?');
     return names.length > 8 ? `${names.slice(0, 8).join(', ')} и ещё ${names.length - 8}` : names.join(', ') || '—';
   };
+  // Цепи, которым по току нужно шире класса: «5V 0,8 мм, SW5 0,8 мм».
+  const currentNets = [...netCurrents(p).keys()]
+    .map((id) => ({ id, w: netWidth(p, id) }))
+    .filter((x) => x.w.width > x.w.classWidth + 1e-6)
+    .sort((a, b) => b.w.width - a.w.width)
+    .map((x) => `${p.nets[x.id].name} ${String(x.w.width).replace('.', ',')} мм${x.w.capped ? ' (дальше — провод)' : ''}`)
+    .join(', ');
   const time = TIMES[timeIdx];
 
   return (
@@ -205,6 +214,13 @@ export function AutoDesignDialog() {
               <small>
                 помехоопасные: {netNames(roles.noisy)}; чувствительные: {netNames(roles.sensitive)}
               </small>
+            </span>
+          </label>
+          <label className="ad-check">
+            <input type="checkbox" checked={useCurrent} onChange={(e) => setUseCurrent(e.target.checked)} disabled={running} />
+            <span>
+              <b>Ширина дорожек по токам</b>
+              <small>{currentNets || 'токи цепей не превышают ширину классов'}</small>
             </span>
           </label>
           <button className="btn sm" onClick={() => setEditRoles(!editRoles)} disabled={running}>
@@ -309,6 +325,8 @@ function statsText(v: VariantResult): string {
   if (v.layers > 1) parts.push(`переходных ${st.vias}`);
   parts.push(`дорожки ${(st.length / 1000).toFixed(2).replace('.', ',')} м`);
   if (st.drc) parts.push(`ошибок ${st.drc}`);
+  if (st.widened) parts.push(`шире по току: цепей ${st.widened}`);
+  if (st.narrow?.length) parts.push(`не хватило места: ${st.narrow.join(', ')}`);
   if (st.tangle) {
     // Оценка по распутанной паутине (прямые линии): дорожка может и обойти, поэтому «около».
     const est = v.layers === 1 ? st.tangle.minJumps : st.tangle.minVias;

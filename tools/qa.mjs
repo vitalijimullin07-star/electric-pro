@@ -514,7 +514,10 @@ async function openPage(viewport, touch = false) {
     expect(p.tracks[sel.id].width === 2, 'ширина ' + p.tracks[sel.id].width);
     expect((await page.inputValue('select[aria-label="Ширина дорожки"]')) === '2', 'в списке не 2');
     await page.keyboard.press('Control+z');
-    await page.selectOption('select[aria-label="Ширина дорожки"]', 'auto');
+    // Выбор числа снимает галочку «авто»; галочка возвращает ширину по току и классу цепи.
+    expect(!(await page.isChecked('input[aria-label="Авто-ширина"]')), 'галочка «авто» не снялась');
+    await page.check('input[aria-label="Авто-ширина"]');
+    expect(/авто — по току/.test(await page.locator('.statusbar .msg').innerText()), 'нет сообщения об авто-ширине');
     await page.keyboard.press('Escape');
   });
 

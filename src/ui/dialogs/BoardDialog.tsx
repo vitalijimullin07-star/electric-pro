@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useEditor } from '@editor/store';
 import { Dialog } from './Dialog';
 import { askText } from './AskDialog';
-import { LenInput, TextInput, useUnits } from '../common/NumberInput';
+import { LenInput, NumInput, TextInput, useUnits } from '../common/NumberInput';
+import { DEFAULT_COPPER_UM, DEFAULT_MAX_AUTO_WIDTH, DEFAULT_TEMP_RISE, widthForCurrent } from '@core/model/currents';
 import { rectOutline, rectSize } from '@core/model/project';
 import { MAINS_CLASS, MAINS_CLEARANCE, RULE_PRESETS, defaultNetClasses } from '@core/model/rules';
 import type { DesignRules, NetClass } from '@core/model/types';
@@ -132,6 +133,18 @@ export function BoardDialog() {
             <input type="checkbox" checked={p.rules.tentVias} onChange={(e) => s.commit((d) => void (d.rules.tentVias = e.target.checked))} />
             <label>Каплевидные переходы</label>
             <input type="checkbox" checked={!!p.rules.teardrops} onChange={(e) => s.commit((d) => void (d.rules.teardrops = e.target.checked || undefined))} />
+          </div>
+          <h4>Ширина по току</h4>
+          <p className="hint">
+            Ток цепей оценивается по деталям (стабилизаторы, модули, блоки питания, нагрузки) или задаётся в свойствах цепи. Ширина — по IPC-2221: сейчас 1 А — {String(widthForCurrent(1, p.rules)).replace('.', ',')} мм, 3 А — {String(widthForCurrent(3, p.rules)).replace('.', ',')} мм. Напряжение задаёт зазор (класс сети), не ширину.
+          </p>
+          <div className="field">
+            <label>Толщина меди, мкм</label>
+            <NumInput value={p.rules.copperThickness ?? DEFAULT_COPPER_UM} min={5} onChange={(v) => s.commit((d) => void (d.rules.copperThickness = v === DEFAULT_COPPER_UM || v === null ? undefined : v))} />
+            <label>Допустимый нагрев, °C</label>
+            <NumInput value={p.rules.tempRise ?? DEFAULT_TEMP_RISE} min={1} onChange={(v) => s.commit((d) => void (d.rules.tempRise = v === DEFAULT_TEMP_RISE || v === null ? undefined : v))} />
+            <label>Не шире, {U}</label>
+            <LenInput value={p.rules.maxAutoWidth ?? DEFAULT_MAX_AUTO_WIDTH} min={0.2} onChange={(v) => s.commit((d) => void (d.rules.maxAutoWidth = v === DEFAULT_MAX_AUTO_WIDTH ? undefined : v))} />
           </div>
           <h4>Особые зазоры между классами</h4>
           <p className="hint">Например, 6 мм между сетью 230 В и всем остальным. «*» — любой другой класс.</p>

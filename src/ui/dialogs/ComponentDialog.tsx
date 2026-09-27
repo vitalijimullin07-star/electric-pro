@@ -6,6 +6,7 @@ import { FootprintPreview } from '../common/FootprintPreview';
 import { compatibleFootprints, libraryFootprints, searchFootprints } from '@core/library';
 import { changeFootprint, renameComponent } from '@editor/commands';
 import { ensureNet, connectPad } from '@core/model/edit';
+import { componentPinCurrents, formatAmps, widthForCurrent } from '@core/model/currents';
 
 /* Свойства компонента: обозначение, номинал, корпус (замена), выводы → цепи. */
 
@@ -18,6 +19,8 @@ export function ComponentDialog({ id }: { id: string }) {
   const [showAll, setShowAll] = useState(false);
   const nets = useMemo(() => Object.values(p.nets).sort((a, b) => a.name.localeCompare(b.name, 'ru', { numeric: true })), [p.nets]);
   if (!c || !fp) return null;
+  // Токи выводов по знаниям о детали и нужная под них ширина дорожки.
+  const pinI = componentPinCurrents(p, c);
 
   const upd = (fn: (x: typeof c) => void) =>
     s.commit((d) => {
@@ -108,6 +111,7 @@ export function ComponentDialog({ id }: { id: string }) {
                 <th>№</th>
                 <th>Имя</th>
                 <th>Цепь</th>
+                {pinI.size > 0 && <th title="Ток вывода по детали и ширина дорожки под него (IPC-2221)">Ток</th>}
               </tr>
             </thead>
             <tbody>
@@ -122,6 +126,11 @@ export function ComponentDialog({ id }: { id: string }) {
                       <td>
                         <TextInput className="inp" list="nets-list" value={netId ? p.nets[netId]?.name ?? '' : ''} onChange={(v) => setPadNet(pd.number, v)} placeholder="—" />
                       </td>
+                      {pinI.size > 0 && (
+                        <td className="hint" title={pinI.get(pd.number)?.why}>
+                          {pinI.get(pd.number) ? `${formatAmps(pinI.get(pd.number)!.current)} → ${String(Math.max(widthForCurrent(pinI.get(pd.number)!.current, p.rules), p.rules.minTrackWidth)).replace('.', ',')} мм` : ''}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

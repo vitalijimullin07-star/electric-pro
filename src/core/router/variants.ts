@@ -3,6 +3,7 @@ import { runDrc } from '../model/drc';
 import { addTrack, addVia, addWire, clearRouting } from '../model/edit';
 import { netsByRole, type RoleSets } from '../model/net-roles';
 import { routePlan, untangledRatsnest } from '../model/untangle';
+import { applyFit, fitTrackWidthsSafe } from '../model/track-fit';
 import { MAINS_CLASS, MAINS_CLEARANCE } from '../model/rules';
 import type { Project, Track, Via } from '../model/types';
 import type { Vec2 } from '../math/vec';
@@ -26,7 +27,8 @@ export interface SearchOptions {
   keepExisting: boolean;
   /** Роли цепей и какие из них учитывать. */
   roles: RoleSets;
-  use: { hv: boolean; power: boolean; noise: boolean };
+  /** current — ширина дорожек по токам цепей (после трассировки). */
+  use: { hv: boolean; power: boolean; noise: boolean; current?: boolean };
   /** Для односторонней платы — пробовать и двустороннюю. */
   tryTwoLayers: boolean;
   /** Сшить полигоны переходными (двусторонняя плата). */
@@ -65,6 +67,9 @@ export interface VariantStats {
   /** Ошибок проверки правил. */
   drc: number;
   place?: PlaceScore;
+  /** Ширина по токам: цепей расширено и где не хватило места. */
+  widened?: number;
+  narrow?: string[];
   /** Паутина перед трассировкой: пересечений после распутывания и оценка снизу прыжков. */
   tangle?: { crossings: number; before: number; minJumps: number; minVias: number };
 }
@@ -84,7 +89,7 @@ export interface VariantResult {
 
 /** Роли по умолчанию: угаданные для проекта. */
 export function defaultSearchOptions(p: Project): SearchOptions {
-  return { place: false, route: true, keepExisting: false, roles: netsByRole(p), use: { hv: true, power: true, noise: true }, tryTwoLayers: false, stitch: true, effort: 1 };
+  return { place: false, route: true, keepExisting: false, roles: netsByRole(p), use: { hv: true, power: true, noise: true, current: true }, tryTwoLayers: false, stitch: true, effort: 1 };
 }
 
 /**
@@ -147,7 +152,7 @@ function trackLength(tracks: Omit<Track, 'id'>[]): number {
 
 /** Оценка варианта: меньше — лучше. Неразведённое и ошибки — главное, потом перемычки. */
 export function scoreOf(s: VariantStats, layers: number, baseLayers: number): number {
-  return s.unrouted * 1000 + s.drc * 150 + s.failed * 200 + s.jumpers * 25 + s.vias * 2 + s.length * 0.01 + (layers > baseLayers ? 150 : 0) + (s.place ? s.place.zone * 300 + s.place.overlap * 5 : 0);
+  return s.unrouted * 1000 + s.drc * 150 + s.failed * 200 + (s.narrow?.length ?? 0) * 30 + s.jumpers * 25 + s.vias * 2 + s.length * 0.01 + (layers > baseLayers ? 150 : 0) + (s.place ? s.place.zone * 300 + s.place.overlap * 5 : 0);
 }
 
 /** Один вариант: расстановка, трассировка, оценка. Проект не меняется. */
@@ -180,6 +185,8 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
   let vias: Omit<Via, 'id'>[] = [];
   let wires: { a: Vec2; b: Vec2 }[] = [];
   let failed = 0;
+  let widened: number | undefined;
+  let narrow: string[] | undefined;
   if (o.route) {
     const r = await autorouteWithZones(structuredClone(q), {
       grid: o.grid ?? autoGrid(q),
@@ -204,9 +211,20 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
     vias = r.vias;
     wires = r.wires;
     failed = r.failed;
-    for (const t of tracks) addTrack(q, t);
+    const ids = tracks.map((t) => addTrack(q, t).id);
     for (const v of vias) addVia(q, v);
     for (const w of wires) addWire(q, w.a, w.b);
+    // Ширина по токам: новые дорожки сильноточных цепей — шире, насколько позволяют зазоры.
+    if (o.use.current !== false && ids.length) {
+      const f = fitTrackWidthsSafe(structuredClone(q), { tracks: ids });
+      if (f.nets.length) {
+        applyFit(q, f);
+        const gone = new Set(f.remove);
+        tracks = [...ids.filter((id) => !gone.has(id)).map((id) => ({ layer: q.tracks[id].layer, width: q.tracks[id].width, points: q.tracks[id].points })), ...f.add];
+      }
+      widened = f.nets.length;
+      narrow = f.short.map((n) => q.nets[n.net]?.name ?? n.net);
+    }
   }
   const done = structuredClone(q);
   const conn = computeConnectivity(done);
@@ -220,6 +238,8 @@ export async function runVariant(base: Project, o: SearchOptions, job: VariantJo
     drc,
     place: placeScore,
     tangle,
+    widened,
+    narrow,
   };
   return { index: job.index, label: job.label, layers: job.layers, moves, tracks, vias, wires, stats, score: Math.round(scoreOf(stats, job.layers, base.board.copperLayers)), ms: Date.now() - t0 };
 }

@@ -614,7 +614,7 @@ export class CanvasController {
     } else target = snapPoint(wp);
     if (dist(target, last) < 1e-6) {
       if (isDouble && pd.points.length >= 2) {
-        finishTrack(pd.points, pd.layer!, pd.width!);
+        finishTrack(pd.points, pd.layer!, pd.width!, pd.net ?? null);
         s.patch({ pending: null, highlightNet: null });
         s.setMessage('Дорожка проведена.');
       }
@@ -622,7 +622,7 @@ export class CanvasController {
     }
     const pts = [...pd.points, ...this.cornerPoints(last, target)];
     if (finish || isDouble) {
-      finishTrack(pts, pd.layer!, pd.width!);
+      finishTrack(pts, pd.layer!, pd.width!, pd.net ?? null);
       const n = netAtPoint(this.S.project, target, pd.layer!);
       if (pd.net && n && n !== pd.net) s.setMessage('Внимание: дорожка соединяет разные цепи — проверьте отметку ошибки.');
       else s.setMessage(finish && h?.pad ? 'Дорожка доведена до площадки.' : 'Дорожка проведена.');

@@ -1,13 +1,14 @@
 import { boxOfPoints, expandBox, pointInPolygon, segmentSegment, segmentsIntersect, type Box } from '../math/geom';
-import { shapeGap, type Shape } from '../math/shape';
+import { distPointShape, shapeGap, type Shape } from '../math/shape';
 import { SpatialHash } from '../math/spatial-hash';
 import { dist } from '../math/vec';
 import type { Vec2 } from '../math/vec';
 import { computeConnectivity } from './connectivity';
 import { boardCopperLayers } from './layers';
 import { boardPolygon } from './project';
+import { DEFAULT_MAX_AUTO_WIDTH, formatAmps, netCurrents, widthForCurrent } from './currents';
 import { maxClearance, netClassOf, requiredClearance } from './rules';
-import type { CopperLayer, Id, ItemRef, NetClass, Project } from './types';
+import type { CopperLayer, Id, ItemRef, NetClass, Project, Track } from './types';
 import { padLabel } from './world';
 
 /*
@@ -64,6 +65,8 @@ interface CuItem {
 }
 
 const cache = new WeakMap<Project, DrcReport>();
+/** Сужение у вывода: дорожка не длиннее этого, одним концом в своей площадке. */
+const NECK_LEN = 3;
 
 export function runDrc(p: Project): DrcReport {
   const hit = cache.get(p);
@@ -236,6 +239,44 @@ export function runDrc(p: Project): DrcReport {
   for (const v of Object.values(p.vias)) {
     if (v.diameter < R.minViaDiameter - 1e-4) add('via', 'error', v.at, `Переходное ${v.diameter} мм меньше ${R.minViaDiameter} мм`, [{ kind: 'via', id: v.id }]);
     if (v.drill < R.minViaDrill - 1e-4) add('via', 'error', v.at, `Отверстие переходного ${v.drill} мм меньше ${R.minViaDrill} мм`, [{ kind: 'via', id: v.id }]);
+  }
+
+  // 5б. Ширина по току цепи (оценка по деталям или ток, заданный вручную). Короткие
+  // сужения у своих выводов (вход в площадку микросхемы) не в счёт.
+  const widthCap = R.maxAutoWidth ?? DEFAULT_MAX_AUTO_WIDTH;
+  const mm = (x: number) => String(+x.toFixed(2)).replace('.', ',');
+  const netTracks = new Map<Id, Track[]>();
+  for (const t of Object.values(p.tracks)) {
+    const n = conn.itemNet.get(t.id);
+    if (n && n !== 'short') (netTracks.get(n) ?? netTracks.set(n, []).get(n)!).push(t);
+  }
+  for (const nc of netCurrents(p).values()) {
+    const need = widthForCurrent(nc.current, R);
+    if (!need) continue;
+    const name = netName(nc.net);
+    const ts = netTracks.get(nc.net) ?? [];
+    if (need > widthCap + 1e-9) {
+      const at = ts[0]?.points[0] ?? w.pads.find((q) => q.net === nc.net)?.center;
+      if (at) add('width', 'warning', at, `Цепь ${name}: по току ~${formatAmps(nc.current)} нужна дорожка ${mm(need)} мм — ведите проводом или шиной; если ток идёт мимо платы, задайте его в свойствах цепи`, []);
+    }
+    const want = Math.min(need, widthCap);
+    const pads = w.pads.filter((q) => q.net === nc.net);
+    const narrow = ts.filter((t) => {
+      // Допуск 10 %: 2,9 мм вместо 3 — не повод для замечания.
+      if (t.width >= want - Math.max(0.02, want * 0.1)) return false;
+      let len = 0;
+      for (let i = 1; i < t.points.length; i++) len += dist(t.points[i - 1], t.points[i]);
+      const neck = len <= NECK_LEN && pads.some((q) => distPointShape(t.points[0], q.shape) <= 1e-3 || distPointShape(t.points[t.points.length - 1], q.shape) <= 1e-3);
+      return !neck;
+    });
+    if (narrow.length)
+      add(
+        'width',
+        'warning',
+        narrow[0].points[0],
+        `Цепь ${name}: ток ~${formatAmps(nc.current)}, дорожка ${mm(Math.min(...narrow.map((t) => t.width)))} мм — нужно ${mm(want)} мм (Трассировка → Ширина дорожек по токам)`,
+        narrow.map((t) => ({ kind: 'track', id: t.id })),
+      );
   }
 
   // 6. Области правил: запреты и допустимые классы.

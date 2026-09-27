@@ -217,6 +217,8 @@ export interface Net {
   netClass: string;
   /** Роль, заданная вручную; без неё — угадывается по классу, имени и деталям. */
   role?: NetRole;
+  /** Ток по плате, А, заданный вручную; без него — оценка по деталям (currents.ts). */
+  current?: number;
 }
 
 export interface NetClass {
@@ -257,6 +259,12 @@ export interface DesignRules {
   tentVias: boolean;
   /** Каплевидные переходы от дорожек к площадкам и переходным. */
   teardrops?: boolean;
+  /** Толщина меди, мкм (для ширины по току; по умолчанию 35). */
+  copperThickness?: number;
+  /** Допустимый нагрев дорожки током, °C (по умолчанию 10). */
+  tempRise?: number;
+  /** Предел ширины по току, мм: шире — уже провод или шина (по умолчанию 3). */
+  maxAutoWidth?: number;
 }
 
 /* ---------------- плата и проект ---------------- */

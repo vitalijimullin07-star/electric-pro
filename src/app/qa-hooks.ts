@@ -48,6 +48,12 @@ export function installQaHooks(): void {
       ctx.getImageData(0, 0, 1, 1);
       return (performance.now() - t0) / frames;
     },
+    /** Открыть окно (для снимков и проверок): «component» по обозначению, «net» по имени цепи. */
+    open: (kind: string, name?: string) => {
+      const s = useEditor.getState();
+      const id = kind === 'component' ? Object.values(s.project.components).find((c) => c.ref === name)?.id : kind === 'net' ? Object.values(s.project.nets).find((n) => n.name === name)?.id : name;
+      s.openDialog(kind as Parameters<typeof s.openDialog>[0], id);
+    },
     pads: () => getWorld(useEditor.getState().project).pads.map((p) => ({ label: padLabel(p), key: p.key, x: p.center.x, y: p.center.y, net: p.net })),
   };
 }
