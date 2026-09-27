@@ -46,6 +46,8 @@ export interface PlaceOptions {
   progress?: (fraction: number) => void | Promise<void>;
   /** Отдавать управление каждые столько ходов (для основного потока). */
   yieldEvery?: number;
+  /** Крайний срок (Date.now(), мс): отжиг остывает быстрее, доводка короче. */
+  deadline?: number;
   /** Доводка по распутанной паутине (по умолчанию — да). */
   untangle?: boolean;
 }
@@ -806,12 +808,24 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
     const Tend = T0 * 0.002;
     const alpha = Math.pow(Tend / T0, 1 / totalSteps);
     let T = T0;
-    for (steps = 0; steps < totalSteps; steps++) {
+    let a = alpha;
+    let total = totalSteps;
+    const tAnneal = Date.now();
+    for (steps = 0; steps < total; steps++) {
       randomMove(T, T0);
-      T *= alpha;
+      T *= a;
       if (steps % yieldEvery === yieldEvery - 1) {
-        if (o.progress) await o.progress((steps + 1) / totalSteps);
+        if (o.progress) await o.progress((steps + 1) / total);
         await tick();
+        // К сроку не успеть — остываем быстрее: оставшиеся шаги по замеренной скорости.
+        if (o.deadline) {
+          const perStep = (Date.now() - tAnneal) / (steps + 1);
+          const can = steps + 1 + Math.max(0, (o.deadline - Date.now()) / Math.max(1e-3, perStep));
+          if (can < total) {
+            total = Math.max(steps + 2, Math.floor(can));
+            a = Math.pow(Tend / Math.max(T, Tend * 1.0001), 1 / Math.max(1, total - steps - 1));
+          }
+        }
       }
     }
 
@@ -878,12 +892,16 @@ export async function autoplace(p: Project, o: PlaceOptions = {}): Promise<Place
       fixedTrees = true;
       const refine = Math.round(movable.length * 60 * Math.max(1, o.effort ?? 1));
       for (let part = 0; part < 4; part++) {
+        if (o.deadline && Date.now() > o.deadline) break;
         retangle();
         let Tr = T0 * 0.01;
         for (let q = 0; q < refine / 4; q++) {
           randomMove(Tr, T0 * 0.3);
           Tr *= 0.999;
-          if (q % yieldEvery === yieldEvery - 1) await tick();
+          if (q % yieldEvery === yieldEvery - 1) {
+            await tick();
+            if (o.deadline && Date.now() > o.deadline) break;
+          }
         }
       }
       retangle();

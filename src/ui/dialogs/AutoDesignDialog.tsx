@@ -46,7 +46,8 @@ export function AutoDesignDialog() {
   const [useCurrent, setUseCurrent] = useState(true);
   const [timeIdx, setTimeIdx] = useState(1);
   const [threads, setThreads] = useState(searchThreads());
-  const [grid, setGrid] = useState<number>(autoGrid(p));
+  // Сетка: «авто» — по этапам (сеть 230 В — крупная, остальное — мелкая, кратная шагу выводов).
+  const [grid, setGrid] = useState<number | null>(null);
   const [editRoles, setEditRoles] = useState(false);
   const restored = last && (p === last.base || p === last.applied) ? last : null;
   const [results, setResults] = useState<VariantResult[]>(restored?.results ?? []);
@@ -54,7 +55,14 @@ export function AutoDesignDialog() {
   const [progress, setProgress] = useState<SearchProgress | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const job = useRef<SearchJob | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const stoppedByUser = useRef(false);
+  const [finished, setFinished] = useState<string | null>(null);
   const running = !!progress;
+  // На телефоне варианты — под длинным списком настроек: при поиске и после него они
+  // показываются первыми, а окно прокручивается к началу.
+  const showResults = running || results.length > 0 || !!finished;
+  const toResults = () => requestAnimationFrame(() => gridRef.current?.closest('.content')?.scrollTo({ top: 0, behavior: 'smooth' }));
 
   useEffect(() => () => job.current?.stop(), []);
 
@@ -64,11 +72,13 @@ export function AutoDesignDialog() {
     const probe = structuredClone(p);
     if (applyRoleClasses(probe, { roles, use }).length) s.commit((d) => void applyRoleClasses(d, { roles, use }));
     const base = useEditor.getState().project;
-    const options: SearchOptions = { place, route, keepExisting: keep && !place, roles: netsByRole(base), use, tryTwoLayers: oneLayer && twoLayers, stitch: true, grid, effort: [0.6, 1.2, 2.5, 5][timeIdx] };
+    const options: SearchOptions = { place, route, keepExisting: keep && !place, roles: netsByRole(base), use, tryTwoLayers: oneLayer && twoLayers, stitch: true, grid: grid ?? undefined, effort: [0.6, 1.2, 2.5, 5][timeIdx] };
     last = { base, applied: null, options, results: [], appliedIndex: null };
     setResults([]);
     setAppliedIndex(null);
     setErrors([]);
+    setFinished(null);
+    toResults();
     setProgress({ done: 0, running: new Map(), threads, leftMs: TIMES[timeIdx].ms });
     const j = startVariantSearch(base, options, {
       timeMs: TIMES[timeIdx].ms,
@@ -87,14 +97,20 @@ export function AutoDesignDialog() {
       onError: (m) => setErrors((e) => [...e.slice(-2), m]),
     });
     job.current = j;
+    const t0 = Date.now();
     j.promise.then(() => {
       setProgress(null);
       job.current = null;
       const best = last?.results[0];
+      const sec = Math.round((Date.now() - t0) / 1000);
       s.setMessage(best ? `Поиск закончен: лучший вариант — ${statsText(best)}.` : 'Поиск закончен: вариантов нет.');
+      setFinished(best ? `Готово за ${sec} с: вариантов ${last?.results.length ?? 0}. Выберите и нажмите «Применить».` : `За ${sec} с ни один вариант не досчитался${stoppedByUser.current ? ' (поиск остановлен)' : ''}. Плата большая для этого устройства — выберите «2 мин» или «5 мин».`);
+      stoppedByUser.current = false;
+      toResults();
     });
   };
   const stop = () => {
+    stoppedByUser.current = true;
     job.current?.stop();
   };
   const apply = (v: VariantResult) => {
@@ -141,9 +157,14 @@ export function AutoDesignDialog() {
       }}
       footer={
         running ? (
-          <button className="btn danger" onClick={stop}>
-            Остановить (оставить найденное)
-          </button>
+          <>
+            <span className="ad-foot-note">
+              {results.length ? `найдено ${results.length}` : 'считаю…'} · {progress && progress.leftMs > 0 ? `осталось ${Math.ceil(progress.leftMs / 1000)} с` : 'доделываю начатые'}
+            </span>
+            <button className="btn danger" onClick={stop}>
+              {results.length ? 'Остановить (оставить найденное)' : 'Остановить'}
+            </button>
+          </>
         ) : (
           <>
             <button className="btn" onClick={s.closeDialog}>
@@ -156,7 +177,7 @@ export function AutoDesignDialog() {
         )
       }
     >
-      <div className="ad-grid">
+      <div className={`ad-grid${showResults ? ' has-results' : ''}`} ref={gridRef}>
         <section>
           <h4>Что сделать</h4>
           <label className="ad-check">
@@ -265,10 +286,11 @@ export function AutoDesignDialog() {
               ))}
             </select>
             <label>Сетка трассировки, мм</label>
-            <select className="sel" value={String(grid)} onChange={(e) => setGrid(+e.target.value)} disabled={running}>
-              {[...new Set([autoGrid(p), 0.5, 0.635, 0.8, 1.0, 1.27, 2.54])].sort((a, b) => a - b).map((g) => (
+            <select className="sel" value={grid === null ? '' : String(grid)} onChange={(e) => setGrid(e.target.value ? +e.target.value : null)} disabled={running}>
+              <option value="">авто (по этапам и шагу выводов)</option>
+              {[...new Set([autoGrid(p), 0.4233, 0.5, 0.635, 0.8467, 1.0, 1.27, 2.54])].sort((a, b) => a - b).map((g) => (
                 <option key={g} value={String(g)}>
-                  {String(g).replace('.', ',')}
+                  {String(+g.toFixed(2)).replace('.', ',')}
                   {Math.abs(g - autoGrid(p)) < 1e-9 ? ' — по правилам' : ''}
                 </option>
               ))}
@@ -280,7 +302,7 @@ export function AutoDesignDialog() {
           </p>
         </section>
 
-        <section>
+        <section className="ad-results">
           <h4>Варианты</h4>
           {running && progress && (
             <>
@@ -293,7 +315,8 @@ export function AutoDesignDialog() {
               </p>
             </>
           )}
-          {!results.length && !running && <p className="hint">Нажмите «Искать варианты». Лучшие появятся здесь по мере готовности — выберите любой.</p>}
+          {!results.length && !running && !finished && <p className="hint">Нажмите «Искать варианты». Лучшие появятся здесь по мере готовности — выберите любой.</p>}
+          {finished && !running && <p className={`hint${results.length ? '' : ' warn'}`}>{finished}</p>}
           {errors.length > 0 && <p className="hint" style={{ color: 'var(--warn)' }}>Ошибка в варианте: {errors[errors.length - 1]}</p>}
           <div className="ad-cards">
             {results.map((v, i) => (
@@ -305,6 +328,7 @@ export function AutoDesignDialog() {
                     {v.layers !== (last?.base ?? p).board.copperLayers && <span className="tag">{v.layers} слоя</span>} {v.label}
                   </b>
                   <small>{statsText(v)}</small>
+                  <small className="ad-details">{detailsText(v)}</small>
                   <button className={`btn sm${appliedIndex === v.index ? '' : ' primary'}`} onClick={() => apply(v)} disabled={appliedIndex === v.index}>
                     {appliedIndex === v.index ? 'Применён' : 'Применить'}
                   </button>
@@ -318,19 +342,30 @@ export function AutoDesignDialog() {
   );
 }
 
+/** Главное о варианте: разведено ли, прыжки, ошибки. */
 function statsText(v: VariantResult): string {
   const st = v.stats;
-  const parts = [st.unrouted ? `не разведено цепей: ${st.unrouted}` : 'разведено всё'];
+  const parts: string[] = [];
+  if (st.unrouted) parts.push(`не разведено цепей: ${st.unrouted}${st.unroutedNets?.length ? ` (${st.unroutedNets.join(', ')})` : ''}`);
+  if (st.failed) parts.push(`без пути: связей ${st.failed}${v.layers === 1 ? ' (прямые перемычки)' : ''}`);
+  if (!st.unrouted && !st.failed) parts.push('разведено всё');
   if (v.layers === 1 || st.jumpers) parts.push(`перемычек ${st.jumpers}`);
   if (v.layers > 1) parts.push(`переходных ${st.vias}`);
-  parts.push(`дорожки ${(st.length / 1000).toFixed(2).replace('.', ',')} м`);
   if (st.drc) parts.push(`ошибок ${st.drc}`);
-  if (st.widened) parts.push(`шире по току: цепей ${st.widened}`);
-  if (st.narrow?.length) parts.push(`не хватило места: ${st.narrow.join(', ')}`);
+  return parts.join(' · ');
+}
+
+/** Подробности: длина, ширины по току и тонкие места, оценка по паутине. */
+function detailsText(v: VariantResult): string {
+  const st = v.stats;
+  const parts = [`дорожки ${(st.length / 1000).toFixed(2).replace('.', ',')} м`];
+  if (st.widened) parts.push(`шире по току: ${st.widened}`);
+  if (st.narrow?.length) parts.push(`по току узко: ${st.narrow.join(', ')}`);
+  if (st.thinner) parts.push(`местами тоньше класса: ${st.thinner}`);
   if (st.tangle) {
     // Оценка по распутанной паутине (прямые линии): дорожка может и обойти, поэтому «около».
     const est = v.layers === 1 ? st.tangle.minJumps : st.tangle.minVias;
-    parts.push(`по паутине: пересечений ${st.tangle.crossings}, около ${est} ${v.layers === 1 ? 'перемычек' : 'переходных'}`);
+    parts.push(`по паутине около ${est} ${v.layers === 1 ? 'перемычек' : 'переходных'}`);
   }
   return parts.join(' · ');
 }

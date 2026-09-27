@@ -79,6 +79,11 @@ export interface RouteOptions {
   planHop?: [number, number];
   /** Соединять выводы в порядке дерева плана (по умолчанию — да). */
   planOrder?: boolean;
+  /**
+   * Крайний срок (Date.now(), мс): согласование заканчивается раньше, чистовой проход
+   * пропускается. Последняя попытка против спорных клеток идёт всегда — иначе дорожки наложатся.
+   */
+  deadline?: number;
 }
 
 export interface RoutePlanEdge {
@@ -120,9 +125,13 @@ function turnCost(a: number, b: number, bend: number): number {
   return t === 1 ? bend / 3 : t === 2 ? bend : t === 3 ? bend * 4 : bend * 8;
 }
 
-/** Шаг сетки, при котором соседние клетки разных цепей соблюдают зазор. */
-export function autoGrid(p: Project): number {
-  const classes = Object.values(p.netClasses);
+/**
+ * Шаг сетки, при котором соседние клетки разных цепей соблюдают зазор. nets — только эти
+ * цепи (этап разводки): шаг — по их классам.
+ */
+export function autoGrid(p: Project, nets?: Id[]): number {
+  const classes = nets ? [...new Map(nets.map((id) => netClassOf(p, id)).map((c) => [c.name, c])).values()] : Object.values(p.netClasses);
+  if (!classes.length) return autoGrid(p);
   let need = 0;
   for (const a of classes)
     for (const b of classes) {
@@ -131,7 +140,8 @@ export function autoGrid(p: Project): number {
       const cl = c > 2 ? Math.max(a.clearance, b.clearance, p.rules.minClearance) : c;
       need = Math.max(need, a.trackWidth / 2 + b.trackWidth / 2 + cl);
     }
-  const steps = [0.5, 0.635, 0.8, 1.0, 1.27, 1.5, 2.0, 2.54];
+  // Шаги, кратные шагу выводов (1,27/3, 1,27/2, 2,54/3, 1,27): ряды выводов ложатся на сетку.
+  const steps = [0.4233, 0.5, 0.635, 0.8467, 1.0, 1.27, 1.5, 2.0, 2.54];
   return steps.find((s) => s >= need - 1e-6) ?? Math.ceil(need * 10) / 10;
 }
 
@@ -143,7 +153,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
   const nl = layerIds.length;
   const allowVias = o.allowVias ?? nl > 1;
   const allowWires = o.allowWires ?? nl === 1;
-  const G = o.grid ?? autoGrid(p);
+  const G = o.grid ?? autoGrid(p, o.nets);
   const iters = o.iterations ?? 24;
   const hopCost = o.hopCost ?? (allowVias ? 25 : 60);
   const yieldEvery = o.yieldEvery ?? 4;
@@ -155,8 +165,15 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
   netList.forEach((n, i) => netIndex.set(n.id, i));
   const NN = netList.length;
   const cls: NetClass[] = netList.map((n) => netClassOf(p, n.id));
-  const maxHw = Math.max(0.1, ...Object.values(p.netClasses).map((c) => c.trackWidth / 2));
-  const maxClr = Math.max(R.minClearance, ...Object.values(p.netClasses).map((c) => c.clearance));
+  // Полуширина и зазор «ореола» — по классам разводимых цепей: при разводке по этапам (сначала
+  // 230 В с большим зазором, потом остальное на мелкой сетке) большой зазор одного класса
+  // не должен запирать выводы микросхем для всех. Медь других классов держит свой зазор (clrTo),
+  // особые зазоры между классами (6 мм от сети) — запреты forbid.
+  const routedCls = [...new Map(cls.map((c) => [c.name, c])).values()];
+  const hwCls = routedCls.length ? routedCls : Object.values(p.netClasses);
+  const maxHw = Math.max(0.1, ...hwCls.map((c) => c.trackWidth / 2));
+  const maxClr = Math.max(R.minClearance, ...hwCls.map((c) => c.clearance));
+  const clrTo = (net: Id | null | undefined) => (net && net !== 'short' && p.nets[net] ? Math.max(maxClr, netClassOf(p, net).clearance) : maxClr);
 
   // Сетка над платой.
   const poly = boardPolygon(p.board);
@@ -205,7 +222,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     const idx = pads.length;
     pads.push({ wp, n, layers });
     padIndexByKey.set(wp.key, idx);
-    const halo = maxHw + maxClr + G * 0.51;
+    const halo = maxHw + clrTo(wp.net) + G * 0.51;
     const center = { x: (wp.shape.box.minX + wp.shape.box.maxX) / 2, y: (wp.shape.box.minY + wp.shape.box.maxY) / 2 };
     const reach = Math.hypot(wp.shape.box.maxX - wp.shape.box.minX, wp.shape.box.maxY - wp.shape.box.minY) / 2 + halo;
     const targetLayers = wp.pad.type === 'npth' ? [...Array(nl).keys()] : layers;
@@ -230,48 +247,39 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
 
   // Особые зазоры между классами (например, 6 мм от 230 В): статичные запреты от площадок
   // и динамические ореолы от проведённых дорожек.
+  // a — класс меди (любой, в том числе не разводимый сейчас: площадки и дорожки сети 230 В
+  // при разводке остального), b — разводимый класс.
   const classNames = [...new Set(cls.map((c) => c.name))];
   const classIdx = new Map(classNames.map((c, i) => [c, i]));
-  const special: { a: number; b: number; d: number }[] = [];
-  for (let a = 0; a < classNames.length; a++)
+  const special: { a: string; b: number; d: number }[] = [];
+  for (const ca of Object.values(p.netClasses))
     for (let b = 0; b < classNames.length; b++) {
-      if (a === b) continue;
-      const ca = p.netClasses[classNames[a]];
-      const cb = p.netClasses[classNames[b]];
+      if (ca.name === classNames[b]) continue;
+      const cb = p.netClasses[classNames[b]] ?? cls.find((c) => c.name === classNames[b])!;
       const need = requiredClearance(R, ca, cb);
-      if (need > Math.max(ca.clearance, cb.clearance, R.minClearance) + 1e-9) special.push({ a, b, d: need });
+      if (need > Math.max(ca.clearance, cb.clearance, R.minClearance) + 1e-9) special.push({ a: ca.name, b, d: need });
     }
   const forbid: Uint8Array[] = classNames.map(() => new Uint8Array(N));
   const haloCnt: Uint16Array[] = classNames.map(() => new Uint16Array(N));
+  /** Запреты особого зазора вокруг меди класса a (площадка, сохранённая дорожка, переходное). */
+  const markSpecial = (a: string, shape: WorldPad['shape']) => {
+    for (const sp of special) {
+      if (sp.a !== a) continue;
+      const hwB = (p.netClasses[classNames[sp.b]]?.trackWidth ?? 0) / 2;
+      const r = sp.d + hwB + G * 0.51;
+      const center = { x: (shape.box.minX + shape.box.maxX) / 2, y: (shape.box.minY + shape.box.maxY) / 2 };
+      const reach = Math.hypot(shape.box.maxX - shape.box.minX, shape.box.maxY - shape.box.minY) / 2 + r;
+      mark(center.x, center.y, reach, (k) => {
+        if (distPointShape({ x: cx(k), y: cy(k) }, shape) <= r) forbid[sp.b][k] = 1;
+      });
+    }
+  };
   if (special.length)
     for (const pd of pads) {
-      if (pd.n < 0) continue;
-      const ca = classIdx.get(cls[pd.n].name)!;
-      for (const sp of special) {
-        if (sp.a !== ca) continue;
-        const hwB = p.netClasses[classNames[sp.b]].trackWidth / 2;
-        const r = sp.d + hwB + G * 0.51;
-        const center = { x: (pd.wp.shape.box.minX + pd.wp.shape.box.maxX) / 2, y: (pd.wp.shape.box.minY + pd.wp.shape.box.maxY) / 2 };
-        const reach = Math.hypot(pd.wp.shape.box.maxX - pd.wp.shape.box.minX, pd.wp.shape.box.maxY - pd.wp.shape.box.minY) / 2 + r;
-        mark(center.x, center.y, reach, (k) => {
-          if (distPointShape({ x: cx(k), y: cy(k) }, pd.wp.shape) <= r) forbid[sp.b][k] = 1;
-        });
-      }
+      if (!pd.wp.net || !p.nets[pd.wp.net]) continue;
+      markSpecial(netClassOf(p, pd.wp.net).name, pd.wp.shape);
     }
-  // Свои площадки цепи из запретов своего класса исключаются: деталь стоит где стоит (оптрон
-  // поперёк изоляционного зазора), зазор между её выводами — её собственная изоляция, его
-  // проверяет DRC; трассировщику нужно только выйти из вывода — дальше запрет действует.
-  if (special.length)
-    for (let l = 0; l < nl; l++)
-      for (let k = 0; k < N; k++) {
-        const pi = padAt[l][k];
-        if (pi < 0 || pads[pi].n < 0) continue;
-        forbid[classIdx.get(cls[pads[pi].n].name)!][k] = 0;
-      }
-  const haloOf = cls.map((c) => {
-    const a = classIdx.get(c.name)!;
-    return special.filter((s) => s.a === a).map((s) => ({ b: s.b, r: s.d + p.netClasses[classNames[s.b]].trackWidth / 2 + c.trackWidth / 2 }));
-  });
+  const haloOf = cls.map((c) => special.filter((s) => s.a === c.name).map((s) => ({ b: s.b, r: s.d + (p.netClasses[classNames[s.b]]?.trackWidth ?? 0) / 2 + c.trackWidth / 2 })));
   const classOfNet = cls.map((c) => classIdx.get(c.name)!);
 
   // Области правил.
@@ -323,23 +331,27 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       const n = netId && netId !== 'short' ? (netIndex.get(netId) ?? -1) : -1;
       const l = layerIds.indexOf(s.track.layer);
       if (l < 0) continue;
-      const r = s.track.width / 2 + maxHw + maxClr + G * 0.51;
+      const h = maxHw + clrTo(netId) + G * 0.51;
+      const r = s.track.width / 2 + h;
       const c = { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 };
       mark(c.x, c.y, dist(s.a, s.b) / 2 + r, (k) => {
         const d = distPointShape({ x: cx(k), y: cy(k) }, s.shape);
-        if (d > maxHw + maxClr + G * 0.51) return;
+        if (d > h) return;
         if (n < 0) {
           own[l][k] = -2;
           return;
         }
         addKeep(n, l, k);
       });
+      if (special.length && netId && netId !== 'short' && p.nets[netId]) markSpecial(netClassOf(p, netId).name, s.shape);
     }
     for (const v of world.vias) {
       const netId = conn.itemNet.get(v.via.id);
       const n = netId && netId !== 'short' ? (netIndex.get(netId) ?? -1) : -1;
-      mark(v.via.at.x, v.via.at.y, v.via.diameter / 2 + maxHw + maxClr + G * 0.51, (k) => {
-        if (distPointShape({ x: cx(k), y: cy(k) }, v.shape) > maxHw + maxClr + G * 0.51) return;
+      const h = maxHw + clrTo(netId) + G * 0.51;
+      if (special.length && netId && netId !== 'short' && p.nets[netId]) markSpecial(netClassOf(p, netId).name, v.shape);
+      mark(v.via.at.x, v.via.at.y, v.via.diameter / 2 + h, (k) => {
+        if (distPointShape({ x: cx(k), y: cy(k) }, v.shape) > h) return;
         for (let l = 0; l < nl; l++) {
           if (n < 0) own[l][k] = -2;
           else addKeep(n, l, k);
@@ -369,6 +381,18 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
       }
     }
   }
+
+  // Свои площадки цепи из запретов своего класса исключаются: деталь стоит где стоит (оптрон
+  // поперёк изоляционного зазора), зазор между её выводами — её собственная изоляция, его
+  // проверяет DRC; трассировщику нужно только выйти из вывода — дальше запрет действует.
+  // После всех запретов: и от площадок, и от сохранённой меди (дорожка сети к тому же оптрону).
+  if (special.length)
+    for (let l = 0; l < nl; l++)
+      for (let k = 0; k < N; k++) {
+        const pi = padAt[l][k];
+        if (pi < 0 || pads[pi].n < 0) continue;
+        forbid[classIdx.get(cls[pads[pi].n].name)!][k] = 0;
+      }
 
   // Занятость клеток при согласовании. Углы (cocc) — точки между четырьмя клетками, через
   // которые идут диагонали: две диагонали одного квадрата пересеклись бы.
@@ -989,10 +1013,14 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
                 if (a) for (const q of a) addUse(n, l2, q);
               }
             }
-            if (st.hop === 2 && !viaAt[st.k]) {
-              viaAt[st.k] = n + 1;
-              netVias[n].push(st.k);
-            }
+            // Отверстия переходного и обеих площадок перемычки — в карту переходных: следующие
+            // прыжки держат допуск между отверстиями и зазор до чужих (раньше площадки
+            // перемычек в карту не попадали и садились вплотную друг к другу).
+            for (const kk of st.hop === 2 ? [st.k] : [pr.k, st.k])
+              if (!viaAt[kk]) {
+                viaAt[kk] = n + 1;
+                netVias[n].push(kk);
+              }
           }
         }
       }
@@ -1030,6 +1058,8 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     if (o.progress) await o.progress({ iteration: it + 1, conflicts: over, fraction: Math.min(1, (it + 1) / iters) });
     await tick();
     if (!over) break;
+    // Срок: согласованию — три четверти времени, остальное — последней попытке.
+    if (o.deadline && Date.now() > t0 + (o.deadline - t0) * 0.75) break;
   }
   // Последняя попытка: спорные цепи снимаются все сразу и ведутся заново по одной с
   // запретительной ценой конфликта — то в прямом, то в обратном порядке; со второго круга
@@ -1054,6 +1084,8 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
     });
     let best = snap();
     for (let pass = 0; pass < 8 && over; pass++) {
+      // После срока — не больше одного круга: оставшиеся споры станут связями без пути.
+      if (o.deadline && pass >= 1 && Date.now() > o.deadline) break;
       const bad = new Set<number>();
       const r = pass >= 2 ? 2 : 0;
       for (let l = 0; l < nl; l++)
@@ -1101,7 +1133,7 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
   // короче — остаётся, иначе цепь возвращается как была. Убирает обходы и перемычки, которые
   // понадобились в разгар согласования, а к концу стали не нужны.
   let polished = 0;
-  if (!over && (o.polish ?? true)) {
+  if (!over && (o.polish ?? true) && !(o.deadline && Date.now() > o.deadline)) {
     const measure = (n: number) => {
       let hops = 0;
       let len = 0;

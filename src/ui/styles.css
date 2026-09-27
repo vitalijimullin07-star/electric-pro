@@ -1891,6 +1891,16 @@ textarea:focus {
   max-width: 120px;
   font-size: 12px;
 }
+.ad-card-body small.ad-details {
+  opacity: 0.75;
+  font-size: 11px;
+}
+.ad-foot-note {
+  margin-right: auto;
+  align-self: center;
+  color: var(--mute);
+  font-size: 12px;
+}
 .ad-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1934,6 +1944,10 @@ textarea:focus {
 @media (max-width: 760px) {
   .ad-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* На телефоне при поиске и после него варианты — сверху, настройки — под ними. */
+  .ad-grid.has-results .ad-results {
+    order: -1;
   }
   .ad-cards {
     grid-template-columns: minmax(0, 1fr);

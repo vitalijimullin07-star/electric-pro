@@ -126,7 +126,12 @@ export function startVariantSearch(
 ): SearchJob {
   const threads = Math.max(1, cfg.threads ?? searchThreads());
   const maxVariants = cfg.maxVariants ?? 400;
-  const deadline = Date.now() + cfg.timeMs;
+  const t0 = Date.now();
+  const deadline = t0 + cfg.timeMs;
+  // Первый вариант — за половину времени: первая карточка появляется к середине поиска
+  // (на телефоне всё считается дольше — так видно, что поиск идёт и что-то уже есть).
+  // На коротком поиске (15 с) половины мало — там все варианты считаются до срока.
+  const deadlineOf = (index: number) => (index === 0 && cfg.timeMs >= 30_000 ? Math.min(deadline, t0 + cfg.timeMs * 0.5) : deadline);
   const running = new Map<number, number>();
   let next = 0;
   let done = 0;
@@ -172,7 +177,9 @@ export function startVariantSearch(
   const nextIndex = (): number | null => {
     if (retry.length) return retry.shift()!;
     if (stopped || next >= maxVariants || Date.now() >= deadline) return null;
-    if (deadline - Date.now() < expected(next) * 0.6) return null;
+    // Вариант укладывается в срок сам (расстановка и согласование короче), но совсем без
+    // времени хорошего не выйдет: не начинаем, если осталось меньше половины обычного.
+    if (deadline - Date.now() < expected(next) * 0.5) return null;
     return next++;
   };
   let inlineRunning = false;
@@ -183,7 +190,7 @@ export function startVariantSearch(
     for (;;) {
       const idx = stopped ? null : nextIndex();
       if (idx === null) break;
-      const job = planVariant(idx, project, options);
+      const job = { ...planVariant(idx, project, options), deadline: deadlineOf(idx) };
       running.set(job.index, 0);
       report();
       try {
@@ -227,7 +234,7 @@ export function startVariantSearch(
       finishIfIdle();
       return;
     }
-    const job = planVariant(idx, project, options);
+    const job = { ...planVariant(idx, project, options), deadline: deadlineOf(idx) };
     running.set(job.index, 0);
     (w as Worker & { job?: number }).job = job.index;
     w.postMessage({ type: 'variant', project, options, job } satisfies WorkerIn);

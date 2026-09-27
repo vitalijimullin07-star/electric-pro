@@ -113,8 +113,10 @@ export async function autorouteWithZones(p: Project, o: ZoneRouteOptions = {}): 
   const base = structuredClone(p);
   if (!o.keepExisting) clearRouting(base);
   const c0 = computeConnectivity(base);
-  const byZone = [...zoneNets].filter((id) => c0.nets.get(id)?.complete);
   const all = o.nets ?? Object.keys(p.nets);
+  // Только цепи этого прохода: при разводке по этапам землю не дотягивают на этапе сети 230 В.
+  const inPass = new Set(all);
+  const byZone = [...zoneNets].filter((id) => inPass.has(id) && c0.nets.get(id)?.complete);
   const first = all.filter((id) => !byZone.includes(id));
   const r1 = await autoroute(base, { ...o, keepExisting: o.keepExisting, nets: first });
 
