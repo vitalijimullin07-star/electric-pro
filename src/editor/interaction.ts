@@ -1,6 +1,6 @@
 import { dist, type Vec2 } from '@core/math/vec';
 import { fmtLen } from '@core/units';
-import { netAtPoint } from '@core/model/connectivity';
+import { computeConnectivity, netAtPoint } from '@core/model/connectivity';
 import { boardCopperLayers } from '@core/model/layers';
 import { addDrawing, addRuleArea, addZone } from '@core/model/edit';
 import type { CopperLayer, ItemRef, Project } from '@core/model/types';
@@ -63,6 +63,9 @@ export class CanvasController {
   /** Кнопка схемы, нажатая пальцем во время симуляции. */
   private simPress: string | null = null;
   private longTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Щелчки подряд в одно место (во время симуляции: третий — карточка параметров). */
+  private tapCount = 0;
+  private tapTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
 
@@ -86,16 +89,38 @@ export class CanvasController {
     this.longTimer = null;
   }
 
-  /** Долгое нажатие на объект: свойства (компонент — окно, надпись — правка, остальное — панель). */
-  private startLongPress(hit: Hit): void {
+  /**
+   * Долгое нажатие на объект: свойства (компонент — окно, надпись — правка, остальное — панель).
+   * Во время симуляции — карточка параметров детали или цепи (и мышью: нажать и держать).
+   */
+  private startLongPress(hit: Hit, e: PointerEvent): void {
     this.clearLongPress();
+    const at = { x: e.clientX, y: e.clientY };
+    const mouse = e.pointerType === 'mouse';
     this.longTimer = setTimeout(() => {
       this.longTimer = null;
       const d = this.drag;
       if (!d || d.moved) return;
+      if (simRuntime.active && this.openTune(hit, at)) {
+        this.drag = null;
+        return;
+      }
+      if (mouse) return;
       this.drag = null;
       this.openProps(hit);
     }, LONG_PRESS_MS);
+  }
+
+  /** Карточка параметров на холсте: деталь или цепь дорожки, переходного, полигона. false — не к чему. */
+  private openTune(hit: Hit, at: Vec2): boolean {
+    const p = this.S.project;
+    const r = hit.ref;
+    const item = r.kind === 'track' || r.kind === 'via' || r.kind === 'wire' ? computeConnectivity(p).itemNet.get(r.id) : r.kind === 'zone' ? p.zones[r.id]?.net : null;
+    const net = item && item !== 'short' ? item : null;
+    if (r.kind === 'component') simRuntime.openTune({ comp: r.id, x: at.x, y: at.y });
+    else if (net) simRuntime.openTune({ net, x: at.x, y: at.y });
+    else return false;
+    return true;
   }
 
   private openProps(hit: Hit): void {
@@ -248,7 +273,7 @@ export class CanvasController {
         // Двигаем всё выделенное (объект из группы выделил всю группу).
         this.drag = { ...base, kind: 'move', items: this.S.selection, hit };
         this.showHitInfo(hit);
-        if (e.pointerType !== 'mouse') this.startLongPress(hit);
+        if (e.pointerType !== 'mouse' || simRuntime.active) this.startLongPress(hit, e);
       } else {
         // Пальцем по пустому месту двигаем плату, мышью — рамка выделения.
         this.drag = e.pointerType === 'touch' ? base : { ...base, kind: 'box' };
@@ -403,7 +428,7 @@ export class CanvasController {
       if (d.kind === 'move' && d.hit && !e.shiftKey) {
         s.select([d.hit.ref]);
         this.showHitInfo(d.hit);
-        this.checkDoubleTap(wp, d.hit);
+        this.checkDoubleTap(wp, d.hit, { x: e.clientX, y: e.clientY });
       }
       return;
     }
@@ -440,6 +465,8 @@ export class CanvasController {
 
   onDoubleClick(e: MouseEvent): void {
     const s = this.S;
+    // Во время симуляции щелчки считает checkDoubleTap: двойной ждёт, не будет ли третьего.
+    if (simRuntime.active) return;
     if (s.tool === 'select') {
       const r = this.canvas.getBoundingClientRect();
       const wp = screenToWorld(s.view, { x: e.clientX - r.left, y: e.clientY - r.top });
@@ -458,15 +485,43 @@ export class CanvasController {
     if (z) s.setMessage(`Полигон ${z.net ? (s.project.nets[z.net]?.name ?? '') : 'без цепи'}. Двигать — за край, вершины — за углы; свойства справа.`);
   }
 
-  private checkDoubleTap(wp: Vec2, hit: Hit): void {
+  private checkDoubleTap(wp: Vec2, hit: Hit, at: Vec2): void {
     const now = Date.now();
-    if (this.lastTapPos && now - this.lastTapAt < 350 && dist(this.lastTapPos, wp) < this.tol() * 2) {
-      if (hit.ref.kind === 'component') this.S.openDialog('component', hit.ref.id);
-      this.lastTapAt = 0;
+    const near = this.lastTapPos !== null && now - this.lastTapAt < 400 && dist(this.lastTapPos, wp) < this.tol() * 2;
+    if (this.tapTimer) clearTimeout(this.tapTimer);
+    this.tapTimer = null;
+    if (!simRuntime.active) {
+      if (near && now - this.lastTapAt < 350) {
+        if (hit.ref.kind === 'component') this.S.openDialog('component', hit.ref.id);
+        this.lastTapAt = 0;
+        return;
+      }
+      this.lastTapAt = now;
+      this.lastTapPos = wp;
       return;
     }
+    // Идёт симуляция: третий щелчок — карточка параметров; второй — окно детали, если третьего не будет;
+    // одиночный при открытой карточке переводит её на этот объект.
     this.lastTapAt = now;
     this.lastTapPos = wp;
+    this.tapCount = near ? this.tapCount + 1 : 1;
+    if (this.tapCount >= 3) {
+      this.tapCount = 0;
+      this.lastTapAt = 0;
+      this.openTune(hit, at);
+      return;
+    }
+    const open = simRuntime.tune;
+    if (this.tapCount === 1 && open) this.openTune(hit, { x: open.x, y: open.y });
+    if (this.tapCount === 2 && hit.ref.kind === 'component') {
+      const id = hit.ref.id;
+      this.tapTimer = setTimeout(() => {
+        this.tapTimer = null;
+        if (this.tapCount !== 2) return;
+        this.tapCount = 0;
+        this.S.openDialog('component', id);
+      }, 400);
+    }
   }
 
   /* ---------------- щелчки инструментов ---------------- */
@@ -898,12 +953,13 @@ export class CanvasController {
       const netId = netAtPoint(p, h.ref.kind === 'via' ? p.vias[h.ref.id].at : h.ref.kind === 'wire' ? p.wires[h.ref.id].a : p.tracks[h.ref.id].points[0], h.ref.kind === 'track' ? p.tracks[h.ref.id].layer : null);
       const net = netId ? p.nets[netId] : null;
       const kind = h.ref.kind === 'track' ? 'Дорожка' : h.ref.kind === 'via' ? 'Переходное' : 'Перемычка';
-      s.patch({ highlightNet: netId, message: `${kind}${net ? `, цепь ${net.name}` : ', без цепи'}. Свойства справа.` });
+      s.patch({ highlightNet: netId, message: `${kind}${net ? `, цепь ${net.name}` : ', без цепи'}. ${simRuntime.active && net ? 'Тройной щелчок или удержание — напряжение цепи и её источники.' : 'Свойства справа.'}` });
       return;
     }
     if (h.ref.kind === 'component') {
       const c = p.components[h.ref.id];
-      s.patch({ highlightNet: null, message: `${c.ref} ${c.value}${c.description ? ' — ' + c.description : ''}. R — повернуть, F — на другую сторону, двойной щелчок — свойства.` });
+      const hint = simRuntime.active ? 'тройной щелчок или удержание — параметры на ходу, двойной щелчок — свойства' : 'R — повернуть, F — на другую сторону, двойной щелчок — свойства';
+      s.patch({ highlightNet: null, message: `${c.ref} ${c.value}${c.description ? ' — ' + c.description : ''}. ${hint[0].toUpperCase()}${hint.slice(1)}.` });
     }
   }
 

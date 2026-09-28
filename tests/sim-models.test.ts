@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { Builder, FP, fpById } from '../src/core/examples/sim-circuits';
+import { Builder, exampleRelay, FP, fpById } from '../src/core/examples/sim-circuits';
+import { diodeVrrm, resistorWatts } from '../src/core/sim/analog/parts';
 import { Simulation } from '../src/core/sim';
 import type { Project } from '../src/core/model/types';
 
@@ -130,5 +131,47 @@ describe('модели деталей без контроллера', () => {
     expect(volts(sim, 'T')).toBeGreaterThan(3.8);
     expect(volts(sim, 'HOT')).toBeGreaterThan(3);
     expect(volts(sim, 'HALL')).toBeLessThan(0.5);
+  });
+
+  test('ручки на ходу: пробой К—Э ограничивает выброс, перегрузка резистора, пробой диода, детали на цепи', () => {
+    expect(diodeVrrm('1N4007')).toBe(1000);
+    expect(diodeVrrm('1N4148')).toBe(100);
+    expect(diodeVrrm('SS34')).toBe(40);
+    expect(resistorWatts('R_Axial_0.125W_L3.3mm_D1.8mm_P5.08mm_Horizontal', '10 кОм')).toBe(0.125);
+    expect(resistorWatts('R_0805_2012Metric', '1 кОм')).toBe(0.125);
+    expect(resistorWatts('R_1206_3216Metric', '1 Ом 0,5 Вт')).toBe(0.5);
+
+    const p = exampleRelay();
+    p.components[Object.values(p.components).find((c) => c.ref === 'VD1')!.id].sim = { model: 'none' };
+    const sim = Simulation.createSync(structuredClone(p), { analogDt: 1e-6 });
+    const vt = part(sim, 'VT1');
+    expect(vt.params.map((q) => q.key)).toEqual(['beta', 'vbe', 'vcesat', 'vceo']);
+    vt.set('vceo', 30);
+    sim.press(dev(sim, 'SB1').id, true);
+    sec(sim, 0.05);
+    // Резистор базы 100 Ом вместо 4,7 кОм: 1,3 Вт на корпусе 0,125 Вт — перегрузка в показаниях.
+    const r1 = part(sim, 'R1');
+    expect(r1.readings().some((r) => /ПЕРЕГРУЗКА/.test(r.label))).toBe(false);
+    r1.set('r', 100);
+    sec(sim, 0.01);
+    expect(r1.readings().some((r) => /ПЕРЕГРУЗКА/.test(r.label))).toBe(true);
+    sim.press(dev(sim, 'SB1').id, false);
+    let peak = 0;
+    for (let i = 0; i < 300; i++) {
+      sim.run(sim.mcu.freq * 0.00002);
+      peak = Math.max(peak, volts(sim, 'COIL'));
+    }
+    // Выброс упирается в пробой 30 В (плюс сопротивление лавины), а не в 45 В по умолчанию.
+    expect(peak).toBeGreaterThan(25);
+    expect(peak).toBeLessThan(40);
+    // Детали на цепи COIL — коллектор транзистора и катушка реле.
+    const coil = Object.values(sim.project.nets).find((n) => n.name === 'COIL')!.id;
+    const refs = sim.analog!.partsOnNet(coil).map((x) => x.comp.ref);
+    expect(refs).toContain('VT1');
+    expect(refs).toContain('K1');
+    // У диода с моделью — обратный пробой по названию (1N4007: 1000 В с запасом).
+    const sim2 = Simulation.createSync(exampleRelay(), { analogDt: 5e-6 });
+    const vbr = part(sim2, 'VD1').params.find((q) => q.key === 'vbr')!.value;
+    expect(vbr).toBeCloseTo(1200, 0);
   });
 });

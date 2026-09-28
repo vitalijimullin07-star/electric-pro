@@ -36,6 +36,14 @@ function writePref(key: string, v: string): void {
   }
 }
 
+/** Карточка параметров на холсте: деталь или цепь и точка экрана, откуда её открыли. */
+export interface SimTune {
+  comp?: string;
+  net?: string;
+  x: number;
+  y: number;
+}
+
 class SimRuntime {
   sim: Simulation | null = null;
   view: SimView | null = null;
@@ -56,6 +64,8 @@ class SimRuntime {
   timeScale = 1;
   /** Проект, с которым согласована симуляция («в проект» из ручек номинала не требует сброса). */
   synced: unknown = null;
+  /** Карточка параметров детали или цепи (тройной щелчок или удержание на плате и схеме). */
+  tune: SimTune | null = null;
 
   get running(): boolean {
     return useEditor.getState().sim.status === 'running';
@@ -107,8 +117,8 @@ class SimRuntime {
           .getState()
           .setMessage(
             sim.noMcu
-              ? 'Симуляция схемы без контроллера: схема включается с нуля, как при подаче питания. Кнопки и тумблеры на плате нажимаются касанием; номиналы, осциллограф и генераторы — на вкладке «Симуляция → Цепь».'
-              : `Симуляция идёт: ${fw?.name}. Кнопки на плате нажимаются касанием, ползунки и монитор порта — на вкладке «Симуляция»; «Во весь экран» — пульт и графики.`,
+              ? 'Симуляция схемы без контроллера: схема включается с нуля, как при подаче питания. Кнопки и тумблеры на плате нажимаются касанием; тройной щелчок или удержание на детали — её параметры на ходу; осциллограф и генераторы — на вкладке «Симуляция → Цепь».'
+              : `Симуляция идёт: ${fw?.name}. Кнопки на плате нажимаются касанием, тройной щелчок или удержание на детали — её параметры на ходу; монитор порта — на вкладке «Симуляция»; «Во весь экран» — пульт и графики.`,
           );
         this.last = performance.now();
         this.loop();
@@ -137,6 +147,7 @@ class SimRuntime {
 
   stop(quiet = false): void {
     this.startId++;
+    this.tune = null;
     cancelAnimationFrame(this.raf);
     this.silence();
     this.sim = null;
@@ -258,6 +269,21 @@ class SimRuntime {
       writePref('plata.sim.noise', (this.noise = o.noise) ? '1' : '0');
       if (this.sim?.analog) this.sim.analog.engine.noise = o.noise;
     }
+    this.patch({});
+  }
+
+  /** Открыть карточку параметров детали или цепи (идёт симуляция). */
+  openTune(t: SimTune): void {
+    if (!this.sim) return;
+    this.tune = t;
+    this.emit();
+    this.patch({});
+  }
+
+  closeTune(): void {
+    if (!this.tune) return;
+    this.tune = null;
+    this.emit();
     this.patch({});
   }
 

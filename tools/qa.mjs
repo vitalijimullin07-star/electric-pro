@@ -1405,6 +1405,94 @@ async function openPage(viewport, touch = false) {
     await h.menu('Симуляция', 'Стоп');
   });
 
+  await step('симуляция: тройной щелчок и удержание — карточка параметров на ходу (точное значение, E24, ↺; схема: символ и метка)', async () => {
+    await stopSim();
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.modal .card', { hasText: 'Мигалка на NE555' }));
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(500);
+    const p = await h.project();
+    const at = (ref) => {
+      const c = Object.values(p.components).find((x) => x.ref === ref);
+      return h.toScreen(c.at.x, c.at.y);
+    };
+    const triple = async (q) => {
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.click(q.x, q.y);
+        await page.waitForTimeout(60);
+      }
+    };
+    const card = page.locator('.sim-tune');
+    // Тройной щелчок по R2: карточка резистора, окно детали (двойной щелчок) не открывается.
+    await triple(await at('R2'));
+    await card.waitFor({ timeout: 2000 });
+    expect(/R2/.test(await card.locator('.tune-head').innerText()), 'карточка: ' + (await card.innerText()).slice(0, 80));
+    await page.waitForTimeout(500);
+    expect(!(await page.$('.modal')), 'двойной щелчок открыл окно детали');
+    // Точное значение, шаг по ряду E24 и возврат.
+    const inp = card.locator('.knob-val .inp').first();
+    await inp.click();
+    await inp.fill('10к');
+    await inp.press('Enter');
+    await page.waitForTimeout(150);
+    expect(/^10\s*к$/.test(await inp.inputValue()), 'после ввода 10к: ' + (await inp.inputValue()));
+    await h.hit(card.locator('button[aria-label="Больше"]').first());
+    expect(/^11\s*к$/.test(await inp.inputValue()), 'после ▶: ' + (await inp.inputValue()));
+    await h.hit(card.locator('button[aria-label="Вернуть"]').first());
+    expect(/^68\s*к$/.test(await inp.inputValue()), 'после ↺: ' + (await inp.inputValue()));
+    expect(/ток/.test(await card.innerText()) && /мощность/.test(await card.innerText()), 'нет показаний');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    expect(!(await card.count()), 'Esc не закрыл карточку');
+    // Удержание мышью на C1: ёмкость и номинальное напряжение.
+    const c1 = await at('C1');
+    await page.mouse.move(c1.x, c1.y);
+    await page.mouse.down();
+    await page.waitForTimeout(800);
+    await page.mouse.up();
+    await card.waitFor({ timeout: 2000 });
+    const ct = await card.innerText();
+    expect(/C1/.test(ct) && /ёмкость/.test(ct) && /номинальное напряжение/.test(ct), 'карточка C1: ' + ct.slice(0, 120));
+    const p2 = await h.project();
+    const moved = Object.values(p2.components).find((x) => x.ref === 'C1').at;
+    const was = Object.values(p.components).find((x) => x.ref === 'C1').at;
+    expect(moved.x === was.x && moved.y === was.y, 'удержание сдвинуло деталь');
+    // Касание другой детали переводит карточку на неё.
+    const r1 = await at('R1');
+    await page.mouse.click(r1.x, r1.y);
+    await page.waitForTimeout(450);
+    expect(/R1/.test(await card.locator('.tune-head').innerText()), 'карточка не перешла на R1');
+    await page.screenshot({ path: `${out}/sim-tune-board.png` });
+    await h.hit(card.locator('.tune-head button[aria-label="Закрыть"]'));
+    // Схема: тройной щелчок по символу светодиода и по метке цепи.
+    await h.hit(page.locator('.mode-switch button', { hasText: 'Схема' }));
+    await page.waitForTimeout(300);
+    const sch = async (x, y) => {
+      const box = await page.locator('.stage canvas').boundingBox();
+      const v = await page.evaluate(() => window.__plata.schView());
+      return { x: box.x + (x - v.x) * v.scale, y: box.y + (y - v.y) * v.scale };
+    };
+    const pins = await page.evaluate(() => window.__plata.schPins());
+    const led = pins.filter((q) => q.ref === 'LED1');
+    await triple(await sch((led[0].x + led[1].x) / 2, (led[0].y + led[1].y) / 2));
+    await card.waitFor({ timeout: 2000 });
+    const lt = await card.innerText();
+    expect(/LED1/.test(lt) && /прямое напряжение/.test(lt), 'карточка LED1 на схеме: ' + lt.slice(0, 120));
+    await h.hit(card.locator('.tune-head button[aria-label="Закрыть"]'));
+    const ps = await h.project();
+    const lbl = Object.values(ps.schematic.labels).find((l) => l.text === 'VCC' || l.text === 'OUT');
+    expect(lbl, 'на схеме нет метки VCC или OUT');
+    await triple(await sch(lbl.at.x, lbl.at.y));
+    await card.waitFor({ timeout: 2000 });
+    const nt = await card.innerText();
+    expect(new RegExp('Цепь ' + lbl.text).test(nt) && /\d\s*(м|мк)?В/.test(nt) && /На цепи/.test(nt), 'карточка цепи: ' + nt.slice(0, 160));
+    await page.screenshot({ path: `${out}/sim-tune-sch.png` });
+    await h.hit(card.locator('.tune-head button[aria-label="Закрыть"]'));
+    await h.hit(page.locator('.mode-switch button', { hasText: 'Плата' }));
+    await h.menu('Симуляция', 'Стоп');
+  });
+
   await step('Sprint Layout: плата «Квазар» из .lay — детали из групп, дорожки, цепи по меди', async () => {
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Импорт платы Sprint Layout')]);
     await chooser.setFiles(new URL('../tests/fixtures/quasar/quasar-desalex.lay', import.meta.url).pathname);
@@ -1696,6 +1784,35 @@ async function openPage(viewport, touch = false) {
       const box = await b.boundingBox();
       expect(box && box.x >= 0 && box.x + box.width <= 391, 'кнопка за экраном: ' + (await b.getAttribute('aria-label')));
     }
+  });
+  await step('телефон: удержание пальцем на детали во время симуляции — карточка снизу, шаг касанием, «Назад» закрывает', async () => {
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.modal .card', { hasText: 'Мигалка на NE555' }));
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(500);
+    if (await page.evaluate(() => window.__plata.state().panelOpen)) await h.hit('.panel-toggle', { wait: 400 });
+    const p = await h.project();
+    const c = Object.values(p.components).find((x) => x.ref === 'R2');
+    const q = await h.toScreen(c.at.x, c.at.y);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: q.x, y: q.y }] });
+    await page.waitForTimeout(800);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    const card = page.locator('.sim-tune.dock');
+    await card.waitFor({ timeout: 2000 });
+    const vp = page.viewportSize();
+    const b = await card.boundingBox();
+    expect(b.x >= 0 && b.x + b.width <= vp.width + 1 && b.y + b.height <= vp.height + 1, 'карточка за экраном: ' + JSON.stringify(b));
+    expect(/R2/.test(await card.innerText()), 'не та деталь: ' + (await card.innerText()).slice(0, 60));
+    await h.hit(card.locator('button[aria-label="Больше"]').first());
+    const val = await card.locator('.knob-val .inp').first().inputValue();
+    expect(/^75\s*к$/.test(val), 'после ▶: ' + val);
+    await page.screenshot({ path: `${out}/sim-tune-phone.png` });
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(350);
+    expect(!(await page.locator('.sim-tune').count()), '«Назад» не закрыл карточку');
+    await h.menu('Симуляция', 'Стоп');
   });
   await step('телефон: каждое окно помещается на экран и закрывается касанием', async () => {
     const vp = page.viewportSize();

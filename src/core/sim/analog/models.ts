@@ -6,7 +6,7 @@ import { Bjt, build555, buildMosfet, buildMotor, buildOpAmp, Diode, OpAmp, Regul
 import { CondSwitch, DcDc, DrivenOut, Fuse, LabSupply, LogicChip, OptoTransistor, Thyristor, type LogicLevel, type LogicOut } from './elements-ext';
 import { Capacitor, CoupledCoils, Inductor, Resistor, Switch, VSource, volt as v, type AnalogElement, type AnalogParam, type Engine, type Node } from './engine';
 import { KIND_INFO, padsByName, up, type SimKind } from './kinds';
-import { BJTS, DIODES, findOhms, ledModel, MOSFETS, OPAMP_DEFAULT, OPAMPS, parseAmps, parseFarads, parseHenry, parseVolts, parseWatts, regulatorModel, transformerVolts } from './parts';
+import { BJTS, DIODES, diodeVrrm, findOhms, ledModel, MOSFETS, OPAMP_DEFAULT, OPAMPS, parseAmps, parseFarads, parseHenry, parseVolts, parseWatts, regulatorModel, resistorWatts, transformerVolts } from './parts';
 
 /*
  * Построение модели детали по её виду (kinds.ts): элементы движка, ползунки параметров,
@@ -194,18 +194,31 @@ export function buildPart(ctx: BuildCtx, kind: SimKind, comp: Component, fp: Foo
       if (!t) return null;
       const ohms = parseOhms(comp.value) ?? findOhms(comp.value) ?? (kind === 'load' ? 10 : 1000);
       const r = e.add(new Resistor(ref, t[0].node, t[1].node, ohms, comp.id, [t[0].pad, t[1].pad]));
+      const knobs = [nomKnob('r', 'сопротивление', ohms, 'Ом', (x) => (r.ohms = x))];
+      // Допустимая мощность — по корпусу (0805 — 0,125 Вт, выводной 0207 — 0,25 Вт…): перегрузка видна в показаниях.
+      if (kind === 'resistor') knobs.push(knob('pmax', 'допустимая мощность', resistorWatts(fp.id, comp.value), 'Вт', 0.03, 10, () => {}, { log: true }));
+      // Мощность — средняя за 20 мс (греет резистор средняя, а не пик тока); считается, только пока деталь
+      // смотрят (первое чтение показаний), чтобы не нагружать каждый шаг всеми резисторами схемы.
+      let power: (() => number) | null = null;
+      let hot = false;
       return part({
         kind: label,
-        knobs: [nomKnob('r', 'сопротивление', ohms, 'Ом', (x) => (r.ohms = x))],
+        knobs,
         elements: [r],
         readings: () => {
           const i = r.currents(e.x)[0];
           const u = e.volts(r.a) - e.volts(r.b);
-          return [
+          power ??= ctx.average(() => Math.abs((e.volts(r.a) - e.volts(r.b)) * r.currents(e.x)[0]));
+          const pw = power();
+          const out: AnalogReading[] = [
             { label: 'напряжение', value: u, unit: 'В' },
             { label: 'ток', value: i, unit: 'А' },
-            { label: 'мощность', value: u * i, unit: 'Вт' },
+            { label: 'мощность (средняя)', value: pw, unit: 'Вт' },
           ];
+          // Гистерезис 10 %: у границы строка не мигает.
+          if (knobs[1]) hot = pw > knobs[1].value || (hot && pw > knobs[1].value * 0.9);
+          if (hot) out.push({ label: 'ПЕРЕГРУЗКА по мощности', value: pw, unit: 'Вт' });
+          return out;
         },
         nominal: () => fmtSi(r.ohms, 'Ом'),
       });
@@ -315,9 +328,10 @@ export function buildPart(ctx: BuildCtx, kind: SimKind, comp: Component, fp: Foo
       }
       const cap = e.add(new Capacitor(ref, top, minus.node, f, comp.id, [rEsr ? '' : plus.pad, minus.pad]));
       els.push(cap);
-      const vmax = parseVolts(comp.value.split(/[×x]/)[1] ?? '') ?? null;
       const polar = has('polar') || has('cp') || has('electrolytic') || !!padNo('+');
-      const knobs = [nomKnob('c', 'ёмкость', f, 'Ф', (x) => (cap.farads = x))];
+      // Номинальное напряжение: из номинала («100 мкФ × 16 В»), иначе типовое (электролит 16 В, керамика 50 В).
+      let vmax = parseVolts(comp.value.split(/[×x]/)[1] ?? '') ?? (polar ? 16 : 50);
+      const knobs = [nomKnob('c', 'ёмкость', f, 'Ф', (x) => (cap.farads = x)), knob('vmax', 'номинальное напряжение', vmax, 'В', 2, 1000, (x) => (vmax = x), { log: true })];
       if (rEsr) knobs.push(knob('esr', 'ESR', esr!, 'Ом', 0.001, 100, (x) => (rEsr!.ohms = x), { log: true }));
       return part({
         kind: polar ? 'электролит' : 'конденсатор',
@@ -399,12 +413,19 @@ export function buildPart(ctx: BuildCtx, kind: SimKind, comp: Component, fp: Foo
         if (kind === 'zener') {
           m.vz = parseVolts(comp.value) ?? 5.1;
           m.rz = 5;
+        } else {
+          m.vz = diodeVrrm(comp.value) * 1.2;
+          m.rz = 2;
         }
       }
       const d = e.add(new Diode(ref, a.node, k.node, m, comp.id, [a.pad, k.pad]));
       const knobs: Knob[] = [knob('vf', 'прямое напряжение', m.vf, 'В', kind === 'led' ? 1.2 : 0.15, kind === 'led' ? 3.8 : 1.3, (x) => (d.m.vf = x))];
       if (kind === 'zener') knobs.push(knob('vz', 'напряжение стабилизации', m.vz!, 'В', 1, 60, (x) => (d.m.vz = x)));
-      if (kind === 'diode') knobs.push(knob('rd', 'сопротивление открытого', m.rd, 'Ом', 0.001, 100, (x) => (d.m.rd = x), { log: true }));
+      if (kind === 'diode') {
+        knobs.push(knob('rd', 'сопротивление открытого', m.rd, 'Ом', 0.001, 100, (x) => (d.m.rd = x), { log: true }));
+        // Обратный пробой (лавина): выше VRRM диод проводит, как стабилитрон.
+        knobs.push(knob('vbr', 'обратный пробой', d.m.vz ?? 100, 'В', 5, 2000, (x) => (d.m.vz = x), { log: true }));
+      }
       let imax = 0.02;
       if (kind === 'led') knobs.push(knob('imax', 'ток полной яркости', imax, 'А', 0.001, 1, (x) => (imax = x), { log: true }));
       const avg = ctx.average(() => Math.max(0, d.current(e.x)));
@@ -462,6 +483,8 @@ export function buildPart(ctx: BuildCtx, kind: SimKind, comp: Component, fp: Foo
       const cgs = els.find((x): x is Capacitor => x instanceof Capacitor);
       const knobs = [knob('vth', 'порог', m.vth, 'В', 0.5, 6, (x) => (ch.m.vth = x)), knob('ron', 'сопротивление открытого', m.ron, 'Ом', 0.001, 20, (x) => (ch.m.ron = x), { log: true })];
       if (cgs) knobs.push(knob('cgs', 'ёмкость затвора', m.cgs, 'Ф', 10e-12, 20e-9, (x) => (cgs.farads = x), { log: true }));
+      const body = els.find((x): x is Diode => x instanceof Diode);
+      if (body) knobs.push(knob('vds', 'пробой сток—исток', body.m.vz ?? 60, 'В', 5, 1500, (x) => (body.m.vz = x), { log: true }));
       const heat = ctx.average(() => (e.volts(ch.d) - e.volts(ch.s)) * ch.currents(e.x)[0]);
       return part({
         kind: kind === 'nmos' ? 'MOSFET N' : 'MOSFET P',
@@ -488,7 +511,12 @@ export function buildPart(ctx: BuildCtx, kind: SimKind, comp: Component, fp: Foo
       const brk = kind === 'npn' ? e.add(new Diode(`${ref} пробой К—Э`, em.node, c.node, { vf: 0.7, rd: 1, vz: m.vceo ?? 45, rz: 2 }, comp.id, [em.pad, c.pad])) : e.add(new Diode(`${ref} пробой К—Э`, c.node, em.node, { vf: 0.7, rd: 1, vz: m.vceo ?? 45, rz: 2 }, comp.id, [c.pad, em.pad]));
       return part({
         kind: kind === 'npn' ? 'транзистор n-p-n' : 'транзистор p-n-p',
-        knobs: [knob('beta', 'усиление β', m.beta, '', 10, 3000, (x) => (q.m.beta = x), { log: true }), knob('vbe', 'напряжение база—эмиттер', m.vbe, 'В', 0.4, 1.6, (x) => (q.m.vbe = x))],
+        knobs: [
+          knob('beta', 'усиление β', m.beta, '', 10, 3000, (x) => (q.m.beta = x), { log: true }),
+          knob('vbe', 'напряжение база—эмиттер', m.vbe, 'В', 0.4, 1.6, (x) => (q.m.vbe = x)),
+          knob('vcesat', 'насыщение коллектор—эмиттер', m.vcesat, 'В', 0.02, 2, (x) => (q.m.vcesat = x)),
+          knob('vceo', 'пробой коллектор—эмиттер', m.vceo ?? 45, 'В', 5, 1500, (x) => (brk.m.vz = x), { log: true }),
+        ],
         elements: [q, brk],
         readings: () => {
           const [ic, ib] = q.currents(e.x);

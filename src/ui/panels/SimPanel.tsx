@@ -191,13 +191,14 @@ export function SimPanel() {
   );
 }
 
-export function Devices({ view }: { view: SimView }) {
+/** Карточки устройств; only — только эти (карточка параметров на холсте): без общих подсказок. */
+export function Devices({ view, only }: { view: SimView; only?: boolean }) {
   const order: DeviceView['kind'][] = ['panel', 'lcd', 'oled', 'coil', 'button', 'encoder', 'pot', 'analog', 'digital', 'battery', 'mains', 'motor', 'valve', 'tool', 'plant', 'sensor', 'triac', 'led', 'buzzer', 'relay'];
   const list = [...view.devices].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
-  const unknown = simRuntime.sim?.unknown ?? [];
+  const unknown = only ? [] : (simRuntime.sim?.unknown ?? []);
   return (
     <div className="sim-devices">
-      {!list.length && (
+      {!list.length && !only && (
         <p className="hint">
           {simRuntime.sim?.noMcu
             ? 'Светодиодов, кнопок, реле и двигателей в схеме нет — напряжения и токи смотрите во вкладке «Цепь» и на плате.'

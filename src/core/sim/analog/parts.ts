@@ -106,6 +106,45 @@ export const DIODES: [RegExp, DiodeModel][] = [
   [/SS\d\d|1N58\d\d|SB\d|MBR|BAT|SR\d|SK\d/i, { vf: 0.35, rd: 0.05 }],
 ];
 
+/** Допустимая мощность резистора, Вт: из номинала («0,5 Вт»), иначе по корпусу. */
+export function resistorWatts(fpId: string, value: string): number {
+  const w = parseWatts(value);
+  if (w) return w;
+  // Выводные корпуса библиотеки несут мощность в имени: R_Axial_0.5W_…, R_Cement_5W_….
+  const inId = /_(\d+(?:\.\d+)?)W(?:_|$)/.exec(fpId);
+  if (inId) return +inId[1];
+  const table: [RegExp, number][] = [
+    [/R_(0201|0402)_/, 0.063],
+    [/R_0603_/, 0.1],
+    [/R_0805_/, 0.125],
+    [/R_1206_/, 0.25],
+    [/R_(1210|2010)_/, 0.5],
+    [/R_(2512|1218)_/, 1],
+    [/DIN0204|DIN0207/, 0.25],
+    [/DIN0309/, 0.5],
+    [/DIN0411/, 1],
+    [/DIN0414/, 2],
+  ];
+  return table.find(([re]) => re.test(fpId))?.[1] ?? 0.25;
+}
+
+/** Наибольшее обратное напряжение диода по названию (VRRM из даташита), В; неизвестный — 100 В. */
+export function diodeVrrm(value: string): number {
+  const v = value.toUpperCase();
+  const series = (re: RegExp, list: number[]) => {
+    const m = re.exec(v);
+    return m ? list[+m[1]] : undefined;
+  };
+  return (
+    series(/(?:1N|UF)400([1-7])/, [0, 50, 100, 200, 400, 600, 800, 1000]) ??
+    series(/1N540([0-8])/, [50, 100, 200, 300, 400, 500, 600, 800, 1000]) ??
+    series(/1N581([7-9])/, [0, 0, 0, 0, 0, 0, 0, 20, 30, 40]) ??
+    series(/SS[1-5]([2-6])\b/, [0, 0, 20, 30, 40, 50, 60]) ??
+    series(/FR10([1-7])/, [0, 50, 100, 200, 400, 600, 800, 1000]) ??
+    (/\bM7\b|HER108|UF4007/.test(v) ? 1000 : /BAT4\d|BAT54/.test(v) ? 30 : 100)
+  );
+}
+
 /** Светодиод по цвету из номинала и описания. */
 export function ledModel(text: string): DiodeModel {
   const t = text.toLowerCase();

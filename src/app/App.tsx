@@ -23,6 +23,7 @@ import { SchematicView } from '@ui/SchematicView';
 import { gfxProfile } from '@render/quality';
 import { installBackButton } from '@ui/back-button';
 import { SimFullscreen } from '@ui/SimFullscreen';
+import { SimTuner } from '@ui/panels/SimTuner';
 
 export function App() {
   const dialog = useEditor((s) => s.dialog);
@@ -57,6 +58,7 @@ export function App() {
       <RightPanel />
       <StatusBar />
       <SimFullscreen />
+      <SimTuner />
       {dialog === 'new' && <NewProjectDialog />}
       {dialog === 'export' && <ExportDialog />}
       {dialog === 'open' && <OpenDialog />}

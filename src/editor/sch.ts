@@ -258,6 +258,38 @@ function onAnyWire(p: Project, q: Vec2): boolean {
   return false;
 }
 
+/** Цепь проекта под проводом или меткой схемы (карточка симуляции): по выводу или метке на проводах. */
+function schNetOf(p: Project, ref: SchRef): string | null {
+  const sch = p.schematic;
+  if (!sch) return null;
+  const byName = (name: string) => Object.values(p.nets).find((n) => n.name === name)?.id ?? null;
+  if (ref.kind === 'label') {
+    const l = sch.labels[ref.id];
+    return l ? byName(l.text) : null;
+  }
+  if (ref.kind !== 'wire') return null;
+  const key = (v: Vec2) => `${v.x.toFixed(3)},${v.y.toFixed(3)}`;
+  const pins = placedPins(p);
+  const seen = new Set([ref.id]);
+  const queue = [ref.id];
+  while (queue.length) {
+    const w = sch.wires[queue.shift()!];
+    if (!w) continue;
+    const pts = new Set(w.points.map(key));
+    for (const pin of pins) {
+      const net = pts.has(key(pin.at)) ? p.components[pin.component]?.padNets[pin.number] : undefined;
+      if (net) return net;
+    }
+    for (const l of Object.values(sch.labels)) if (pts.has(key(l.at)) && byName(l.text)) return byName(l.text);
+    for (const o of Object.values(sch.wires))
+      if (!seen.has(o.id) && o.points.some((v) => pts.has(key(v)))) {
+        seen.add(o.id);
+        queue.push(o.id);
+      }
+  }
+  return null;
+}
+
 /* ---------------- контроллер ---------------- */
 
 interface Drag {
@@ -281,8 +313,28 @@ export class SchController {
   private readonly input = new PointerInput();
   private dragPointer: number | null = null;
   private simPress: string | null = null;
+  /** Во время симуляции: удержание и тройной щелчок — карточка параметров. */
+  private longTimer: ReturnType<typeof setTimeout> | null = null;
+  private tapCount = 0;
+  private tapTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {}
+
+  private clearLongPress(): void {
+    if (this.longTimer) clearTimeout(this.longTimer);
+    this.longTimer = null;
+  }
+
+  /** Карточка параметров: символ — его деталь, провод и метка — цепь. false — не к чему. */
+  private openTune(ref: SchRef, at: Vec2): boolean {
+    const p = S().project;
+    const comp = ref.kind === 'symbol' ? p.schematic?.symbols[ref.id]?.component : undefined;
+    const net = comp ? null : schNetOf(p, ref);
+    if (comp) simRuntime.openTune({ comp, x: at.x, y: at.y });
+    else if (net) simRuntime.openTune({ net, x: at.x, y: at.y });
+    else return false;
+    return true;
+  }
 
   private sp(e: { clientX: number; clientY: number }): Vec2 {
     const r = this.canvas.getBoundingClientRect();
@@ -371,6 +423,16 @@ export class SchController {
         }
         if (!keys.has(k)) s.patch({ schSelection: [hit.ref] });
         this.drag = { ...base, kind: 'move', hit };
+        if (simRuntime.active) {
+          // Удержание (пальцем, пером или мышью) — карточка параметров детали или цепи.
+          const at = { x: e.clientX, y: e.clientY };
+          this.clearLongPress();
+          this.longTimer = setTimeout(() => {
+            this.longTimer = null;
+            const d = this.drag;
+            if (d && !d.moved && simRuntime.active && this.openTune(hit.ref, at)) this.drag = null;
+          }, 550);
+        }
       } else {
         this.drag = e.pointerType === 'touch' ? base : { ...base, kind: 'box' };
         if (!e.shiftKey) s.patch({ schSelection: [] });
@@ -422,6 +484,7 @@ export class SchController {
     const s = S();
     if (!this.input.accept(e, 'up').ok) return;
     this.pointers.delete(e.pointerId);
+    this.clearLongPress();
     if (this.simPress) {
       simRuntime.press(this.simPress, false);
       this.simPress = null;
@@ -441,7 +504,7 @@ export class SchController {
       if (d.moved) s.endTransaction();
       else if (d.hit) {
         s.patch({ schSelection: [d.hit.ref] });
-        this.maybeDouble(wp, d.hit);
+        this.maybeDouble(wp, d.hit, { x: e.clientX, y: e.clientY });
       }
       return;
     }
@@ -457,19 +520,47 @@ export class SchController {
   onPointerCancel(e: PointerEvent): void {
     this.input.accept(e, 'up');
     this.pointers.delete(e.pointerId);
+    this.clearLongPress();
     if (this.drag?.kind === 'move' && this.drag.moved) S().endTransaction();
     this.drag = null;
     this.pinch = null;
   }
 
-  private maybeDouble(wp: Vec2, hit: SchHit): void {
+  private maybeDouble(wp: Vec2, hit: SchHit, at: Vec2): void {
     const now = Date.now();
-    if (this.lastTap.pos && now - this.lastTap.at < 350 && dist(this.lastTap.pos, wp) < this.tol() * 2) {
-      this.lastTap = { at: 0, pos: null };
-      this.openProps(hit.ref);
+    const near = !!this.lastTap.pos && now - this.lastTap.at < 400 && dist(this.lastTap.pos, wp) < this.tol() * 2;
+    if (this.tapTimer) clearTimeout(this.tapTimer);
+    this.tapTimer = null;
+    if (!simRuntime.active) {
+      if (near && now - this.lastTap.at < 350) {
+        this.lastTap = { at: 0, pos: null };
+        this.openProps(hit.ref);
+        return;
+      }
+      this.lastTap = { at: now, pos: wp };
       return;
     }
+    // Идёт симуляция: третий щелчок — карточка параметров, второй — свойства, если третьего не будет;
+    // одиночный при открытой карточке переводит её на этот символ или провод.
     this.lastTap = { at: now, pos: wp };
+    this.tapCount = near ? this.tapCount + 1 : 1;
+    if (this.tapCount >= 3) {
+      this.tapCount = 0;
+      this.lastTap = { at: 0, pos: null };
+      this.openTune(hit.ref, at);
+      return;
+    }
+    const open = simRuntime.tune;
+    if (this.tapCount === 1 && open) this.openTune(hit.ref, { x: open.x, y: open.y });
+    if (this.tapCount === 2) {
+      const ref = hit.ref;
+      this.tapTimer = setTimeout(() => {
+        this.tapTimer = null;
+        if (this.tapCount !== 2) return;
+        this.tapCount = 0;
+        this.openProps(ref);
+      }, 400);
+    }
   }
 
   resetTap(): void {
@@ -482,7 +573,7 @@ export class SchController {
       this.finishWire();
       return;
     }
-    if (s.schTool !== 'select') return;
+    if (s.schTool !== 'select' || simRuntime.active) return;
     const hit = schHits(s.project, this.wp(e), this.tol())[0];
     if (hit) this.openProps(hit.ref);
   }

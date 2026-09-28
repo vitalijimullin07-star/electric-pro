@@ -617,6 +617,15 @@ export class AnalogSim {
     return this.engine.volts(n);
   }
 
+  /** Детали на цепи: источники и генераторы — первыми, дальше по обозначению. */
+  partsOnNet(net: Id): AnalogPart[] {
+    const node = this.nodeOf.get(net);
+    if (node === undefined) return [];
+    return this.parts
+      .filter((p) => p.elements.some((el) => el.pins.some((q) => q.node === node)))
+      .sort((a, b) => (b.virtual ? 1 : 0) - (a.virtual ? 1 : 0) || a.comp.ref.localeCompare(b.comp.ref, 'ru', { numeric: true }));
+  }
+
   /** Нажатие кнопки (id устройства: «comp:B» или id детали). */
   press(id: string, down: boolean): void {
     const part = this.partOf.get(id.replace(/:B$/, ''));

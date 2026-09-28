@@ -3,6 +3,7 @@ import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
 import { fmtSi, WAVE_TITLES, type AnalogParam, type AnalogPart, type ScopeProbe, type SimView } from '@core/sim';
 import type { SimSource } from '@core/model/types';
+import { fmtPlain, parseSi } from './SimModelSection';
 
 /*
  * Вкладка «Цепь» (аналоговый расчёт): номиналы выбранной детали на ходу с показаниями
@@ -20,7 +21,7 @@ const fromSlider = (q: AnalogParam, x: number) => (q.log && q.min > 0 ? q.min * 
 const norm = (v: string) => v.replace(/[*\s]/g, '').replace('.', ',').toLowerCase();
 
 const SI_UNITS = new Set(['Ом', 'Ф', 'Гн', 'В', 'А', 'Вт', 'Гц']);
-function fmtValue(v: number, unit: string): string {
+export function fmtValue(v: number, unit: string): string {
   if (SI_UNITS.has(unit)) return fmtSi(v, unit);
   if (unit && !/[а-яА-Я%°·/]/.test(unit) && Number.isNaN(v)) return '—';
   const s = Math.abs(v) >= 100 ? String(Math.round(v)) : String(+v.toPrecision(3));
@@ -74,37 +75,105 @@ export function AnalogPanel({ view }: { view: SimView }) {
   );
 }
 
-function PartKnobs({ part, tick, projectValue }: { part: AnalogPart; tick: number; projectValue?: string }) {
+const E24 = [1, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2, 2.2, 2.4, 2.7, 3, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1];
+
+/** Шаг ◀ ▶: номинал — соседнее значение ряда E24, логарифмическая шкала — ×1,1, линейная — 1 % диапазона. */
+function stepValue(q: AnalogParam, v: number, dir: 1 | -1): number {
+  if (q.nominal && v > 0) {
+    const dec = Math.floor(Math.log10(v) + 1e-9);
+    const row = [dec - 1, dec, dec + 1].flatMap((d) => E24.map((m) => +(m * 10 ** d).toPrecision(3)));
+    const next = dir > 0 ? row.find((c) => c > v * (1 + 1e-6)) : [...row].reverse().find((c) => c < v * (1 - 1e-6));
+    return next ?? v;
+  }
+  if (q.log && v > 0) return v * (dir > 0 ? 1.1 : 1 / 1.1);
+  const raw = (q.max - q.min) / 100;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const step = raw / p >= 5 ? 5 * p : raw / p >= 2 ? 2 * p : p;
+  return Math.min(q.max, Math.max(q.min, +(Math.round(v / step) * step + dir * step).toPrecision(6)));
+}
+
+/** Значение для поля ввода: единицы СИ — с приставкой («4,7 к»), остальное — числом. */
+const plainValue = (v: number, unit: string) => (SI_UNITS.has(unit) ? fmtPlain(v) : String(+v.toPrecision(4)).replace('.', ','));
+
+/**
+ * Ползунок параметра: шкала (логарифмическая у номиналов), точное значение вводом («4,7к», «100н»,
+ * «2.2u»), шаги ◀ ▶ (у номиналов — ряд E24) и ↺ — вернуть значение, с которым деталь запущена.
+ */
+export function KnobRow({ q, def, onSet }: { q: AnalogParam; def?: number; onSet: (v: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  if (q.options)
+    return (
+      <label className="sim-param">
+        <span>{q.label}</span>
+        <select value={Math.round(q.value)} onChange={(e) => onSet(+e.target.value)}>
+          {q.options.map((o, i) => (
+            <option key={i} value={i}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  const apply = () => {
+    if (text === null) return;
+    const v = parseSi(text);
+    setText(null);
+    if (v === null || !isFinite(v)) return;
+    // Ввод может выйти за ползунок (номинал в 100 раз больше), но не за смысл: логарифмическая — больше нуля, линейная — в пределах.
+    onSet(q.log ? Math.max(1e-15, Math.abs(v)) : Math.min(q.max, Math.max(q.min, v)));
+  };
+  const changed = def !== undefined && Math.abs(q.value - def) > Math.abs(def) * 1e-6 + 1e-15;
+  return (
+    <div className="sim-param knob">
+      <span>{q.label}</span>
+      <input type="range" min={0} max={1000} step={1} value={Math.round(toSlider(q, q.value))} onChange={(e) => onSet(fromSlider(q, +e.target.value))} aria-label={q.label} />
+      <span className="knob-val">
+        <button className="btn sm" onClick={() => onSet(stepValue(q, q.value, -1))} title={q.nominal ? 'Меньше (ряд E24)' : 'Меньше'} aria-label="Меньше">
+          ◀
+        </button>
+        <input
+          className="inp"
+          value={text ?? plainValue(q.value, q.unit)}
+          onFocus={(e) => (setText(plainValue(q.value, q.unit)), e.target.select())}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={apply}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') setText(null);
+            e.stopPropagation();
+          }}
+          title="Точное значение: 4,7к · 100н · 2.2u · 0,5"
+        />
+        <span className="hint">{q.unit}</span>
+        <button className="btn sm" onClick={() => onSet(stepValue(q, q.value, 1))} title={q.nominal ? 'Больше (ряд E24)' : 'Больше'} aria-label="Больше">
+          ▶
+        </button>
+        {changed && (
+          <button className="btn sm" onClick={() => onSet(def!)} title={`Вернуть ${fmtValue(def!, q.unit)}`} aria-label="Вернуть">
+            ↺
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+export function PartKnobs({ part, tick, projectValue, bare }: { part: AnalogPart; tick: number; projectValue?: string; bare?: boolean }) {
   const [, force] = useState(0);
   const readings = part.readings();
   const nominal = part.nominal?.();
   const commit = useEditor((s) => s.commit);
   void tick;
   return (
-    <div className="sim-dev">
-      <div className="sim-title">
-        <b>{part.comp.ref}</b> <span>{part.kind}</span> <span className="hint">{part.comp.value}</span>
-      </div>
-      {part.params.map((q) =>
-        q.options ? (
-          <label key={q.key} className="sim-param">
-            <span>{q.label}</span>
-            <select value={Math.round(q.value)} onChange={(e) => (simRuntime.analogSet(part.comp.id, q.key, +e.target.value), force((x) => x + 1))}>
-              {q.options.map((o, i) => (
-                <option key={i} value={i}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <label key={q.key} className="sim-param">
-            <span>{q.label}</span>
-            <input type="range" min={0} max={1000} step={1} value={Math.round(toSlider(q, q.value))} onChange={(e) => (simRuntime.analogSet(part.comp.id, q.key, fromSlider(q, +e.target.value)), force((x) => x + 1))} />
-            <b>{fmtValue(q.value, q.unit)}</b>
-          </label>
-        ),
+    <div className={bare ? 'sim-part' : 'sim-dev'}>
+      {!bare && (
+        <div className="sim-title">
+          <b>{part.comp.ref}</b> <span>{part.kind}</span> <span className="hint">{part.comp.value}</span>
+        </div>
       )}
+      {part.params.map((q) => (
+        <KnobRow key={q.key} q={q} def={part.defaults?.[q.key]} onSet={(v) => (simRuntime.analogSet(part.comp.id, q.key, v), force((x) => x + 1))} />
+      ))}
       {part.actions && (
         <div className="row">
           {part.actions.map((x) => (
