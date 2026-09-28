@@ -55,6 +55,51 @@ export function esp32Wroom32E(): FootprintDef {
   });
 }
 
+/**
+ * ESP32-S3-WROOM-1 / 1U: 18×25,5 мм, 40 планарных площадок с шагом 1,27 мм (14 слева, 12 снизу,
+ * 14 справа), антенна по стороне −Y. Нижняя площадка GND (EPAD) не выведена — хватает выводов 1 и 40.
+ */
+export function esp32S3Wroom1(): FootprintDef {
+  const left = ['GND', '3V3', 'EN', 'IO4', 'IO5', 'IO6', 'IO7', 'IO15', 'IO16', 'IO17', 'IO18', 'IO8', 'IO19', 'IO20'];
+  const bottom = ['IO3', 'IO46', 'IO9', 'IO10', 'IO11', 'IO12', 'IO13', 'IO14', 'IO21', 'IO47', 'IO48', 'IO45'];
+  const right = ['IO0', 'IO35', 'IO36', 'IO37', 'IO38', 'IO39', 'IO40', 'IO41', 'IO42', 'RXD0', 'TXD0', 'IO2', 'IO1', 'GND'];
+  const pads: PadDef[] = [];
+  let n = 1;
+  left.forEach((nm, i) => pads.push(smd(String(n++), -8.75, -5.26 + i * 1.27, 1.5, 0.9, 'rect', { name: nm })));
+  bottom.forEach((nm, i) => pads.push(smd(String(n++), -6.985 + i * 1.27, 12.5, 0.9, 1.5, 'rect', { name: nm })));
+  right.forEach((nm, i) => pads.push(smd(String(n++), 8.75, 11.25 - i * 1.27, 1.5, 0.9, 'rect', { name: nm })));
+  const body = { x0: -9, y0: -12.75, x1: 9, y1: 12.75 };
+  const crt = courtyardAround(pads, body, CRT_SMD);
+  const g: Graphic[] = [
+    rect('F.Fab', body.x0, body.y0, body.x1, body.y1, FAB_W),
+    rect('F.Fab', -9, -12.75, 9, -6.56, FAB_W),
+    line('F.Silk', { x: -9.12, y: -12.87 }, { x: 9.12, y: -12.87 }),
+    line('F.Silk', { x: -9.12, y: -12.87 }, { x: -9.12, y: -6.1 }),
+    line('F.Silk', { x: 9.12, y: -12.87 }, { x: 9.12, y: -6.1 }),
+    line('F.Silk', { x: -9.8, y: -5.9 }, { x: -9.8, y: -4.6 }, 0.2),
+    { kind: 'text', layer: 'F.Fab', at: { x: 0, y: -9.6 }, text: 'антенна', size: 1.2, thickness: 0.15, align: 'center' },
+    crtGraphic(crt),
+    refText(crt.min.y - 0.8),
+    valueText(3),
+  ];
+  return fp({
+    id: 'Module_ESP32-S3-WROOM-1',
+    name: 'ESP32-S3-WROOM-1',
+    description:
+      'Модуль ESP32-S3-WROOM-1/1U (Espressif), 18×25,5×3,1 мм: Wi-Fi 2,4 ГГц, Bluetooth 5 (LE, дальний режим Coded PHY), USB на IO19/IO20; 40 планарных площадок с шагом 1,27 мм (14 + 12 + 14). Антенна по стороне −Y — без меди под ней, край — у края платы. Нижняя площадка GND не выведена: хватает выводов 1 и 40. У вариантов с восьмибитной PSRAM (R8) выводы IO35–IO37 заняты',
+    category: CAT.M,
+    group: 'Wi-Fi и Bluetooth',
+    tags: ['module', 'smd', 'esp32-s3', 'wroom', 'wifi', 'bluetooth', 'ble'],
+    refPrefix: 'A',
+    pads,
+    graphics: g,
+    courtyard: crt,
+    source: 'Даташит ESP32-S3-WROOM-1 v1.4 (Espressif): распиновка по таблице выводов, размеры площадок — как у семейства WROOM; сверить с чертежом перед заказом',
+    verified: false,
+    height: 3.1,
+  });
+}
+
 /** Сетевой трансформатор на плату EI30 (1,5–2,3 ВА): 230 В → 6…18 В. */
 export function transformerEi30(): FootprintDef {
   const pads = [tht('1', -10, -10, 2.4, 2.4, 1.2, 'rect', { name: 'P1' }), tht('2', 10, -10, 2.4, 2.4, 1.2, 'circle', { name: 'P2' }), tht('3', -10, 10, 2.4, 2.4, 1.2, 'circle', { name: 'S1' }), tht('4', 10, 10, 2.4, 2.4, 1.2, 'circle', { name: 'S2' })];
@@ -87,5 +132,5 @@ export function transformerEi30(): FootprintDef {
 }
 
 export function allSpecial(): FootprintDef[] {
-  return [esp32Wroom32E(), transformerEi30()];
+  return [esp32Wroom32E(), esp32S3Wroom1(), transformerEi30()];
 }
