@@ -30,7 +30,7 @@ export interface DeviceView {
   id: string;
   comp: Id;
   ref: string;
-  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery' | 'encoder' | 'motor' | 'valve' | 'tool' | 'triac' | 'mains' | 'plant' | 'panel';
+  kind: 'led' | 'button' | 'pot' | 'analog' | 'digital' | 'buzzer' | 'relay' | 'lcd' | 'oled' | 'sensor' | 'coil' | 'battery' | 'encoder' | 'motor' | 'valve' | 'tool' | 'triac' | 'mains' | 'plant' | 'panel' | 'remote' | 'tank';
   title: string;
   /** Не подключено к контроллеру как нужно — объяснение. */
   warning?: string;
@@ -841,8 +841,78 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       continue;
     }
 
-    // --- датчик перепада давления Sensirion SDP8xx (I²C 0x25) ---
+    // --- расширитель выводов PCA9555 / TCA9555 (I²C 0x20–0x27): входы с подтяжкой 100 кОм ---
+    if (/[PT]CA9555/i.test(`${comp.value} ${id}`) || tags.includes('pca9555')) {
+      const pin = (name: string) => g(name);
+      const addrBit = (name: string) => {
+        const gr = pin(name);
+        return gr !== undefined && c.groups[gr].power === 'vcc' ? 1 : 0;
+      };
+      const addr = 0x20 | (addrBit('A2') << 2) | (addrBit('A1') << 1) | addrBit('A0');
+      const pins = [...Array.from({ length: 8 }, (_, i) => `P0${i}`), ...Array.from({ length: 8 }, (_, i) => `P1${i}`)];
+      const reg = new Uint8Array([0, 0, 0xff, 0xff, 0, 0, 0xff, 0xff]);
+      let ptr = 0;
+      let first = true;
+      const params = [{ ...param('fault', 'связь', 0, 0, 1, 1, ''), options: ['есть', 'нет (обрыв шлейфа)'] }];
+      // Вход: не подключённый или отпущенный — «1» (подтяжка внутри), кнопка на землю — «0».
+      const inputs = () => {
+        let v = 0;
+        pins.forEach((name, i) => {
+          const gr = pin(name);
+          const lvl = gr === undefined || c.isFloating(gr) ? 1 : c.levelOf(gr);
+          if (lvl) v |= 1 << i;
+        });
+        return v;
+      };
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (params[0].value) return false;
+          first = !!write;
+          if (!write) {
+            const v = inputs();
+            reg[0] = v & 0xff;
+            reg[1] = v >> 8;
+          }
+          return true;
+        },
+        write: (v) => {
+          if (first) {
+            ptr = v & 7;
+            first = false;
+          } else {
+            reg[ptr] = v;
+            ptr ^= 1;
+          }
+          return true;
+        },
+        read: () => {
+          const v = ptr < 2 ? reg[ptr] ^ reg[4 + ptr] : reg[ptr];
+          ptr = (ptr & 6) | ((ptr + 1) & 1);
+          return v;
+        },
+        stop: () => undefined,
+      };
+      if (onI2c()) attachI2c(addr, dev);
+      use('SDA', 'SCL', 'VCC', 'GND', 'A0', 'A1', 'A2', 'INT', ...pins);
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+        },
+        view: () => {
+          const v = inputs();
+          const low = pins.filter((_, i) => !((v >> i) & 1) && pin(pins[i]) !== undefined && !c.groups[pin(pins[i])!].power);
+          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} ${comp.value} (I²C 0x${addr.toString(16)}): нажато ${low.length ? low.join(', ') : 'ничего'}`, params, warning: i2cWarn() };
+        },
+      });
+      continue;
+    }
+
+    // --- датчик перепада давления Sensirion SDP8xx (I²C 0x25; SDP8x1 — 0x26) ---
     if (/SDP8\d\d/i.test(`${comp.value} ${id}`) || tags.includes('sdp810')) {
+      const sdpAddr = /SDP8\d1/i.test(comp.value) ? 0x26 : 0x25;
       const range = /125/.test(comp.value) ? 125 : /25\s*Pa/i.test(comp.value) ? 25 : 500;
       const scale = range === 125 ? 240 : range === 25 ? 1200 : 60;
       const src = plant?.pressureOf(placeOf(comp)) ?? null;
@@ -891,7 +961,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
         read: () => out[ptr++] ?? 0xff,
         stop: () => undefined,
       };
-      if (onI2c()) attachI2c(0x25, dev);
+      if (onI2c()) attachI2c(sdpAddr, dev);
       use('SDA', 'SCL', 'VDD', 'GND');
       devices.push({
         id: comp.id,
@@ -900,7 +970,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
           const pp = params.find((x) => x.key === k);
           if (pp) pp.value = v;
         },
-        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} ${comp.value} (I²C 0x25)${src ? `: ${placeOf(comp)}` : ''}`, params, readings: [{ label: 'перепад', value: +dp().toFixed(1), unit: 'Па' }], warning: i2cWarn() }),
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} ${comp.value} (I²C 0x${sdpAddr.toString(16)})${src ? `: ${placeOf(comp)}` : ''}`, params, readings: [{ label: 'перепад', value: +dp().toFixed(1), unit: 'Па' }], warning: i2cWarn() }),
       });
       continue;
     }

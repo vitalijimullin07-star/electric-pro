@@ -23,6 +23,10 @@ interface WasmExports {
   vac_serial(ch: number): void;
   /** Байт от пульта по UART2 (прошивки без пульта его не экспортируют). */
   vac_uart?(ch: number): void;
+  /** Посылка беспроводного пульта (данные рекламы Bluetooth) — у прошивки «S3». */
+  vac_remote?(ptr: number, len: number, rssi: number): void;
+  /** Буфер прошивки для строк и посылок из симулятора. */
+  sim_buffer?(): number;
 }
 
 interface Ev {
@@ -32,6 +36,8 @@ interface Ev {
 }
 
 export interface Esp32Options {
+  /** ESP32-S3 (модуль WROOM-1): только заголовок — ядро прошивки исполняется так же. */
+  s3?: boolean;
   /** Настройки из прошлого запуска (энергонезависимая память). */
   nvs?: Uint8Array | null;
   onNvs?: (data: Uint8Array) => void;
@@ -42,7 +48,7 @@ export type I2cTransfer = (sda: McuPin, scl: McuPin, addr: number, write: Uint8A
 
 export class Esp32 implements SimMcu {
   readonly kind = 'esp32' as const;
-  readonly title = 'ESP32-WROOM-32E';
+  readonly title: string;
   readonly freq = 1_000_000;
   readonly vdd = 3.3;
   forcedRef: number | null = null;
@@ -81,6 +87,23 @@ export class Esp32 implements SimMcu {
 
   private constructor(private opts: Esp32Options) {
     this.nvs = opts.nvs ? new Uint8Array(opts.nvs) : null;
+    this.title = opts.s3 ? 'ESP32-S3-WROOM-1' : 'ESP32-WROOM-32E';
+  }
+
+  /** Прошивка принимает посылки беспроводного пульта. */
+  get hasRemote(): boolean {
+    return !!this.ex?.vac_remote && !!this.ex.sim_buffer;
+  }
+
+  /** Посылка беспроводного пульта «из эфира» (как из очереди Bluetooth в loop()). */
+  remote(data: Uint8Array, rssi: number): void {
+    const ex = this.ex;
+    if (!ex?.vac_remote || !ex.sim_buffer) return;
+    this.schedule(() => {
+      const ptr = ex.sim_buffer!();
+      this.mem().set(data.subarray(0, 480), ptr);
+      this.call(() => ex.vac_remote!(ptr, Math.min(480, data.length), rssi));
+    }, 1);
   }
 
   /** Для браузера: модуль больше 4 КБ компилируется только асинхронно. */

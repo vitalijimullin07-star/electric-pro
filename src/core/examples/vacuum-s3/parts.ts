@@ -91,6 +91,7 @@ export const S3_FOOTPRINTS: FootprintDef[] = [
   wired('SW_PUSH_Panel_19mm', 'Кнопка на панель Ø19', 'Антивандальная металлическая кнопка без фиксации Ø19 мм на панель, IP65, нормально разомкнутая: нажимается в перчатке', 'Кнопки и переключатели', 'SB', [['1', '1'], ['2', '2']], ['panel', 'button']),
   wired('Electrode_Water_Probe', 'Электрод уровня воды', 'Электрод из нержавеющей стали M4 в изолирующей втулке, провод к плате: датчик воды в баке', 'Датчики', 'E', [['1', '1']], ['water-electrode']),
   wired('Float_Switch_Wires', 'Поплавковый выключатель', 'Поплавковый выключатель (геркон, контакт замыкается, когда поплавок всплыл): резерв к электродам', 'Датчики', 'SL', [['1', '1'], ['2', '2']], ['float-switch']),
+  wired('Remote_BLE_Handheld', 'Беспроводной пульт Bluetooth', 'Ручной пульт на ESP32-C3: две кнопки, энкодер, аккумулятор; с платой проводами не соединён — связь по Bluetooth', 'Разное', 'HG', [], ['ble-remote'], [40, 20]),
 ];
 
 /* ---------------- детали ---------------- */
@@ -292,7 +293,8 @@ export const S3_PARTS: VacPart[] = [
   { ref: 'SL1', value: 'Поплавок', description: 'Поплавковый выключатель в баке: резерв к электродам (пена, масло — электроды не видят)', fp: 'Float_Switch_Wires', pins: { '1': 'FLOAT', '2': 'GND' }, offBoard: true },
 
   // --- выносные детали: пульт ---
-  { ref: 'HG1', value: 'ESP32-S3 7″ 800×480', description: 'Пульт: плата ESP32-S3 с сенсорным экраном 7″ 800×480 (Sunton ESP32-8048S070C или аналог; 5″ — ESP32-8048S050C), прошивка firmware/vacuum-s3-panel. TX платы — к PNL_RX контроллера, RX — к PNL_TX', fp: 'Display_ESP32-S3_800x480_Wires', pins: { '5V': '5V', GND: 'GND', TX: 'PNL_RX', RX: 'PNL_TX' }, offBoard: true },
+  { ref: 'HG1', value: 'ESP32-S3 7″ 800×480', description: 'Пульт: плата ESP32-S3 с сенсорным экраном 7″ 800×480 (Sunton ESP32-8048S070C или аналог; 5″ — ESP32-8048S050C), прошивка firmware/vacuum-panel (общая с контроллером на ESP32). TX платы — к PNL_RX контроллера, RX — к PNL_TX', fp: 'Display_ESP32-S3_800x480_Wires', pins: { '5V': '5V', GND: 'GND', TX: 'PNL_RX', RX: 'PNL_TX' }, offBoard: true },
+  { ref: 'HG2', value: 'Пульт Bluetooth', description: 'Беспроводной пульт: ESP32-C3 SuperMini, две кнопки Ø12, энкодер EC11 с кнопкой, аккумулятор 18650 с платой заряда TP4056 в ручном корпусе; прошивка firmware/vacuum-remote', fp: 'Remote_BLE_Handheld', pins: {}, offBoard: true },
   ...[1, 2, 3, 4, 5, 6].map(
     (i): VacPart => ({ ref: `SB${i}`, value: `Кнопка ${i}`, description: `Кнопка ${i} у экрана (${i <= 3 ? 'слева' : 'справа'}, ${['верхняя', 'средняя', 'нижняя'][(i - 1) % 3]}): её действие подписано на экране напротив`, fp: 'SW_PUSH_Panel_19mm', pins: { '1': `K${i}`, '2': 'GND' }, offBoard: true }),
   ),

@@ -143,6 +143,53 @@ function PultFront({ view, panel }: { view: SimView; panel: DeviceView }) {
   const start = view.devices.find((d) => d.kind === 'button' && /пуск/i.test(d.title));
   const enc = view.devices.find((d) => d.kind === 'encoder');
   const sw = enc && view.devices.find((d) => d.kind === 'button' && d.comp === enc.comp);
+  // Пульт «S3»: по три кнопки у левого и правого края экрана, «Турбина 1/2» и «Выкл» под ним.
+  const side = [1, 2, 3, 4, 5, 6].map((n) => view.devices.find((d) => d.kind === 'button' && d.ref === `SB${n}`));
+  const named = (re: RegExp) => view.devices.find((d) => d.kind === 'button' && re.test(d.title));
+  const t1 = named(/Турбина 1/);
+  const t2 = named(/Турбина 2/);
+  const off = named(/Выкл/);
+  if (side.every(Boolean) && t1 && t2 && off) {
+    const col = (ks: (DeviceView | undefined)[]) => (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: 8, paddingBottom: '9%' }}>
+        {ks.map((k) => (
+          <RoundHold key={k!.id} id={k!.id} pressed={!!k!.pressed} label={k!.ref.slice(2)} />
+        ))}
+      </div>
+    );
+    return (
+      <div className="simfs-pultfront">
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          {col(side.slice(0, 3))}
+          <div className="simfs-screen" style={{ flex: 1 }}>
+            <PanelScreen d={panel} />
+          </div>
+          {col(side.slice(3))}
+        </div>
+        {panel.warning && <p className="hint" style={{ color: 'var(--warn)' }}>⚠ {panel.warning}</p>}
+        <div className="simfs-controls">
+          <div className="simfs-ctl">
+            <RoundHold id={t1.id} pressed={!!t1.pressed} label={'турбина\n1'} />
+            <span>пуск / стоп</span>
+          </div>
+          <div className="simfs-ctl">
+            <RoundHold id={t2.id} pressed={!!t2.pressed} label={'турбина\n2'} />
+            <span>пуск / стоп</span>
+          </div>
+          {enc && (
+            <div className="simfs-ctl">
+              <Knob id={enc.id} swId={sw?.id} pressed={!!sw?.pressed} />
+              <span>энкодер: меню и мощность</span>
+            </div>
+          )}
+          <div className="simfs-ctl">
+            <RoundHold id={off.id} pressed={!!off.pressed} label="выкл" />
+            <span>очистка и сон (держать 2 с — сразу)</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="simfs-pultfront">
       <div className="simfs-screen">
@@ -257,7 +304,7 @@ function Knob({ id, swId, pressed }: { id: string; swId?: string; pressed: boole
 /** Быстрые действия под мнемосхемой: инструмент, насадка, пыль, провал сети. */
 function quickActions(view: SimView): { id: string; key: string; label: string }[] {
   const out: { id: string; key: string; label: string }[] = [];
-  for (const d of view.devices) if (['tool', 'plant', 'mains'].includes(d.kind)) for (const a of d.actions ?? []) out.push({ id: d.id, key: a.key, label: a.label });
+  for (const d of view.devices) if (['tool', 'plant', 'mains', 'tank', 'remote'].includes(d.kind)) for (const a of d.actions ?? []) if (a.key !== 'replay') out.push({ id: d.id, key: a.key, label: d.kind === 'remote' ? `Пульт BT: ${a.label}` : a.label });
   return out;
 }
 

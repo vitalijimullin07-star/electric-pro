@@ -2,6 +2,7 @@ import { padKey, type Firmware, type Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
 import { Esp32 } from './esp32';
+import { BleRemote } from './ble-remote';
 import { AnalogSim } from './analog/build';
 import { analogDevices } from './analog/devices';
 import { NullMcu, noMcuFound } from './null-mcu';
@@ -177,7 +178,19 @@ export class Simulation {
     if (this.analog) this.mergeAnalogDevices(analogDevices(this.analog));
     if (this.mcu instanceof Avr) this.mcu.usart.onByteTransmit = (v) => this.log(String.fromCharCode(v));
     for (const [ref, panel] of panels) this.attachPanel(ref, panel);
+    // Беспроводной пульт (выносная деталь с меткой ble-remote), если прошивка его принимает.
+    const esp = this.mcu;
+    if (esp instanceof Esp32 && esp.hasRemote)
+      for (const comp of Object.values(project.components))
+        if ((project.footprints[comp.footprint]?.tags ?? []).includes('ble-remote')) {
+          this.remote = new BleRemote(esp);
+          this.devices.push(this.remote.device(comp));
+          this.unknown = this.unknown.filter((u) => !u.startsWith(`${comp.ref} `));
+        }
   }
+
+  /** Беспроводной пульт в симуляции (если есть на схеме и прошивка его принимает). */
+  remote: BleRemote | null = null;
 
   /** Пульт на своей плате: UART к контроллеру, такт 10 мс, кадр и касания. */
   private attachPanel(ref: string, panel: PanelS3): void {
@@ -251,6 +264,7 @@ export class Simulation {
     if (found.kind === 'esp32') {
       const key = nvsKey(project);
       const esp = await Esp32.create(espFirmware(fw), {
+        s3: found.s3,
         nvs: nvsStore.get(key),
         onNvs: (d) => nvsStore.set(key, d),
       });
@@ -269,7 +283,7 @@ export class Simulation {
     if (found.kind === 'esp32') {
       const panels = new Map<string, PanelS3>();
       for (const [ref, m] of Object.entries(project.firmware?.modules ?? {})) panels.set(ref, PanelS3.createSync(base64ToBytes(m.wasm)));
-      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }), panels, opts);
+      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs, s3: found.s3 }), panels, opts);
     }
     return new Simulation(project, project.firmware?.hex ?? '', new Map(), opts);
   }

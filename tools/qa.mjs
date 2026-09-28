@@ -1716,6 +1716,49 @@ async function openPage(viewport, touch = false) {
     await h.menu('Симуляция', 'Стоп');
   });
 
+  await step('Пылесос S3: плата разведена; во весь экран — кнопки у экрана, «Турбина 1», продувка кнопкой 5, бак', async () => {
+    await stopSim();
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+    await fc.setFiles(new URL('../import/vacuum-s3.plata.json', import.meta.url).pathname);
+    await page.waitForTimeout(1500);
+    const chips = await h.chips();
+    expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
+    await page.screenshot({ path: `${out}/vacuum-s3-board.png` });
+    await h.menu('Симуляция', 'Во весь экран');
+    const screen = page.locator('.simfs .sim-panel-screen').first();
+    await screen.waitFor({ timeout: 15000 });
+    const press = async (text) => {
+      const b = page.locator('.simfs-round', { hasText: text }).first();
+      const bb = await b.boundingBox();
+      expect(bb, 'нет кнопки ' + text);
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(250);
+      await page.mouse.up();
+    };
+    await page.waitForTimeout(1500);
+    await press('турбина');
+    let scheme = '';
+    for (let i = 0; i < 60; i++) {
+      await page.waitForTimeout(250);
+      scheme = (await page.locator('.simfs-scheme').textContent()) ?? '';
+      if (/M1 (1\d|2\d|3\d),\d тыс/.test(scheme)) break;
+    }
+    expect(/M1 (1\d|2\d|3\d),\d тыс/.test(scheme), 'турбина 1 не разогналась: ' + scheme.slice(0, 300));
+    await press('5');
+    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Порт' }));
+    let port = '';
+    for (let i = 0; i < 40 && !/Продувка/.test(port); i++) {
+      await page.waitForTimeout(250);
+      port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
+    }
+    await page.screenshot({ path: `${out}/vacuum-s3-fullscreen.png` });
+    expect(/Продувка/.test(port) && /Экран на связи/.test(port), 'кнопка 5 у экрана не дала продувку: ' + port.replace(/АВТО работа[^\n]*/g, '').slice(0, 1500));
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(400);
+    await h.menu('Симуляция', 'Стоп');
+  });
+
   await page.screenshot({ path: `${out}/desktop.png` });
   await page.context().close();
 }

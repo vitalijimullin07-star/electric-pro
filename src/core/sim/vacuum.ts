@@ -4,12 +4,14 @@ import type { Device, DeviceView, SimParam } from './devices';
 
 /*
  * Установка «пылесос» для симуляции: сеть 230 В, симисторы с оптронами MOC (случайной
- * фазы — для фазового управления, с детектором нуля — для клапанов и розетки),
- * коллекторные двигатели с вентиляторами, шланг, бак, фильтр из двух секций с
- * продувкой, инструмент в розетке, нагрев двигателей, детектор нуля с трансформатора.
+ * фазы — для фазового управления, с детектором нуля — для клапанов и розетки), реле в цепи
+ * нагрузок (катушка — через ключ на плате), коллекторные двигатели с вентиляторами, шланг,
+ * бак с водой (электроды и поплавок), фильтр из двух секций с продувкой, соленоиды клапанов
+ * (ток втягивания и удержания), инструмент в розетке, нагрев двигателей, детектор нуля.
  * Детали находятся по схеме: метки корпусов (universal-motor, triac, solenoid-valve,
- * tool-outlet, current-transformer, transformer, mains) и цепи между ними; датчики
- * привязаны к месту полем «Где стоит» (M1, M2, фильтр, расходомер, вход турбин).
+ * tool-outlet, current-transformer, transformer, mains, relay, water-electrode, float-switch)
+ * и цепи между ними (симистор → предохранитель → контакт реле); датчики привязаны к месту
+ * полем «Где стоит» (M1, M2, фильтр, расходомер, вход турбин, бак).
  * Всё считается по полупериодам сети; мгновенный ток — синусоида с отсечкой по фазе.
  */
 
@@ -37,6 +39,13 @@ const MOTOR_G = 10;
 
 const HOSES = [27, 32, 36, 38, 50];
 const TRIAC_STATES = ['исправен', 'пробит (всегда открыт)', 'обрыв (не открывается)'];
+const RELAY_STATES = ['исправно', 'сварилось (всегда замкнуто)', 'не замыкается'];
+const VALVE_STATES = ['исправен', 'не втягивается (заклинил)', 'обрыв катушки'];
+/** Вода между электродами, Ом: водопроводная, грязная, дистиллированная, пена. */
+const WATER_OHMS = [2000, 500, 150_000, 1_000_000];
+const WATER_KINDS = ['водопроводная', 'грязная', 'дистиллированная', 'пена'];
+/** Соленоид: якорь втягивается за 25 мс — ток падает с пускового до тока удержания. */
+const PULL_MS = 25;
 
 const param = (key: string, label: string, value: number, min: number, max: number, step: number, unit: string, options?: string[]): SimParam => ({ key, label, value, min, max, step, unit, options });
 
@@ -59,12 +68,24 @@ interface Load {
   triac?: Triac;
 }
 
+interface Relay {
+  comp: Component;
+  /** Группы цепей катушки. */
+  coil: number[];
+  /** Команда (катушка под током) и контакт (с задержкой срабатывания). */
+  cmd: boolean;
+  closed: boolean;
+  params: SimParam[];
+}
+
 interface Triac {
   comp: Component;
   mt1?: Id;
   mt2?: Id;
   g?: Id;
   moc?: Moc;
+  /** Реле, через контакт которого симистор получает сеть (через предохранитель). */
+  relay?: Relay;
   state: number;
   /** Когда открылся в текущем полупериоде (мкс) или null. */
   firedAt: number | null;
@@ -99,6 +120,8 @@ interface Valve {
   load: Load;
   params: SimParam[];
   open: boolean;
+  /** Сколько катушка под током, мс (якорь втягивается за PULL_MS). */
+  onMs: number;
   openMs: number;
   amps: number;
 }
@@ -106,7 +129,9 @@ interface Valve {
 export interface VacuumView {
   mains: { volts: number; hz: number; dip: boolean };
   motors: { ref: string; rpm: number; speed: number; amps: number; watts: number; temp: number; firing: number; conducting: boolean; fault: string | null; triac: string | null }[];
-  valves: { ref: string; open: boolean; fault: string | null }[];
+  valves: { ref: string; open: boolean; amps: number; fault: string | null }[];
+  relays: { ref: string; closed: boolean; fault: string | null }[];
+  tank: { level: number; liters: number; e: [boolean, boolean]; float: boolean; sucking: boolean } | null;
   tool: { ref: string; on: boolean; powered: boolean; amps: number; watts: number } | null;
   air: { flow: number; speed: number; vacuum: number; tank: number; filterDp: number; flowDp: number; cake: [number, number]; deep: number; block: number; hoseMm: number; hoseM: number };
   zc: { width: number; ok: boolean };
@@ -134,6 +159,8 @@ export class VacuumPlant {
   private zcWidth = 0;
   private cake: [number, number] = [0.05, 0.05];
   private blockHeld = false;
+  private relays: Relay[] = [];
+  private tank: { level: number; sucking: boolean; params: SimParam[]; floatGroup?: number; e: { net: Id; at: number }[]; drive?: number; wet: [boolean, boolean] } | null = null;
   private air = { p: 0, tank: 0, qh: 0, filterDp: 0, flowDp: 0, qv: 0 };
 
   private constructor(
@@ -148,6 +175,7 @@ export class VacuumPlant {
       param('block', 'шланг перекрыт', 0, 0, 100, 1, '%'),
       param('deep', 'фильтр забит насовсем', 0, 0, 100, 1, '%'),
       param('dust', 'пыльность работы', 3, 0, 10, 0.5, ''),
+      param('filter', 'фильтр', 0, 0, 2, 1, '', ['стоит', 'порван', 'снят']),
     ];
     this.envP = [param('amb', 'температура воздуха', 25, -10, 45, 1, '°C'), param('boost', 'ускорить нагрев', 10, 1, 60, 1, '×')];
   }
@@ -211,10 +239,47 @@ export class VacuumPlant {
         ctPrim.set(p2, p1);
       }
       const m = /(\d+)\s*[:/]\s*1\b/.exec(comp.value);
-      this.cts.push({ comp, loads: loads.filter((l) => l.nets.some((n) => n === p1 || n === p2)), ratio: m ? +m[1] : 1000, s1: padNet(comp, fp, 'S1'), s2: padNet(comp, fp, 'S2') });
+      // Через окно — провод, общий для нагрузок одной стороны; другая сторона бывает общей
+      // шиной (ноль N): её нагрузки через окно не идут.
+      const bus = (n: Id | undefined) => !!n && /^(N|L|N_IN|L_IN|PE)$/i.test(p.nets[n]?.name ?? '');
+      const side = (n: Id | undefined) => loads.filter((l) => n && l.nets.includes(n));
+      const a = side(p1);
+      const b = side(p2);
+      const on = a.length && b.length ? (bus(p2) ? a : bus(p1) ? b : [...a, ...b]) : [...a, ...b];
+      this.cts.push({ comp, loads: on, ratio: m ? +m[1] : 1000, s1: padNet(comp, fp, 'S1'), s2: padNet(comp, fp, 'S2') });
       this.claimed.add(comp.id);
     }
     const through = (n: Id | undefined): Id[] => (n ? [n, ...(ctPrim.has(n) ? [ctPrim.get(n)!] : [])] : []);
+    // Реле: катушка между питанием и ключом; контакты COM/NO — в цепи нагрузки.
+    for (const { comp, fp } of this.tagged('relay')) {
+      const coil = fp.pads.filter((q) => /^COIL/i.test(q.name ?? '') || ((q.number === '1' || q.number === '2') && !q.name)).map((q) => comp.padNets[q.number]);
+      const groups = coil.map((n) => (n ? c.netGroup.get(n) : undefined)).filter((g): g is number => g !== undefined);
+      const r: Relay = { comp, coil: groups, cmd: false, closed: false, params: [param('fault', 'реле', 0, 0, 2, 1, '', RELAY_STATES)] };
+      (r as Relay & { no?: Id; com?: Id }).no = padNet(comp, fp, 'NO');
+      (r as Relay & { no?: Id; com?: Id }).com = padNet(comp, fp, 'COM');
+      this.relays.push(r);
+      this.claimed.add(comp.id);
+    }
+    // Предохранители: двухвыводные детали с номиналом «T2A», «0,5 А» или корпусом Fuse.
+    const fuseNext = new Map<Id, Id>();
+    for (const comp of Object.values(p.components)) {
+      const fp = p.footprints[comp.footprint];
+      if (!fp || !(/^Fuse/i.test(fp.id) || /^T?\s*\d+([.,]\d+)?\s*m?А?A?$/i.test(comp.value.trim()) && /^FU/i.test(comp.ref))) continue;
+      const nets = fp.pads.map((q) => comp.padNets[q.number]).filter((n): n is Id => !!n);
+      if (nets.length === 2) fuseNext.set(nets[0], nets[1]), fuseNext.set(nets[1], nets[0]);
+    }
+    const relayOf = (net: Id | undefined): Relay | undefined => {
+      const seen = new Set<Id>();
+      for (let n = net; n && !seen.has(n); n = fuseNext.get(n)) {
+        seen.add(n);
+        const r = this.relays.find((x) => {
+          const y = x as Relay & { no?: Id; com?: Id };
+          return y.no === n || y.com === n;
+        });
+        if (r) return r;
+      }
+      return undefined;
+    };
     // Оптроны MOC30xx.
     const mocs: { moc: Moc; out: Id[] }[] = [];
     for (const comp of Object.values(p.components)) {
@@ -245,7 +310,13 @@ export class VacuumPlant {
       const t: Triac = { comp, mt1: pn('MT1', 'T1', 'A1'), mt2: pn('MT2', 'T2', 'A2'), g: pn('G'), state: 0, firedAt: null, lastCond: 0, lastU2: 0 };
       t.moc = mocs.find((m) => t.g && m.out.includes(t.g))?.moc;
       const ends = [...through(t.mt1), ...through(t.mt2)];
-      for (const l of loads) if (!l.triac && l.nets.some((n) => ends.includes(n))) l.triac = t;
+      for (const l of loads)
+        if (!l.triac && l.nets.some((n) => ends.includes(n))) {
+          l.triac = t;
+          // Вывод симистора со стороны сети (не к нагрузке) — через предохранитель к реле.
+          const onLoad = (n: Id | undefined) => !!n && through(n).some((x) => l.nets.includes(x));
+          t.relay = relayOf(onLoad(t.mt1) ? t.mt2 : t.mt1);
+        }
       this.triacs.push(t);
       this.claimed.add(comp.id);
     }
@@ -255,23 +326,58 @@ export class VacuumPlant {
       else this.addTool(l);
     }
     for (const t of this.triacs) this.addTriacDevice(t);
+    for (const r of this.relays) this.addRelayDevice(r);
+    this.findTank();
     this.findZeroCross();
     for (const ct of this.cts) this.addCt(ct);
     for (const m of [...this.tagged('mains'), ...this.tagged('mains-switch')]) this.claimed.add(m.comp.id);
     this.addMainsDevice();
     this.addAirDevice();
 
-    // Светодиоды оптронов: фронт — симистор может открыться.
+    // Светодиоды оптронов: фронт — симистор может открыться. Катушки реле — по ключу.
     c.onChange((g, lvl, cycle) => {
+      // Катушка: ключ меняет «висит» на «0» без смены уровня — проверяем при любом изменении.
+      for (const r of this.relays) this.relayUpdate(r);
       if (lvl !== 1) return;
       for (const t of this.triacs) if (t.moc && t.moc.led === g) this.gateOn(t, (cycle / this.freq) * 1e6);
     });
+    for (const r of this.relays) this.relayUpdate(r);
     // Полупериоды сети.
     this.halfStart = this.us;
     this.startHalf();
   }
 
   /* ---------------- электричество ---------------- */
+
+  /** Катушка под током: одна сторона на питании, другую ключ притянул к земле. */
+  private relayEnergized(r: Relay): boolean {
+    const c = this.c;
+    if (r.coil.length < 2) return false;
+    const vcc = r.coil.some((g) => c.groups[g].power === 'vcc');
+    const low = r.coil.some((g) => !c.groups[g].power && !c.isFloating(g) && c.levelOf(g) === 0);
+    return vcc && low;
+  }
+
+  /** Контакт догоняет катушку: срабатывание 8 мс, отпускание 4 мс. */
+  private relayUpdate(r: Relay): void {
+    const cmd = this.relayEnergized(r);
+    if (cmd === r.cmd) return;
+    r.cmd = cmd;
+    this.c.mcu.schedule(() => {
+      if (r.cmd === cmd) r.closed = cmd;
+    }, this.toCycles(cmd ? 8000 : 4000));
+  }
+
+  private relayClosed(r: Relay | undefined): boolean {
+    if (!r) return true;
+    const f = r.params[0].value;
+    return f === 1 ? true : f === 2 ? false : r.closed;
+  }
+
+  /** На симистор приходит сеть (контакт реле перед ним замкнут). */
+  private powered(t: Triac): boolean {
+    return this.volts > 0 && this.relayClosed(t.relay);
+  }
 
   private ledOn(t: Triac): boolean {
     const m = t.moc;
@@ -287,7 +393,7 @@ export class VacuumPlant {
   }
 
   private fire(t: Triac, at: number): void {
-    if (t.state !== 0 || t.firedAt !== null || this.volts <= 0) return;
+    if (t.state !== 0 || t.firedAt !== null || !this.powered(t)) return;
     t.firedAt = at;
   }
 
@@ -316,16 +422,17 @@ export class VacuumPlant {
     const hu = this.halfUs;
     // Итоги прошлого полупериода.
     for (const t of this.triacs) {
-      const cond = t.firedAt === null ? 0 : Math.max(0, Math.min(1, 1 - (t.firedAt - (now - hu)) / hu));
+      const cond = t.firedAt === null || !this.relayClosed(t.relay) ? 0 : Math.max(0, Math.min(1, 1 - (t.firedAt - (now - hu)) / hu));
       const a = (1 - cond) * Math.PI;
       t.lastCond = cond;
       t.lastU2 = cond <= 0 ? 0 : Math.max(0, 1 - a / Math.PI + Math.sin(2 * a) / (2 * Math.PI));
       t.firedAt = null;
     }
+    for (const r of this.relays) this.relayUpdate(r);
     this.step(hu / 1e6);
     // Новый полупериод: пробитые открыты сразу, горящие оптроны открывают у нуля.
     for (const t of this.triacs) {
-      if (t.state === 1 && this.volts > 0) t.firedAt = now;
+      if (t.state === 1 && this.powered(t)) t.firedAt = now;
       else if (this.ledOn(t)) {
         const wait = t.moc!.zeroCross ? 150 : (Math.asin(Math.min(1, 10 / Math.max(10, this.volts * Math.SQRT2))) / Math.PI) * hu;
         this.c.mcu.schedule(() => this.ledOn(t) && this.fire(t, this.us), this.toCycles(wait));
@@ -405,7 +512,7 @@ export class VacuumPlant {
     if (l.kind === 'motor') return this.motors.find((m) => m.load === l)?.ifull ?? 0;
     if (l.kind === 'valve') {
       const v = this.valves.find((x) => x.load === l);
-      return v ? (v.params[0].value / Math.max(1, this.volts)) * 2.5 : 0;
+      return v ? this.valveVa(v) / Math.max(1, this.volts) * (this.volts / 230) : 0;
     }
     const t = this.tool;
     if (!t || !t.on) return 0;
@@ -414,9 +521,16 @@ export class VacuumPlant {
   }
 
   /** Мгновенный ток нагрузки, А (синусоида с отсечкой). */
+  /** Полная мощность соленоида сейчас, ВА: пусковая, пока якорь не втянулся, потом — удержания. */
+  private valveVa(v: Valve): number {
+    const f = v.params[2].value;
+    if (f === 2) return 0;
+    return f === 1 || v.onMs < PULL_MS ? v.params[0].value : v.params[1].value;
+  }
+
   private loadAmps(l: Load, t: number): number {
     const tr = l.triac;
-    if (!tr || tr.firedAt === null || t < tr.firedAt || this.volts <= 0) return 0;
+    if (!tr || tr.firedAt === null || t < tr.firedAt || !this.powered(tr)) return 0;
     return this.vAt(t) / (this.volts * Math.SQRT2) * Math.SQRT2 * this.loadFullAmps(l);
   }
 
@@ -447,8 +561,11 @@ export class VacuumPlant {
     }
     for (const v of this.valves) {
       const tr = v.load.triac;
-      const on = !!tr && tr.lastCond > 0.5 && V > 0 && v.params[1].value === 0;
-      v.amps = on ? (v.params[0].value / Math.max(1, V)) * 2.5 : 0;
+      const powered = !!tr && tr.lastCond > 0.5 && V > 0 && v.params[2].value !== 2;
+      v.amps = powered ? this.valveVa(v) / Math.max(1, V) * (V / 230) : 0;
+      v.onMs = powered ? v.onMs + dt * 1000 : 0;
+      // Втянулся якорь — клапан открыт; заклинивший не открывается (и ток не падает).
+      const on = powered && v.params[2].value === 0;
       v.openMs = on ? v.openMs + dt * 1000 : 0;
       const was = v.open;
       v.open = v.openMs >= 15;
@@ -466,6 +583,7 @@ export class VacuumPlant {
       this.tool.amps = this.tool.on && tr && tr.lastCond > 0.5 ? this.loadFullAmps(this.tool.load) : 0;
     }
     this.pneumatics(dt);
+    this.water(dt);
   }
 
   private hoseK(): number {
@@ -480,7 +598,10 @@ export class VacuumPlant {
   private filterK(): number {
     const deep = this.airP[3].value / 100;
     const sec = this.cake.map((x) => 4 * FILTER_K0 * (1 + 3 * x + 8 * deep));
-    return 1 / (1 / Math.sqrt(sec[0]) + 1 / Math.sqrt(sec[1])) ** 2;
+    const k = 1 / (1 / Math.sqrt(sec[0]) + 1 / Math.sqrt(sec[1])) ** 2;
+    // Порванный — воздух идёт мимо ткани, снятый — перепада почти нет.
+    const state = this.airP[5]?.value ?? 0;
+    return state === 1 ? k * 0.06 : state === 2 ? k * 0.005 : k;
   }
 
   private pneumatics(dt: number): void {
@@ -537,9 +658,10 @@ export class VacuumPlant {
   /* ---------------- устройства для панели ---------------- */
 
   private addMotor(l: Load): void {
+    const rated = /(\d{3,4})\s*(Вт|W)/i.exec(l.comp.value);
     const m: Motor = {
       load: l,
-      params: [param('w', 'мощность (номинал)', 1200, 400, 2000, 50, 'Вт'), param('wear', 'износ щёток', 0, 0, 100, 1, '%'), param('fault', 'обмотка', 0, 0, 1, 1, '', ['исправна', 'обрыв'])],
+      params: [param('w', 'мощность (номинал)', rated ? Math.min(2000, Math.max(400, +rated[1])) : 1200, 400, 2000, 50, 'Вт'), param('wear', 'износ щёток', 0, 0, 100, 1, '%'), param('fault', 'обмотка', 0, 0, 1, 1, '', ['исправна', 'обрыв'])],
       s: 0,
       temp: 25,
       amps: 0,
@@ -579,7 +701,8 @@ export class VacuumPlant {
   }
 
   private addValve(l: Load): void {
-    const v: Valve = { load: l, params: [param('w', 'мощность катушки', 8, 3, 30, 1, 'Вт'), param('fault', 'клапан', 0, 0, 1, 1, '', ['исправен', 'не открывается'])], open: false, openMs: 0, amps: 0 };
+    // Соленоид 230 В ~ с тягой 4 кгс: пусковая мощность ~200 ВА, удержания ~45 ВА.
+    const v: Valve = { load: l, params: [param('va', 'пусковая мощность катушки', 200, 5, 400, 5, 'ВА'), param('hold', 'мощность удержания', 45, 2, 150, 1, 'ВА'), param('fault', 'клапан', 0, 0, 2, 1, '', VALVE_STATES)], open: false, onMs: 0, openMs: 0, amps: 0 };
     this.valves.push(v);
     const comp = l.comp;
     this.devices.push({
@@ -589,7 +712,17 @@ export class VacuumPlant {
         const pp = v.params.find((x) => x.key === k);
         if (pp) pp.value = val;
       },
-      view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'valve', title: `${comp.ref} клапан продувки ${comp.value}`, on: v.open, params: v.params, warning: !l.triac ? 'не найден симистор в цепи клапана' : undefined }),
+      view: () => ({
+        id: comp.id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'valve',
+        title: `${comp.ref} клапан продувки ${comp.value}`,
+        on: v.open,
+        params: v.params,
+        readings: [{ label: 'ток катушки', value: +v.amps.toFixed(2), unit: 'А' }],
+        warning: !l.triac ? 'не найден симистор в цепи клапана' : l.triac.relay && !this.relayClosed(l.triac.relay) && v.params[2].value === 0 ? `нет сети: разомкнуто реле ${l.triac.relay.comp.ref}` : undefined,
+      }),
     });
   }
 
@@ -648,6 +781,141 @@ export class VacuumPlant {
         warning: !t.moc ? 'затвор не подключён к оптрону' : t.moc.ma < t.moc.needMa ? `мало тока светодиода ${t.moc.comp.ref}: ${t.moc.ma.toFixed(1)} мА, нужно ${t.moc.needMa}` : undefined,
       }),
     });
+  }
+
+  private addRelayDevice(r: Relay): void {
+    const comp = r.comp;
+    const feeds = () =>
+      [...this.motors.map((m) => m.load), ...this.valves.map((v) => v.load)]
+        .filter((l) => l.triac?.relay === r)
+        .map((l) => l.comp.ref)
+        .join(', ');
+    this.devices.push({
+      id: comp.id,
+      comp,
+      set: (_k, v) => {
+        r.params[0].value = v;
+      },
+      view: () => ({
+        id: comp.id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'relay',
+        title: `${comp.ref} реле ${comp.value}${feeds() ? ` → ${feeds()}` : ''}`,
+        on: this.relayClosed(r),
+        params: r.params,
+        readings: [{ label: 'катушка', value: r.cmd ? 1 : 0, unit: r.cmd ? 'под током' : 'обесточена' }],
+        warning: r.coil.length < 2 ? 'катушка не подключена' : !feeds() ? 'контакт не в цепи нагрузки' : undefined,
+      }),
+    });
+  }
+
+  /* ---------------- бак: вода, электроды, поплавок ---------------- */
+
+  private findTank(): void {
+    const c = this.c;
+    const el = this.tagged('water-electrode');
+    const fl = this.tagged('float-switch')[0];
+    if (!el.length && !fl) return;
+    const params = [
+      param('water', 'вода', 0, 0, 3, 1, '', WATER_KINDS),
+      param('rate', 'набор воды со шлангом', 2, 0.2, 10, 0.2, '%/с'),
+      param('float', 'поплавок', 0, 0, 1, 1, '', ['исправен', 'залип внизу']),
+    ];
+    const t: NonNullable<VacuumPlant['tank']> = { level: 0, sucking: false, params, e: [], wet: [false, false] };
+    let common: Id | undefined;
+    for (const { comp, fp } of el) {
+      const net = comp.padNets[fp.pads[0]?.number ?? ''];
+      const w = placeOf(comp).toLowerCase();
+      this.claimed.add(comp.id);
+      if (!net) continue;
+      if (/дно|общ/.test(w)) common = net;
+      else t.e.push({ net, at: /перелив|верх/.test(w) ? 0.9 : 0.75 });
+    }
+    t.e.sort((a, b) => a.at - b.at);
+    // Раскачка общего электрода: от вывода контроллера через резистор и конденсатор.
+    if (common) {
+      const pinGroups = new Set(c.pinGroup.values());
+      const seen = new Set<Id>([common]);
+      let front: Id[] = [common];
+      for (let hop = 0; hop < 3 && t.drive === undefined; hop++) {
+        const next: Id[] = [];
+        for (const comp of Object.values(this.p.components)) {
+          const fp = this.p.footprints[comp.footprint];
+          if (!fp || fp.pads.length !== 2 || comp.offBoard) continue;
+          const nets = fp.pads.map((q) => comp.padNets[q.number]);
+          for (const [a, b] of [
+            [nets[0], nets[1]],
+            [nets[1], nets[0]],
+          ])
+            if (a && b && front.includes(a) && !seen.has(b)) {
+              seen.add(b);
+              next.push(b);
+              const g = c.netGroup.get(b);
+              if (g !== undefined && pinGroups.has(g) && !c.groups[g].power) t.drive = g;
+            }
+        }
+        front = next;
+      }
+    }
+    // Электрод: вода замыкает его с общим — на нём раскачка через сопротивление воды (нагрузка 200 кОм на плате).
+    for (const e of t.e)
+      c.setNetSource(e.net, () => {
+        const wet = t.level >= e.at && t.level >= 0.02 && t.drive !== undefined;
+        if (!wet) return 0;
+        const k = 200_000 / (200_000 + 1000 + WATER_OHMS[Math.round(params[0].value)]);
+        return (c.levelOf(t.drive!) ? 1.65 : -1.65) * k;
+      });
+    if (fl) {
+      this.claimed.add(fl.comp.id);
+      const sig = fl.fp.pads.map((q) => fl.comp.padNets[q.number]).map((n) => (n ? c.netGroup.get(n) : undefined)).find((g) => g !== undefined && !c.groups[g].power);
+      t.floatGroup = sig;
+    }
+    this.tank = t;
+    const comp = el[0]?.comp ?? fl!.comp;
+    const id = `${comp.id}:tank`;
+    this.devices.push({
+      id,
+      comp,
+      set: (k, v) => {
+        const pp = params.find((x) => x.key === k);
+        if (pp) pp.value = v;
+      },
+      act: (k) => {
+        if (k === 'suck') t.sucking = !t.sucking;
+        if (k === 'drain') (t.level = 0), (t.sucking = false);
+        if (k === 'full') t.level = Math.max(t.level, 0.8);
+      },
+      view: () => ({
+        id,
+        comp: comp.id,
+        ref: 'Бак',
+        kind: 'tank',
+        title: `Бак 40 л: вода ${Math.round(t.level * 100)} %${t.sucking ? ', шланг в воде' : ''}`,
+        params,
+        readings: [
+          { label: 'уровень', value: Math.round(t.level * 100), unit: '%' },
+          { label: 'электрод уровня', value: t.wet[0] ? 1 : 0, unit: t.wet[0] ? 'в воде' : 'сухой' },
+          { label: 'электрод перелива', value: t.wet[1] ? 1 : 0, unit: t.wet[1] ? 'в воде' : 'сухой' },
+        ],
+        actions: [
+          { key: 'suck', label: t.sucking ? 'Вынуть шланг из воды' : 'Сосать воду' },
+          { key: 'full', label: 'Бак почти полон (80 %)' },
+          { key: 'drain', label: 'Слить бак' },
+        ],
+        warning: t.drive === undefined && t.e.length ? 'не найдена раскачка общего электрода (вывод → резистор → конденсатор)' : undefined,
+      }),
+    });
+  }
+
+  /** Вода в бак — пока шланг в воде и есть поток; поплавок всплывает на 80 %. */
+  private water(dt: number): void {
+    const t = this.tank;
+    if (!t) return;
+    const q = this.air.qh;
+    if (t.sucking && q > 0.005) t.level = Math.min(1, t.level + ((t.params[1].value / 100) * (q / 0.04) * dt));
+    t.wet = [t.level >= (t.e[0]?.at ?? 2), t.level >= (t.e[1]?.at ?? 2)];
+    if (t.floatGroup !== undefined) this.c.drive(t.floatGroup, 'vacuum-float', t.level >= 0.8 && !t.params[2].value ? 0 : null);
   }
 
   private addCt(ct: { comp: Component; loads: Load[]; ratio: number; s1?: Id; s2?: Id }): void {
@@ -761,7 +1029,9 @@ export class VacuumPlant {
           triac: tr ? (tr.state ? TRIAC_STATES[tr.state] : null) : 'нет симистора',
         };
       }),
-      valves: this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, fault: v.params[1].value ? 'не открывается' : null })),
+      valves: this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[2].value ? VALVE_STATES[v.params[2].value] : null })),
+      relays: this.relays.map((r) => ({ ref: r.comp.ref, closed: this.relayClosed(r), fault: r.params[0].value ? RELAY_STATES[r.params[0].value] : null })),
+      tank: this.tank ? { level: this.tank.level, liters: this.tank.level * 40, e: [this.tank.wet[0], this.tank.wet[1]], float: this.tank.level >= 0.8 && !this.tank.params[2].value, sucking: this.tank.sucking } : null,
       tool: this.tool ? { ref: this.tool.load.comp.ref, on: this.tool.on, powered: !!this.tool.load.triac && this.tool.load.triac.lastCond > 0.5, amps: this.tool.amps, watts: this.tool.amps * this.volts } : null,
       air: { flow: a.qh * 3600, speed: a.qh / A, vacuum: a.p / 1000, tank: a.tank / 1000, filterDp: a.filterDp, flowDp: a.flowDp, cake: [this.cake[0], this.cake[1]], deep: this.airP[3].value / 100, block: this.blockHeld ? 0.95 : this.airP[2].value / 100, hoseMm: d, hoseM: this.airP[0].value },
       zc: { width: this.zcWidth, ok: this.zcGroup !== undefined },

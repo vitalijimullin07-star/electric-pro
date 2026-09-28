@@ -15,6 +15,8 @@ interface PanelExports {
   ui_loop(ms: number): number;
   ui_touch(x: number, y: number, down: number): void;
   ui_rx(ch: number): void;
+  /** Контроллер погасил экран («Выкл»): у пульта для обоих контроллеров. */
+  ui_sleeping?(): number;
 }
 
 export class PanelS3 {
@@ -82,6 +84,11 @@ export class PanelS3 {
 
   touch(x: number, y: number, down: boolean): void {
     this.ex!.ui_touch(Math.round(x), Math.round(y), down ? 1 : 0);
+  }
+
+  /** Экран погашен (подсветка выключена). */
+  sleeping(): boolean {
+    return !!this.ex?.ui_sleeping?.();
   }
 
   /** Кадр RGB565 (живой вид на память пульта). */

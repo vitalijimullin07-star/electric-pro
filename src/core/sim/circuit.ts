@@ -78,15 +78,19 @@ export function parseHz(value: string): number | null {
 
 /** Выводы ESP32, которые есть у модулей WROOM/WROVER. */
 const ESP32_GPIO = new Set([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39]);
+/** Выводы ESP32-S3 у модулей WROOM-1/WROOM-2 (IO26–IO32 заняты флеш-памятью и PSRAM). */
+const ESP32S3_GPIO = new Set([...Array.from({ length: 22 }, (_, i) => i), ...Array.from({ length: 14 }, (_, i) => 35 + i)]);
 
 /** Имена выводов → выводы контроллера (включая синонимы Arduino и платок ESP32). */
-export function mcuPinOf(name: string, kind: McuKind = 'atmega328p'): McuPin | null {
+export function mcuPinOf(name: string, kind: McuKind = 'atmega328p', s3 = false): McuPin | null {
   const n = name.toUpperCase().replace(/\s+/g, '');
   if (kind === 'esp32') {
-    const alias: Record<string, number> = { VP: 36, SVP: 36, SENSOR_VP: 36, VN: 39, SVN: 39, SENSOR_VN: 39, TX: 1, TX0: 1, TXD0: 1, TXD: 1, RX: 3, RX0: 3, RXD0: 3, RXD: 3, TX2: 17, RX2: 16 };
+    const alias: Record<string, number> = s3
+      ? { TX: 43, TX0: 43, TXD0: 43, TXD: 43, RX: 44, RX0: 44, RXD0: 44, RXD: 44 }
+      : { VP: 36, SVP: 36, SENSOR_VP: 36, VN: 39, SVN: 39, SENSOR_VN: 39, TX: 1, TX0: 1, TXD0: 1, TXD: 1, RX: 3, RX0: 3, RXD0: 3, RXD: 3, TX2: 17, RX2: 16 };
     const m = /^(?:GPIO|IO|D)(\d{1,2})$/.exec(n);
     const io = m ? +m[1] : alias[n];
-    return io !== undefined && ESP32_GPIO.has(io) ? (`IO${io}` as McuPin) : null;
+    return io !== undefined && (s3 ? ESP32S3_GPIO.has(io) || io === 43 || io === 44 : ESP32_GPIO.has(io)) ? (`IO${io}` as McuPin) : null;
   }
   if (kind === 'atmega328p') {
     if (n in ARDUINO_PINS) return ARDUINO_PINS[n];
@@ -105,6 +109,8 @@ export interface McuFound {
   fp: FootprintDef;
   pins: Map<string, McuPin>;
   kind: McuKind;
+  /** ESP32-S3 (другие выводы, заголовок в симуляции). */
+  s3?: boolean;
   freq: number;
   /** Откуда взята частота — для подсказки. */
   freqFrom: string;
@@ -114,8 +120,10 @@ const NOT_AVR = /esp|stm32|pico|rp2040|teensy|xiao|attiny|digispark|32u4|leonard
 const MEGA32 = /atmega\s*(16|32)a?(?![0-9u])/i;
 /** Классический ESP32 (WROOM, WROVER, DevKit), не S2/S3/C3. */
 const ESP32 = /esp32(?![-_ ]?(s2|s3|c2|c3|c5|c6|h2|p4|cam))|wroom-?32|wrover/i;
+/** ESP32-S3: исполняется так же — ядро прошивки в WebAssembly. */
+const ESP32S3 = /esp32[-_ ]?s3/i;
 
-/** Контроллеры, которые умеет симуляция: Arduino Uno/Nano/Pro Mini, ATmega328P, ATmega32A/16A, ESP32. */
+/** Контроллеры, которые умеет симуляция: Arduino Uno/Nano/Pro Mini, ATmega328P, ATmega32A/16A, ESP32, ESP32-S3. */
 export function findMcu(p: Project): McuFound | null {
   let best: McuFound | null = null;
   for (const c of Object.values(p.components)) {
@@ -123,7 +131,8 @@ export function findMcu(p: Project): McuFound | null {
     if (!fp) continue;
     const text = `${fp.id} ${fp.name} ${(fp.tags ?? []).join(' ')} ${c.value}`;
     let kind: McuKind;
-    if (ESP32.test(text)) kind = 'esp32';
+    const s3 = ESP32S3.test(text);
+    if (ESP32.test(text) || s3) kind = 'esp32';
     else if (NOT_AVR.test(text)) continue; // ESP8266, STM32…: не подходят, даже если выводы названы D0…D8
     else {
       const want = p.firmware?.mcu === 'atmega32' || p.firmware?.mcu === 'atmega328p' ? (p.firmware.mcu as McuKind) : null;
@@ -131,11 +140,13 @@ export function findMcu(p: Project): McuFound | null {
     }
     const pins = new Map<string, McuPin>();
     for (const pad of fp.pads) {
-      const m = pad.name ? mcuPinOf(pad.name, kind) : null;
+      const m = pad.name ? mcuPinOf(pad.name, kind, s3) : null;
       if (m) pins.set(pad.number, m);
     }
     const distinct = new Set(pins.values()).size;
-    if (distinct >= 8 && (!best || distinct > new Set(best.pins.values()).size)) best = { comp: c, fp, pins, kind, freq: MCU_FREQ, freqFrom: '' };
+    // Выносная плата (пульт на своём ESP32-S3) — не контроллер этой схемы.
+    if (c.offBoard && kind === 'esp32') continue;
+    if (distinct >= 8 && (!best || distinct > new Set(best.pins.values()).size)) best = { comp: c, fp, pins, kind, s3: kind === 'esp32' && s3, freq: MCU_FREQ, freqFrom: '' };
   }
   if (!best) return null;
   const f = mcuFrequency(p, best);
@@ -145,7 +156,7 @@ export function findMcu(p: Project): McuFound | null {
 }
 
 function mcuFrequency(p: Project, m: McuFound): { freq: number; from: string } {
-  if (m.kind === 'esp32') return { freq: 240e6, from: 'ESP32' };
+  if (m.kind === 'esp32') return { freq: 240e6, from: m.s3 ? 'ESP32-S3' : 'ESP32' };
   if (p.firmware?.freq) return { freq: p.firmware.freq, from: 'задана в проекте' };
   const isArduino = /arduino|^module_/i.test(m.fp.id + ' ' + (m.fp.tags ?? []).join(' '));
   if (isArduino && m.kind === 'atmega328p') return { freq: MCU_FREQ, from: 'Arduino' };
@@ -460,9 +471,11 @@ export class Circuit {
 
   /** Напряжение цепи, В: по узлам группы с учётом резисторов, подтяжек и источников. */
   netVolts(net: Id): number {
-    const av = this.analogNet?.(net);
-    if (av !== undefined) return av;
     const g = this.netGroup.get(net);
+    // Датчики установки (трансформаторы тока, датчики давления, электроды) — источники в этой
+    // схеме: аналоговый расчёт о них не знает, их группа считается здесь.
+    const av = g !== undefined && this.groupHasSources[g] ? undefined : this.analogNet?.(net);
+    if (av !== undefined) return av;
     if (g === undefined) return 0;
     const info = this.groups[g];
     if (info.power) return this.powerVolts[g];

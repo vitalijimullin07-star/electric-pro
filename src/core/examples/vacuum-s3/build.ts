@@ -178,7 +178,7 @@ const BLOCKS: { title: string; at: [number, number]; width: number; parts: (stri
   { title: 'Клапаны продувки', at: [10, 235], width: 240, parts: ['FU2', 'R12', 'U3', 'R16', 'VS1', 'R13', 'U4', 'R17', 'VS2', 'XT2', 'TA3', 'YA1', 'YA2'] },
   { title: 'Датчики', at: [460, 10], width: 210, parts: ['X4', ['R20', 90], ['R21', 90], ['R22', 90], ['R23', 90], ['R24', 90], ['C10', 90], ['R25', 90], ['R26', 90], ['C11', 90], ['C12', 90], 'RK1', 'RK2', 'B1', 'R27', ['R28', 90], ['C13', 90], ['C14', 90], 'X2', 'X3', ['R29', 90], ['R30', 90], 'B2', 'B3'] },
   { title: 'Вода в баке', at: [460, 190], width: 210, parts: ['X5', 'R40', ['C40', 90], 'R41', ['R42', 90], ['C41', 90], 'R43', ['R44', 90], ['C42', 90], 'E0', 'E1', 'E2', 'SL1'] },
-  { title: 'Пульт: экран, кнопки, энкодер, звук', at: [260, 230], width: 190, parts: ['X1', 'HG1', 'DD1', ['C16', 90], ['R35', 90], ['R34', 90], ['C17', 90], ['C18', 90], 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'SB7', 'SB8', 'SB9', 'SA2', 'BA1', 'VT2', ['R33', 90], ['VD2', 90]] },
+  { title: 'Пульт: экран, кнопки, энкодер, звук', at: [260, 230], width: 190, parts: ['X1', 'HG1', 'DD1', ['C16', 90], ['R35', 90], ['R34', 90], ['C17', 90], ['C18', 90], 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'SB7', 'SB8', 'SB9', 'SA2', 'BA1', 'HG2', 'VT2', ['R33', 90], ['VD2', 90]] },
 ];
 
 function layoutSchematic(p: Project): void {
@@ -216,7 +216,8 @@ function layoutSchematic(p: Project): void {
       rowH = Math.max(rowH, h);
     }
   }
-  const missing = Object.values(p.components).filter((c) => !placed.has(c.ref) && !/^H\d/.test(c.ref));
+  // Без выводов (крепёж, беспроводной пульт) символа на схеме нет.
+  const missing = Object.values(p.components).filter((c) => !placed.has(c.ref) && !/^H\d/.test(c.ref) && (p.footprints[c.footprint]?.pads.length ?? 0) > 0);
   if (missing.length) throw new Error(`не на схеме: ${missing.map((c) => c.ref).join(', ')}`);
 }
 
