@@ -83,6 +83,8 @@ export interface MosModel {
   ron: number;
   /** Ёмкость затвор—исток, Ф. */
   cgs: number;
+  /** Пробой сток—исток (лавинный), В: выброс индуктивной нагрузки ограничивается им. */
+  vds?: number;
 }
 
 /**
@@ -129,7 +131,7 @@ export class MosChannel implements AnalogElement {
 /** MOSFET целиком: канал, паразитный диод исток→сток (для P — сток→исток), ёмкость затвора. */
 export function buildMosfet(e: Engine, name: string, d: Node, g: Node, s: Node, m: MosModel, comp?: string, pads?: [string, string, string]): MosChannel {
   const ch = e.add(new MosChannel(name, d, g, s, m, comp, pads));
-  const body: DiodeModel = { vf: 0.8, rd: 0.05 };
+  const body: DiodeModel = { vf: 0.8, rd: 0.05, vz: m.vds ?? 60, rz: 1 };
   if (m.type === 'n') e.add(new Diode(`${name} диод`, s, d, body, comp));
   else e.add(new Diode(`${name} диод`, d, s, body, comp));
   if (m.cgs > 0) e.add(new Capacitor(`${name} Cзи`, g, s, m.cgs, comp, undefined, true));
@@ -148,6 +150,8 @@ export interface BjtModel {
   /** Насыщение: напряжение и сопротивление коллектор—эмиттер. */
   vcesat: number;
   rsat: number;
+  /** Пробой коллектор—эмиттер, В (выброс индуктивной нагрузки ограничивается им). */
+  vceo?: number;
 }
 
 /** 0 — отсечка, 1 — усиление, 2 — насыщение. */

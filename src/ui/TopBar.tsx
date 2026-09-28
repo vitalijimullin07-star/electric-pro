@@ -31,6 +31,8 @@ import { findSaved, saveToDevice } from '@editor/device-files';
 import { onBack } from './back-button';
 import { QUALITY_NAMES, detectLevel, type QualityMode } from '@render/quality';
 import { simRuntime } from '@editor/sim-runtime';
+import { findMcu } from '@core/sim/circuit';
+import type { Project } from '@core/model/types';
 import { loadFirmware } from './panels/SimPanel';
 
 /* Верхняя строка меню в духе EasyEDA: Файл, Правка, Вид, Плата, Трассировка, Экспорт, Справка. */
@@ -150,6 +152,14 @@ export async function openProject(): Promise<void> {
   } catch (e) {
     s.setMessage((e as Error).message || 'Не удалось открыть файл.');
   }
+}
+
+/** Есть ли на плате контроллер (без него «Старт» доступен и без прошивки); кеш по объекту деталей. */
+const mcuCache = new WeakMap<object, boolean>();
+function hasMcu(p: Project): boolean {
+  let v = mcuCache.get(p.components);
+  if (v === undefined) mcuCache.set(p.components, (v = !!findMcu(p)));
+  return v;
 }
 
 export function TopBar() {
@@ -293,12 +303,12 @@ export function TopBar() {
         { label: 'Загрузить прошивку (.hex, .wasm)…', action: () => void loadFirmware() },
         s.sim.status === 'running'
           ? { label: 'Пауза', action: () => simRuntime.pause() }
-          : { label: s.sim.status === 'paused' ? 'Продолжить' : 'Старт', action: () => (s.sim.status === 'paused' ? simRuntime.resume() : (simRuntime.start(), s.patch({ panelTab: 'sim', panelOpen: true }))), disabled: !p.firmware },
+          : { label: s.sim.status === 'paused' ? 'Продолжить' : 'Старт', action: () => (s.sim.status === 'paused' ? simRuntime.resume() : (simRuntime.start(), s.patch({ panelTab: 'sim', panelOpen: true }))), disabled: !p.firmware && hasMcu(p) },
         { label: 'Сброс (с начала)', action: () => simRuntime.start(), disabled: s.sim.status === 'off' },
         { label: 'Стоп', action: () => simRuntime.stop(), disabled: s.sim.status === 'off' },
         'sep',
         { label: 'Монитор порта, датчики, выводы…', action: () => s.patch({ panelTab: 'sim', panelOpen: true }) },
-        { label: 'Во весь экран: пульт и графики', action: () => (s.sim.status === 'off' && p.firmware && simRuntime.start(), simRuntime.setFull(true)), disabled: !p.firmware },
+        { label: 'Во весь экран: пульт и графики', action: () => (s.sim.status === 'off' && (p.firmware || !hasMcu(p)) && simRuntime.start(), simRuntime.setFull(true)), disabled: !p.firmware && hasMcu(p) },
       ],
     },
     {

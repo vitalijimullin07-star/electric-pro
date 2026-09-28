@@ -135,6 +135,44 @@ export interface Component {
    * динамик, датчик). Есть на схеме, в перечне и в симуляции, но не на плате и не в Gerber.
    */
   offBoard?: boolean;
+  /** Модель для аналоговой симуляции, если автоматическая не подходит (см. src/core/sim/analog/kinds.ts). */
+  sim?: ComponentSim;
+}
+
+/** Модель детали в симуляции: вид и параметры (ключи — как у ползунков вкладки «Цепь»). */
+export interface ComponentSim {
+  /** Вид модели: не задан — по названию и выводам; 'none' — деталь в расчёте не участвует. */
+  model?: string;
+  /** Параметры модели: порог MOSFET, усиление транзистора, напряжение источника… */
+  params?: Record<string, number>;
+}
+
+/** Источник или генератор сигнала для симуляции: подключается к цепи, в проекте хранится только настройка. */
+export interface SimSource {
+  id: Id;
+  /** Цепь «плюса» (выхода). */
+  net: Id;
+  /** Цепь «минуса»; не задана — земля схемы. */
+  ref?: Id;
+  /** Постоянное, синус, меандр, треугольник, сеть 230 В 50 Гц. */
+  wave: 'dc' | 'sine' | 'square' | 'triangle' | 'mains';
+  /** Постоянное напряжение или амплитуда, В. */
+  volts: number;
+  /** Смещение (для переменного), В. */
+  offset?: number;
+  /** Частота, Гц. */
+  freq?: number;
+  /** Скважность меандра, 0…1. */
+  duty?: number;
+  /** Внутреннее сопротивление, Ом. */
+  ohms?: number;
+  /** Выключен (не удаляя). */
+  off?: boolean;
+}
+
+/** Настройки симуляции, которые хранятся в проекте. */
+export interface ProjectSim {
+  sources?: SimSource[];
 }
 
 export interface Track {
@@ -320,6 +358,8 @@ export interface Project {
   schematic?: Schematic;
   /** Прошивка для симуляции (Intel HEX из Arduino IDE). */
   firmware?: Firmware;
+  /** Источники и генераторы симуляции. */
+  sim?: ProjectSim;
 }
 
 export interface Firmware {

@@ -10,6 +10,7 @@ import { dimensionLabel } from '@core/render/graphic';
 import { boardBox, rectSize } from '@core/model/project';
 import { polygonLength } from '@core/math/geom';
 import { componentPinCurrents, formatAmps } from '@core/model/currents';
+import { SimModelSection } from './SimModelSection';
 
 /* Свойства выделенного объекта; если ничего не выбрано — свойства платы. */
 
@@ -213,6 +214,7 @@ export function ComponentProps({ id }: { id: string }) {
           <input type="checkbox" checked={!!c.offBoard} onChange={(e) => upd((x) => void (x.offBoard = e.target.checked || undefined))} /> выносная (вне платы)
         </label>
       </div>
+      <SimModelSection id={id} />
       <div className="row">
         <button className="btn primary" onClick={() => s.openDialog('component', id)}>
           Выводы и цепи, корпус…

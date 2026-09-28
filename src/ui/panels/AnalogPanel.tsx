@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
-import { fmtSi, type AnalogParam, type AnalogPart, type ScopeProbe, type SimView } from '@core/sim';
+import { fmtSi, WAVE_TITLES, type AnalogParam, type AnalogPart, type ScopeProbe, type SimView } from '@core/sim';
+import type { SimSource } from '@core/model/types';
 
 /*
  * Вкладка «Цепь» (аналоговый расчёт): номиналы выбранной детали на ходу с показаниями
@@ -58,10 +59,17 @@ export function AnalogPanel({ view }: { view: SimView }) {
           {a.stats.nodes} узлов · шаг {fmtSi(a.engine.dt, 'с')}
         </span>
       </div>
+      {a.notes.map((n) => (
+        <p key={n} className="hint" style={{ color: 'var(--warn)' }}>
+          {n}
+        </p>
+      ))}
       {part ? <PartKnobs part={part} tick={view.seconds} projectValue={project.components[part.comp.id]?.value} /> : <p className="hint">Выберите деталь касанием на плате или в списке: ползунки меняют номинал прямо во время работы.</p>}
+      <Sources tick={view.seconds} />
       <Scope tick={view.seconds} part={part} />
       <AcPlot part={part} />
-      {a.skipped.length > 0 && <p className="hint">Без аналоговой модели: {a.skipped.join(', ')}.</p>}
+      <NetsTable tick={view.seconds} />
+      {a.skipped.length > 0 && <p className="hint">Без аналоговой модели: {a.skipped.join(', ')}. Модель можно выбрать вручную в свойствах детали.</p>}
     </div>
   );
 }
@@ -113,7 +121,7 @@ function PartKnobs({ part, tick, projectValue }: { part: AnalogPart; tick: numbe
           </span>
         ))}
       </div>
-      {nominal && norm(nominal) !== norm(projectValue ?? '') && (
+      {nominal && !part.virtual && norm(nominal) !== norm(projectValue ?? '') && (
         <div className="row">
           <button
             className="btn sm"
@@ -131,6 +139,183 @@ function PartKnobs({ part, tick, projectValue }: { part: AnalogPart; tick: numbe
           </button>
           <span className="hint">в проекте {projectValue}</span>
         </div>
+      )}
+      <SaveParams part={part} onSaved={() => force((x) => x + 1)} />
+    </div>
+  );
+}
+
+/** Изменённые параметры модели (не номинал) — в деталь (Component.sim.params) или в генератор проекта. */
+function SaveParams({ part, onSaved }: { part: AnalogPart; onSaved: () => void }) {
+  const commit = useEditor((s) => s.commit);
+  const project = useEditor((s) => s.project);
+  if (part.virtual === 'supply' || part.virtual === 'mains') return null;
+  if (part.virtual) {
+    const src = project.sim?.sources?.find((x) => x.id === part.virtual);
+    if (!src) return null;
+    const val = (k: string) => part.params.find((q) => q.key === k)?.value;
+    const next = { ...src, volts: val('volts') ?? src.volts, freq: val('freq') ?? src.freq, offset: val('offset') ?? src.offset, duty: val('duty') !== undefined ? val('duty')! / 100 : src.duty };
+    if (JSON.stringify(next) === JSON.stringify(src)) return null;
+    return (
+      <div className="row">
+        <button
+          className="btn sm"
+          onClick={() => {
+            commit((d) => {
+              const list = d.sim?.sources ?? [];
+              const i = list.findIndex((x) => x.id === src.id);
+              if (i >= 0) list[i] = next;
+            });
+            simRuntime.synced = useEditor.getState().project;
+            onSaved();
+          }}
+        >
+          Запомнить генератор в проекте
+        </button>
+      </div>
+    );
+  }
+  const saved = project.components[part.comp.id]?.sim?.params ?? {};
+  const changed = part.params.filter((q) => !q.nominal && part.defaults && Math.abs(q.value - (part.defaults[q.key] ?? q.value)) > 1e-12 + Math.abs(part.defaults[q.key] ?? 0) * 1e-6 && saved[q.key] !== q.value);
+  if (!changed.length) return null;
+  return (
+    <div className="row">
+      <button
+        className="btn sm"
+        title="Записать параметры модели в деталь (свойства → «Модель для симуляции»); действуют при следующих запусках"
+        onClick={() => {
+          commit((d) => {
+            const c = d.components[part.comp.id];
+            if (!c) return;
+            const params = { ...(c.sim?.params ?? {}) };
+            for (const q of changed) params[q.key] = q.value;
+            c.sim = { ...(c.sim ?? {}), params };
+          });
+          simRuntime.synced = useEditor.getState().project;
+          onSaved();
+        }}
+      >
+        Запомнить в детали: {changed.map((q) => q.label).join(', ')}
+      </button>
+    </div>
+  );
+}
+
+/** Источники и генераторы: постоянное напряжение, синус, меандр, треугольник, сеть — на любую цепь. */
+function Sources({ tick }: { tick: number }) {
+  const a = simRuntime.sim?.analog;
+  const project = useEditor((s) => s.project);
+  const commit = useEditor((s) => s.commit);
+  const [net, setNet] = useState('');
+  const [wave, setWave] = useState<SimSource['wave']>('sine');
+  const [volts, setVolts] = useState('1');
+  const [freq, setFreq] = useState('1000');
+  const [open, setOpen] = useState(false);
+  void tick;
+  if (!a) return null;
+  const nets = Object.values(project.nets)
+    .filter((n) => !a.ground.has(n.id))
+    .sort((x, y) => x.name.localeCompare(y.name, 'ru', { numeric: true }));
+  const list = project.sim?.sources ?? [];
+  const add = () => {
+    if (!net) return;
+    const s: SimSource = { id: `src${Date.now().toString(36)}`, net, wave, volts: parseFloat(volts.replace(',', '.')) || 0, freq: wave === 'dc' ? undefined : parseFloat(freq.replace(',', '.')) || 1000, ohms: wave === 'dc' ? 0.01 : wave === 'mains' ? 0.5 : 50 };
+    commit((d) => {
+      d.sim = { ...(d.sim ?? {}), sources: [...(d.sim?.sources ?? []), s] };
+    });
+    a.addSource(s);
+    simRuntime.synced = useEditor.getState().project;
+    simRuntime.refresh();
+  };
+  const remove = (id: string) => {
+    commit((d) => {
+      if (d.sim?.sources) d.sim.sources = d.sim.sources.filter((x) => x.id !== id);
+    });
+    a.removeSource(id);
+    simRuntime.synced = useEditor.getState().project;
+    simRuntime.refresh();
+  };
+  return (
+    <div className="sim-dev">
+      <div className="sim-title">
+        <label>
+          <input type="checkbox" checked={open || list.length > 0} onChange={(e) => setOpen(e.target.checked)} /> <b>Источники и генераторы</b>
+        </label>
+        <span className="hint">{list.length ? `${list.length} в проекте` : 'на любую цепь, относительно земли'}</span>
+      </div>
+      {list.map((s) => (
+        <div key={s.id} className="row">
+          <span>
+            {project.nets[s.net]?.name ?? '?'}: {WAVE_TITLES[s.wave]} {s.volts} В{s.wave !== 'dc' ? `, ${fmtSi(s.freq ?? 50, 'Гц')}` : ''}
+          </span>
+          <button className="btn sm" onClick={() => remove(s.id)} title="Убрать генератор">
+            ✕
+          </button>
+        </div>
+      ))}
+      {(open || list.length > 0) && (
+        <div className="analog-chans">
+          <select value={net} onChange={(e) => setNet(e.target.value)}>
+            <option value="">цепь —</option>
+            {nets.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}
+              </option>
+            ))}
+          </select>
+          <select value={wave} onChange={(e) => setWave(e.target.value as SimSource['wave'])}>
+            {(Object.keys(WAVE_TITLES) as SimSource['wave'][]).map((w) => (
+              <option key={w} value={w}>
+                {WAVE_TITLES[w]}
+              </option>
+            ))}
+          </select>
+          <label className="hint">
+            {wave === 'dc' ? 'напряжение' : wave === 'mains' ? 'действующее' : 'амплитуда'} <input className="inp" style={{ width: 64 }} value={volts} onChange={(e) => setVolts(e.target.value)} /> В
+          </label>
+          {wave !== 'dc' && (
+            <label className="hint">
+              <input className="inp" style={{ width: 80 }} value={freq} onChange={(e) => setFreq(e.target.value)} /> Гц
+            </label>
+          )}
+          <button className="btn sm primary" onClick={add} disabled={!net}>
+            Подключить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Напряжения всех цепей (как мультиметр на каждой), по имени. */
+function NetsTable({ tick }: { tick: number }) {
+  const a = simRuntime.sim?.analog;
+  const [open, setOpen] = useState(false);
+  void tick;
+  if (!a) return null;
+  const rows = [...a.nodeOf]
+    .filter(([, n]) => n >= 0)
+    .map(([net, n]) => ({ name: a.netName(net) || net, v: a.engine.volts(n) }))
+    .sort((x, y) => x.name.localeCompare(y.name, 'ru', { numeric: true }));
+  return (
+    <div className="sim-dev">
+      <div className="sim-title">
+        <label>
+          <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} /> <b>Напряжения цепей</b>
+        </label>
+        <span className="hint">{rows.length} цепей, земля — {[...a.ground].map((g) => a.netName(g)).join(', ') || 'нет'}</span>
+      </div>
+      {open && (
+        <table className="grid">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name}>
+                <td>{r.name}</td>
+                <td style={{ textAlign: 'right' }}>{fmtSi(r.v, 'В')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -155,7 +340,7 @@ function probeList(part: AnalogPart | null): Probe[] {
   return out;
 }
 
-const WINDOWS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
+const WINDOWS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
 
 function Scope({ tick, part }: { tick: number; part: AnalogPart | null }) {
   const a = simRuntime.sim?.analog;

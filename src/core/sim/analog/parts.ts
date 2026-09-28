@@ -20,6 +20,37 @@ export function parseFarads(value: string): number | null {
   return num(m[1]) * mulOf(u.replace(/ф|f$/, '') || u);
 }
 
+/** Сопротивление где угодно в строке: «MF52 10K», «NTC 4,7 кОм», «GL5528 (10 кОм)». */
+export function findOhms(value: string): number | null {
+  const m = /(\d+(?:[.,]\d+)?)\s*(ком|kohm|k|к|мом|mohm|meg|m|м|ом|ohm|r|ω)(?![a-zа-я])/i.exec(value.replace(/\*/g, ''));
+  if (!m) return null;
+  const u = m[2].toLowerCase();
+  const mul = /^(ком|kohm|k|к)$/.test(u) ? 1e3 : /^(мом|mohm|meg|m|м)$/.test(u) ? 1e6 : 1;
+  return num(m[1]) * mul;
+}
+
+/** Ток в номинале: «2 А», «500 мА», «F2A», «T315mA». */
+export function parseAmps(value: string): number | null {
+  const m = /(\d+(?:[.,]\d+)?)\s*(ма|ma|а|a)(?![a-zа-я])/i.exec(value);
+  if (!m) return null;
+  return num(m[1]) * (/^(ма|ma)$/i.test(m[2]) ? 1e-3 : 1);
+}
+
+/** Мощность: «5 Вт», «2 ВА», «10W», «3VA». */
+export function parseWatts(value: string): number | null {
+  const m = /(\d+(?:[.,]\d+)?)\s*(вт|w|ва|va)(?![a-zа-я])/i.exec(value);
+  return m ? num(m[1]) : null;
+}
+
+/** Напряжения трансформатора: «230/12 В», «220V/9V», «230 В → 2×9 В», «9 В». */
+export function transformerVolts(value: string): { vp: number; vs: number } {
+  const t = value.replace(/,/g, '.');
+  const pair = /(\d+(?:\.\d+)?)\s*[вv]?\s*(?:\/|→|->|на)\s*(?:2\s*[x×]\s*)?(\d+(?:\.\d+)?)/i.exec(t);
+  if (pair) return { vp: +pair[1], vs: +pair[2] };
+  const one = parseVolts(t);
+  return { vp: 230, vs: one && one < 100 ? one : 12 };
+}
+
 /** Индуктивность: «100 мкГн», «6,8 мкГн 1,5 А», «10mH», «0,8 мГн». */
 export function parseHenry(value: string): number | null {
   const m = /(\d+(?:[.,]\d+)?)\s*(нгн|nh|мкгн|uh|µh|мгн|mh|гн|h)/i.exec(value);
@@ -38,33 +69,35 @@ export function parseVolts(value: string): number | null {
 }
 
 export const MOSFETS: [RegExp, MosModel][] = [
-  [/IRF840/i, { type: 'n', vth: 3, ron: 0.85, cgs: 1.3e-9 }],
-  [/IRF9640/i, { type: 'p', vth: 3, ron: 0.5, cgs: 1.2e-9 }],
-  [/IRF740/i, { type: 'n', vth: 3, ron: 0.55, cgs: 1.4e-9 }],
-  [/IRF640/i, { type: 'n', vth: 3, ron: 0.18, cgs: 1.3e-9 }],
-  [/IRF540/i, { type: 'n', vth: 3, ron: 0.077, cgs: 1.7e-9 }],
-  [/IRF9540/i, { type: 'p', vth: 3, ron: 0.2, cgs: 1.4e-9 }],
-  [/IRFZ44/i, { type: 'n', vth: 3, ron: 0.0175, cgs: 1.5e-9 }],
-  [/IRLZ44/i, { type: 'n', vth: 1.5, ron: 0.022, cgs: 3.3e-9 }],
-  [/IRF3205/i, { type: 'n', vth: 3, ron: 0.008, cgs: 3.2e-9 }],
-  [/IRF4905/i, { type: 'p', vth: 3, ron: 0.02, cgs: 3.4e-9 }],
-  [/IRF5305/i, { type: 'p', vth: 3, ron: 0.06, cgs: 1.2e-9 }],
-  [/IRLML2502/i, { type: 'n', vth: 0.8, ron: 0.045, cgs: 0.7e-9 }],
-  [/AO3400|SI2302/i, { type: 'n', vth: 1, ron: 0.04, cgs: 0.6e-9 }],
-  [/AO3401|SI2301/i, { type: 'p', vth: 0.9, ron: 0.06, cgs: 0.6e-9 }],
-  [/2N7000|BS170|2N7002/i, { type: 'n', vth: 2.1, ron: 5, cgs: 50e-12 }],
+  [/IRF840/i, { type: 'n', vth: 3, ron: 0.85, cgs: 1.3e-9 , vds: 500 }],
+  [/IRF9640/i, { type: 'p', vth: 3, ron: 0.5, cgs: 1.2e-9 , vds: 200 }],
+  [/IRF740/i, { type: 'n', vth: 3, ron: 0.55, cgs: 1.4e-9 , vds: 400 }],
+  [/IRF640/i, { type: 'n', vth: 3, ron: 0.18, cgs: 1.3e-9 , vds: 200 }],
+  [/IRF540/i, { type: 'n', vth: 3, ron: 0.077, cgs: 1.7e-9 , vds: 100 }],
+  [/IRF9540/i, { type: 'p', vth: 3, ron: 0.2, cgs: 1.4e-9 , vds: 100 }],
+  [/IRFZ44/i, { type: 'n', vth: 3, ron: 0.0175, cgs: 1.5e-9 , vds: 55 }],
+  [/IRLZ44/i, { type: 'n', vth: 1.5, ron: 0.022, cgs: 3.3e-9 , vds: 55 }],
+  [/IRF3205/i, { type: 'n', vth: 3, ron: 0.008, cgs: 3.2e-9 , vds: 55 }],
+  [/IRF4905/i, { type: 'p', vth: 3, ron: 0.02, cgs: 3.4e-9 , vds: 55 }],
+  [/IRF5305/i, { type: 'p', vth: 3, ron: 0.06, cgs: 1.2e-9 , vds: 55 }],
+  [/IRLML2502/i, { type: 'n', vth: 0.8, ron: 0.045, cgs: 0.7e-9 , vds: 20 }],
+  [/AO3400|SI2302/i, { type: 'n', vth: 1, ron: 0.04, cgs: 0.6e-9 , vds: 30 }],
+  [/AO3401|SI2301/i, { type: 'p', vth: 0.9, ron: 0.06, cgs: 0.6e-9 , vds: 30 }],
+  [/2N7000|BS170|2N7002/i, { type: 'n', vth: 2.1, ron: 5, cgs: 50e-12 , vds: 60 }],
 ];
 
 const npn = (beta: number, extra: Partial<BjtModel> = {}): BjtModel => ({ type: 'npn', beta, vbe: 0.65, rbe: 50, vcesat: 0.15, rsat: 1, ...extra });
 const pnp = (beta: number, extra: Partial<BjtModel> = {}): BjtModel => ({ type: 'pnp', beta, vbe: 0.65, rbe: 50, vcesat: 0.15, rsat: 1, ...extra });
 
 export const BJTS: [RegExp, BjtModel][] = [
-  [/C945|S8050|BC(5|8)4[678]|2N2222|2N3904|MMBT3904|2N5551|SS9014|KT315/i, npn(200)],
-  [/A733|S8550|BC(5|8)5[678]|2N2907|2N3906|MMBT3906|2N5401|SS9015|KT361/i, pnp(200)],
-  [/TIP12[012]|BDX53/i, npn(1000, { vbe: 1.3, vcesat: 0.9, rsat: 0.2, rbe: 200 })],
-  [/TIP12[567]|BDX54/i, pnp(1000, { vbe: 1.3, vcesat: 0.9, rsat: 0.2, rbe: 200 })],
-  [/TIP31|TIP41|BD139|D882|KT815|KT817/i, npn(60, { rbe: 10, rsat: 0.2, vcesat: 0.3 })],
-  [/TIP32|TIP42|BD140|B772|KT814|KT816/i, pnp(60, { rbe: 10, rsat: 0.2, vcesat: 0.3 })],
+  [/2N5551/i, npn(150, { vceo: 160 })],
+  [/2N5401/i, pnp(150, { vceo: 150 })],
+  [/C945|S8050|BC(5|8)4[678]|2N2222|2N3904|MMBT3904|SS9014|KT315/i, npn(200, { vceo: 45 })],
+  [/A733|S8550|BC(5|8)5[678]|2N2907|2N3906|MMBT3906|SS9015|KT361/i, pnp(200, { vceo: 45 })],
+  [/TIP12[012]|BDX53/i, npn(1000, { vbe: 1.3, vcesat: 0.9, rsat: 0.2, rbe: 200, vceo: 80 })],
+  [/TIP12[567]|BDX54/i, pnp(1000, { vbe: 1.3, vcesat: 0.9, rsat: 0.2, rbe: 200, vceo: 80 })],
+  [/TIP31|TIP41|BD139|D882|KT815|KT817/i, npn(60, { rbe: 10, rsat: 0.2, vcesat: 0.3, vceo: 60 })],
+  [/TIP32|TIP42|BD140|B772|KT814|KT816/i, pnp(60, { rbe: 10, rsat: 0.2, vcesat: 0.3, vceo: 60 })],
 ];
 
 export const DIODES: [RegExp, DiodeModel][] = [
@@ -92,6 +125,10 @@ export const OPAMPS: [RegExp, OpAmpModel][] = [
   [/TL0[78]\d/i, { a0: 2e5, gbw: 3e6, hrHi: 1.5, hrLo: 1.5, rout: 50, en: 18e-9 }],
   [/NE5532|NE5534/i, { a0: 1e5, gbw: 10e6, hrHi: 1.5, hrLo: 1.5, rout: 30, en: 5e-9 }],
   [/OPA2?13[24]|OPA2?1[67]\d/i, { a0: 1e6, gbw: 8e6, hrHi: 0.5, hrLo: 0.5, rout: 30, en: 8e-9 }],
+  [/TDA20[35]0|LM1875|LM3886/i, { a0: 3e4, gbw: 3e6, hrHi: 1.5, hrLo: 1.5, rout: 0.1, en: 3e-9 }],
+  [/LM741|UA741|К140УД7/i, { a0: 2e5, gbw: 1e6, hrHi: 1.5, hrLo: 1.5, rout: 75, en: 20e-9 }],
+  [/OP07/i, { a0: 4e5, gbw: 0.6e6, hrHi: 1.2, hrLo: 1.2, rout: 60, en: 10e-9 }],
+  [/CA3140/i, { a0: 1e5, gbw: 4.5e6, hrHi: 1.8, hrLo: 0.1, rout: 60, en: 40e-9 }],
 ];
 /** ОУ по умолчанию (незнакомое название). */
 export const OPAMP_DEFAULT: OpAmpModel = { a0: 1e5, gbw: 1e6, hrHi: 0.1, hrLo: 0.1, rout: 50, en: 20e-9 };
@@ -99,6 +136,8 @@ export const OPAMP_DEFAULT: OpAmpModel = { a0: 1e5, gbw: 1e6, hrHi: 0.1, hrLo: 0
 /** Линейные стабилизаторы: название → напряжение (если не в названии), перепад, собственный ток. */
 export function regulatorModel(value: string): RegModel | null {
   const v = value.toUpperCase();
+  // Регулируемые: между выходом и ADJ держат 1,25 В (делитель задаёт выход).
+  if (/LM317|LM338|LM350|LM1117-?ADJ|AMS1117-?ADJ|LM2941/.test(v)) return { vout: 1.25, vdrop: /1117/.test(v) ? 1.1 : 1.7, rout: 0.05, iq: 50e-6 };
   let vout: number | null = null;
   const m = /(?:-|V|_)(\d{1,2}(?:[.,]\d)?)(?![\d.])/.exec(v.replace(/^LD1117V/, 'LD1117-'));
   if (/78L?M?(\d\d)|79L?(\d\d)/.test(v)) {

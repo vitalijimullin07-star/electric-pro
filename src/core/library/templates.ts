@@ -1,6 +1,7 @@
 import { addComponent, addDrawing } from '../model/edit';
 import { createProject, rectOutline, type NewProjectOptions } from '../model/project';
 import type { Project } from '../model/types';
+import { SIM_EXAMPLES } from '../examples/sim-circuits';
 import { mountingHole, pinHeader } from './generators/tht';
 
 /*
@@ -25,7 +26,15 @@ function blank(id: string, name: string, w: number, h: number, description: stri
     description,
     group: 'Пустые',
     size: [w, h],
-    create: (o = {}) => createProject({ name, width: w, height: h, template: id, ...extra, ...o }),
+    create: (o = {}) =>
+      createProject({
+        name,
+        width: w,
+        height: h,
+        template: id,
+        ...extra,
+        ...o,
+      }),
   };
 }
 
@@ -51,7 +60,13 @@ export const TEMPLATES: BoardTemplate[] = [
     group: 'Форм-факторы',
     size: [68.58, 53.34],
     create: (o = {}) => {
-      const p = createProject({ name: 'Шилд Arduino Uno', width: 68.58, height: 53.34, template: 'arduino-uno-shield', ...o });
+      const p = createProject({
+        name: 'Шилд Arduino Uno',
+        width: 68.58,
+        height: 53.34,
+        template: 'arduino-uno-shield',
+        ...o,
+      });
       p.board.outline = [
         { x: 0, y: 0 },
         { x: 66.04, y: 0 },
@@ -78,7 +93,14 @@ export const TEMPLATES: BoardTemplate[] = [
     group: 'Форм-факторы',
     size: [65, 56.5],
     create: (o = {}) => {
-      const p = createProject({ name: 'Raspberry Pi HAT', width: 65, height: 56.5, cornerRadius: 3, template: 'rpi-hat', ...o });
+      const p = createProject({
+        name: 'Raspberry Pi HAT',
+        width: 65,
+        height: 56.5,
+        cornerRadius: 3,
+        template: 'rpi-hat',
+        ...o,
+      });
       holes(p, 2.5, [
         [3.5, 3.5],
         [61.5, 3.5],
@@ -97,7 +119,14 @@ export const TEMPLATES: BoardTemplate[] = [
     group: 'Форм-факторы',
     size: [60, 40],
     create: (o = {}) => {
-      const p = createProject({ name: 'Плата под Pi Pico', width: 60, height: 40, cornerRadius: 2, template: 'pico-carrier', ...o });
+      const p = createProject({
+        name: 'Плата под Pi Pico',
+        width: 60,
+        height: 40,
+        cornerRadius: 2,
+        template: 'pico-carrier',
+        ...o,
+      });
       holes(p, 3, [
         [3.5, 3.5],
         [56.5, 3.5],
@@ -117,11 +146,40 @@ export const TEMPLATES: BoardTemplate[] = [
     group: 'Форм-факторы',
     size: [72, 54],
     create: (o = {}) => {
-      const p = createProject({ name: 'Корпус DIN 4M', width: 72, height: 54, cornerRadius: 1, template: 'din-rail-72', ...o });
-      addDrawing(p, { kind: 'text', layer: 'F.Silk', at: { x: 36, y: 50 }, text: 'DIN 4M — проверить габарит по корпусу', size: 1.2, align: 'center' });
+      const p = createProject({
+        name: 'Корпус DIN 4M',
+        width: 72,
+        height: 54,
+        cornerRadius: 1,
+        template: 'din-rail-72',
+        ...o,
+      });
+      addDrawing(p, {
+        kind: 'text',
+        layer: 'F.Silk',
+        at: { x: 36, y: 50 },
+        text: 'DIN 4M — проверить габарит по корпусу',
+        size: 1.2,
+        align: 'center',
+      });
       return p;
     },
   },
+  // Схемы для симуляции без контроллера: слои и правила задаёт сам пример.
+  ...SIM_EXAMPLES.map(
+    (x): BoardTemplate => ({
+      id: x.id,
+      name: x.name,
+      description: x.description,
+      group: 'Примеры',
+      size: x.size,
+      create: () => {
+        const p = x.create();
+        p.meta.template = x.id;
+        return p;
+      },
+    }),
+  ),
 ];
 
 export function templateById(id: string): BoardTemplate | undefined {

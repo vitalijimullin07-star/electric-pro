@@ -13,9 +13,10 @@ export type PinMode = 'low' | 'high' | 'input' | 'pullup' | 'pulldown';
 
 export type PinListener = (pin: McuPin, mode: PinMode, cycle: number) => void;
 
-export type McuKind = 'atmega328p' | 'atmega32' | 'esp32';
+/** 'none' — схема без контроллера: время идёт, выводов нет (см. null-mcu.ts). */
+export type McuKind = 'atmega328p' | 'atmega32' | 'esp32' | 'none';
 
-export const MCU_TITLES: Record<McuKind, string> = { atmega328p: 'ATmega328P', atmega32: 'ATmega32A', esp32: 'ESP32' };
+export const MCU_TITLES: Record<McuKind, string> = { atmega328p: 'ATmega328P', atmega32: 'ATmega32A', esp32: 'ESP32', none: 'без контроллера' };
 
 /** Контроллер для схемы: время в «тактах» (у ESP32 такт — микросекунда), выводы, АЦП. */
 export interface SimMcu {

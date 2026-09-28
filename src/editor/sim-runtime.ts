@@ -1,4 +1,5 @@
 import { Simulation, type SimView } from '@core/sim';
+import { findMcu } from '@core/sim/circuit';
 import { useEditor } from './store';
 
 /*
@@ -51,6 +52,8 @@ class SimRuntime {
   analog = readPref('plata.sim.analog', '1') === '1';
   analogDt = Number(readPref('plata.sim.dt', '2e-6')) || 2e-6;
   noise = readPref('plata.sim.noise', '1') === '1';
+  /** Масштаб времени: 1 — реальное, 0,01 — замедление в 100 раз (видно быстрые процессы), 10 — ускорение. */
+  timeScale = 1;
   /** Проект, с которым согласована симуляция («в проект» из ручек номинала не требует сброса). */
   synced: unknown = null;
 
@@ -76,8 +79,9 @@ class SimRuntime {
     const s = useEditor.getState();
     const fw = s.project.firmware;
     this.stop(true);
-    if (!fw) {
-      this.patch({ error: 'Сначала загрузите прошивку (.hex или .wasm).', status: 'off' });
+    const withMcu = !!findMcu(s.project);
+    if (!fw && withMcu) {
+      this.patch({ error: 'Сначала загрузите прошивку (.hex или .wasm). Без контроллера на схеме симуляция идёт и без прошивки.', status: 'off' });
       return;
     }
     // Звук разрешается только из обработчика нажатия — заводим его сразу, до ожидания.
@@ -99,7 +103,13 @@ class SimRuntime {
         this.history = { t: [], s: {} };
         this.view = sim.view();
         this.patch({ status: 'running', error: null, seconds: 0, speed: 0 });
-        useEditor.getState().setMessage(`Симуляция идёт: ${fw.name}. Кнопки на плате нажимаются касанием, ползунки и монитор порта — на вкладке «Симуляция»; «Во весь экран» — пульт и графики.`);
+        useEditor
+          .getState()
+          .setMessage(
+            sim.noMcu
+              ? 'Симуляция схемы без контроллера: схема включается с нуля, как при подаче питания. Кнопки и тумблеры на плате нажимаются касанием; номиналы, осциллограф и генераторы — на вкладке «Симуляция → Цепь».'
+              : `Симуляция идёт: ${fw?.name}. Кнопки на плате нажимаются касанием, ползунки и монитор порта — на вкладке «Симуляция»; «Во весь экран» — пульт и графики.`,
+          );
         this.last = performance.now();
         this.loop();
       },
@@ -141,7 +151,7 @@ class SimRuntime {
     const now = performance.now();
     const dt = Math.min(50, now - this.last);
     this.last = now;
-    const target = Math.round((dt / 1000) * sim.mcu.freq);
+    const target = Math.round((dt / 1000) * sim.mcu.freq * this.timeScale);
     // Порция — 1 мс времени контроллера (у AVR 16 000 тактов, у ESP32 такт — микросекунда).
     const slice = Math.max(100, Math.round(sim.mcu.freq / 1000));
     const t0 = performance.now();
@@ -162,7 +172,8 @@ class SimRuntime {
     this.emit();
     const st = useEditor.getState().sim;
     if (this.speedAcc.wall > 0.25 || st.seconds === 0) {
-      this.patch({ seconds: sim.seconds, speed: this.speedAcc.wall ? Math.min(1, this.speedAcc.sim / this.speedAcc.wall) : 0 });
+      // Скорость — от заданной (при замедлении ×0,01 полная — это 1 % реальной).
+      this.patch({ seconds: sim.seconds, speed: this.speedAcc.wall ? Math.min(1, this.speedAcc.sim / (this.speedAcc.wall * this.timeScale)) : 0 });
       this.speedAcc = { sim: 0, wall: 0 };
     }
     this.frameMs = this.frameMs * 0.8 + Math.min(100, dt) * 0.2;
@@ -239,7 +250,8 @@ class SimRuntime {
   }
 
   /** Настройки аналогового расчёта: включение и шаг — со следующего запуска, шум — сразу. */
-  setAnalogPrefs(o: { analog?: boolean; dt?: number; noise?: boolean }): void {
+  setAnalogPrefs(o: { analog?: boolean; dt?: number; noise?: boolean; timeScale?: number }): void {
+    if (o.timeScale !== undefined) this.timeScale = o.timeScale;
     if (o.analog !== undefined) writePref('plata.sim.analog', (this.analog = o.analog) ? '1' : '0');
     if (o.dt !== undefined) writePref('plata.sim.dt', String((this.analogDt = o.dt)));
     if (o.noise !== undefined) {

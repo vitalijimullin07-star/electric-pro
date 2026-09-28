@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
+import { findMcu } from '@core/sim/circuit';
 import { parseHex } from '@core/sim/hex';
 import type { DeviceView, SimView } from '@core/sim';
 import { openFileBytes } from '../files';
@@ -72,6 +73,9 @@ export function SimPanel() {
   const view = useSimView();
   const [tab, setTab] = useState<'dev' | 'analog' | 'serial' | 'pins'>('dev');
   const status = sim.status;
+  // Без контроллера на схеме симулируется только схема — прошивка не нужна.
+  const withMcu = useMemo(() => !!findMcu(project), [project]);
+  const canStart = !!fw || !withMcu;
   return (
     <div className="sim-panel">
       <h3>Симуляция</h3>
@@ -81,11 +85,11 @@ export function SimPanel() {
             ⏸ Пауза
           </button>
         ) : (
-          <button className="btn primary" onClick={() => (status === 'paused' ? simRuntime.resume() : simRuntime.start())} disabled={!fw || status === 'loading'}>
+          <button className="btn primary" onClick={() => (status === 'paused' ? simRuntime.resume() : simRuntime.start())} disabled={!canStart || status === 'loading'}>
             ▶ {status === 'paused' ? 'Дальше' : status === 'loading' ? 'Запуск…' : 'Старт'}
           </button>
         )}
-        <button className="btn" onClick={() => simRuntime.start()} disabled={!fw || status === 'off'} title="Сначала: сброс контроллера, схема заново">
+        <button className="btn" onClick={() => simRuntime.start()} disabled={!canStart || status === 'off'} title="Сначала: сброс контроллера, схема заново (без контроллера — снова подача питания)">
           ⟲ Сброс
         </button>
         <button className="btn" onClick={() => simRuntime.stop()} disabled={status === 'off'}>
@@ -96,15 +100,26 @@ export function SimPanel() {
         </label>
       </div>
       <div className="row">
-        <button className="btn primary" onClick={() => (status === 'off' && simRuntime.start(), simRuntime.setFull(true))} disabled={!fw} title="Пульт, мнемосхема, графики и все настройки на весь экран">
+        <button className="btn primary" onClick={() => (status === 'off' && simRuntime.start(), simRuntime.setFull(true))} disabled={!canStart} title="Пульт, мнемосхема, графики и все настройки на весь экран">
           ⛶ Во весь экран
         </button>
       </div>
       <div className="row">
-        <label className="sim-sound" title="Токи и напряжения всей схемы, номиналы на ходу, осциллограф и АЧХ. Включается со следующего запуска.">
-          <input type="checkbox" checked={simRuntime.analog} onChange={(e) => simRuntime.setAnalogPrefs({ analog: e.target.checked })} /> аналоговый расчёт
-        </label>
-        {simRuntime.analog && (
+        {withMcu ? (
+          <label className="sim-sound" title="Токи и напряжения всей схемы, номиналы на ходу, осциллограф и АЧХ. Включается со следующего запуска.">
+            <input type="checkbox" checked={simRuntime.analog} onChange={(e) => simRuntime.setAnalogPrefs({ analog: e.target.checked })} /> аналоговый расчёт
+          </label>
+        ) : (
+          <span className="hint">схема без контроллера:</span>
+        )}
+        <select value={simRuntime.timeScale} onChange={(e) => simRuntime.setAnalogPrefs({ timeScale: +e.target.value })} title="Замедление — чтобы глазами увидеть быстрые процессы (заряд конденсатора, ШИМ); ускорение — медленные (разряд аккумулятора, прогрев)">
+          {[0.001, 0.01, 0.1, 1, 10, 100].map((k) => (
+            <option key={k} value={k}>
+              {k === 1 ? 'время реальное' : k < 1 ? `замедление ×${Math.round(1 / k)}` : `ускорение ×${k}`}
+            </option>
+          ))}
+        </select>
+        {(simRuntime.analog || !withMcu) && (
           <>
             <select value={simRuntime.analogDt} onChange={(e) => simRuntime.setAnalogPrefs({ dt: +e.target.value })} title="Шаг расчёта: мельче — точнее на высоких частотах, но медленнее. Со следующего запуска.">
               {[0.5e-6, 1e-6, 2e-6, 5e-6, 10e-6].map((d) => (
@@ -119,13 +134,18 @@ export function SimPanel() {
           </>
         )}
       </div>
+      {!withMcu && !fw && (
+        <p className="hint">
+          На схеме нет контроллера — симулируется сама схема, прошивка не нужна. Питание — аккумулятор, блок питания (клеммник с моделью «источник питания» в свойствах), цепи с именами +5V, +12V или свой источник на вкладке «Цепь». Нажмите «Старт».
+        </p>
+      )}
       <div className="row">
         <button className="btn" onClick={() => void loadFirmware()}>
           Загрузить прошивку (.hex, .wasm)…
         </button>
-        <span className="hint">{fw ? fw.name : 'не загружена'}</span>
+        <span className="hint">{fw ? fw.name : withMcu ? 'не загружена' : 'не нужна'}</span>
       </div>
-      {!fw && (
+      {!fw && withMcu && (
         <p className="hint">
           В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме. Для ESP32 — ядро прошивки, собранное в WebAssembly (<b>.wasm</b>, см. firmware/vacuum-esp32/build-sim.sh).
         </p>
@@ -139,7 +159,7 @@ export function SimPanel() {
           <span style={sim.speed && sim.speed < 0.9 ? { color: 'var(--warn)' } : undefined} title={sim.speed && sim.speed < 0.9 ? 'Устройство не успевает — время в симуляции идёт медленнее реального' : undefined}>
             {Math.round(sim.speed * 100)} %
           </span>{' '}
-          от реальной
+          {simRuntime.timeScale === 1 ? 'от реальной' : 'от заданной'}
           {view && <> · {view.mcu}</>}
         </p>
       )}
@@ -177,7 +197,13 @@ export function Devices({ view }: { view: SimView }) {
   const unknown = simRuntime.sim?.unknown ?? [];
   return (
     <div className="sim-devices">
-      {!list.length && <p className="hint">Деталей вокруг контроллера не нашлось: подключите светодиоды, кнопки, датчики к его выводам на схеме или плате.</p>}
+      {!list.length && (
+        <p className="hint">
+          {simRuntime.sim?.noMcu
+            ? 'Светодиодов, кнопок, реле и двигателей в схеме нет — напряжения и токи смотрите во вкладке «Цепь» и на плате.'
+            : 'Деталей вокруг контроллера не нашлось: подключите светодиоды, кнопки, датчики к его выводам на схеме или плате.'}
+        </p>
+      )}
       {list.map((d) => (
         <div key={d.id} className={`sim-dev k-${d.kind}`}>
           <div className="sim-title">
@@ -192,7 +218,7 @@ export function Devices({ view }: { view: SimView }) {
           {d.kind === 'lcd' && d.lines && <Lcd d={d} />}
           {d.kind === 'oled' && d.frame && <Oled frame={d.frame} w={d.width!} h={d.height!} />}
           {d.kind === 'panel' && d.pixels && <PanelScreen d={d} />}
-          {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} />}
+          {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} label={d.toggle ? (d.pressed ? 'включено — переключить' : 'выключено — переключить') : undefined} />}
           {d.kind === 'digital' && (
             <button className={`btn sm ${d.on ? 'primary' : ''}`} onClick={() => simRuntime.set(d.id, 'v', d.on ? 0 : 1)}>
               {d.on ? '1 — высокий' : '0 — низкий'}

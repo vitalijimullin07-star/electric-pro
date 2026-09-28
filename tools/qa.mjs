@@ -1352,6 +1352,59 @@ async function openPage(viewport, touch = false) {
     await page.waitForTimeout(200);
   };
 
+  await step('симуляция без контроллера: пример «Мигалка на NE555» — «Старт» без прошивки, тумблер, мигание, модель детали, генератор', async () => {
+    await stopSim();
+    await h.menu('Файл', 'Новый проект');
+    await h.hit(page.locator('.modal .card', { hasText: 'Мигалка на NE555' }));
+    await h.hit(page.locator('.modal footer button', { hasText: 'Создать' }));
+    await page.waitForTimeout(400);
+    expect(/Старт/.test(await h.msg()), 'подсказка после примера: ' + (await h.msg()));
+    // Модель детали в свойствах: у LED1 — «авто: светодиод».
+    const p = await h.project();
+    const led = Object.values(p.components).find((c) => c.ref === 'LED1');
+    await h.hit(page.locator('.panel .tabs button', { hasText: 'Свойства' }));
+    await h.clickAt(led.at.x, led.at.y);
+    const model = page.locator('.sim-model select').first();
+    await model.waitFor({ timeout: 3000 });
+    const auto = await model.locator('option').first().innerText();
+    expect(/авто: светодиод/.test(auto), 'модель LED1: ' + auto);
+    await page.keyboard.press('Escape');
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(800);
+    const panel = await page.locator('.sim-panel').innerText();
+    expect(/без контроллера/.test(panel), 'панель: ' + panel.slice(0, 200));
+    // Тумблер SW1: касание включает питание — светодиод мигает с частотой около 1 Гц.
+    const sw = page.locator('.sim-dev', { hasText: 'SW1' }).locator('.sim-hold');
+    expect(/выключено/.test(await sw.innerText()), 'SW1: ' + (await sw.innerText()));
+    await h.hit(sw);
+    await page.waitForTimeout(300);
+    expect(/включено/.test(await sw.innerText()), 'SW1 не переключился: ' + (await sw.innerText()));
+    let lit = 0;
+    let dark = 0;
+    for (let i = 0; i < 40; i++) {
+      await page.waitForTimeout(100);
+      const t = await page.locator('.sim-dev.k-led', { hasText: 'LED1' }).innerText();
+      if (/горит/.test(t) && !/не горит/.test(t)) lit++;
+      else dark++;
+    }
+    expect(lit >= 4 && dark >= 4, `светодиод не мигает: горел ${lit}, не горел ${dark} из 40`);
+    // Вкладка «Цепь»: генератор на CTRL, показания 555.
+    await h.hit(page.locator('.sim-tabs button', { hasText: 'Цепь' }));
+    const gen = page.locator('.analog .sim-dev', { hasText: 'Источники и генераторы' });
+    await gen.locator('input[type=checkbox]').first().check();
+    const ctrl = await gen.locator('select').first().locator('option').evaluateAll((os) => os.find((o) => o.textContent === 'CTRL')?.value);
+    expect(ctrl, 'нет цепи CTRL в списке генератора');
+    await gen.locator('select').first().selectOption(ctrl);
+    await h.hit(gen.locator('button', { hasText: 'Подключить' }));
+    await page.waitForTimeout(300);
+    const after = await h.project();
+    expect(after.sim?.sources?.length === 1, 'генератор не записан в проект');
+    expect(/CTRL: синус/.test(await gen.innerText()), 'генератор в списке: ' + (await gen.innerText()).slice(0, 120));
+    await page.screenshot({ path: `${out}/sim-nomcu-555.png` });
+    await h.hit(gen.locator('button[title="Убрать генератор"]'));
+    await h.menu('Симуляция', 'Стоп');
+  });
+
   await step('Sprint Layout: плата «Квазар» из .lay — детали из групп, дорожки, цепи по меди', async () => {
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Импорт платы Sprint Layout')]);
     await chooser.setFiles(new URL('../tests/fixtures/quasar/quasar-desalex.lay', import.meta.url).pathname);
@@ -1473,18 +1526,19 @@ async function openPage(viewport, touch = false) {
     expect(r3v && !/^10 Ом/.test(r3v), 'номинал R3 не записан: ' + r3v);
     await knob.fill('500');
     // Осциллограф и АЧХ.
-    const osc = page.locator('.analog .sim-title input[type=checkbox]').first();
+    const osc = page.locator('.analog .sim-dev', { hasText: 'Осциллограф' }).locator('.sim-title input[type=checkbox]').first();
     await osc.scrollIntoViewIfNeeded();
     await osc.check();
     await page.waitForTimeout(800);
     expect(await page.locator('.analog canvas.sim-scope').first().isVisible(), 'нет осциллографа');
-    const acSel = page.locator('.analog .sim-dev').last().locator('select');
+    const acBox = page.locator('.analog .sim-dev', { hasText: '1 В переменного на входе' });
+    const acSel = acBox.locator('select');
     await acSel.nth(1).selectOption({ label: 'ток R3.1' });
-    await page.locator('.analog .sim-dev').last().locator('input[type=number]').first().fill('2000');
-    await page.locator('.analog .sim-dev').last().locator('input[type=number]').nth(1).fill('30000');
+    await acBox.locator('input[type=number]').first().fill('2000');
+    await acBox.locator('input[type=number]').nth(1).fill('30000');
     await h.hit(page.locator('.analog button', { hasText: 'Построить' }));
     await page.waitForTimeout(500);
-    const ac = await page.locator('.analog .sim-dev').last().innerText();
+    const ac = await acBox.innerText();
     expect(/Пик: (7|8|9)[,\d]* кГц/.test(ac), 'АЧХ: ' + ac.slice(-200));
     await page.screenshot({ path: `${out}/quasar-analog.png` });
     await page.screenshot({ path: `${out}/quasar-analog-board.png`, clip: { x: 0, y: 0, width: 1000, height: 900 } });

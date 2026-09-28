@@ -1,89 +1,67 @@
-import type { Component, FootprintDef, Id, Project } from '../../model/types';
-import { isResistor, isWireLike, parseOhms, type Circuit } from '../circuit';
-import { transistorType } from '../devices';
+import type { Component, Id, Project, SimSource } from '../../model/types';
+import { powerVoltsOf, type Circuit } from '../circuit';
 import type { McuPin } from '../types';
-import { COIL_TARGETS, DdCoil } from './coil';
-import { Bjt, build555, buildMosfet, buildMotor, buildOpAmp, Diode, McuPinEl, OpAmp, Regulator, Tl431, type DcMotor, type DiodeModel, type MotorModel } from './elements';
+import type { DdCoil } from './coil';
+import { Diode, McuPinEl, OpAmp, Regulator } from './elements';
+import { CondSwitch, DcDc, Fuse, LabSupply } from './elements-ext';
 import { Capacitor, CoupledCoils, Engine, GND, Inductor, Resistor, Switch, VSource, type AnalogElement, type AnalogParam, type Node } from './engine';
-import { BJTS, DIODES, ledModel, MOSFETS, OPAMP_DEFAULT, OPAMPS, parseFarads, parseHenry, parseVolts, regulatorModel } from './parts';
+import { kindOf, padsByName } from './kinds';
+import { buildPart, fmtSi, type AnalogPart, type BuildCtx } from './models';
 
 /*
  * Аналоговая схема проекта для симуляции «как в EveryCircuit»: каждая цепь — узел, детали —
- * модели движка (engine.ts, elements.ts). Контроллер остаётся в логической схеме (Circuit):
- * его выводы здесь — источники с сопротивлением, режим берётся из прошивки. Движок идёт
- * вслед за контроллером: перед каждым событием (фронт вывода, чтение АЦП, нажатие) он
- * досчитывается до текущего такта. Напряжения цепей для АЦП и датчиков берутся отсюда.
+ * модели движка (engine.ts, elements*.ts, models.ts). Контроллер (если есть) остаётся
+ * в логической схеме (Circuit): его выводы здесь — источники с сопротивлением, режим
+ * берётся из прошивки. Движок идёт вслед за контроллером: перед каждым событием (фронт
+ * вывода, чтение АЦП, нажатие) он досчитывается до текущего такта. Без контроллера время
+ * отсчитывает NullMcu, а схема включается «с нуля», как при подаче питания.
  *
- * Номиналы можно крутить на ходу (params/set): модель меняется, разложения матрицы
- * пересчитываются. «В проект» — вернуть номинал в деталь.
+ * Питание: аккумуляторы, блоки питания и стабилизаторы — детали схемы; цепи с именами
+ * +5V, +12V, -12V… без источника получают блок питания по имени; цепи L и N — сеть 230 В;
+ * свои источники и генераторы — в настройках проекта (project.sim.sources).
+ * Номиналы можно крутить на ходу (params/set); ручная модель детали — Component.sim.
  */
 
-export interface AnalogReading {
-  label: string;
-  value: number;
-  unit: string;
-}
-
-export interface AnalogPart {
-  comp: Component;
-  /** Что это за модель: «резистор», «ОУ MCP601»… */
-  kind: string;
-  params: AnalogParam[];
-  elements: AnalogElement[];
-  set(key: string, value: number): void;
-  readings(): AnalogReading[];
-  /** Номинал для записи в проект (по параметру nominal). */
-  nominal?(): string;
-  actions?: { key: string; label: string }[];
-  act?(key: string): void;
-  /** Полоска 0…1 (близость цели). */
-  level?(): number;
-}
+export type { AnalogPart, AnalogReading, PartUi } from './models';
+export { fmtSi } from './models';
 
 /** Канал осциллографа: напряжение цепи или ток через вывод детали. */
 export type ScopeProbe = { net: Id } | { comp: Id; pad: string };
 
-const up = (s: string) => s.toUpperCase().replace(/\s+/g, '');
+const NET_LIVE = /^(L|L1|AC_?L|LINE|~?2[23]0\s*V?~?|AC230|MAINS_?L)$/i;
+const NET_NEUTRAL = /^(N|AC_?N|NEUTRAL|MAINS_?N)$/i;
+const NET_NEGATIVE = /^-(\d+(?:[.,]\d+)?)V$/i;
 
-const PREFIX: [number, string][] = [
-  [1e6, 'М'],
-  [1e3, 'к'],
-  [1, ''],
-  [1e-3, 'м'],
-  [1e-6, 'мк'],
-  [1e-9, 'н'],
-  [1e-12, 'п'],
-];
-
-/** 4700, 'Ом' → «4,7 кОм». */
-export function fmtSi(v: number, unit: string, digits = 3): string {
-  if (!isFinite(v)) return '—';
-  if (v === 0) return `0 ${unit}`;
-  const a = Math.abs(v);
-  const [mul, pre] = PREFIX.find(([m]) => a >= m * 0.9995) ?? PREFIX[PREFIX.length - 1];
-  const x = v / mul;
-  const s = Number(x.toPrecision(digits)).toLocaleString('ru', { maximumFractionDigits: 3 });
-  return `${s} ${pre}${unit}`;
+/** Псевдодеталь для питания, сети и генераторов (в проекте её нет). */
+function pseudo(id: string, ref: string, value: string): Component {
+  return { id, ref, value, footprint: '', at: { x: 0, y: 0 }, rotation: 0, side: 'top', padNets: {} };
 }
 
-const param = (key: string, label: string, value: number, unit: string, min: number, max: number, extra: Partial<AnalogParam> = {}): AnalogParam => ({ key, label, value, unit, min, max, ...extra });
-
-/** Параметр номинала: пределы — в 10 раз в обе стороны, шкала логарифмическая. */
-const nominal = (key: string, label: string, value: number, unit: string): AnalogParam => param(key, label, value, unit, value / 10, value * 10, { log: true, nominal: true });
-
-function padsByName(fp: FootprintDef): Map<string, string[]> {
-  const m = new Map<string, string[]>();
-  for (const q of fp.pads) {
-    if (q.type === 'npth') continue;
-    const k = up(q.name ?? q.number);
-    const list = m.get(k) ?? [];
-    list.push(q.number);
-    m.set(k, list);
+/** Напряжение генератора во времени. */
+export function sourceWave(s: SimSource): (t: number) => number {
+  const a = s.volts;
+  const off = s.offset ?? 0;
+  const f = s.freq ?? 1000;
+  switch (s.wave) {
+    case 'dc':
+      return () => a;
+    case 'sine':
+      return (t) => off + a * Math.sin(2 * Math.PI * f * t);
+    case 'mains':
+      return (t) => a * Math.SQRT2 * Math.sin(2 * Math.PI * (s.freq ?? 50) * t);
+    case 'square': {
+      const duty = Math.min(0.99, Math.max(0.01, s.duty ?? 0.5));
+      return (t) => off + ((t * f) % 1 < duty ? a : 0);
+    }
+    case 'triangle':
+      return (t) => {
+        const ph = (t * f) % 1;
+        return off + a * (ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph);
+      };
   }
-  return m;
 }
 
-const DEFAULT_MOTOR: MotorModel = { r: 2, l: 1e-3, k: 0.01, j: 2e-6, b: 1e-6, load: 0 };
+export const WAVE_TITLES: Record<SimSource['wave'], string> = { dc: 'постоянное', sine: 'синус', square: 'меандр', triangle: 'треугольник', mains: 'сеть ~' };
 
 export class AnalogSim {
   readonly engine = new Engine();
@@ -94,14 +72,18 @@ export class AnalogSim {
   /** Детали, для которых модели нет (не влияют на аналоговую часть). */
   readonly skipped: string[] = [];
   readonly coil: DdCoil | null = null;
+  /** Схема без контроллера. */
+  readonly noMcu: boolean;
+  /** Цепи земли (узел −1). */
+  readonly ground = new Set<Id>();
+  /** Предупреждения сборки: нет земли, нет питания… */
+  readonly notes: string[] = [];
   private pins = new Map<McuPin, McuPinEl>();
-  private switches = new Map<string, Switch[]>();
-  private supplies: { src: VSource; g: number }[] = [];
+  private supplies: { src: LabSupply; g: number }[] = [];
   private battery: { src: VSource; g: number }[] = [];
   /** Цепи с выводом контроллера, которые задают активные выходы (ОУ, 555): уровень — в логику. */
   private feeds: { g: number; node: Node; lvl: 0 | 1 }[] = [];
   private nextCoilUpdate = 0;
-  /** Время движка отстаёт от контроллера не больше чем на это (с). */
   private readonly freq: number;
   private scopeRing: Float32Array[] = [];
   private scopeFns: ((x: Float64Array) => number)[] = [];
@@ -112,31 +94,25 @@ export class AnalogSim {
   /** Время последнего отсчёта осциллографа, с. */
   scopeT = 0;
   scopeLen = 4000;
+  /** Генераторы из настроек проекта по id. */
+  readonly sources = new Map<string, { s: SimSource; el: LabSupply | VSource; part: AnalogPart }>();
 
   constructor(
     readonly project: Project,
     readonly circuit: Circuit,
-    opts: { dt?: number } = {},
+    opts: { dt?: number; settle?: boolean } = {},
   ) {
     const c = circuit;
     this.freq = c.mcu.freq;
+    this.noMcu = c.mcu.kind === 'none';
     this.engine.dt = opts.dt ?? 1e-6;
+    this.findGround();
     this.build();
-    // Питание, которое ничем не задано (нет стабилизатора и аккумулятора) — источник по имени цепи.
-    const sourced = new Set<Node>();
-    for (const e of this.engine.elements) {
-      if (e instanceof VSource) sourced.add(e.p);
-      if (e instanceof Regulator) sourced.add(e.out);
-    }
-    c.groups.forEach((gr, g) => {
-      if (gr.power !== 'vcc') return;
-      const nodes = gr.nets.map((n) => this.nodeOf.get(n)).filter((x): x is Node => x !== undefined && x >= 0);
-      if (!nodes.length || nodes.some((n) => sourced.has(n))) return;
-      for (const n of nodes) this.supplies.push({ src: this.engine.add(new VSource(`питание ${gr.name}`, n, GND, c.powerOf(g), 0.02)), g });
-    });
+    this.addPower();
     c.onPower(() => {
       this.sync();
-      for (const s of [...this.supplies, ...this.battery]) s.src.volts = c.powerOf(s.g);
+      for (const s of this.supplies) s.src.volts = c.powerOf(s.g);
+      for (const s of this.battery) s.src.volts = c.powerOf(s.g);
     });
     // Выводы контроллера меняют режим — движок досчитывает до фронта.
     c.onMcuPin((pin, _g, mode) => {
@@ -148,9 +124,15 @@ export class AnalogSim {
         this.engine.kick();
       }
     });
+    // Ручные параметры моделей (свойства детали → «Модель для симуляции»).
+    for (const part of this.parts) {
+      const ps = part.comp.sim?.params;
+      if (ps) for (const [k, val] of Object.entries(ps)) if (part.params.some((q) => q.key === k)) part.set(k, val);
+    }
     this.quiet();
-    this.settle();
-    // Выходы ОУ и таймеров на входах контроллера: опрос раз в 20 мкс.
+    if (opts.settle ?? !this.noMcu) this.settle();
+    else this.engine.kick();
+    // Выходы ОУ, таймеров, логики на входах контроллера: опрос раз в 20 мкс.
     if (this.feeds.length) {
       const every = Math.max(1, Math.round(this.freq * 20e-6));
       const tick = () => {
@@ -161,8 +143,51 @@ export class AnalogSim {
     }
   }
 
+  /** Имя цепи. */
+  netName(net: Id | undefined): string {
+    return net ? (this.project.nets[net]?.name ?? '') : '';
+  }
+
+  /**
+   * Земля схемы: цепи GND (как у логической схемы); если таких нет — минус аккумулятора
+   * или блока питания; иначе — цепь, к которой подключено больше всего выводов.
+   */
+  private findGround(): void {
+    const c = this.circuit;
+    const p = this.project;
+    c.groups.forEach((gr) => {
+      if (gr.power === 'gnd') for (const n of gr.nets) this.ground.add(n);
+    });
+    if (this.ground.size) return;
+    for (const comp of Object.values(p.components)) {
+      const fp = p.footprints[comp.footprint];
+      if (!fp) continue;
+      const k = kindOf(comp, fp);
+      if (k !== 'battery' && k !== 'source') continue;
+      const pads = padsByName(fp);
+      const minus = ['-', '−', 'BAT-', 'GND', 'V-', '-V', 'IN-'].map((x) => pads.get(x)?.[0]).find((x) => x) ?? fp.pads.filter((q) => q.type !== 'npth')[1]?.number;
+      const net = minus ? comp.padNets[minus] : undefined;
+      if (net) {
+        this.ground.add(net);
+        return;
+      }
+    }
+    for (const s of p.sim?.sources ?? [])
+      if (s.ref) {
+        this.ground.add(s.ref);
+        return;
+      }
+    const count = new Map<Id, number>();
+    for (const comp of Object.values(p.components)) for (const net of Object.values(comp.padNets)) count.set(net, (count.get(net) ?? 0) + 1);
+    const best = [...count].sort((a, b) => b[1] - a[1])[0];
+    if (best) {
+      this.ground.add(best[0]);
+      this.notes.push(`Земля схемы не названа (GND) — за ноль взята цепь ${this.netName(best[0])}.`);
+    }
+  }
+
   /** Узел цепи (земля — −1); цепь без узла создаётся. */
-  private node(net: Id | undefined, label: string): Node {
+  node(net: Id | undefined, label: string): Node {
     if (!net) {
       const n = this.engine.node(`${label} (не подключён)`);
       this.netOfNode[n] = null;
@@ -170,8 +195,7 @@ export class AnalogSim {
     }
     const have = this.nodeOf.get(net);
     if (have !== undefined) return have;
-    const g = this.circuit.netGroup.get(net);
-    if (g !== undefined && this.circuit.groups[g].power === 'gnd') {
+    if (this.ground.has(net)) {
       this.nodeOf.set(net, GND);
       return GND;
     }
@@ -181,33 +205,58 @@ export class AnalogSim {
     return n;
   }
 
+  private ctx(): BuildCtx {
+    return {
+      e: this.engine,
+      node: (net, label) => this.node(net, label),
+      netName: (net) => this.netName(net),
+      sync: () => this.sync(),
+      kick: () => this.engine.kick(),
+      feed: (node) => this.feed(node),
+      amplitude: (fn) => this.amplitude(fn),
+      frequency: (fn) => this.frequency(fn),
+      average: (fn) => this.average(fn),
+      setCoil: (coil) => ((this as { coil: DdCoil | null }).coil = coil),
+      txResonance: () => this.txResonance(),
+    };
+  }
+
   private build(): void {
     const p = this.project;
     const c = this.circuit;
     const e = this.engine;
     const mcu = c.found;
-    // Контроллер: выводы и потребление.
-    const mcuPads = padsByName(mcu.fp);
-    const vccPad = ['VCC', 'VDD', '5V', '3V3', '+5V', '3.3V'].map((k) => mcuPads.get(k)?.[0]).find((x) => x && mcu.comp.padNets[x]);
-    const gndPad = ['GND', 'VSS'].map((k) => mcuPads.get(k)?.[0]).find((x) => x && mcu.comp.padNets[x]);
-    const vccNode = vccPad ? this.node(mcu.comp.padNets[vccPad], 'VCC') : null;
+    const ctx = this.ctx();
+    let vccNode: Node | null = null;
     const mcuEls: AnalogElement[] = [];
-    if (vccNode !== null && vccNode >= 0 && gndPad) {
-      const vdd = c.mcu.vdd;
-      mcuEls.push(e.add(new Resistor(`${mcu.comp.ref} потребление`, vccNode, this.node(mcu.comp.padNets[gndPad], 'GND'), vdd / 0.012, mcu.comp.id, [vccPad!, gndPad], false)));
+    if (!this.noMcu) {
+      // Контроллер: потребление и (ниже) выводы.
+      const mcuPads = padsByName(mcu.fp);
+      const vccPad = ['VCC', 'VDD', '5V', '3V3', '+5V', '3.3V'].map((k) => mcuPads.get(k)?.[0]).find((x) => x && mcu.comp.padNets[x]);
+      const gndPad = ['GND', 'VSS'].map((k) => mcuPads.get(k)?.[0]).find((x) => x && mcu.comp.padNets[x]);
+      vccNode = vccPad ? this.node(mcu.comp.padNets[vccPad], 'VCC') : null;
+      if (vccNode !== null && vccNode >= 0 && gndPad) mcuEls.push(e.add(new Resistor(`${mcu.comp.ref} потребление`, vccNode, this.node(mcu.comp.padNets[gndPad], 'GND'), c.mcu.vdd / 0.012, mcu.comp.id, [vccPad!, gndPad], false)));
+      this.addPart({ comp: mcu.comp, kind: `контроллер ${c.mcu.title}`, sim: 'mcu', params: [], elements: mcuEls, set: () => {}, readings: () => [] });
     }
-    this.addPart({ comp: mcu.comp, kind: `контроллер ${c.mcu.title}`, params: [], elements: mcuEls, set: () => {}, readings: () => [] });
 
     for (const comp of Object.values(p.components)) {
       if (comp.id === mcu.comp.id) continue;
       const fp = p.footprints[comp.footprint];
       if (!fp) continue;
+      const kind = kindOf(comp, fp);
+      if (!kind || kind === 'none') {
+        if (kind !== 'none') this.skipped.push(comp.ref);
+        continue;
+      }
       try {
-        if (!this.buildPart(comp, fp)) this.skipped.push(comp.ref);
+        const part = buildPart(ctx, kind, comp, fp);
+        if (part) this.addPart(part);
+        else this.skipped.push(comp.ref);
       } catch {
         this.skipped.push(comp.ref);
       }
     }
+    if (this.noMcu) return;
     // Выводы контроллера — только те, к чьим цепям подключено что-то аналоговое
     // (цепи ЖК и SPI без нагрузки лишь добавили бы узлы и состояния).
     for (const [padNo, pin] of mcu.pins) {
@@ -220,7 +269,6 @@ export class AnalogSim {
       this.pins.set(pin, el);
       mcuEls.push(el);
     }
-
   }
 
   private addPart(part: AnalogPart): void {
@@ -228,549 +276,183 @@ export class AnalogSim {
     this.partOf.set(part.comp.id, part);
   }
 
-  /** Деталь → модель. false — модели нет. */
-  private buildPart(comp: Component, fp: FootprintDef): boolean {
-    const e = this.engine;
-    const c = this.circuit;
-    const tags = fp.tags ?? [];
-    const pads = padsByName(fp);
-    const text = `${tags.join(' ')} ${fp.id} ${fp.name} ${comp.value} ${comp.description ?? ''}`;
-    const padNo = (...names: string[]) => names.map((n) => pads.get(up(n))?.[0]).find((x) => x !== undefined);
-    const netOf = (...names: string[]) => {
-      const q = padNo(...names);
-      return q ? comp.padNets[q] : undefined;
+  /** Узлы, которые уже задаёт источник (аккумулятор, стабилизатор, блок питания). */
+  private sourced(): Set<Node> {
+    const s = new Set<Node>();
+    for (const el of this.engine.elements) {
+      if (el instanceof VSource || el instanceof LabSupply) s.add(el.p);
+      if (el instanceof Regulator) s.add(el.out);
+      if (el instanceof DcDc) s.add(el.out);
+    }
+    return s;
+  }
+
+  /**
+   * Узлы, до которых доходит ток от источника по проводящим элементам (резисторы, ключи,
+   * дроссели, диоды, предохранители, обмотки трансформатора — через магнитную связь).
+   * Цепь «+12V» за выключателем от аккумулятора питается от него, а не от блока по имени.
+   */
+  private energized(): Set<Node> {
+    const parent = new Map<Node, Node>();
+    const find = (a: Node): Node => {
+      let r = a;
+      while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+      return r;
     };
-    const n = (...names: string[]) => this.node(netOf(...names), `${comp.ref}.${names[0]}`);
-    const two = fp.pads.filter((q) => q.type !== 'npth');
-    const ref = comp.ref;
-    const inv = () => e.invalidate();
-    const sync = () => this.sync();
+    const join = (a: Node, b: Node) => {
+      if (a < 0 || b < 0) return;
+      const ra = find(a);
+      const rb = find(b);
+      if (ra !== rb) parent.set(ra, rb);
+    };
+    for (const el of this.engine.elements) {
+      const conductive = el instanceof Resistor || el instanceof Inductor || el instanceof Switch || el instanceof CondSwitch || el instanceof Fuse || el instanceof Diode || el instanceof CoupledCoils;
+      if (!conductive) continue;
+      const nodes = el.pins.map((q) => q.node).filter((n) => n >= 0);
+      for (let i = 1; i < nodes.length; i++) join(nodes[0], nodes[i]);
+    }
+    const roots = new Set([...this.sourced()].map(find));
+    const out = new Set<Node>();
+    for (let n = 0; n < this.engine.n; n++) if (roots.has(find(n))) out.add(n);
+    return out;
+  }
 
-    if (tags.includes('crystal') || fp.category === 'Кварцы и резонаторы' || tags.includes('hole') || fp.category === 'Крепёж') return false;
-
-    // --- катушка металлоискателя ---
-    if (tags.includes('dd-coil')) {
-      const tx: [Node, Node] = [n('TX1'), n('TX2')];
-      const rx: [Node, Node] = [n('RX1'), n('RX2')];
-      const coil = new DdCoil(e, ref, tx, rx, { ltx: 0.8e-3, rtx: 1.5, lrx: 11.4e-3, rrx: 20, balance: 7 }, comp.id, { tx: [padNo('TX1')!, padNo('TX2')!], rx: [padNo('RX1')!, padNo('RX2')!] });
-      (this as { coil: DdCoil | null }).coil = coil;
-      const params = [
-        param('target', 'цель', 0, '', 0, COIL_TARGETS.length - 1, { options: COIL_TARGETS.map((t) => t.name) }),
-        param('depth', 'глубина', 10, 'см', 1, 40),
-        param('over', 'катушка', 0, '', 0, 1, { options: ['в стороне', 'над целью'] }),
-        param('balance', 'сведение (связь TX→RX)', coil.o.balance, 'ppm', -60, 60),
-        param('ltx', 'L передающей', coil.o.ltx * 1e3, 'мГн', 0.2, 3, { log: true }),
-        param('rtx', 'R провода TX', coil.o.rtx, 'Ом', 0.1, 10, { log: true }),
-        param('lrx', 'L приёмной', coil.o.lrx * 1e3, 'мГн', 2, 50, { log: true }),
-        param('rrx', 'R провода RX', coil.o.rrx, 'Ом', 1, 100, { log: true }),
+  /** Питание по именам цепей и сеть 230 В — псевдодетали с ползунками. */
+  private addPower(): void {
+    const c = this.circuit;
+    const e = this.engine;
+    // Сеть: цепи L и N — первой, от неё может питаться всё остальное (трансформатор).
+    const live = [...this.nodeOf].find(([n, node]) => node >= 0 && NET_LIVE.test(this.netName(n)));
+    const neutral = [...this.nodeOf].find(([n]) => NET_NEUTRAL.test(this.netName(n)));
+    if (live) this.addSource({ id: 'mains', net: live[0], ref: neutral?.[0], wave: 'mains', volts: 230, freq: 50, ohms: 0.5 }, true);
+    for (const s of this.project.sim?.sources ?? []) this.addSource(s);
+    const sourced = this.energized();
+    const supply = (net: Id, node: Node, volts: number, g: number | null) => {
+      const name = this.netName(net);
+      const src = e.add(new LabSupply(`питание ${name}`, node, GND, volts, 5, 0.01));
+      if (g !== null) this.supplies.push({ src, g });
+      const knobs: AnalogParam[] = [
+        { key: 'volts', label: 'напряжение', value: volts, unit: 'В', min: Math.min(0, volts * 2), max: Math.max(0, volts * 2) || 1 },
+        { key: 'ilim', label: 'ограничение тока', value: 5, unit: 'А', min: 0.01, max: 30, log: true },
       ];
-      const txAmp = this.amplitude(() => coil.txCurrent);
-      const txHz = this.frequency(() => coil.txCurrent);
       this.addPart({
-        comp,
-        kind: 'катушка DD',
-        params,
-        elements: [coil.coils, coil.rtx, coil.rrx, coil.rt],
-        set: (k, v) => {
-          sync();
-          const q = params.find((x) => x.key === k);
-          if (q) q.value = v;
-          if (k === 'target') coil.target = Math.round(v);
-          else if (k === 'depth') coil.depth = v;
-          else if (k === 'over') coil.over = v >= 0.5;
-          else if (k === 'balance') coil.o.balance = v;
-          else if (k === 'ltx') coil.o.ltx = v * 1e-3;
-          else if (k === 'rtx') coil.o.rtx = v;
-          else if (k === 'lrx') coil.o.lrx = v * 1e-3;
-          else if (k === 'rrx') coil.o.rrx = v;
-          coil.update(e.t, true);
-        },
-        readings: () => [
-          { label: 'ток TX (амплитуда)', value: txAmp(), unit: 'А' },
-          { label: 'резонанс TX c ёмкостью', value: this.txResonance(), unit: 'Гц' },
-          { label: 'частота TX', value: txHz(), unit: 'Гц' },
-        ],
-        actions: [{ key: 'sweep', label: 'Провести над целью' }],
-        act: (k) => {
-          if (k !== 'sweep') return;
-          sync();
-          coil.sweepStart = e.t;
-        },
-        level: () => coil.near(e.t),
-      });
-      return true;
-    }
-
-    // --- резистор ---
-    if (isResistor(fp)) {
-      const ohms = parseOhms(comp.value) ?? 1000;
-      const [a, b] = two;
-      const r = e.add(new Resistor(ref, this.node(comp.padNets[a.number], `${ref}.1`), this.node(comp.padNets[b.number], `${ref}.2`), ohms, comp.id, [a.number, b.number]));
-      const params = [nominal('r', 'сопротивление', ohms, 'Ом')];
-      this.addPart({
-        comp,
-        kind: 'резистор',
-        params,
-        elements: [r],
-        set: (_k, v) => {
-          sync();
-          params[0].value = v;
-          r.ohms = v;
-          inv();
-        },
-        readings: () => {
-          const i = r.currents(e.x)[0];
-          const u = e.volts(r.a) - e.volts(r.b);
-          return [
-            { label: 'напряжение', value: u, unit: 'В' },
-            { label: 'ток', value: i, unit: 'А' },
-            { label: 'мощность', value: u * i, unit: 'Вт' },
-          ];
-        },
-        nominal: () => fmtSi(r.ohms, 'Ом'),
-      });
-      return true;
-    }
-
-    // --- потенциометр ---
-    if (/^Potentiometer_|^Module_Potentiometer$/.test(fp.id) || /potentiometer|потенциометр|trimmer|подстроеч/i.test(text)) {
-      const w = netOf('W', '2', 'OUT');
-      const aNet = netOf('1', 'CCW', 'GND');
-      const bNet = netOf('3', 'CW', 'VCC');
-      if (!w || !aNet || !bNet) return false;
-      const total = parseOhms(comp.value) ?? 10_000;
-      const wn = this.node(w, `${ref}.W`);
-      const r1 = e.add(new Resistor(`${ref} нижнее плечо`, this.node(aNet, `${ref}.1`), wn, total / 2, comp.id, [padNo('1', 'CCW', 'GND')!, padNo('W', '2', 'OUT')!]));
-      const r2 = e.add(new Resistor(`${ref} верхнее плечо`, wn, this.node(bNet, `${ref}.3`), total / 2, comp.id, [padNo('W', '2', 'OUT')!, padNo('3', 'CW', 'VCC')!]));
-      const params = [param('pos', 'положение', 50, '%', 0, 100), nominal('r', 'сопротивление', total, 'Ом')];
-      const apply = () => {
-        const x = params[0].value / 100;
-        r1.ohms = Math.max(1, params[1].value * x);
-        r2.ohms = Math.max(1, params[1].value * (1 - x));
-        inv();
-      };
-      this.addPart({
-        comp,
-        kind: 'потенциометр',
-        params,
-        elements: [r1, r2],
-        set: (k, v) => {
-          sync();
-          params[k === 'pos' ? 0 : 1].value = v;
-          apply();
-        },
-        readings: () => [{ label: 'на движке', value: e.volts(wn), unit: 'В' }],
-        nominal: () => fmtSi(params[1].value, 'Ом'),
-      });
-      return true;
-    }
-
-    // --- конденсатор ---
-    if ((fp.category === 'Конденсаторы' || tags.includes('capacitor')) && two.length === 2) {
-      const f = parseFarads(comp.value) ?? 100e-9;
-      const plus = padNo('+') ?? two[0].number;
-      const minus = two.find((q) => q.number !== plus)!.number;
-      const cap = e.add(new Capacitor(ref, this.node(comp.padNets[plus], `${ref}.+`), this.node(comp.padNets[minus], `${ref}.-`), f, comp.id, [plus, minus]));
-      const params = [nominal('c', 'ёмкость', f, 'Ф')];
-      const vmax = parseVolts(comp.value.split(/[×x]/)[1] ?? '') ?? null;
-      const polar = tags.includes('polar') || tags.includes('cp');
-      this.addPart({
-        comp,
-        kind: polar ? 'электролит' : 'конденсатор',
-        params,
-        elements: [cap],
-        set: (_k, v) => {
-          sync();
-          params[0].value = v;
-          cap.farads = v;
-          inv();
-        },
-        readings: () => {
-          const u = e.volts(cap.a) - e.volts(cap.b);
-          const r: AnalogReading[] = [
-            { label: 'напряжение', value: u, unit: 'В' },
-            { label: 'ток', value: cap.i, unit: 'А' },
-          ];
-          if (vmax) r.push({ label: 'запас по напряжению', value: vmax - Math.abs(u), unit: 'В' });
-          if (polar && u < -0.3) r.push({ label: 'ОБРАТНАЯ ПОЛЯРНОСТЬ', value: u, unit: 'В' });
-          return r;
-        },
-        nominal: () => fmtSi(cap.farads, 'Ф'),
-      });
-      return true;
-    }
-
-    // --- дроссель, предохранитель, перемычка ---
-    if (isWireLike(fp) && two.length === 2) {
-      const [a, b] = two;
-      const na = this.node(comp.padNets[a.number], `${ref}.1`);
-      const nb = this.node(comp.padNets[b.number], `${ref}.2`);
-      const henry = fp.category === 'Индуктивности' ? (parseHenry(comp.value) ?? 10e-6) : 0;
-      if (!henry) {
-        const r = e.add(new Resistor(ref, na, nb, 0.02, comp.id, [a.number, b.number], false));
-        this.addPart({ comp, kind: 'перемычка', params: [], elements: [r], set: () => {}, readings: () => [{ label: 'ток', value: r.currents(e.x)[0], unit: 'А' }] });
-        return true;
-      }
-      const mid = e.node(`${ref}:L`);
-      const dcr = Math.max(0.02, henry * 1000);
-      const r = e.add(new Resistor(`${ref} провод`, na, mid, dcr, comp.id, [a.number, ''], false));
-      const l = e.add(new Inductor(ref, mid, nb, henry, comp.id, ['', b.number]));
-      const params = [nominal('l', 'индуктивность', henry, 'Гн'), param('dcr', 'сопротивление провода', dcr, 'Ом', 0.001, 100, { log: true })];
-      this.addPart({
-        comp,
-        kind: 'дроссель',
-        params,
-        elements: [r, l],
-        set: (k, v) => {
-          sync();
-          if (k === 'l') (params[0].value = v), (l.henry = v);
-          else (params[1].value = v), (r.ohms = v);
-          inv();
-        },
-        readings: () => [{ label: 'ток', value: l.i, unit: 'А' }],
-        nominal: () => fmtSi(l.henry, 'Гн'),
-      });
-      return true;
-    }
-
-    // --- светодиод, диод, стабилитрон ---
-    if ((fp.category === 'Светодиоды' || fp.category === 'Диоды' || tags.includes('diode') || tags.includes('led')) && pads.has('A') && pads.has('K')) {
-      const led = fp.category === 'Светодиоды' || tags.includes('led');
-      let m: DiodeModel;
-      if (led) m = ledModel(text);
-      else {
-        const zener = /zener|стабилитрон|BZX|BZV|1N47\d\d|KC\d/i.test(text);
-        m = { ...(DIODES.find(([re]) => re.test(text))?.[1] ?? { vf: 0.7, rd: 0.1 }) };
-        if (zener) {
-          m.vz = parseVolts(comp.value) ?? 5.1;
-          m.rz = 5;
-        }
-      }
-      const d = e.add(new Diode(ref, n('A'), n('K'), m, comp.id, [padNo('A')!, padNo('K')!]));
-      const params = led ? [param('vf', 'прямое напряжение', m.vf, 'В', 1.2, 3.6)] : [param('vf', 'прямое напряжение', m.vf, 'В', 0.2, 1.2)];
-      this.addPart({
-        comp,
-        kind: led ? 'светодиод' : m.vz ? 'стабилитрон' : 'диод',
-        params,
-        elements: [d],
-        set: (_k, v) => {
-          sync();
-          params[0].value = v;
-          d.m.vf = v;
-          inv();
-        },
-        readings: () => {
-          const i = d.current(e.x);
-          const r: AnalogReading[] = [
-            { label: 'ток', value: i, unit: 'А' },
-            { label: 'напряжение', value: e.volts(d.a) - e.volts(d.k), unit: 'В' },
-          ];
-          if (led) r.push({ label: 'яркость', value: Math.max(0, Math.min(1, i / 0.02)) * 100, unit: '%' });
-          return r;
-        },
-      });
-      return true;
-    }
-
-    // --- транзисторы ---
-    const pol = transistorType(fp, comp);
-    if (pol) {
-      if (pol === 'nmos' || pol === 'pmos') {
-        const m = { ...(MOSFETS.find(([re]) => re.test(comp.value))?.[1] ?? { type: pol === 'nmos' ? ('n' as const) : ('p' as const), vth: 2.5, ron: 0.1, cgs: 1e-9 }) };
-        m.type = pol === 'nmos' ? 'n' : 'p';
-        const ch = buildMosfet(e, ref, n('D'), n('G'), n('S'), m, comp.id, [padNo('D')!, padNo('G')!, padNo('S')!]);
-        const params = [param('vth', 'порог', m.vth, 'В', 0.5, 6), param('ron', 'сопротивление открытого', m.ron, 'Ом', 0.001, 20, { log: true })];
-        this.addPart({
-          comp,
-          kind: pol === 'nmos' ? 'MOSFET N' : 'MOSFET P',
-          params,
-          elements: e.elements.slice(-3),
-          set: (k, v) => {
-            sync();
-            if (k === 'vth') (params[0].value = v), (ch.m.vth = v);
-            else (params[1].value = v), (ch.m.ron = v);
-            inv();
-          },
-          readings: () => {
-            const i = ch.currents(e.x)[0];
-            const vds = e.volts(ch.d) - e.volts(ch.s);
-            return [
-              { label: 'открыт', value: ch.on ? 1 : 0, unit: '' },
-              { label: 'затвор—исток', value: e.volts(ch.g) - e.volts(ch.s), unit: 'В' },
-              { label: 'ток стока', value: i, unit: 'А' },
-              { label: 'мощность', value: vds * i, unit: 'Вт' },
-            ];
-          },
-        });
-      } else {
-        const m = { ...(BJTS.find(([re]) => re.test(comp.value))?.[1] ?? { type: pol, beta: 150, vbe: 0.65, rbe: 50, vcesat: 0.15, rsat: 1 }) };
-        m.type = pol;
-        const q = e.add(new Bjt(ref, n('C'), n('B'), n('E'), m, comp.id, [padNo('C')!, padNo('B')!, padNo('E')!]));
-        const params = [param('beta', 'усиление β', m.beta, '', 10, 1000, { log: true })];
-        this.addPart({
-          comp,
-          kind: pol === 'npn' ? 'транзистор n-p-n' : 'транзистор p-n-p',
-          params,
-          elements: [q],
-          set: (_k, v) => {
-            sync();
-            params[0].value = v;
-            q.m.beta = v;
-            inv();
-          },
-          readings: () => {
-            const [ic, ib] = q.currents(e.x);
-            return [
-              { label: 'режим', value: q.st, unit: ['отсечка', 'усиление', 'насыщение'][q.st] },
-              { label: 'ток базы', value: ib, unit: 'А' },
-              { label: 'ток коллектора', value: ic, unit: 'А' },
-              { label: 'коллектор—эмиттер', value: e.volts(q.c) - e.volts(q.e), unit: 'В' },
-            ];
-          },
-        });
-      }
-      return true;
-    }
-
-    // --- TL431 ---
-    if (tags.includes('tl431') || /TL431|AZ431|KA431|LM431/i.test(comp.value)) {
-      const t = e.add(new Tl431(ref, n('K'), n('A'), n('REF', 'R'), 2.495, 5, comp.id, [padNo('K')!, padNo('A')!, padNo('REF', 'R')!]));
-      this.addPart({ comp, kind: 'источник опорного TL431', params: [], elements: [t], set: () => {}, readings: () => [{ label: 'ток катода', value: t.currents(e.x)[0], unit: 'А' }, { label: 'катод', value: e.volts(t.k) - e.volts(t.a), unit: 'В' }] });
-      return true;
-    }
-
-    // --- стабилизатор ---
-    const reg = tags.includes('regulator') || /regulator|стабилизатор/i.test(text) ? regulatorModel(comp.value) : null;
-    if (reg && padNo('IN', 'VI', 'VIN') && padNo('OUT', 'VO', 'VOUT')) {
-      const r = e.add(new Regulator(ref, n('IN', 'VI', 'VIN'), n('GND', 'ADJ', 'COM'), n('OUT', 'VO', 'VOUT'), reg, comp.id, [padNo('IN', 'VI', 'VIN')!, padNo('GND', 'ADJ', 'COM')!, padNo('OUT', 'VO', 'VOUT')!]));
-      const params = [param('vout', 'выход', reg.vout, 'В', 1.2, 24), param('vdrop', 'минимальный перепад', reg.vdrop, 'В', 0.05, 3)];
-      this.addPart({
-        comp,
-        kind: 'стабилизатор',
-        params,
-        elements: [r],
-        set: (k, v) => {
-          sync();
-          if (k === 'vout') (params[0].value = v), (r.m.vout = v);
-          else (params[1].value = v), (r.m.vdrop = v);
-          inv();
-        },
-        readings: () => {
-          const i = r.load(e.x);
-          const pin = e.volts(r.vin) - e.volts(r.gnd);
-          const pout = e.volts(r.out) - e.volts(r.gnd);
-          return [
-            { label: 'режим', value: r.st, unit: ['стабилизирует', 'не хватает входа', 'выключен'][r.st] },
-            { label: 'вход', value: pin, unit: 'В' },
-            { label: 'выход', value: pout, unit: 'В' },
-            { label: 'ток нагрузки', value: i, unit: 'А' },
-            { label: 'нагрев', value: (pin - pout) * i, unit: 'Вт' },
-          ];
-        },
-      });
-      return true;
-    }
-
-    // --- таймер 555 ---
-    if (/(^|[^0-9])(NE|LM|SE|NA|TLC|ICM|LMC)?7?555/i.test(comp.value) && pads.has('THR') && pads.has('TRIG')) {
-      const cmos = /7555|TLC555|LMC555|ICM/i.test(comp.value);
-      const names = { vcc: 'VCC', gnd: 'GND', trig: 'TRIG', thr: 'THR', ctrl: 'CTRL', reset: 'RST', out: 'OUT', dis: 'DIS' } as const;
-      const nn = Object.fromEntries(Object.entries(names).map(([k, v]) => [k, v === 'RST' ? n('RST', 'RESET', 'R') : v === 'CTRL' ? n('CTRL', 'CV') : n(v)])) as Record<keyof typeof names, Node>;
-      const padMap = Object.fromEntries(Object.entries(names).map(([k, v]) => [k, padNo(v, v === 'RST' ? 'RESET' : v, v === 'CTRL' ? 'CV' : v) ?? ''])) as Record<string, string>;
-      const t = build555(e, ref, nn, cmos, comp.id, padMap);
-      this.feed(nn.out);
-      this.addPart({
-        comp,
-        kind: cmos ? 'таймер 555 (КМОП)' : 'таймер 555',
-        params: [],
-        elements: e.elements.slice(-4),
-        set: () => {},
-        readings: () => [
-          { label: 'выход', value: e.volts(nn.out), unit: 'В' },
-          { label: 'порог THR', value: e.volts(nn.thr), unit: 'В' },
-          { label: 'триггер', value: t.q ? 1 : 0, unit: t.q ? 'установлен' : 'сброшен' },
-        ],
-      });
-      return true;
-    }
-
-    // --- ОУ и компараторы ---
-    const opm = OPAMPS.find(([re]) => re.test(comp.value))?.[1] ?? (tags.includes('opamp') || /op-?amp|операцион|компаратор|comparator/i.test(text) ? OPAMP_DEFAULT : null);
-    if (opm) {
-      const vp = n('VCC', 'VDD', 'V+', 'VS+', 'VCC+');
-      const vn = n('GND', 'VSS', 'V-', 'VS-', 'VEE', 'VCC-');
-      const units: { ip: string; in: string; out: string }[] = [];
-      if (pads.has('IN+') && pads.has('OUT')) units.push({ ip: 'IN+', in: 'IN-', out: 'OUT' });
-      for (let k = 1; k <= 4; k++) if (pads.has(`IN${k}+`) && pads.has(`OUT${k}`)) units.push({ ip: `IN${k}+`, in: `IN${k}-`, out: `OUT${k}` });
-      if (!units.length) return false;
-      const ops: OpAmp[] = [];
-      const els: AnalogElement[] = [];
-      for (const u of units) {
-        const op = buildOpAmp(e, units.length > 1 ? `${ref} ${u.out}` : ref, n(u.ip), n(u.in), n(u.out), vp, vn, { ...opm }, comp.id, [padNo(u.ip)!, padNo(u.in)!, padNo(u.out)!, padNo('VCC', 'VDD', 'V+', 'VS+', 'VCC+') ?? '', padNo('GND', 'VSS', 'V-', 'VS-', 'VEE', 'VCC-') ?? '']);
-        ops.push(op);
-        els.push(op, e.elements[e.elements.length - 1]);
-        this.feed(op.out);
-      }
-      const params = [param('gbw', 'полоса (GBW)', opm.gbw, 'Гц', 1e4, 1e8, { log: true }), param('en', 'шум на входе', opm.en * 1e9, 'нВ/√Гц', 0, 100)];
-      const polesOf = els.filter((x): x is Capacitor => x instanceof Capacitor);
-      this.addPart({
-        comp,
-        kind: opm.openCollector ? 'компаратор' : 'операционный усилитель',
-        params,
-        elements: els,
-        set: (k, v) => {
-          sync();
-          if (k === 'gbw') {
-            params[0].value = v;
-            for (const op of ops) op.m.gbw = v;
-            for (const pc of polesOf) pc.farads = 1e-3 / (2 * Math.PI * v);
-          } else {
-            params[1].value = v;
-            for (const op of ops) op.m.en = v * 1e-9;
-          }
-          inv();
-        },
-        readings: () =>
-          ops.flatMap((op, i) => [
-            { label: `${units.length > 1 ? units[i].out + ' ' : ''}выход`, value: e.volts(op.out), unit: 'В' },
-            { label: `${units.length > 1 ? units[i].out + ' ' : ''}вход +/−`, value: e.volts(op.inP) - e.volts(op.inN), unit: 'В' },
-            { label: `${units.length > 1 ? units[i].out + ' ' : ''}упор`, value: op.st, unit: ['нет', 'в плюс', 'в минус'][op.st] },
-          ]),
-      });
-      return true;
-    }
-
-    // --- аккумулятор, батарея ---
-    if (tags.includes('battery') || /^(GB|BAT|BT)\d/i.test(ref)) {
-      const plusNet = netOf('+', 'BAT+', '1');
-      if (!plusNet) return false;
-      const g = c.netGroup.get(plusNet);
-      const volts = (g !== undefined ? c.powerOf(g) : 0) || parseVolts(comp.value) || 12;
-      const src = e.add(new VSource(ref, this.node(plusNet, `${ref}.+`), n('-', '−', 'BAT-', '2'), volts, 0.08, comp.id, [padNo('+', 'BAT+', '1')!, padNo('-', '−', 'BAT-', '2') ?? '']));
-      if (g !== undefined) this.battery.push({ src, g });
-      this.addPart({
-        comp,
-        kind: 'аккумулятор',
-        params: [param('rint', 'внутреннее сопротивление', 0.08, 'Ом', 0.005, 5, { log: true })],
+        comp: pseudo(`supply:${net}`, name, `${volts} В`),
+        kind: 'питание по имени цепи',
+        sim: 'supply',
+        virtual: 'supply',
+        params: knobs,
         elements: [src],
-        set: (_k, v) => {
-          sync();
-          src.ohms = v;
-          inv();
+        set: (k, val) => {
+          this.sync();
+          const q = knobs.find((x) => x.key === k);
+          if (!q) return;
+          q.value = val;
+          if (k === 'volts') src.volts = val;
+          else src.ilim = val;
+          e.invalidate();
         },
         readings: () => [
-          { label: 'напряжение', value: e.volts(src.p) - e.volts(src.n), unit: 'В' },
-          { label: 'ток', value: -src.currents(e.x)[0], unit: 'А' },
+          { label: 'напряжение', value: e.volts(node), unit: 'В' },
+          { label: 'ток', value: src.out(e.x, e.t), unit: 'А' },
+          { label: 'мощность', value: e.volts(node) * src.out(e.x, e.t), unit: 'Вт' },
+          { label: 'режим', value: src.st, unit: src.st ? 'ОГРАНИЧЕНИЕ ТОКА' : 'держит напряжение' },
         ],
       });
-      return true;
+    };
+    c.groups.forEach((gr, g) => {
+      if (gr.power !== 'vcc') return;
+      const nets = gr.nets.filter((n) => (this.nodeOf.get(n) ?? -1) >= 0);
+      if (!nets.length || nets.some((n) => sourced.has(this.nodeOf.get(n)!))) return;
+      // Одна цепь группы — источник, остальные связаны с ней дросселями и перемычками.
+      const main = nets.find((n) => /\d|VCC|VDD|VIN/i.test(this.netName(n))) ?? nets[0];
+      supply(main, this.nodeOf.get(main)!, c.powerOf(g), g);
+    });
+    // Отрицательное питание: -5V, -12V…
+    for (const [net, node] of this.nodeOf) {
+      const m = NET_NEGATIVE.exec(this.netName(net));
+      if (m && node >= 0 && !sourced.has(node)) supply(net, node, -parseFloat(m[1].replace(',', '.')), null);
     }
+  }
 
-    // --- динамик, зуммер ---
-    if ((tags.includes('speaker') || /^Speaker_|^Buzzer_/.test(fp.id)) && two.length === 2) {
-      const ohms = parseOhms(comp.value.replace(/.*?(\d+(?:[.,]\d+)?\s*Ом).*/i, '$1')) ?? (/Buzzer/.test(fp.id) ? 40 : 8);
-      const [a, b] = two;
-      const mid = e.node(`${ref}:звуковая катушка`);
-      const r = e.add(new Resistor(ref, this.node(comp.padNets[a.number], `${ref}.1`), mid, ohms, comp.id, [a.number, ''], false));
-      const l = e.add(new Inductor(`${ref} индуктивность`, mid, this.node(comp.padNets[b.number], `${ref}.2`), 60e-6, comp.id, ['', b.number]));
-      const params = [nominal('r', 'сопротивление', ohms, 'Ом')];
-      this.addPart({
-        comp,
-        kind: 'динамик',
-        params,
-        elements: [r, l],
-        set: (_k, v) => {
-          sync();
-          params[0].value = v;
-          r.ohms = v;
-          inv();
-        },
-        readings: () => [{ label: 'ток', value: l.i, unit: 'А' }],
-      });
-      return true;
-    }
+  /** Источник или генератор из настроек проекта (или сеть по именам цепей). */
+  addSource(s: SimSource, mains = false): AnalogPart | null {
+    const e = this.engine;
+    if (s.off || !this.project.nets[s.net]) return null;
+    const p = this.node(s.net, 'генератор');
+    const n = s.ref ? this.node(s.ref, 'генератор −') : GND;
+    const wave = sourceWave(s);
+    const el: LabSupply | VSource = s.wave === 'dc' ? e.add(new LabSupply(`источник ${this.netName(s.net)}`, p, n, s.volts, 3, s.ohms ?? 0.01)) : e.add(new VSource(`генератор ${this.netName(s.net)}`, p, n, wave, s.ohms ?? 50));
+    const knobs: AnalogParam[] = [{ key: 'volts', label: s.wave === 'dc' ? 'напряжение' : s.wave === 'mains' ? 'напряжение (действующее)' : 'амплитуда', value: s.volts, unit: 'В', min: s.wave === 'mains' ? 50 : -60, max: s.wave === 'mains' ? 400 : 60 }];
+    if (s.wave !== 'dc') knobs.push({ key: 'freq', label: 'частота', value: s.freq ?? (s.wave === 'mains' ? 50 : 1000), unit: 'Гц', min: 0.1, max: 1e6, log: true });
+    if (s.wave !== 'dc' && s.wave !== 'mains') knobs.push({ key: 'offset', label: 'смещение', value: s.offset ?? 0, unit: 'В', min: -30, max: 30 });
+    if (s.wave === 'square') knobs.push({ key: 'duty', label: 'скважность', value: (s.duty ?? 0.5) * 100, unit: '%', min: 1, max: 99 });
+    if (s.wave === 'dc') knobs.push({ key: 'ilim', label: 'ограничение тока', value: 3, unit: 'А', min: 0.01, max: 30, log: true });
+    const cur = { ...s };
+    const apply = () => {
+      if (el instanceof LabSupply) el.volts = cur.volts;
+      else el.volts = sourceWave(cur);
+    };
+    const ref = mains ? 'Сеть' : `Генератор ${this.netName(s.net)}`;
+    const part: AnalogPart = {
+      comp: pseudo(mains ? 'mains' : `source:${s.id}`, ref, `${s.wave === 'dc' ? '' : '~'}${s.volts} В${s.wave === 'dc' ? '' : `, ${fmtSi(s.freq ?? 50, 'Гц')}`}`),
+      kind: mains ? 'сеть (по цепям L и N)' : `источник: ${WAVE_TITLES[s.wave]}`,
+      sim: mains ? 'mains' : 'source',
+      virtual: mains ? 'mains' : s.id,
+      params: knobs,
+      elements: [el],
+      set: (k, val) => {
+        this.sync();
+        const q = knobs.find((x) => x.key === k);
+        if (!q) return;
+        q.value = val;
+        if (k === 'volts') cur.volts = val;
+        else if (k === 'freq') cur.freq = val;
+        else if (k === 'offset') cur.offset = val;
+        else if (k === 'duty') cur.duty = val / 100;
+        else if (k === 'ilim' && el instanceof LabSupply) el.ilim = val;
+        apply();
+        e.invalidate();
+      },
+      readings: () => [
+        { label: 'напряжение', value: e.volts(p) - e.volts(n), unit: 'В' },
+        { label: 'ток', value: el instanceof LabSupply ? el.out(e.x, e.t) : -el.currents(e.x)[0], unit: 'А' },
+      ],
+    };
+    this.addPart(part);
+    if (!mains) this.sources.set(s.id, { s: cur, el, part });
+    return part;
+  }
 
-    // --- двигатель постоянного тока ---
-    if ((tags.includes('motor') || /^M\d/.test(ref) || /^Motor_DC|двигател/i.test(`${fp.id} ${comp.description ?? ''}`)) && two.length === 2 && !tags.includes('module')) {
-      const [a, b] = two;
-      const m: MotorModel = { ...DEFAULT_MOTOR };
-      const mot: DcMotor = buildMotor(e, ref, this.node(comp.padNets[a.number], `${ref}.1`), this.node(comp.padNets[b.number], `${ref}.2`), m, comp.id, [a.number, b.number]);
-      const params = [
-        param('r', 'сопротивление якоря', m.r, 'Ом', 0.05, 50, { log: true }),
-        param('l', 'индуктивность якоря', m.l * 1e3, 'мГн', 0.01, 50, { log: true }),
-        param('k', 'постоянная ЭДС', m.k * 1000, 'мВ·с/рад', 1, 500, { log: true }),
-        param('j', 'инерция', m.j * 1e6, 'г·см²', 0.1, 1000, { log: true }),
-        param('load', 'момент нагрузки', m.load * 1000, 'мН·м', 0, 200),
-      ];
-      const [rArm, lArm] = e.elements.slice(-3) as [Resistor, Inductor, DcMotor];
-      this.addPart({
-        comp,
-        kind: 'двигатель',
-        params,
-        elements: e.elements.slice(-3),
-        set: (k, v) => {
-          sync();
-          const q = params.find((x) => x.key === k);
-          if (q) q.value = v;
-          if (k === 'r') rArm.ohms = m.r = v;
-          if (k === 'l') lArm.henry = m.l = v * 1e-3;
-          if (k === 'k') m.k = v / 1000;
-          if (k === 'j') m.j = v * 1e-6;
-          if (k === 'load') m.load = v / 1000;
-          inv();
-        },
-        readings: () => [
-          { label: 'обороты', value: mot.rpm, unit: 'об/мин' },
-          { label: 'ток', value: mot.ind.i, unit: 'А' },
-          { label: 'момент', value: m.k * mot.ind.i * 1000, unit: 'мН·м' },
-        ],
-      });
-      return true;
+  /** Отключить генератор на ходу (элемент остаётся, но ничего не отдаёт). */
+  removeSource(id: string): void {
+    const x = this.sources.get(id);
+    if (!x) return;
+    this.sync();
+    if (x.el instanceof LabSupply) {
+      x.el.volts = 0;
+      x.el.ilim = 0;
+      x.el.st = 1;
+    } else {
+      x.el.volts = 0;
+      x.el.ohms = 1e9;
     }
-
-    // --- кнопки ---
-    if (fp.category === 'Кнопки и переключатели' || tags.includes('button') || tags.includes('tactile')) {
-      const nets = [...new Set(fp.pads.map((q) => comp.padNets[q.number]).filter((x): x is Id => !!x))];
-      if (nets.length < 2) return false;
-      const a = this.node(nets[0], `${ref}.1`);
-      const sws = nets.slice(1).map((net) => e.add(new Switch(ref, a, this.node(net, `${ref}.2`), false, 0.05, comp.id)));
-      this.switches.set(`${comp.id}:B`, sws);
-      this.addPart({ comp, kind: 'кнопка', params: [], elements: sws, set: () => {}, readings: () => [{ label: 'нажата', value: sws[0].closed ? 1 : 0, unit: '' }] });
-      return true;
-    }
-
-    // --- модуль ЖК: подсветка и потребление ---
-    if (tags.includes('lcd') || tags.includes('hd44780')) {
-      const els: AnalogElement[] = [];
-      if (netOf('A') && netOf('K')) els.push(e.add(new Diode(`${ref} подсветка`, n('A'), n('K'), { vf: 3.0, rd: 25, led: '#9fe870' }, comp.id, [padNo('A')!, padNo('K')!])));
-      if (netOf('VDD') && netOf('VSS')) els.push(e.add(new Resistor(`${ref} потребление`, n('VDD'), n('VSS'), 5 / 0.0015, comp.id, [padNo('VDD')!, padNo('VSS')!], false)));
-      if (!els.length) return false;
-      this.addPart({ comp, kind: 'ЖК-модуль', params: [], elements: els, set: () => {}, readings: () => (els[0] instanceof Diode ? [{ label: 'ток подсветки', value: els[0].current(e.x), unit: 'А' }] : []) });
-      return true;
-    }
-
-    // --- прочие микросхемы и модули: только потребление ---
-    if (fp.category === 'Микросхемы' || tags.includes('module')) {
-      const vcc = netOf('VDD', 'VCC', '5V', '3V3', 'V+');
-      const gnd = netOf('GND', 'VSS');
-      if (!vcc || !gnd) return false;
-      const r = e.add(new Resistor(`${ref} потребление`, n('VDD', 'VCC', '5V', '3V3', 'V+'), n('GND', 'VSS'), 5 / 0.001, comp.id, [padNo('VDD', 'VCC', '5V', '3V3', 'V+')!, padNo('GND', 'VSS')!], false));
-      this.addPart({ comp, kind: 'микросхема (потребление)', params: [param('i', 'потребление', 1, 'мА', 0.01, 200, { log: true })], elements: [r], set: (_k, v) => (sync(), (r.ohms = 5 / (v / 1000)), inv()), readings: () => [{ label: 'ток', value: r.currents(e.x)[0], unit: 'А' }] });
-      return true;
-    }
-    return false;
+    this.sources.delete(id);
+    const i = this.parts.indexOf(x.part);
+    if (i >= 0) this.parts.splice(i, 1);
+    this.partOf.delete(x.part.comp.id);
+    this.engine.invalidate();
   }
 
   /** Выход активного элемента на входе контроллера: его уровень передаётся в логическую схему. */
   private feed(node: Node): void {
     const net = this.netOfNode[node];
-    if (node < 0 || !net) return;
+    if (node < 0 || !net || this.noMcu) return;
     const g = this.circuit.netGroup.get(net);
     if (g === undefined || !this.circuit.groups[g].pins.length) return;
     if (!this.feeds.some((f) => f.g === g)) this.feeds.push({ g, node, lvl: 0 });
   }
 
-  /** Амплитуда величины за последние ~2 мс (по отсчётам шагов). */
+  /** Амплитуда величины за последние ~2000 шагов. */
   private amplitude(fn: () => number): () => number {
     let peak = 0;
     let acc = 0;
@@ -786,6 +468,53 @@ export class AnalogSim {
     return () => Math.max(peak, acc);
   }
 
+  /**
+   * Среднее за последние 20 мс (период сети; как инерция глаза для светодиода при ШИМ, мощность
+   * лампы, нагрев ключа): 20 корзин по 1 мс. Чтение ничего не сбрасывает — карточка и показания
+   * видят одно, а после выключения среднее уходит в ноль ровно за окно.
+   */
+  private average(fn: () => number, window = 0.02): () => number {
+    const bins = 20;
+    const bin = window / bins;
+    const sum = new Float64Array(bins);
+    const dur = new Float64Array(bins);
+    let pos = 0;
+    let acc = 0;
+    let accT = 0;
+    let prev = -1;
+    let last = 0;
+    this.engine.listen((e) => {
+      const x = fn();
+      last = x;
+      if (prev < 0 || e.t < prev) {
+        sum.fill(0);
+        dur.fill(0);
+        acc = accT = 0;
+        prev = e.t;
+        return;
+      }
+      const dt = e.t - prev;
+      prev = e.t;
+      acc += x * dt;
+      accT += dt;
+      if (accT >= bin) {
+        sum[pos] = acc;
+        dur[pos] = accT;
+        pos = (pos + 1) % bins;
+        acc = accT = 0;
+      }
+    });
+    return () => {
+      let s = acc;
+      let t = accT;
+      for (let i = 0; i < bins; i++) {
+        s += sum[i];
+        t += dur[i];
+      }
+      return t > 0 ? s / t : last;
+    };
+  }
+
   /** Частота по переходам через ноль за последние ~20 мс (0 — нет колебаний). */
   private frequency(fn: () => number): () => number {
     let hz = 0;
@@ -796,20 +525,23 @@ export class AnalogSim {
     let t0 = 0;
     const e = this.engine;
     e.listen(() => {
-      const v = fn();
-      if (prev <= 0 && v > 0 && Math.abs(v) > 1e-4) {
+      const val = fn();
+      if (prev <= 0 && val > 0 && Math.abs(val) > 1e-4) {
         // Переход через ноль — с долей шага.
-        const t = e.t - e.dt * (v / (v - prev));
+        const t = e.t - e.dt * (val / (val - prev));
         if (first < 0) first = t;
         last = t;
         count++;
       }
-      prev = v;
+      prev = val;
       if (e.t - t0 >= 0.02) {
-        hz = count >= 2 ? (count - 1) / (last - first) : 0;
-        first = last = -1;
-        count = 0;
-        t0 = e.t;
+        // Медленные сигналы: окно растёт, пока не наберётся пара переходов (до 2 с).
+        if (count >= 2 || e.t - t0 >= 2) {
+          hz = count >= 2 ? (count - 1) / (last - first) : 0;
+          first = last = -1;
+          count = 0;
+          t0 = e.t;
+        }
       }
     });
     return () => hz;
@@ -868,11 +600,11 @@ export class AnalogSim {
     const c = this.circuit;
     const half = c.mcu.vdd / 2;
     for (const f of this.feeds) {
-      const v = e.volts(f.node);
-      const lvl: 0 | 1 = f.lvl ? (v > half * 0.8 ? 1 : 0) : v > half * 1.2 ? 1 : 0;
+      const val = e.volts(f.node);
+      const lvl: 0 | 1 = f.lvl ? (val > half * 0.8 ? 1 : 0) : val > half * 1.2 ? 1 : 0;
       if (lvl !== f.lvl) {
         f.lvl = lvl;
-        c.setVolts(f.g, v);
+        c.setVolts(f.g, val);
       }
     }
   }
@@ -885,17 +617,15 @@ export class AnalogSim {
     return this.engine.volts(n);
   }
 
-  /** Нажатие кнопки (id устройства логической симуляции: «comp:B»). */
+  /** Нажатие кнопки (id устройства: «comp:B» или id детали). */
   press(id: string, down: boolean): void {
-    const sws = this.switches.get(id);
-    if (!sws) return;
-    this.sync();
-    for (const s of sws) s.closed = down;
-    this.engine.kick();
+    const part = this.partOf.get(id.replace(/:B$/, ''));
+    part?.ui?.press?.(down);
   }
 
   set(comp: Id, key: string, value: number): void {
-    this.partOf.get(comp)?.set(key, value);
+    const part = this.partOf.get(comp);
+    if (part && part.params.some((q) => q.key === key)) part.set(key, value);
   }
 
   /** Ток через каждый вывод деталей, А (положительный — в деталь). */
@@ -1029,10 +759,13 @@ export class AnalogSim {
     return res;
   }
 
-  /** Цепь, с которой удобно начинать АЧХ катушки: выход ключей передатчика. */
+  /** Цепь, с которой удобно начинать АЧХ: выход ключей передатчика катушки или генератор. */
   defaultAcInput(): Id | null {
     const coil = this.coil;
-    if (!coil) return null;
+    if (!coil) {
+      const gen = [...this.sources.values()].find((x) => x.s.wave !== 'dc');
+      return gen?.s.net ?? null;
+    }
     // Катушка ← конденсатор ← резистор ← выход ключей.
     let node = coil.rtx.a;
     const seen = new Set<AnalogElement>();
@@ -1051,3 +784,6 @@ export class AnalogSim {
     return { nodes: e.n, elements: e.elements.length, steps: e.steps, factorizations: e.factorizations };
   }
 }
+
+/** Напряжение цепи питания по имени (для подсказок): +12V → 12. */
+export { powerVoltsOf };

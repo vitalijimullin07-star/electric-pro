@@ -18,15 +18,32 @@ export function NewProjectDialog() {
 
   const create = () => {
     let p;
-    if (tpl === 'custom') p = createProject({ name, width: w, height: h, cornerRadius: r, copperLayers: layers, homemade });
-    else p = TEMPLATES.find((t) => t.id === tpl)!.create({ homemade: homemade || undefined, copperLayers: tpl === 'blank-lut' ? 1 : layers });
+    if (tpl === 'custom')
+      p = createProject({
+        name,
+        width: w,
+        height: h,
+        cornerRadius: r,
+        copperLayers: layers,
+        homemade,
+      });
+    else
+      p = TEMPLATES.find((t) => t.id === tpl)!.create({
+        homemade: homemade || undefined,
+        copperLayers: tpl === 'blank-lut' ? 1 : layers,
+      });
     if (tpl !== 'custom' && name.trim() && name !== 'Новая плата') p.meta.name = name.trim();
     s.replaceProject(p);
     s.closeDialog();
-    s.setMessage(`Создан проект «${p.meta.name}». Прежний проект остался в «Файл → Недавние проекты».`);
+    s.setMessage(
+      example
+        ? `Открыт пример «${p.meta.name}». Симуляция → «Старт» — прошивка не нужна; детали нажимаются на плате, номиналы крутятся во вкладке «Цепь».`
+        : `Создан проект «${p.meta.name}». Прежний проект остался в «Файл → Недавние проекты».`,
+    );
   };
 
-  const groups = ['Пустые', 'Форм-факторы'] as const;
+  const example = TEMPLATES.find((t) => t.id === tpl)?.group === 'Примеры';
+  const groups = ['Пустые', 'Форм-факторы', 'Примеры'] as const;
   return (
     <Dialog
       title="Новый проект"
@@ -55,9 +72,7 @@ export function NewProjectDialog() {
             <button key={t.id} className={`card${tpl === t.id ? ' on' : ''}`} onClick={() => setTpl(t.id)}>
               <span className="nm">{t.name}</span>
               <span className="ds">{t.description}</span>
-              <span className="sz">
-                {t.size[0]} × {t.size[1]} мм
-              </span>
+              <span className="sz">{g === 'Примеры' ? 'Симуляция без контроллера' : `${t.size[0]} × ${t.size[1]} мм`}</span>
             </button>
           )),
         )}
@@ -77,7 +92,7 @@ export function NewProjectDialog() {
               <LenInput value={r} min={0} onChange={setR} />
             </>
           )}
-          {tpl !== 'blank-lut' && (
+          {tpl !== 'blank-lut' && !example && (
             <>
               <label>Слоёв меди</label>
               <select className="sel" value={layers} onChange={(e) => setLayers(+e.target.value as 1 | 2)}>
@@ -86,11 +101,15 @@ export function NewProjectDialog() {
               </select>
             </>
           )}
-          <label>Правила</label>
-          <select className="sel" value={homemade ? 'home' : 'factory'} onChange={(e) => setHomemade(e.target.value === 'home')}>
-            <option value="factory">Завод: зазор 0,2 мм, дорожка 0,2 мм, переходные 0,6/0,3</option>
-            <option value="home">Дома (ЛУТ): зазор 0,3 мм, дорожка 0,4 мм, отверстия от 0,6</option>
-          </select>
+          {!example && (
+            <>
+              <label>Правила</label>
+              <select className="sel" value={homemade ? 'home' : 'factory'} onChange={(e) => setHomemade(e.target.value === 'home')}>
+                <option value="factory">Завод: зазор 0,2 мм, дорожка 0,2 мм, переходные 0,6/0,3</option>
+                <option value="home">Дома (ЛУТ): зазор 0,3 мм, дорожка 0,4 мм, отверстия от 0,6</option>
+              </select>
+            </>
+          )}
         </div>
       </>
     </Dialog>

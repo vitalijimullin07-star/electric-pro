@@ -38,6 +38,8 @@ export interface DeviceView {
   brightness?: number;
   color?: string;
   pressed?: boolean;
+  /** Тумблер: касание переключает, а не держит. */
+  toggle?: boolean;
   params?: SimParam[];
   hz?: number;
   lines?: string[];
@@ -1003,19 +1005,26 @@ export function transistorType(fp: FootprintDef, comp: Component): 'npn' | 'pnp'
   const bjt = names.has('B') && names.has('C') && names.has('E');
   const fet = names.has('G') && names.has('D') && names.has('S');
   if (!bjt && !fet) return null;
-  const t = `${(fp.tags ?? []).join(' ')} ${fp.id} ${fp.description ?? ''} ${comp.value} ${comp.description ?? ''}`.toLowerCase();
-  if (bjt) {
-    if (/\bpnp\b/.test(t)) return 'pnp';
-    if (/\bnpn\b/.test(t)) return 'npn';
-    const v = comp.value.toUpperCase().replace(/\s+/g, '');
-    if (/^(2S)?A\d{3}|^BC(55[6-9]|85[6-9]|32[78]|636|640)|^2N(2907|3906|4403|5401)|^S(8550|9012|9015)|^KT(361|3107|814|816|818)|^TIP(3[02]|4[24]|12[5-7]|147)|^MJE(2955|350)|^BD(136|138|140)/.test(v)) return 'pnp';
-    return 'npn';
-  }
-  if (/p-mosfet|pmos|p-канал|p-channel/.test(t)) return 'pmos';
-  if (/n-mosfet|nmos|n-канал|n-channel/.test(t)) return 'nmos';
+  // Сначала номинал (корпус бывает общий: «BC547/BC557» — и n-p-n, и p-n-p), потом описание детали и метки,
+  // описание корпуса — только если в нём один тип.
   const v = comp.value.toUpperCase().replace(/\s+/g, '');
+  const own = `${(fp.tags ?? []).join(' ')} ${comp.value} ${comp.description ?? ''}`.toLowerCase();
+  const fpText = `${fp.id} ${fp.description ?? ''}`.toLowerCase();
+  if (bjt) {
+    if (/^(2S)?A\d{3}|^BC(55[6-9]|85[6-9]|32[78]|636|640)|^2N(2907|3906|4403|5401)|^S(8550|9012|9015)|^KT(361|3107|814|816|818)|^TIP(3[02]|4[24]|12[5-7]|147)|^MJE(2955|350)|^BD(136|138|140)|^MMBT(3906|2907)/.test(v)) return 'pnp';
+    if (/^(2S)?C\d{3,4}|^BC(54[6-9]|84[6-9]|33[78]|63[579])|^2N(2222|3904|4401|5551)|^S(8050|9013|9014)|^KT(315|3102|815|817|819)|^TIP(3[1]|4[13]|12[0-2]|142)|^MJE(3055|340)|^BD(135|137|139)|^MMBT(3904|2222)/.test(v)) return 'npn';
+    if (/\bpnp\b/.test(own)) return 'pnp';
+    if (/\bnpn\b/.test(own)) return 'npn';
+    const p = /\bpnp\b/.test(fpText);
+    const n = /\bnpn\b/.test(fpText);
+    return p && !n ? 'pnp' : 'npn';
+  }
   if (/^IRF9|^IRF(4905|5305|5210)|^AO340[17]|^SI23(01|05)|^FQP\d+P|^NDP\d+P|^BS250/.test(v)) return 'pmos';
-  return 'nmos';
+  if (/p-mosfet|pmos|p-канал|p-channel/.test(own)) return 'pmos';
+  if (/n-mosfet|nmos|n-канал|n-channel/.test(own)) return 'nmos';
+  const pm = /p-mosfet|pmos|p-канал|p-channel/.test(fpText);
+  const nm = /n-mosfet|nmos|n-канал|n-channel/.test(fpText);
+  return pm && !nm ? 'pmos' : 'nmos';
 }
 
 /** Свои символы ЖК (CGRAM) и коды экрана — чтобы нарисовать шкалы и значки как на дисплее. */
