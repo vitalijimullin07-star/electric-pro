@@ -1,5 +1,5 @@
 import type { Vec2 } from '@core/math/vec';
-import type { Project, SchSymbol } from '@core/model/types';
+import { padKey, type Project, type SchSymbol } from '@core/model/types';
 import { placedPins, schematicNetlist, symbolOf } from '@core/schematic/netlist';
 import { SCH_GRID, symToWorld, type SymbolDef } from '@core/schematic/symbols';
 import { labelShape, symbolWorldBox } from '@core/schematic/layout';
@@ -7,6 +7,7 @@ import { labelShape, symbolWorldBox } from '@core/schematic/layout';
 export { labelShape, symbolWorldBox };
 import type { SchPending, SchRef, ViewState } from '@editor/store';
 import type { SimView } from '@core/sim';
+import { voltColor } from './volt-color';
 import { drawLcd } from './lcd-draw';
 
 /*
@@ -245,8 +246,26 @@ export function renderSchematic(ctx: CanvasRenderingContext2D, inp: SchRenderInp
 
 /** Симуляция на схеме: точки уровней на выводах, свечение светодиодов, нажатые кнопки, экраны у символов. */
 function drawSchSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, pins: ReturnType<typeof placedPins>, px: number): void {
+  const a = sim.analog;
   for (const pin of pins) {
     const net = p.components[pin.component]?.padNets[pin.number];
+    const v = a && net ? a.volts.get(net) : undefined;
+    if (a && v !== undefined) {
+      // Аналоговый расчёт: цвет — напряжение, кольцо — ток через вывод (толще — больше).
+      ctx.fillStyle = voltColor(v, a.vmax);
+      ctx.beginPath();
+      ctx.arc(pin.at.x, pin.at.y, Math.max(0.5, px * 3.5), 0, Math.PI * 2);
+      ctx.fill();
+      const i = Math.abs(a.pads.get(padKey(pin.component, pin.number)) ?? 0);
+      if (i > 1e-4) {
+        ctx.strokeStyle = '#ffd60a';
+        ctx.lineWidth = Math.max(px, Math.min(0.5, 0.12 * (1 + Math.log10(i / 1e-4))));
+        ctx.beginPath();
+        ctx.arc(pin.at.x, pin.at.y, Math.max(0.8, px * 5.5), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      continue;
+    }
     const st = net ? sim.nets.get(net) : undefined;
     if (!st) continue;
     ctx.fillStyle = st.duty > 0.02 && st.duty < 0.98 ? '#9b30d9' : st.level ? '#e0281c' : '#1c6fe0';

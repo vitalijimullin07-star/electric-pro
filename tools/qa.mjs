@@ -13,6 +13,8 @@ const results = [];
 let current = '';
 const errors = [];
 async function step(name, fn) {
+  // QA_ONLY — регулярное выражение: прогнать только подходящие сценарии.
+  if (process.env.QA_ONLY && !new RegExp(process.env.QA_ONLY).test(name)) return;
   current = name;
   try {
     await fn();
@@ -1342,6 +1344,14 @@ async function openPage(viewport, touch = false) {
     expect(!(await page.$('.sim-lcd')), 'после стопа экран остался');
   });
 
+  /** Остановить симуляцию, если прошлый сценарий оборвался на середине. */
+  const stopSim = async () => {
+    await page.keyboard.press('Escape');
+    const stop = page.locator('.sim-panel button', { hasText: 'Стоп' });
+    if ((await stop.count()) && (await stop.isEnabled())) await stop.click();
+    await page.waitForTimeout(200);
+  };
+
   await step('Sprint Layout: плата «Квазар» из .lay — детали из групп, дорожки, цепи по меди', async () => {
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Импорт платы Sprint Layout')]);
     await chooser.setFiles(new URL('../tests/fixtures/quasar/quasar-desalex.lay', import.meta.url).pathname);
@@ -1363,6 +1373,13 @@ async function openPage(viewport, touch = false) {
     await page.screenshot({ path: `${out}/quasar-board.png` });
     await h.menu('Симуляция', 'Старт');
     await page.waitForTimeout(500);
+    // Этот сценарий — логическая модель (быстро); аналоговый расчёт — следующий сценарий.
+    const analogBox = page.locator('.sim-panel label', { hasText: 'аналоговый расчёт' }).locator('input');
+    if (await analogBox.isChecked()) {
+      await analogBox.uncheck();
+      await h.hit(page.locator('.sim-panel button', { hasText: 'Сброс' }));
+      await page.waitForTimeout(500);
+    }
     await h.hit(page.locator('.sim-tabs button', { hasText: 'Детали' }));
     const started = await page
       .locator('.sim-lcd')
@@ -1410,7 +1427,11 @@ async function openPage(viewport, touch = false) {
     const bb = await menuBtn.boundingBox();
     await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.mouse.down();
-    await page.waitForTimeout(500);
+    // Держим, пока прошивка не откроет меню (в медленном браузере время прибора идёт медленнее).
+    for (let i = 0; i < 20 && !/Audio|options|Volume|Backlight/.test(lcd); i++) {
+      await page.waitForTimeout(200);
+      lcd = await lcdText();
+    }
     await page.mouse.up();
     await page.waitForTimeout(1200);
     lcd = await lcdText();
@@ -1423,7 +1444,55 @@ async function openPage(viewport, touch = false) {
     await h.menu('Схема', 'Перейти к плате');
   });
 
+  await step('Квазар, аналоговый расчёт: номинал R3 на ходу, «В проект», осциллограф, АЧХ контура TX, ток на плате', async () => {
+    await stopSim();
+    await h.menu('Симуляция', 'Старт');
+    await page.waitForTimeout(500);
+    const analogBox = page.locator('.sim-panel label', { hasText: 'аналоговый расчёт' }).locator('input');
+    await analogBox.check();
+    await h.hit(page.locator('.sim-panel button', { hasText: 'Сброс' }));
+    const tab = page.locator('.sim-tabs button', { hasText: 'Цепь' });
+    await tab.waitFor({ timeout: 20000 });
+    await h.hit(tab);
+    const pick = page.locator('.analog > .row select').first();
+    const r3 = await pick.locator('option').evaluateAll((os) => os.find((o) => /^R3 /.test(o.textContent))?.value);
+    expect(r3, 'в списке деталей нет R3');
+    await pick.selectOption(r3);
+    const knob = page.locator('.analog .sim-param input[type=range]').first();
+    await knob.scrollIntoViewIfNeeded();
+    await knob.fill('700');
+    await page.waitForTimeout(600);
+    const card = await page.locator('.analog .sim-dev').first().innerText();
+    expect(/сопротивление/.test(card) && /ток/.test(card) && /мощность/.test(card), 'показания R3: ' + card.slice(0, 200));
+    const save = page.locator('.analog button', { hasText: 'В проект' });
+    expect(await save.count(), 'нет кнопки «В проект» после смены номинала');
+    await h.hit(save);
+    await page.waitForTimeout(300);
+    const p = await h.project();
+    const r3v = Object.values(p.components).find((c) => c.ref === 'R3')?.value;
+    expect(r3v && !/^10 Ом/.test(r3v), 'номинал R3 не записан: ' + r3v);
+    await knob.fill('500');
+    // Осциллограф и АЧХ.
+    const osc = page.locator('.analog .sim-title input[type=checkbox]').first();
+    await osc.scrollIntoViewIfNeeded();
+    await osc.check();
+    await page.waitForTimeout(800);
+    expect(await page.locator('.analog canvas.sim-scope').first().isVisible(), 'нет осциллографа');
+    const acSel = page.locator('.analog .sim-dev').last().locator('select');
+    await acSel.nth(1).selectOption({ label: 'ток R3.1' });
+    await page.locator('.analog .sim-dev').last().locator('input[type=number]').first().fill('2000');
+    await page.locator('.analog .sim-dev').last().locator('input[type=number]').nth(1).fill('30000');
+    await h.hit(page.locator('.analog button', { hasText: 'Построить' }));
+    await page.waitForTimeout(500);
+    const ac = await page.locator('.analog .sim-dev').last().innerText();
+    expect(/Пик: (7|8|9)[,\d]* кГц/.test(ac), 'АЧХ: ' + ac.slice(-200));
+    await page.screenshot({ path: `${out}/quasar-analog.png` });
+    await page.screenshot({ path: `${out}/quasar-analog-board.png`, clip: { x: 0, y: 0, width: 1000, height: 900 } });
+    await h.menu('Симуляция', 'Стоп');
+  });
+
   await step('Пылесос ESP32: плата разведена; во весь экран — сенсорный пульт 800×480, пуск турбин, касания, графики, настройки, «Назад»', async () => {
+    await stopSim();
     const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
     await fc.setFiles(new URL('../import/vacuum-esp32.plata.json', import.meta.url).pathname);
     await page.waitForTimeout(1200);

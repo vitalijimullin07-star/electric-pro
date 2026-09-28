@@ -1,7 +1,8 @@
-import type { Firmware, Project } from '../model/types';
+import { padKey, type Firmware, type Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
 import { Esp32 } from './esp32';
+import { AnalogSim } from './analog/build';
 import { Avr, pinTitle } from './mcu';
 import { PANEL_H, PANEL_W, PanelS3 } from './panel-s3';
 import type { McuPin, PinMode, SimMcu } from './types';
@@ -17,6 +18,9 @@ export { MCU_FREQ, MCU_TITLES } from './mcu';
 export { PANEL_H, PANEL_W } from './panel-s3';
 export type { DeviceView, SimParam } from './devices';
 export type { VacuumView } from './vacuum';
+export type { AnalogPart, AnalogReading, ScopeProbe } from './analog/build';
+export { fmtSi } from './analog/build';
+export type { AnalogParam } from './analog/engine';
 
 export interface PinView {
   pin: McuPin;
@@ -40,6 +44,17 @@ export interface SimView {
   mcu: string;
   /** Установка «пылесос» (мнемосхема во весь экран). */
   plant?: VacuumView;
+  /** Аналоговый расчёт: напряжения цепей и токи через выводы деталей. */
+  analog?: AnalogSnapshot;
+}
+
+export interface AnalogSnapshot {
+  /** Напряжение цепи, В. */
+  volts: Map<string, number>;
+  /** Ток в деталь через площадку (ключ «компонент#вывод»), А. */
+  pads: Map<string, number>;
+  /** Наибольшее напряжение (для шкалы цвета). */
+  vmax: number;
 }
 
 /** Настройки ESP32 между запусками — как энергонезависимая память (по проекту). */
@@ -68,6 +83,13 @@ function espFirmware(fw: Firmware | undefined): Uint8Array {
   return base64ToBytes(fw.wasm);
 }
 
+export interface SimOptions {
+  /** Аналоговый расчёт схемы (токи, напряжения, номиналы на ходу). */
+  analog?: boolean;
+  /** Шаг аналогового расчёта, с (по умолчанию 1 мкс). */
+  analogDt?: number;
+}
+
 export class Simulation {
   readonly mcu: SimMcu;
   readonly circuit: Circuit;
@@ -78,12 +100,17 @@ export class Simulation {
   serial = '';
   readonly mcuTitle: string;
   onSerial: ((text: string) => void) | null = null;
+  /** Аналоговый расчёт схемы (если включён и схема собралась). */
+  readonly analog: AnalogSim | null = null;
+  /** Почему аналоговый расчёт не включился. */
+  analogError: string | null = null;
 
   /** AVR: прошивка .hex текстом; ESP32 — готовый контроллер (см. create). */
   constructor(
     readonly project: Project,
     firmware: string | SimMcu,
     panels: Map<string, PanelS3> = new Map(),
+    opts: SimOptions = {},
   ) {
     const found = findMcu(project);
     if (!found) throw noMcu();
@@ -98,7 +125,32 @@ export class Simulation {
       esp.onLog = (text) => this.log(text);
       this.mcuTitle = `${esp.title}, 240 МГц · ядро прошивки в WebAssembly`;
     } else this.mcuTitle = `${this.mcu.title}, ${(found.freq / 1e6).toLocaleString('ru', { maximumFractionDigits: 4 })} МГц (${found.freqFrom})`;
-    const b = buildDevices(this.circuit, project);
+    if (opts.analog) {
+      try {
+        const a = new AnalogSim(project, this.circuit, { dt: opts.analogDt });
+        this.analog = a;
+        this.circuit.analogNet = (net) => a.netVolts(net);
+        const mcu = this.mcu;
+        if (mcu instanceof Avr) {
+          const adcPins = [...this.circuit.pinNet.keys()].filter((pin) => mcu.adcChannel(pin) >= 0);
+          const arefNet = (() => {
+            const pad = found.fp.pads.find((x) => x.name && /^AREF$/i.test(x.name));
+            return pad ? found.comp.padNets[pad.number] : undefined;
+          })();
+          mcu.beforeAdc = () => {
+            a.sync();
+            for (const pin of adcPins) {
+              const v = a.netVolts(this.circuit.pinNet.get(pin)!);
+              if (v !== undefined) mcu.setAnalog(pin, v);
+            }
+            if (mcu.forcedRef !== null && arefNet) mcu.forcedRef = a.netVolts(arefNet) ?? mcu.forcedRef;
+          };
+        }
+      } catch (err) {
+        this.analogError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    const b = buildDevices(this.circuit, project, { analog: !!this.analog });
     this.devices = b.devices;
     this.unknown = b.unknown;
     this.plant = b.plant;
@@ -150,7 +202,7 @@ export class Simulation {
   }
 
   /** Создать симуляцию: для ESP32 прошивка WebAssembly компилируется асинхронно. */
-  static async create(project: Project): Promise<Simulation> {
+  static async create(project: Project, opts: SimOptions = {}): Promise<Simulation> {
     const found = findMcu(project);
     if (!found) throw noMcu();
     const fw = project.firmware;
@@ -159,22 +211,22 @@ export class Simulation {
       const esp = await Esp32.create(espFirmware(fw), { nvs: nvsStore.get(key), onNvs: (d) => nvsStore.set(key, d) });
       const panels = new Map<string, PanelS3>();
       for (const [ref, m] of Object.entries(fw?.modules ?? {})) panels.set(ref, await PanelS3.create(base64ToBytes(m.wasm)));
-      return new Simulation(project, esp, panels);
+      return new Simulation(project, esp, panels, opts);
     }
     if (!fw?.hex) throw new Error('Сначала загрузите прошивку (.hex).');
-    return new Simulation(project, fw.hex);
+    return new Simulation(project, fw.hex, new Map(), opts);
   }
 
   /** Синхронно (Node, тесты). */
-  static createSync(project: Project, opts: { nvs?: Uint8Array } = {}): Simulation {
+  static createSync(project: Project, opts: { nvs?: Uint8Array } & SimOptions = {}): Simulation {
     const found = findMcu(project);
     if (!found) throw noMcu();
     if (found.kind === 'esp32') {
       const panels = new Map<string, PanelS3>();
       for (const [ref, m] of Object.entries(project.firmware?.modules ?? {})) panels.set(ref, PanelS3.createSync(base64ToBytes(m.wasm)));
-      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }), panels);
+      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs }), panels, opts);
     }
-    return new Simulation(project, project.firmware?.hex ?? '');
+    return new Simulation(project, project.firmware?.hex ?? '', new Map(), opts);
   }
 
   private log(text: string): void {
@@ -209,16 +261,21 @@ export class Simulation {
   }
 
   press(id: string, down: boolean): void {
+    this.analog?.press(id, down);
     this.devices.find((d) => d.id === id)?.press?.(down);
   }
 
   set(id: string, key: string, value: number): void {
-    this.devices.find((d) => d.id === id)?.set?.(key, value);
+    const dev = this.devices.find((d) => d.id === id);
+    if (dev?.set) return dev.set(key, value);
+    this.analog?.set(id, key, value);
   }
 
   /** Действие устройства (провести катушкой над целью, включить инструмент). */
   act(id: string, key: string): void {
-    this.devices.find((d) => d.id === id)?.act?.(key);
+    const dev = this.devices.find((d) => d.id === id);
+    if (dev?.act) return dev.act(key);
+    this.analog?.partOf.get(id)?.act?.(key);
   }
 
   private get baud(): number {
@@ -240,8 +297,39 @@ export class Simulation {
       const st = { level: c.levelOf(g), duty: c.frameStats(g).duty };
       for (const n of gr.nets) nets.set(n, st);
     });
+    this.analog?.sync();
     const devices = this.devices.map((d) => d.view());
+    const a = this.analog;
+    if (a?.coil) {
+      // Катушка в аналоговом расчёте — своя карточка (цель, глубина, сведение).
+      const part = a.partOf.get(a.coil.rtx.comp!)!;
+      const [amp, , freq] = part.readings();
+      const hz = freq.value;
+      devices.unshift({
+        id: part.comp.id,
+        comp: part.comp.id,
+        ref: part.comp.ref,
+        kind: 'coil',
+        title: `${part.comp.ref} катушка DD: ${hz ? `TX ${Math.round(hz)} Гц, ${Math.round(amp.value * 1000)} мА` : 'передатчик выключен'} · аналоговый расчёт`,
+        params: part.params.map((q) => ({ key: q.key, label: q.label, value: q.value, min: q.min, max: q.max, step: q.options ? 1 : q.log ? (q.max - q.min) / 200 : (q.max - q.min) / 100, unit: q.unit, options: q.options })),
+        actions: part.actions,
+        level: part.level?.(),
+      });
+    }
     c.endFrame();
-    return { seconds: this.seconds, pins, devices, nets, baud: this.baud, mcu: this.mcuTitle, plant: this.plant?.view() };
+    return { seconds: this.seconds, pins, devices, nets, baud: this.baud, mcu: this.mcuTitle, plant: this.plant?.view(), analog: a ? this.analogSnapshot(a) : undefined };
+  }
+
+  private analogSnapshot(a: AnalogSim): AnalogSnapshot {
+    const volts = new Map<string, number>();
+    let vmax = 1;
+    for (const [net, node] of a.nodeOf) {
+      const v = a.engine.volts(node);
+      volts.set(net, v);
+      vmax = Math.max(vmax, v);
+    }
+    const pads = new Map<string, number>();
+    for (const [comp, m] of a.padCurrents()) for (const [pad, i] of m) pads.set(padKey(comp, pad), i);
+    return { volts, pads, vmax };
   }
 }

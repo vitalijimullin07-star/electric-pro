@@ -177,7 +177,7 @@ export interface BuildResult {
   plant: VacuumPlant | null;
 }
 
-export function buildDevices(c: Circuit, p: Project): BuildResult {
+export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } = {}): BuildResult {
   const devices: Device[] = [];
   const used = new Set<string>();
   const unknown: string[] = [];
@@ -187,7 +187,8 @@ export function buildDevices(c: Circuit, p: Project): BuildResult {
   const coils: CoilModel[] = [];
   for (const comp of Object.values(p.components)) {
     const fp = p.footprints[comp.footprint];
-    if (!fp || !(fp.tags ?? []).includes('dd-coil')) continue;
+    // С аналоговым расчётом катушка — его модель (связанные индуктивности), не поведенческая.
+    if (!fp || !(fp.tags ?? []).includes('dd-coil') || opts.analog) continue;
     const coil = new CoilModel(c, comp, fp, p);
     coils.push(coil);
     devices.push({ id: comp.id, comp, view: () => coil.view(), set: (k, v) => coil.set(k, v), act: (k) => coil.act(k) });

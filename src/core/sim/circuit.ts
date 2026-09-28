@@ -225,6 +225,8 @@ export class Circuit {
   private frameStart = 0;
   private traces = new Map<number, Trace>();
   private arefGroup: number | undefined;
+  /** Аналоговый расчёт: напряжение цепи из него (undefined — цепи там нет). */
+  analogNet: ((net: Id) => number | undefined) | null = null;
 
   constructor(
     readonly project: Project,
@@ -458,6 +460,8 @@ export class Circuit {
 
   /** Напряжение цепи, В: по узлам группы с учётом резисторов, подтяжек и источников. */
   netVolts(net: Id): number {
+    const av = this.analogNet?.(net);
+    if (av !== undefined) return av;
     const g = this.netGroup.get(net);
     if (g === undefined) return 0;
     const info = this.groups[g];
@@ -822,7 +826,7 @@ function solveLinear(A: number[][], b: number[]): number[] {
 }
 
 /** Дроссель, предохранитель, перемычка: по постоянному току — провод. Варистор и супрессор — нет. */
-function isWireLike(fp: FootprintDef): boolean {
+export function isWireLike(fp: FootprintDef): boolean {
   const two = fp.pads.filter((x) => x.type !== 'npth').length === 2;
   if (!two) return false;
   const pre = (fp.refPrefix ?? '').toUpperCase();

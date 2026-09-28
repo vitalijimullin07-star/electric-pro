@@ -15,6 +15,8 @@ import type { EditorState, Pending, ViewState } from '@editor/store';
 import { fmtLen, type DisplayUnit } from '@core/units';
 import { GFX, type GfxProfile } from './quality';
 import type { SimView } from '@core/sim';
+import { segmentFlows } from './current-flow';
+import { voltColor } from './volt-color';
 import { drawLcd } from './lcd-draw';
 
 /*
@@ -679,7 +681,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
       ctx.globalAlpha = 1;
     }
   }
-  if (inp.sim) drawSim(ctx, inp.sim, p, w, px);
+  if (inp.sim) drawSim(ctx, inp.sim, p, w, px, inp.time ?? 0);
 
   // Прицел пера над экраном: куда попадёт касание (с привязкой к сетке).
   if (inp.penHover) {
@@ -746,9 +748,63 @@ function oledImage(frame: Uint8Array, w: number, h: number): HTMLCanvasElement |
   return cv;
 }
 
-function drawSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, w: World, px: number): void {
+/** Аналоговый расчёт на плате: дорожки и площадки цветом напряжения, ток — бегущими точками. */
+function drawAnalog(ctx: CanvasRenderingContext2D, a: NonNullable<SimView['analog']>, p: Project, w: World, px: number, time: number): void {
+  const conn = computeConnectivity(p);
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 0.55;
+  for (const s of w.segments) {
+    const net = conn.itemNet.get(s.track.id);
+    const v = typeof net === 'string' ? a.volts.get(net) : undefined;
+    if (v === undefined) continue;
+    ctx.strokeStyle = voltColor(v, a.vmax);
+    ctx.lineWidth = s.track.width * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(s.a.x, s.a.y);
+    ctx.lineTo(s.b.x, s.b.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 0.95;
+  for (const wp of w.pads) {
+    const v = wp.net ? a.volts.get(wp.net) : undefined;
+    if (v === undefined) continue;
+    ctx.fillStyle = voltColor(v, a.vmax);
+    ctx.beginPath();
+    ctx.arc(wp.center.x, wp.center.y, Math.max(px * 2.5, Math.min(wp.pad.size.x, wp.pad.size.y) * 0.25), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Ток: точки через 1,5 мм, скорость растёт с током (логарифмически), направление — по току.
+  const flows = segmentFlows(p, a.pads);
+  const t = time / 1000;
+  ctx.fillStyle = '#ffd60a';
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  const gap = 1.5;
+  for (const [s, i] of flows) {
+    const ai = Math.abs(i);
+    if (ai < 2e-5) continue;
+    const speed = 1.5 + 2.5 * Math.log10(ai / 2e-5);
+    const len = Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y);
+    if (len < 1e-6) continue;
+    const r = Math.max(px * 1.6, Math.min(s.track.width * 0.3, 0.35));
+    const ux = (s.b.x - s.a.x) / len;
+    const uy = (s.b.y - s.a.y) / len;
+    const off = (((t * speed) % gap) + gap) % gap;
+    for (let d = i > 0 ? off : gap - off; d < len; d += gap) {
+      const x = s.a.x + ux * d;
+      const y = s.a.y + uy * d;
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+}
+
+function drawSim(ctx: CanvasRenderingContext2D, sim: SimView, p: Project, w: World, px: number, time: number): void {
+  if (sim.analog) drawAnalog(ctx, sim.analog, p, w, px, time);
   // Уровни на выводах сигнальных цепей: красный — 1, синий — 0, фиолетовый — ШИМ.
   for (const wp of w.pads) {
+    if (sim.analog && wp.net && sim.analog.volts.has(wp.net)) continue;
     const st = wp.net ? sim.nets.get(wp.net) : undefined;
     if (!st) continue;
     ctx.fillStyle = st.duty > 0.02 && st.duty < 0.98 ? '#bf5af2' : st.level ? '#ff453a' : '#3a86ff';

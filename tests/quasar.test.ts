@@ -130,6 +130,54 @@ describe('Квазар AVR (DesAlex)', () => {
     expect(copper.tone).toBeGreaterThan(200);
   });
 
+  test('аналоговый расчёт: настоящая цепь TX/RX, металлы по фазе вихревых токов', () => {
+    const sim = new Simulation(p, p.firmware!.hex, new Map(), { analog: true, analogDt: 2e-6 });
+    expect(sim.analogError).toBeNull();
+    const a = sim.analog!;
+    const volts = (name: string) => a.netVolts(Object.values(p.nets).find((n) => n.name === name)!.id)!;
+    // Рабочая точка: стабилизаторы, опора TL431, середина ОУ.
+    expect(volts('+5V')).toBeCloseTo(5, 1);
+    expect(volts('VDD')).toBeCloseTo(5, 1);
+    expect(volts('REF_2V5')).toBeCloseTo(2.495, 2);
+    expect(volts('OA_OUT')).toBeCloseTo(2.5, 1);
+    const F = sim.mcu.freq;
+    sim.run(F * 7);
+    const v = sim.view();
+    const coil = v.devices.find((d) => d.kind === 'coil')!;
+    expect(coil.title).toMatch(/TX 82\d\d Гц/);
+    expect(screen(sim)).not.toContain('Error');
+    expect(screen(sim)).toMatch(/1[23]\.\dV/);
+    // Резонанс последовательного контура TX (0,8 мГн и C6 0,47 мкФ) — около 8,2 кГц.
+    const ac = a.acSweep(a.defaultAcInput()!, { comp: coil.comp, pad: a.coil!.rtx.pins[0].pad! }, 6000, 11000, 51);
+    const peak = ac.reduce((b, x) => (x.mag > b.mag ? x : b));
+    expect(peak.f).toBeGreaterThan(7800);
+    expect(peak.f).toBeLessThan(8600);
+    const marks = (target: number) => {
+      sim.set(coil.id, 'target', target);
+      sim.set(coil.id, 'depth', 8);
+      sim.act(coil.id, 'sweep');
+      const cols: number[] = [];
+      let tone = 0;
+      for (let i = 0; i < 14; i++) {
+        sim.run(F / 10);
+        const w = sim.view();
+        const col = w.devices.find((d) => d.kind === 'lcd')!.codes![0].indexOf(255);
+        if (col >= 0) cols.push(col);
+        const spk = w.devices.find((d) => d.kind === 'buzzer')!;
+        if (spk.on) tone = Math.max(tone, spk.hz ?? 0);
+      }
+      return { col: cols.length ? Math.max(...cols) : -1, tone };
+    };
+    const gold = marks(3);
+    const copper = marks(6);
+    const iron = marks(1);
+    expect(gold.col).toBeGreaterThanOrEqual(0);
+    expect(copper.col).toBeGreaterThan(gold.col);
+    expect(copper.tone).toBeGreaterThan(200);
+    // Железо — в маске прошивки: без метки, низкий тон.
+    expect(iron.tone).toBeLessThan(copper.tone);
+  });
+
   test('файлы для импорта', () => {
     const text = serializeProject(p, false);
     const r = parseProjectFile(text);

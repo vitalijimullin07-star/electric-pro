@@ -214,6 +214,8 @@ export class Avr implements SimMcu {
   readonly title: string;
   /** Опорное напряжение АЦП снаружи (AREF соединён с питанием) — перекрывает встроенное. */
   forcedRef: number | null = null;
+  /** Перед измерением АЦП (аналоговый расчёт досчитывает напряжения до этого такта). */
+  beforeAdc: (() => void) | null = null;
   readonly vdd = 5;
   private readonly timers: AVRTimer[];
   private listeners: PinListener[] = [];
@@ -332,6 +334,7 @@ export class Avr implements SimMcu {
 
   /** Чтение АЦП: разностные каналы ATmega32 дают знаковое 10-битное число. */
   private adcRead(input: ADCMuxInput): void {
+    this.beforeAdc?.();
     const adc = this.adc;
     const v = (ch: number) => adc.channelValues[ch] ?? 0;
     const ref = this.forcedRef ?? adc.referenceVoltage;

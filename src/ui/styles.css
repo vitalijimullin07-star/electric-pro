@@ -1953,3 +1953,18 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Аналоговый расчёт: каналы осциллографа и АЧХ */
+.analog-chans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.analog-chans select {
+  border-width: 2px;
+  max-width: 48%;
+}
+.analog > .row select {
+  max-width: 100%;
+}

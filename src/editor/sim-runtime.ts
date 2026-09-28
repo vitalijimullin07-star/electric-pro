@@ -19,6 +19,22 @@ export interface SimHistory {
 }
 const HISTORY_MAX = 1200;
 
+function readPref(key: string, def: string): string {
+  try {
+    return localStorage.getItem(key) ?? def;
+  } catch {
+    return def;
+  }
+}
+
+function writePref(key: string, v: string): void {
+  try {
+    localStorage.setItem(key, v);
+  } catch {
+    /* хранилище недоступно — настройка на этот сеанс */
+  }
+}
+
 class SimRuntime {
   sim: Simulation | null = null;
   view: SimView | null = null;
@@ -31,6 +47,12 @@ class SimRuntime {
   private startId = 0;
   sound = true;
   history: SimHistory = { t: [], s: {} };
+  /** Аналоговый расчёт схемы (токи и напряжения, номиналы на ходу), шаг и шум — на следующий запуск. */
+  analog = readPref('plata.sim.analog', '1') === '1';
+  analogDt = Number(readPref('plata.sim.dt', '2e-6')) || 2e-6;
+  noise = readPref('plata.sim.noise', '1') === '1';
+  /** Проект, с которым согласована симуляция («в проект» из ручек номинала не требует сброса). */
+  synced: unknown = null;
 
   get running(): boolean {
     return useEditor.getState().sim.status === 'running';
@@ -68,10 +90,12 @@ class SimRuntime {
     const id = ++this.startId;
     const project = s.project;
     this.patch({ status: 'loading', error: null, seconds: 0, speed: 0 });
-    Simulation.create(project).then(
+    Simulation.create(project, { analog: this.analog, analogDt: this.analogDt }).then(
       (sim) => {
         if (id !== this.startId) return;
         this.sim = sim;
+        this.synced = project;
+        if (sim.analog) sim.analog.engine.noise = this.noise;
         this.history = { t: [], s: {} };
         this.view = sim.view();
         this.patch({ status: 'running', error: null, seconds: 0, speed: 0 });
@@ -121,8 +145,11 @@ class SimRuntime {
     // Порция — 1 мс времени контроллера (у AVR 16 000 тактов, у ESP32 такт — микросекунда).
     const slice = Math.max(100, Math.round(sim.mcu.freq / 1000));
     const t0 = performance.now();
+    // Кадр и так медленный (отрисовка на слабом устройстве) — расчёту можно отдать больше,
+    // иначе время в симуляции ползёт: не больше 60 % кадра и не больше 40 мс.
+    const budget = Math.min(40, Math.max(BUDGET_MS, this.frameMs * 0.6));
     let done = 0;
-    while (done < target && performance.now() - t0 < BUDGET_MS) {
+    while (done < target && performance.now() - t0 < budget) {
       const n = Math.min(slice, target - done);
       sim.run(n);
       done += n;
@@ -138,8 +165,11 @@ class SimRuntime {
       this.patch({ seconds: sim.seconds, speed: this.speedAcc.wall ? Math.min(1, this.speedAcc.sim / this.speedAcc.wall) : 0 });
       this.speedAcc = { sim: 0, wall: 0 };
     }
+    this.frameMs = this.frameMs * 0.8 + Math.min(100, dt) * 0.2;
     this.raf = requestAnimationFrame(this.loop);
   };
+  /** Средняя длительность кадра, мс. */
+  private frameMs = 16;
 
   private emit(): void {
     for (const l of this.listeners) l();
@@ -205,6 +235,23 @@ class SimRuntime {
   /** Касание экрана пульта (координаты кадра). */
   touch(id: string, x: number, y: number, down: boolean): void {
     this.sim?.touch(id, x, y, down);
+    if (!this.running) this.refresh();
+  }
+
+  /** Настройки аналогового расчёта: включение и шаг — со следующего запуска, шум — сразу. */
+  setAnalogPrefs(o: { analog?: boolean; dt?: number; noise?: boolean }): void {
+    if (o.analog !== undefined) writePref('plata.sim.analog', (this.analog = o.analog) ? '1' : '0');
+    if (o.dt !== undefined) writePref('plata.sim.dt', String((this.analogDt = o.dt)));
+    if (o.noise !== undefined) {
+      writePref('plata.sim.noise', (this.noise = o.noise) ? '1' : '0');
+      if (this.sim?.analog) this.sim.analog.engine.noise = o.noise;
+    }
+    this.patch({});
+  }
+
+  /** Номинал детали в аналоговом расчёте (без записи в проект). */
+  analogSet(comp: string, key: string, value: number): void {
+    this.sim?.analog?.set(comp, key, value);
     if (!this.running) this.refresh();
   }
 

@@ -6,6 +6,7 @@ import type { DeviceView, SimView } from '@core/sim';
 import { openFileBytes } from '../files';
 import { bytesToBase64 } from '@core/sim';
 import { charOf } from '@core/sim/hd44780';
+import { AnalogPanel } from './AnalogPanel';
 
 /*
  * Вкладка «Симуляция»: прошивка, пуск и пауза, экраны, кнопки, ползунки датчиков,
@@ -69,7 +70,7 @@ export function SimPanel() {
   const fw = useEditor((s) => s.project.firmware);
   const project = useEditor((s) => s.project);
   const view = useSimView();
-  const [tab, setTab] = useState<'dev' | 'serial' | 'pins'>('dev');
+  const [tab, setTab] = useState<'dev' | 'analog' | 'serial' | 'pins'>('dev');
   const status = sim.status;
   return (
     <div className="sim-panel">
@@ -100,6 +101,25 @@ export function SimPanel() {
         </button>
       </div>
       <div className="row">
+        <label className="sim-sound" title="Токи и напряжения всей схемы, номиналы на ходу, осциллограф и АЧХ. Включается со следующего запуска.">
+          <input type="checkbox" checked={simRuntime.analog} onChange={(e) => simRuntime.setAnalogPrefs({ analog: e.target.checked })} /> аналоговый расчёт
+        </label>
+        {simRuntime.analog && (
+          <>
+            <select value={simRuntime.analogDt} onChange={(e) => simRuntime.setAnalogPrefs({ dt: +e.target.value })} title="Шаг расчёта: мельче — точнее на высоких частотах, но медленнее. Со следующего запуска.">
+              {[0.5e-6, 1e-6, 2e-6, 5e-6, 10e-6].map((d) => (
+                <option key={d} value={d}>
+                  шаг {String(d * 1e6).replace('.', ',')} мкс
+                </option>
+              ))}
+            </select>
+            <label className="sim-sound" title="Тепловой шум резисторов и шум ОУ">
+              <input type="checkbox" checked={simRuntime.noise} onChange={(e) => simRuntime.setAnalogPrefs({ noise: e.target.checked })} /> шум
+            </label>
+          </>
+        )}
+      </div>
+      <div className="row">
         <button className="btn" onClick={() => void loadFirmware()}>
           Загрузить прошивку (.hex, .wasm)…
         </button>
@@ -111,7 +131,7 @@ export function SimPanel() {
         </p>
       )}
       {sim.error && <p className="hint" style={{ color: 'var(--err)' }}>{sim.error}</p>}
-      {status !== 'off' && simRuntime.sim && simRuntime.sim.project !== project && <p className="hint" style={{ color: 'var(--warn)' }}>Схема изменилась после запуска — нажмите «Сброс», чтобы симуляция учла правки.</p>}
+      {status !== 'off' && simRuntime.sim && simRuntime.synced !== project && <p className="hint" style={{ color: 'var(--warn)' }}>Схема изменилась после запуска — нажмите «Сброс», чтобы симуляция учла правки.</p>}
       {status !== 'off' && (
         <p className="hint">
           {/* Длина строки не меняется, иначе панель прыгает, когда скорость колеблется около 90 %. */}
@@ -129,6 +149,11 @@ export function SimPanel() {
             <button className={tab === 'dev' ? 'on' : ''} onClick={() => setTab('dev')}>
               Детали
             </button>
+            {simRuntime.sim?.analog && (
+              <button className={tab === 'analog' ? 'on' : ''} onClick={() => setTab('analog')}>
+                Цепь
+              </button>
+            )}
             <button className={tab === 'serial' ? 'on' : ''} onClick={() => setTab('serial')}>
               Монитор порта
             </button>
@@ -137,6 +162,7 @@ export function SimPanel() {
             </button>
           </div>
           {tab === 'dev' && <Devices view={view} />}
+          {tab === 'analog' && <AnalogPanel view={view} />}
           {tab === 'serial' && <Serial baud={view.baud} />}
           {tab === 'pins' && <Pins view={view} />}
         </>
