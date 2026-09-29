@@ -47,7 +47,8 @@ export async function loadFirmware(): Promise<void> {
   if (/\.wasm$/i.test(f.name)) {
     // Ядро прошивки ESP32, собранное в WebAssembly: проверяем, что браузер его примет.
     if (!WebAssembly.validate(f.bytes as BufferSource)) return s.setMessage(`«${f.name}» — не модуль WebAssembly.`);
-    s.commit((d) => void (d.firmware = { name: f.name, hex: '', mcu: 'esp32', wasm: bytesToBase64(f.bytes) }));
+    // Прошивки других плат проекта (экран пульта — modules) остаются: меняется только контроллер.
+    s.commit((d) => void (d.firmware = { name: f.name, hex: '', mcu: 'esp32', wasm: bytesToBase64(f.bytes), ...(d.firmware?.modules ? { modules: d.firmware.modules } : {}) }));
     s.setMessage(`Прошивка для симуляции ESP32 «${f.name}» загружена: ${(f.bytes.length / 1024).toFixed(1).replace('.', ',')} КБ. Нажмите «Старт».`);
     if (simRuntime.active) simRuntime.start();
     return;
