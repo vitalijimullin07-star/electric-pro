@@ -93,11 +93,33 @@ function FullSim() {
 
 function PlantLayout({ view, plant }: { view: SimView; plant: VacuumView }) {
   const [side, setSide] = useState<'pult' | 'params' | 'serial'>('pult');
+  // Экран крупно: боковая панель прячется, пульт — на всю ширину окна.
+  const [wide, setWide] = useState(() => {
+    try {
+      return localStorage.getItem('plata.simfs.wide') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleWide = () =>
+    setWide((w) => {
+      try {
+        localStorage.setItem('plata.simfs.wide', w ? '0' : '1');
+      } catch {
+        /* без хранилища — только на этот раз */
+      }
+      return !w;
+    });
   const quick = quickActions(view);
   const panel = view.devices.find((d) => d.kind === 'panel');
   return (
-    <div className={`simfs-body${panel ? ' has-panel' : ''}`}>
+    <div className={`simfs-body${panel ? ' has-panel' : ''}${wide ? ' wide' : ''}`}>
       <div className="simfs-main">
+        {panel && (
+          <button className="btn sm simfs-widebtn" onClick={toggleWide} title={wide ? 'Показать настройки и порт сбоку' : 'Спрятать боковую панель — экран пульта крупнее'}>
+            {wide ? '◧ Панель сбоку' : '⤢ Экран крупнее'}
+          </button>
+        )}
         {panel && <PultFront view={view} panel={panel} />}
         <div className="simfs-scheme-wrap">
           <VacuumScheme v={plant} />
@@ -159,7 +181,7 @@ function PultFront({ view, panel }: { view: SimView; panel: DeviceView }) {
     );
     return (
       <div className="simfs-pultfront">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
           {col(side.slice(0, 3))}
           <div className="simfs-screen" style={{ flex: 1 }}>
             <PanelScreen d={panel} />

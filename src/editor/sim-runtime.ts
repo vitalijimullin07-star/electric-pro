@@ -9,6 +9,8 @@ import { useEditor } from './store';
  * берётся на момент запуска: правки схемы — после «Сброса».
  */
 
+/** Самое короткое нажатие кнопки во времени симуляции, с. */
+const MIN_PRESS = 0.12;
 const BUDGET_MS = 12;
 
 type Listener = () => void;
@@ -238,8 +240,28 @@ class SimRuntime {
     this.patch({});
   }
 
+  /** Когда (по времени симуляции) нажата кнопка: отпускание не раньше чем через MIN_PRESS. */
+  private pressedAt = new Map<string, number>();
+
   press(id: string, down: boolean): void {
-    this.sim?.press(id, down);
+    const sim = this.sim;
+    if (!sim) return;
+    if (down) this.pressedAt.set(id, sim.seconds);
+    else {
+      // Симуляция идёт медленнее реального времени: короткий щелчок в ней — миллисекунды, и
+      // прошивка отбросит его как дребезг. Держим кнопку хотя бы 0,12 с времени симуляции.
+      const at = this.pressedAt.get(id);
+      this.pressedAt.delete(id);
+      const left = at === undefined ? 0 : MIN_PRESS - (sim.seconds - at);
+      if (left > 0 && this.running) {
+        const wait = Math.min(2000, (left * 1000) / Math.max(0.05, useEditor.getState().sim.speed || 0.05));
+        setTimeout(() => {
+          if (this.sim === sim && !this.pressedAt.has(id)) this.press(id, false);
+        }, wait);
+        return;
+      }
+    }
+    sim.press(id, down);
     if (!this.running) this.refresh();
   }
 

@@ -625,7 +625,9 @@ export class VacuumPlant {
     }
     const pc = (lo + hi) / 2;
     const qh = Math.sqrt(pc / (kh + kf));
-    this.air = { p: pc, tank: kh * qh * qh, qh, filterDp: kf * qh * qh, flowDp: VENTURI_K * qh * qh, qv: openValves * VALVE_CV * Math.sqrt(pc) };
+    // Удар клапана — воздух идёт через половину фильтра обратно: перепад на датчике проседает.
+    const back = Math.min(0.9, openValves * 0.75);
+    this.air = { p: pc, tank: kh * qh * qh, qh, filterDp: kf * qh * qh * (1 - back), flowDp: VENTURI_K * qh * qh, qv: openValves * VALVE_CV * Math.sqrt(pc) };
     this.motors.forEach((m, i) => {
       const q = fanQ(speeds[i], pc);
       m.qm3 = q;

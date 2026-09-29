@@ -1729,6 +1729,7 @@ async function openPage(viewport, touch = false) {
     await screen.waitFor({ timeout: 15000 });
     const press = async (text) => {
       const b = page.locator('.simfs-round', { hasText: text }).first();
+      await b.scrollIntoViewIfNeeded();
       const bb = await b.boundingBox();
       expect(bb, 'нет кнопки ' + text);
       await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
@@ -1753,7 +1754,7 @@ async function openPage(viewport, touch = false) {
       port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
     }
     await page.screenshot({ path: `${out}/vacuum-s3-fullscreen.png` });
-    expect(/Продувка/.test(port) && /Экран на связи/.test(port), 'кнопка 5 у экрана не дала продувку: ' + port.replace(/АВТО работа[^\n]*/g, '').slice(0, 1500));
+    expect(/Продувка/.test(port) && /Экран на связи/.test(port), 'кнопка 5 у экрана не дала продувку: ' + port.slice(-700));
     await page.evaluate(() => history.back());
     await page.waitForTimeout(400);
     await h.menu('Симуляция', 'Стоп');

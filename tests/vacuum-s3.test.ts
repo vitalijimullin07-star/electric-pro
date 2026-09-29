@@ -153,6 +153,20 @@ describe('Пылесос S3: прошивки в симуляции', () => {
     expect(sim.serial).toContain('Клапан 1 не срабатывает');
   });
 
+  test('полная продувка на двух турбинах с пыльным фильтром: исправные клапаны не считаются неисправными', () => {
+    const { sec, click, cmd, act, sim } = start();
+    click(/SB7/);
+    click(/SB8/);
+    sec(6);
+    act(/Шланг, бак, фильтр/, 'dust');
+    act(/Шланг, бак, фильтр/, 'dust');
+    sec(2);
+    cmd('purge full');
+    sec(15);
+    expect(sim.serial).toContain('Продувка закончена');
+    expect(sim.serial).not.toMatch(/Клапан \d не срабатывает/);
+  });
+
   test('отбивка как у Hilti: удар каждые 5 с, клапаны по очереди; только турбина 2 — реле K1 держится для клапанов', () => {
     const { sec, click, cmd, sim, plant, relay } = start();
     cmd('tap 5');

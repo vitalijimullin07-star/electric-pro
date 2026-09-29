@@ -224,7 +224,8 @@ static float wacc[2];            /* доли приведённой секунд
 static int shift_logged;         /* в этой смене уже есть точка R в журнале */
 static uint32_t pulse_quiet_until; /* после удара поток не устоялся — R не меряем */
 static uint8_t valve_bad[2];     /* ударов подряд без нормального тока */
-static float pa_before, pa_min;  /* перепад перед ударом и наименьший во время удара */
+static float pa_before, pa_min;  /* перепад перед ударом и наименьший во время удара (без сглаживания) */
+static uint8_t pa_n;             /* отсчётов перепада за удар */
 static uint8_t valve_no_dp[2];   /* ударов подряд без броска перепада */
 
 /* Регулятор расхода: u — суммарная мощность в % одной турбины (до 200 с двумя).
@@ -548,6 +549,7 @@ static int valves_ready(void) { return vac.relay[0] && (vac.ts[0] == TS_RUN || v
 static void valve_open(int k) {
   vac.valve[k] = 1;
   pa_before = pa_min = vac.filter_pa;
+  pa_n = 0;
 }
 
 /* Клапан закрылся: ток катушки (втягивание и удержание) и бросок перепада на фильтре. */
@@ -562,7 +564,8 @@ static void valve_closed(int k) {
   int bad = in < 0.08f || (vac_cfg.imp_ms >= 80 && in > 0.25f && hold > in * 0.92f);
   valve_bad[k] = bad ? (uint8_t)(valve_bad[k] + 1) : 0;
   /* Воздух пошёл обратно через фильтр — перепад на нём проседает; не просел — клапан не открылся. */
-  int dp_bad = vac_cfg.imp_ms >= 80 && pa_before > 60 && !(vac.faults & F_SDP_F) && pa_min > pa_before * 0.9f;
+  /* Судим только по отсчётам, снятым во время удара: датчик читается раз в 50 мс. */
+  int dp_bad = vac_cfg.imp_ms >= 80 && pa_n >= 1 && pa_before > 60 && !(vac.faults & F_SDP_F) && pa_min > pa_before * 0.9f;
   valve_no_dp[k] = dp_bad ? (uint8_t)(valve_no_dp[k] + 1) : 0;
   if (valve_bad[k] >= 3 || valve_no_dp[k] >= 3) set_fault(k ? F_VALVE2 : F_VALVE1, 1);
   else if (!bad && !dp_bad) set_fault(k ? F_VALVE2 : F_VALVE1, 0);
@@ -965,7 +968,10 @@ static void sensors(void) {
       sdp_err[b] = 0;
       if (b == 0) {
         vac.filter_pa += (pa - vac.filter_pa) * 0.4f;
-        if ((vac.valve[0] || vac.valve[1]) && vac.filter_pa < pa_min) pa_min = vac.filter_pa;
+        if (vac.valve[0] || vac.valve[1]) {
+          pa_n++;
+          if (pa < pa_min) pa_min = pa;
+        }
       }
       else {
         if (pa < 0) pa = 0;

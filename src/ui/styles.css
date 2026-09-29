@@ -2046,3 +2046,24 @@ textarea:focus {
   min-width: 28px;
   padding: 2px 6px;
 }
+
+/* Пульт во весь экран: экран пульта — по размеру окна (5:3), не больше высоты окна за вычетом кнопок. */
+.simfs .simfs-pultfront .sim-panel-screen {
+  max-width: none;
+  width: min(100%, calc((100vh - 310px) * 5 / 3));
+  margin: 0 auto;
+}
+.simfs .simfs-pultfront .simfs-screen {
+  display: flex;
+  justify-content: center;
+  max-width: none;
+}
+.simfs-body.wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+.simfs-body.wide .simfs-side {
+  display: none;
+}
+.simfs-widebtn {
+  align-self: flex-end;
+}
