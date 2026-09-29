@@ -12,9 +12,19 @@
  * Arduino IDE: плата «ESP32S3 Dev Module», PSRAM — «OPI PSRAM», Flash — по модулю.
  * Связь с контроллером: TX пульта (PANEL_TX) → RX контроллера, RX пульта (PANEL_RX) ← TX
  * контроллера (у «S3» — IO14 и IO13, у ESP32 — IO15 и IO23), общая земля и 5 В — по кабелю X1.
+ *
+ * Обновление экрана — через контроллер «S3» (страница на телефоне): строки «U b» (начало),
+ * «U d <base64>» (кусок, ответ «U a»), «U e» (конец: метка прошивки экрана есть — записываем
+ * и перезапускаемся, нет — «U bad»), «U x» — отмена. Новая прошивка, которая не проработала
+ * 30 с, при следующем сбросе откатывается на старую.
+ * Arduino IDE: Partition Scheme — с двумя разделами приложения (8M with spiffs / 16M …).
  */
 #include <Arduino.h>
+#include <Update.h>
 #include <Wire.h>
+#include "esp_ota_ops.h"
+#include "gfx.h"
+#include "fonts.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_rgb.h"
@@ -149,6 +159,86 @@ static void touch_poll() {
   gt_clear();
 }
 
+/* ---- обновление через провод пульта ---- */
+
+bool verifyRollbackLater() { return true; }
+
+static bool upd_on, upd_found;
+static uint32_t upd_bytes;
+static int upd_got;
+static char upd_mark[16];
+
+static int b64v(char c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+static void upd_screen(const char *text) {
+  g_fill(0, 0, GW, GH, HEX(0x080808));
+  g_text_at(&F_S20, 400, 220, "Обновление экрана", HEX(0xe8e8e4), 1);
+  g_text_at(&F_S14, 400, 252, text, HEX(0x8a8a85), 1);
+  esp_lcd_panel_draw_bitmap(lcd, 0, 0, 800, 480, frame);
+}
+
+static void upd_line(const char *s) {
+  char n[32];
+  if (!strncmp(s, "U b", 3)) {
+    upd_on = Update.begin(UPDATE_SIZE_UNKNOWN);
+    upd_found = false, upd_got = 0, upd_bytes = 0;
+    strcpy(upd_mark, "VACFW:");
+    strcat(upd_mark, "PANEL:");
+    Serial1.print(upd_on ? "U ok\n" : "U err\n");
+    upd_screen("приём файла от контроллера…");
+  } else if (!strncmp(s, "U d ", 4) && upd_on) {
+    uint8_t buf[200];
+    int k = 0, acc = 0, bits = 0, len = strlen(upd_mark);
+    for (const char *p = s + 4; *p && *p != '='; p++) {
+      int v = b64v(*p);
+      if (v < 0) continue;
+      acc = (acc << 6) | v, bits += 6;
+      if (bits >= 8) bits -= 8, buf[k++] = (uint8_t)(acc >> bits);
+    }
+    for (int i = 0; i < k && !upd_found; i++) {
+      if (buf[i] == (uint8_t)upd_mark[upd_got]) {
+        if (++upd_got == len) upd_found = true;
+      } else
+        upd_got = buf[i] == (uint8_t)upd_mark[0] ? 1 : 0;
+    }
+    if (Update.write(buf, k) != (size_t)k) {
+      Update.abort();
+      upd_on = false;
+      Serial1.print("U err\n");
+      return;
+    }
+    upd_bytes += k;
+    Serial1.print("U a\n");
+    if ((upd_bytes & 0xFFFF) < (uint32_t)k) {
+      snprintf(n, sizeof n, "принято %u КБ", (unsigned)(upd_bytes / 1024));
+      upd_screen(n);
+    }
+  } else if (!strncmp(s, "U e", 3) && upd_on) {
+    upd_on = false;
+    if (!upd_found) {
+      Update.abort();
+      Serial1.print("U bad\n");
+      upd_screen("это не прошивка экрана — не записана");
+    } else if (Update.end(true)) {
+      Serial1.print("U done\n");
+      upd_screen("готово, перезапуск");
+      delay(500);
+      ESP.restart();
+    } else
+      Serial1.print("U bad\n");
+  } else if (!strncmp(s, "U x", 3)) {
+    if (upd_on) Update.abort();
+    upd_on = false;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, PANEL_RX, PANEL_TX);
@@ -166,13 +256,31 @@ void setup() {
 void loop() {
   static uint32_t t_touch;
   static int dark;
-  while (Serial1.available()) ui_rx(Serial1.read());
+  /* Строки «U …» — обновление экрана, остальное — интерфейсу. */
+  static char line[300];
+  static int ll;
+  while (Serial1.available()) {
+    int c = Serial1.read();
+    if (c == '\n') {
+      line[ll] = 0;
+      if (ll >= 3 && line[0] == 'U' && line[1] == ' ') upd_line(line);
+      else {
+        for (int i = 0; i < ll; i++) ui_rx(line[i]);
+        ui_rx('\n');
+      }
+      ll = 0;
+    } else if (ll < (int)sizeof line - 1)
+      line[ll++] = (char)c;
+  }
+  if (upd_on) return; /* во время обновления экран показывает только ход */
   uint32_t ms = millis();
   if (ms - t_touch >= 15) {
     t_touch = ms;
     touch_poll();
   }
   if (ui_loop(ms)) esp_lcd_panel_draw_bitmap(lcd, 0, 0, 800, 480, frame);
+  static bool valid;
+  if (!valid && ms > 30000) valid = true, esp_ota_mark_app_valid_cancel_rollback();
   /* «Выкл» на контроллере — подсветку гасим (экран 7″ — это ватт с лишним). */
   int sl = ui_sleeping();
   if (sl != dark) {

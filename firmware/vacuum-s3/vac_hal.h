@@ -49,9 +49,19 @@ void hal_uart_write(const char *data, int len);
 /* Строка в монитор порта (без перевода строки). */
 void hal_log(const char *line);
 
-/* Настройки в энергонезависимой памяти: load возвращает число прочитанных байт. */
+/*
+ * Настройки в энергонезависимой памяти — две копии (slot 0 и 1), запись по очереди: если
+ * питание пропадёт посреди записи, останется предыдущая целая. load — число прочитанных байт.
+ */
+int hal_settings_load2(int slot, void *buf, int len);
+void hal_settings_save2(int slot, const void *buf, int len);
+/* Одна копия прошивки 3.x — только чтение, для переноса настроек при обновлении. */
 int hal_settings_load(void *buf, int len);
-void hal_settings_save(const void *buf, int len);
+
+/* Случайное число (аппаратный генератор): пароль сети Wi-Fi. */
+uint32_t hal_rand32(void);
+/* Сеть Wi-Fi для телефона (страница, обновление, резервная копия): on = 0 — выключить. */
+void hal_wifi(int on, const char *ssid, const char *pass);
 
 #ifdef __cplusplus
 }

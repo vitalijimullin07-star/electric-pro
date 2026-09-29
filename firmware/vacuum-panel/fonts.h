@@ -3,6 +3,10 @@
 #define PANEL_FONTS_H
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
   uint16_t cp;      /* код знака (Юникод) */
   uint8_t w, h;     /* размер растра */
@@ -34,4 +38,7 @@ extern const pfont_t F_M22;
 extern const pfont_t F_M27;
 extern const pfont_t F_M82;
 
+#ifdef __cplusplus
+}
+#endif
 #endif

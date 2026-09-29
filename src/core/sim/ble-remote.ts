@@ -156,3 +156,104 @@ export class BleRemote {
     };
   }
 }
+
+/** События метки (как в vac_link.c): инструмент заработал, встал, работает (раз в 2 с), заряд. */
+export const TAG_EVENTS = { start: 1, stop: 2, running: 3, battery: 4 } as const;
+
+/**
+ * Bluetooth-метка на аккумуляторный инструмент (firmware/vacuum-tag, ESP32-C3 и акселерометр):
+ * мотор завибрировал — «VT» с событием «заработал», пока работает — «работает» раз в 2 с,
+ * встал — «встал». Одиночный толчок (уронили, стукнули) метка отличает от вибрации мотора
+ * и ничего не шлёт. Привязка — «VP» версии 2 с видом устройства (2 — метка).
+ */
+export class BleTag {
+  readonly id: number;
+  readonly key = new Uint8Array(16);
+  counter = 0;
+  sent = 0;
+  on = false;
+  private beat = 0;
+  readonly params: SimParam[] = [
+    { key: 'rssi', label: 'сигнал (расстояние)', value: -65, min: -95, max: -35, step: 1, unit: 'дБм' },
+    { key: 'batt', label: 'заряд батареи', value: 80, min: 0, max: 100, step: 1, unit: '%' },
+  ];
+
+  constructor(
+    private esp: Esp32,
+    seed = 0x7a6c0de,
+  ) {
+    let x = seed >>> 0;
+    const rnd = () => ((x = (Math.imul(x, 1103515245) + 12345) >>> 0), x >>> 24);
+    this.id = ((rnd() << 24) | (rnd() << 16) | (rnd() << 8) | rnd()) >>> 0;
+    for (let i = 0; i < 16; i++) this.key[i] = rnd();
+  }
+
+  send(ev: number): void {
+    const p = new Uint8Array(17);
+    p.set([0x56, 0x54, 1]);
+    this.counter++;
+    put32(p, 3, this.id);
+    put32(p, 7, this.counter);
+    p[11] = ev;
+    p[12] = Math.max(1, Math.round(this.params[1].value));
+    put32(p, 13, Number(siphash24(this.key, p.subarray(3, 13)) & 0xffffffffn));
+    this.sent++;
+    this.esp.remote(p, this.params[0].value);
+  }
+
+  pair(): void {
+    const p = new Uint8Array(24);
+    p.set([0x56, 0x50, 2]);
+    put32(p, 3, this.id);
+    p.set(this.key, 7);
+    p[23] = 2;
+    this.esp.remote(p, Math.min(-35, this.params[0].value + 20));
+  }
+
+  /** Инструмент заработал или встал: посылка сразу, пока работает — раз в 2 с. */
+  tool(on: boolean): void {
+    if (on === this.on) return;
+    this.on = on;
+    const token = ++this.beat;
+    this.send(on ? TAG_EVENTS.start : TAG_EVENTS.stop);
+    if (!on) return;
+    const tick = () => {
+      if (this.beat !== token || !this.on) return;
+      this.send(TAG_EVENTS.running);
+      this.esp.schedule(tick, 2_000_000);
+    };
+    this.esp.schedule(tick, 2_000_000);
+  }
+
+  device(comp: Component): Device {
+    const id = `${comp.id}:tag`;
+    return {
+      id,
+      comp,
+      act: (k) => {
+        if (k === 'pair') this.pair();
+        else if (k === 'tool') this.tool(!this.on);
+        // Толчок: метка видит один удар, а не ровную вибрацию мотора — посылки нет.
+      },
+      set: (k, v) => {
+        const pp = this.params.find((x) => x.key === k);
+        if (pp) pp.value = v;
+      },
+      view: () => ({
+        id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'remote',
+        title: `${comp.ref} метка на инструмент (Bluetooth, номер ${this.id.toString(16).toUpperCase().padStart(8, '0')}): инструмент ${this.on ? 'работает' : 'стоит'}`,
+        on: this.on,
+        params: this.params,
+        readings: [{ label: 'посылок', value: this.sent, unit: '' }],
+        actions: [
+          { key: 'tool', label: this.on ? 'Выключить инструмент' : 'Включить инструмент' },
+          { key: 'bump', label: 'Толчок (уронили)' },
+          { key: 'pair', label: 'Привязка (кнопка метки 5 с)' },
+        ],
+      }),
+    };
+  }
+}

@@ -38,7 +38,7 @@ interface Ev {
 export interface Esp32Options {
   /** ESP32-S3 (модуль WROOM-1): только заголовок — ядро прошивки исполняется так же. */
   s3?: boolean;
-  /** Настройки из прошлого запуска (энергонезависимая память). */
+  /** Настройки из прошлого запуска (энергонезависимая память; формат — nvsPack). */
   nvs?: Uint8Array | null;
   onNvs?: (data: Uint8Array) => void;
 }
@@ -81,12 +81,15 @@ export class Esp32 implements SimMcu {
   private buses: { sda: McuPin; scl: McuPin }[] = [];
   private tones = new Map<McuPin, number>();
   private toneToken = new Map<McuPin, number>();
-  private nvs: Uint8Array | null;
+  /** Энергонезависимая память: ключ −1 — одна копия (прошивки 3.x), 0 и 1 — две копии. */
+  private nvs = new Map<number, Uint8Array>();
+  /** Сеть Wi-Fi для телефона, которую включила прошивка. */
+  wifi: { ssid: string; pass: string } | null = null;
   private rng = 12345;
   private decoder = new TextDecoder();
 
   private constructor(private opts: Esp32Options) {
-    this.nvs = opts.nvs ? new Uint8Array(opts.nvs) : null;
+    if (opts.nvs) this.nvs = nvsUnpack(opts.nvs);
     this.title = opts.s3 ? 'ESP32-S3-WROOM-1' : 'ESP32-WROOM-32E';
   }
 
@@ -190,17 +193,31 @@ export class Esp32 implements SimMcu {
           if (this.onUart) this.schedule(() => this.onUart?.(data), 1);
         },
         hal_log: (ptr: number) => this.onLog?.(this.cstr(ptr) + '\n'),
-        hal_settings_load: (ptr: number, len: number) => {
-          if (!this.nvs || this.nvs.length !== len) return 0;
-          this.mem().set(this.nvs, ptr);
-          return len;
+        hal_settings_load: (ptr: number, len: number) => this.nvsLoad(-1, ptr, len),
+        hal_settings_save: (ptr: number, len: number) => this.nvsSave(-1, ptr, len),
+        hal_settings_load2: (slot: number, ptr: number, len: number) => this.nvsLoad(slot, ptr, len),
+        hal_settings_save2: (slot: number, ptr: number, len: number) => this.nvsSave(slot, ptr, len),
+        hal_rand32: () => {
+          this.rng = (this.rng * 1103515245 + 12345) & 0x7fffffff;
+          return this.rng >>> 0;
         },
-        hal_settings_save: (ptr: number, len: number) => {
-          this.nvs = this.mem().slice(ptr, ptr + len);
-          this.opts.onNvs?.(this.nvs);
+        hal_wifi: (on: number, ssid: number, pass: number) => {
+          this.wifi = on ? { ssid: this.cstr(ssid), pass: this.cstr(pass) } : null;
         },
       },
     };
+  }
+
+  private nvsLoad(slot: number, ptr: number, len: number): number {
+    const d = this.nvs.get(slot);
+    if (!d || d.length !== len) return 0;
+    this.mem().set(d, ptr);
+    return len;
+  }
+
+  private nvsSave(slot: number, ptr: number, len: number): void {
+    this.nvs.set(slot, this.mem().slice(ptr, ptr + len));
+    this.opts.onNvs?.(nvsPack(this.nvs));
   }
 
   /* ---------------- выводы ---------------- */
@@ -392,6 +409,39 @@ export class Esp32 implements SimMcu {
     };
     this.schedule(send, 1);
   }
+}
+
+/*
+ * Память настроек одним массивом: «NV1», затем записи [ключ + 1 (байт), длина (2 байта), данные].
+ * Старый формат (просто байты одной копии) читается как ключ −1.
+ */
+export function nvsPack(m: Map<number, Uint8Array>): Uint8Array {
+  let n = 3;
+  for (const d of m.values()) n += 3 + d.length;
+  const out = new Uint8Array(n);
+  out.set([0x4e, 0x56, 0x31]);
+  let o = 3;
+  for (const [k, d] of m) {
+    out[o] = k + 1;
+    out[o + 1] = d.length & 0xff;
+    out[o + 2] = d.length >> 8;
+    out.set(d, o + 3);
+    o += 3 + d.length;
+  }
+  return out;
+}
+
+export function nvsUnpack(b: Uint8Array): Map<number, Uint8Array> {
+  const m = new Map<number, Uint8Array>();
+  if (b.length >= 3 && b[0] === 0x4e && b[1] === 0x56 && b[2] === 0x31) {
+    let o = 3;
+    while (o + 3 <= b.length) {
+      const len = b[o + 1] | (b[o + 2] << 8);
+      m.set(b[o] - 1, b.slice(o + 3, o + 3 + len));
+      o += 3 + len;
+    }
+  } else m.set(-1, new Uint8Array(b));
+  return m;
 }
 
 function less(a: Ev, b: Ev): boolean {

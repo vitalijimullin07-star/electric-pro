@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <Wire.h>
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "soc/gpio_reg.h"
 #include "vac_core.h"
@@ -58,11 +59,33 @@ void hal_tone(int pin, uint32_t hz) {
 
 /* К экрану — UART1 (Serial — это USB-C: монитор порта и прошивка). */
 void hal_uart_begin(int tx, int rx, uint32_t baud) { Serial1.begin(baud, SERIAL_8N1, rx, tx); }
-void hal_uart_write(const char *data, int len) { Serial1.write((const uint8_t *)data, (size_t)len); }
+/* Пока идёт прошивка экрана, строки ядра в UART не идут (там — куски файла). */
+volatile int uart_mute;
+void hal_uart_write(const char *data, int len) {
+  if (!uart_mute) Serial1.write((const uint8_t *)data, (size_t)len);
+}
 
 void hal_log(const char *line) { Serial.println(line); }
 
-int hal_settings_load(void *buf, int len) { return (int)prefs.getBytes("cfg", buf, (size_t)len); }
-void hal_settings_save(const void *buf, int len) { prefs.putBytes("cfg", buf, (size_t)len); }
+/* Две копии настроек («cfg0», «cfg1»), запись по очереди; «cfg» — одна копия прошивки 3.x. */
+int hal_settings_load(void *buf, int len) { return prefs.isKey("cfg") ? (int)prefs.getBytes("cfg", buf, (size_t)len) : 0; }
+int hal_settings_load2(int slot, void *buf, int len) {
+  const char *k = slot ? "cfg1" : "cfg0";
+  return prefs.isKey(k) ? (int)prefs.getBytes(k, buf, (size_t)len) : 0;
+}
+void hal_settings_save2(int slot, const void *buf, int len) { prefs.putBytes(slot ? "cfg1" : "cfg0", buf, (size_t)len); }
+
+uint32_t hal_rand32(void) { return esp_random(); }
+
+/* Сеть для телефона включает и выключает скетч (там же страница): здесь — только флаг. */
+volatile int wifi_req = -1;
+char wifi_ssid[24], wifi_pass[12];
+void hal_wifi(int on, const char *ssid, const char *pass) {
+  if (on) {
+    strlcpy(wifi_ssid, ssid, sizeof wifi_ssid);
+    strlcpy(wifi_pass, pass, sizeof wifi_pass);
+  }
+  wifi_req = on ? 1 : 0;
+}
 
 }  // extern "C"

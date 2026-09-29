@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define PANEL_VERSION "2.0"
+#define PANEL_VERSION "3.0"
 
 /* Кадр 800×480 RGB565 (строки подряд). */
 void ui_setup(uint16_t *fb);

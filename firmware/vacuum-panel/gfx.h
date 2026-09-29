@@ -7,6 +7,10 @@
 #include <stdint.h>
 #include "fonts.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GW 800
 #define GH 480
 #define RGB565(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
@@ -33,4 +37,7 @@ int g_text_at(const pfont_t *f, int x, int base, const char *s, uint16_t c, int 
 
 float g_sqrt(float x);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

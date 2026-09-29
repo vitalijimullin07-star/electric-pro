@@ -2,7 +2,7 @@ import { padKey, type Firmware, type Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
 import { Esp32 } from './esp32';
-import { BleRemote } from './ble-remote';
+import { BleRemote, BleTag } from './ble-remote';
 import { AnalogSim } from './analog/build';
 import { analogDevices } from './analog/devices';
 import { NullMcu, noMcuFound } from './null-mcu';
@@ -186,8 +186,17 @@ export class Simulation {
           this.remote = new BleRemote(esp);
           this.devices.push(this.remote.device(comp));
           this.unknown = this.unknown.filter((u) => !u.startsWith(`${comp.ref} `));
+        } else if ((project.footprints[comp.footprint]?.tags ?? []).includes('ble-tag')) {
+          // Метки на инструмент: у каждой свой номер и ключ.
+          const tag = new BleTag(esp, 0x7a6c0de + this.tags.length * 7919);
+          this.tags.push(tag);
+          this.devices.push(tag.device(comp));
+          this.unknown = this.unknown.filter((u) => !u.startsWith(`${comp.ref} `));
         }
   }
+
+  /** Метки на инструмент (Bluetooth). */
+  tags: BleTag[] = [];
 
   /** Беспроводной пульт в симуляции (если есть на схеме и прошивка его принимает). */
   remote: BleRemote | null = null;
@@ -277,13 +286,13 @@ export class Simulation {
   }
 
   /** Синхронно (Node, тесты). */
-  static createSync(project: Project, opts: { nvs?: Uint8Array } & SimOptions = {}): Simulation {
+  static createSync(project: Project, opts: { nvs?: Uint8Array; onNvs?: (data: Uint8Array) => void } & SimOptions = {}): Simulation {
     const found = findMcu(project);
     if (!found) return new Simulation(project, null, new Map(), opts);
     if (found.kind === 'esp32') {
       const panels = new Map<string, PanelS3>();
       for (const [ref, m] of Object.entries(project.firmware?.modules ?? {})) panels.set(ref, PanelS3.createSync(base64ToBytes(m.wasm)));
-      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs, s3: found.s3 }), panels, opts);
+      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs, onNvs: opts.onNvs, s3: found.s3 }), panels, opts);
     }
     return new Simulation(project, project.firmware?.hex ?? '', new Map(), opts);
   }

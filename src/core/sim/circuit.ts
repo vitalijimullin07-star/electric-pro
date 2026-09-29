@@ -479,7 +479,8 @@ export class Circuit {
     if (g === undefined) return 0;
     const info = this.groups[g];
     if (info.power) return this.powerVolts[g];
-    if (info.stiff) return this.analog[g] ?? this.pullVolts(g) ?? 0;
+    // Шунт (жёсткая цепь) с источником тока — напряжение на нём (ток магнитов через 0,5 Ом).
+    if (info.stiff) return this.groupHasSources[g] && !info.power ? this.solveNode(g, net) : (this.analog[g] ?? this.pullVolts(g) ?? 0);
     if (this.digitallyDriven(g)) return this.level[g] ? this.hi : 0;
     const a = this.analog[g];
     if (a !== null) return a;

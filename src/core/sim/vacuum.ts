@@ -7,12 +7,16 @@ import type { Device, DeviceView, SimParam } from './devices';
  * фазы — для фазового управления, с детектором нуля — для клапанов и розетки), реле в цепи
  * нагрузок (катушка — через ключ на плате), коллекторные двигатели с вентиляторами, шланг,
  * бак с водой (электроды и поплавок), фильтр из двух секций с продувкой, соленоиды клапанов
- * (ток втягивания и удержания), инструмент в розетке, нагрев двигателей, детектор нуля.
+ * (ток втягивания и удержания), инструмент в розетке (через симистор или реле), нагрев
+ * двигателей, детектор нуля. Клапаны на электромагнитах (magnet-valve): магнит 12 В держит
+ * тарелку, без тока её вталкивает разрежение; тогда фильтр в общей камере, а воздух — по
+ * динамике двух объёмов (камера за фильтром и бак, неявный метод с шагом до 1 мс), удар —
+ * обратным потоком через фильтр, фильтр клапанов на входе, мешок в баке, вид пыли.
  * Детали находятся по схеме: метки корпусов (universal-motor, triac, solenoid-valve,
- * tool-outlet, current-transformer, transformer, mains, relay, water-electrode, float-switch)
- * и цепи между ними (симистор → предохранитель → контакт реле); датчики привязаны к месту
- * полем «Где стоит» (M1, M2, фильтр, расходомер, вход турбин, бак).
- * Всё считается по полупериодам сети; мгновенный ток — синусоида с отсечкой по фазе.
+ * magnet-valve, tool-outlet, current-transformer, transformer, mains, relay, water-electrode,
+ * float-switch) и цепи между ними (симистор → предохранитель → контакт реле); датчики
+ * привязаны к месту полем «Где стоит» (M1, M2, фильтр, расходомер, вход турбин, бак).
+ * Электричество считается по полупериодам сети; мгновенный ток — синусоида с отсечкой по фазе.
  */
 
 const RHO = 1.2;
@@ -46,6 +50,21 @@ const WATER_OHMS = [2000, 500, 150_000, 1_000_000];
 const WATER_KINDS = ['водопроводная', 'грязная', 'дистиллированная', 'пена'];
 /** Соленоид: якорь втягивается за 25 мс — ток падает с пускового до тока удержания. */
 const PULL_MS = 25;
+/** Клапан на магните: проход Ø40 (коэффициент расхода 0,62) — Па/(м³/с)². */
+const MAG_KV = RHO / (2 * (0.62 * Math.PI * 0.02 * 0.02) ** 2);
+/** Фильтр клапанов (гофрированный Ø70×150): 1,5 кПа при 200 л/с. */
+const INTAKE_K = 1500 / 0.2 ** 2;
+/** Мешок в баке: чистый — 150 Па при 40 л/с. */
+const BAG_K = 150 / 0.04 ** 2;
+/** Тарелка: пружина держит закрытой до 0,8 кПа (с магнитом — против любого); открывается за 6 мс, закрывается за 15 мс. */
+const PLATE_OPEN_PA = 800;
+const PLATE_OPEN_MS = 6;
+const PLATE_CLOSE_MS = 15;
+const P_ATM = 101_325;
+const MAG_STATES = ['исправен', 'обрыв магнита', 'тарелка заклинила', 'пробит ключ (магнит всегда под током)'];
+/** Вид пыли: доля, которая «прилипает» (снимается только мощным ударом или мойкой). */
+const DUST_KINDS = ['сухая мелкая (бетон)', 'средняя', 'липкая (гипс)', 'влажная'];
+const DUST_STICK = [0.03, 0.12, 0.35, 0.6];
 
 const param = (key: string, label: string, value: number, min: number, max: number, step: number, unit: string, options?: string[]): SimParam => ({ key, label, value, min, max, step, unit, options });
 
@@ -63,9 +82,11 @@ export function placeOf(c: Component): string {
 
 interface Load {
   comp: Component;
-  kind: 'motor' | 'valve' | 'tool';
+  kind: 'motor' | 'valve' | 'tool' | 'magnet';
   nets: Id[];
   triac?: Triac;
+  /** Нагрузка без симистора — прямо через контакт реле (розетка инструмента). */
+  relay?: Relay;
 }
 
 interface Relay {
@@ -126,6 +147,22 @@ interface Valve {
   amps: number;
 }
 
+/** Клапан на электромагните: катушка между питанием и ключом, тарелка с пружиной. */
+interface MagValve {
+  load: Load;
+  params: SimParam[];
+  coil: number[];
+  /** Магнит под током (по схеме, на момент последнего изменения цепей). */
+  held: boolean;
+  /** Открытие тарелки 0…1, открыта ли (для вида), ток магнита, А. */
+  x: number;
+  open: boolean;
+  amps: number;
+  /** Удар: когда открылась (мкс) и наибольший обратный перепад на фильтре, Па. */
+  openedAt: number;
+  peakRev: number;
+}
+
 export interface VacuumView {
   mains: { volts: number; hz: number; dip: boolean };
   motors: { ref: string; rpm: number; speed: number; amps: number; watts: number; temp: number; firing: number; conducting: boolean; fault: string | null; triac: string | null }[];
@@ -162,6 +199,13 @@ export class VacuumPlant {
   private relays: Relay[] = [];
   private tank: { level: number; sucking: boolean; params: SimParam[]; floatGroup?: number; e: { net: Id; at: number }[]; drive?: number; wet: [boolean, boolean] } | null = null;
   private air = { p: 0, tank: 0, qh: 0, filterDp: 0, flowDp: 0, qv: 0 };
+  /** Клапаны на магнитах; есть — воздух считается по динамике камеры и бака. */
+  private mags: MagValve[] = [];
+  private dyn = { pc: 0, pt: 0, t: 0, loose: 0.05, stuck: 0, bagCake: 0, bagFill: 0 };
+  private tankL = 40;
+  /** Предохранители: цепь по одну сторону → цепь по другую. */
+  private fuseNext = new Map<Id, Id>();
+  private chamberL = 2.2;
 
   private constructor(
     private c: Circuit,
@@ -222,6 +266,7 @@ export class VacuumPlant {
     for (const [tag, kind] of [
       ['universal-motor', 'motor'],
       ['solenoid-valve', 'valve'],
+      ['magnet-valve', 'magnet'],
       ['tool-outlet', 'tool'],
     ] as const)
       for (const { comp, fp } of this.tagged(tag)) {
@@ -261,7 +306,7 @@ export class VacuumPlant {
       this.claimed.add(comp.id);
     }
     // Предохранители: двухвыводные детали с номиналом «T2A», «0,5 А» или корпусом Fuse.
-    const fuseNext = new Map<Id, Id>();
+    const fuseNext = this.fuseNext;
     for (const comp of Object.values(p.components)) {
       const fp = p.footprints[comp.footprint];
       if (!fp || !(/^Fuse/i.test(fp.id) || /^T?\s*\d+([.,]\d+)?\s*m?А?A?$/i.test(comp.value.trim()) && /^FU/i.test(comp.ref))) continue;
@@ -320,10 +365,27 @@ export class VacuumPlant {
       this.triacs.push(t);
       this.claimed.add(comp.id);
     }
+    // Без симистора — через контакт реле (розетка инструмента за реле 30 А).
+    for (const l of loads) if (!l.triac && l.kind === 'tool') l.relay = l.nets.flatMap((n) => through(n)).map((n) => relayOf(n)).find(Boolean);
     for (const l of loads) {
       if (l.kind === 'motor') this.addMotor(l);
       else if (l.kind === 'valve') this.addValve(l);
+      else if (l.kind === 'magnet') this.addMagnet(l);
       else this.addTool(l);
+    }
+    this.findShunts();
+    if (this.mags.length)
+      this.airP.push(
+        param('kind', 'вид пыли', 0, 0, DUST_KINDS.length - 1, 1, '', DUST_KINDS),
+        param('intake', 'фильтр клапанов забит', 0, 0, 100, 1, '%'),
+        param('bag', 'мешок', 0, 0, 1, 1, '', ['нет', 'стоит']),
+      );
+    // Объёмы: у электрода на дне бака — поле «Объём», у датчика перепада на фильтре — «Камера».
+    for (const comp of Object.values(p.components)) {
+      const vol = /(\d+(?:[.,]\d+)?)/.exec(comp.fields?.['Объём'] ?? '');
+      if (vol) this.tankL = parseFloat(vol[1].replace(',', '.'));
+      const ch = /(\d+(?:[.,]\d+)?)/.exec(comp.fields?.['Камера'] ?? '');
+      if (ch) this.chamberL = parseFloat(ch[1].replace(',', '.'));
     }
     for (const t of this.triacs) this.addTriacDevice(t);
     for (const r of this.relays) this.addRelayDevice(r);
@@ -336,6 +398,11 @@ export class VacuumPlant {
 
     // Светодиоды оптронов: фронт — симистор может открыться. Катушки реле — по ключу.
     c.onChange((g, lvl, cycle) => {
+      // Магниты: воздух досчитываем со старым состоянием, потом берём новое.
+      if (this.mags.length) {
+        this.advanceAir((cycle / this.freq) * 1e6);
+        for (const v of this.mags) v.held = this.coilEnergized(v.coil);
+      }
       // Катушка: ключ меняет «висит» на «0» без смены уровня — проверяем при любом изменении.
       for (const r of this.relays) this.relayUpdate(r);
       if (lvl !== 1) return;
@@ -351,10 +418,14 @@ export class VacuumPlant {
 
   /** Катушка под током: одна сторона на питании, другую ключ притянул к земле. */
   private relayEnergized(r: Relay): boolean {
+    return this.coilEnergized(r.coil);
+  }
+
+  private coilEnergized(coil: number[]): boolean {
     const c = this.c;
-    if (r.coil.length < 2) return false;
-    const vcc = r.coil.some((g) => c.groups[g].power === 'vcc');
-    const low = r.coil.some((g) => !c.groups[g].power && !c.isFloating(g) && c.levelOf(g) === 0);
+    if (coil.length < 2) return false;
+    const vcc = coil.some((g) => c.groups[g].power === 'vcc');
+    const low = coil.some((g) => !c.groups[g].power && !c.isFloating(g) && c.levelOf(g) === 0);
     return vcc && low;
   }
 
@@ -514,6 +585,7 @@ export class VacuumPlant {
       const v = this.valves.find((x) => x.load === l);
       return v ? this.valveVa(v) / Math.max(1, this.volts) * (this.volts / 230) : 0;
     }
+    if (l.kind === 'magnet') return 0;
     const t = this.tool;
     if (!t || !t.on) return 0;
     const inrush = 1 + 2.5 * Math.exp(-(this.us - t.since) / 150_000);
@@ -530,6 +602,7 @@ export class VacuumPlant {
 
   private loadAmps(l: Load, t: number): number {
     const tr = l.triac;
+    if (!tr && l.relay) return this.volts > 0 && this.relayClosed(l.relay) ? (this.vAt(t) / (this.volts * Math.SQRT2)) * Math.SQRT2 * this.loadFullAmps(l) : 0;
     if (!tr || tr.firedAt === null || t < tr.firedAt || !this.powered(tr)) return 0;
     return this.vAt(t) / (this.volts * Math.SQRT2) * Math.SQRT2 * this.loadFullAmps(l);
   }
@@ -579,18 +652,23 @@ export class VacuumPlant {
       }
     }
     if (this.tool) {
-      const tr = this.tool.load.triac;
-      this.tool.amps = this.tool.on && tr && tr.lastCond > 0.5 ? this.loadFullAmps(this.tool.load) : 0;
+      const l = this.tool.load;
+      const tr = l.triac;
+      const fed = tr ? tr.lastCond > 0.5 : !!l.relay && this.relayClosed(l.relay) && V > 0;
+      this.tool.amps = this.tool.on && fed ? this.loadFullAmps(l) : 0;
     }
-    this.pneumatics(dt);
+    if (this.mags.length) this.advanceAir(this.us);
+    else this.pneumatics(dt);
     this.water(dt);
   }
+
+  private palm = false;
 
   private hoseK(): number {
     const d = HOSES[Math.round(this.airP[1].value)] / 1000;
     const L = this.airP[0].value;
     const A = (Math.PI * d * d) / 4;
-    const block = Math.min(0.995, (this.blockHeld ? 95 : this.airP[2].value) / 100);
+    const block = this.palm ? 0.999 : Math.min(0.995, (this.blockHeld ? 95 : this.airP[2].value) / 100);
     const k = (0.05 * L * RHO) / (2 * d * A * A) + (1.5 * RHO) / (2 * A * A);
     return k / (1 - block) ** 2;
   }
@@ -639,6 +717,210 @@ export class VacuumPlant {
     this.cake = [Math.min(2, this.cake[0] + grow), Math.min(2, this.cake[1] + grow)];
   }
 
+  /* ---------------- клапаны на магнитах: камера за фильтром и бак ---------------- */
+
+  private dustP(key: string): number {
+    return this.airP.find((x) => x.key === key)?.value ?? 0;
+  }
+
+  private bagK(): number {
+    if (!this.dustP('bag')) return 0;
+    const d = this.dyn;
+    return BAG_K * (1 + 6 * d.bagCake + 10 * d.bagFill * d.bagFill);
+  }
+
+  private filterKDyn(): number {
+    const d = this.dyn;
+    const k = FILTER_K0 * (1 + 3 * (d.loose + d.stuck) + 8 * (this.airP[3].value / 100));
+    const state = this.airP[5]?.value ?? 0;
+    return state === 1 ? k * 0.06 : state === 2 ? k * 0.005 : k;
+  }
+
+  /** Удар (от открытия первой тарелки до закрытия последней): наибольший обратный перепад. */
+  private pulse = { active: false, peak: 0, t0: 0 };
+
+  /** Тарелки: магнит держит; без него — вталкивает разрежение (пружина держит до 0,8 кПа). */
+  private plates(h: number, us: number): void {
+    const pc = this.dyn.pc;
+    for (const v of this.mags) {
+      const f = v.params[0].value;
+      const held = (v.held && f !== 1) || f === 3;
+      let target: number;
+      if (f === 2) target = 0;
+      else if (v.x <= 0) target = !held && pc > PLATE_OPEN_PA ? 1 : 0;
+      // Открыта: пружина и магнит (на зазоре он слабый) закрывают против перепада до 5 кПа, одна пружина — до 0,8 кПа.
+      else target = (held && pc < 5000) || pc < PLATE_OPEN_PA ? 0 : 1;
+      if (target > v.x) {
+        v.x = Math.min(1, v.x + (h * 1000) / PLATE_OPEN_MS);
+        if (!v.open) (v.open = true), (v.openedAt = us);
+      } else if (target < v.x) {
+        v.x = Math.max(0, v.x - (h * 1000) / PLATE_CLOSE_MS);
+        if (v.x <= 0) v.open = false;
+      }
+      v.amps = held && this.volts > 0 ? 11.5 / Math.max(1, v.params[1].value) : 0;
+    }
+    const any = this.mags.some((v) => v.x > 0);
+    const p = this.pulse;
+    if (any && !p.active) Object.assign(p, { active: true, peak: 0, t0: us });
+    if (p.active) p.peak = Math.max(p.peak, this.dyn.pt - this.dyn.pc);
+    if (!any && p.active) {
+      // Удар кончился: складки фильтра рывком прогнулись обратно — сбито по силе обратного перепада
+      // (рабочий — десятки паскалей, обратный — сотни, фронт — первые ~20 мс). Прилипшее снимает
+      // только сильный удар (при закрытом шланге бак держит полное разрежение).
+      p.active = false;
+      const d = this.dyn;
+      const k = Math.min(1, p.peak / 800) * Math.min(1, (us - p.t0) / 20_000);
+      d.loose *= 1 - 0.5 * k;
+      if (p.peak > 1500) d.stuck *= 1 - 0.2 * Math.min(1, (p.peak - 1500) / 1500);
+      d.bagCake *= 1 - 0.3 * k;
+    }
+  }
+
+  /**
+   * Воздух до момента tUs: разрежение в камере за фильтром (турбины тянут, фильтр и клапаны
+   * впускают) и в баке (фильтр забирает, шланг впускает). Неявный метод по каждому объёму,
+   * шаг 1 мс, пока тарелки движутся или открыты — 0,25 мс.
+   */
+  private advanceAir(tUs: number): void {
+    const d = this.dyn;
+    if (!d.t) d.t = tUs;
+    let left = (tUs - d.t) / 1e6;
+    if (left <= 0) return;
+    d.t = tUs;
+    const speeds = this.motors.map((m) => m.s);
+    const kh = this.hoseK() + this.bagK();
+    const kf = this.filterKDyn();
+    const clog = this.dustP('intake') / 100;
+    const ki = INTAKE_K * (1 + 24 * clog * clog);
+    const Vc = this.chamberL / 1000;
+    const Vt = this.tankL / 1000;
+    const fanQ = (sp: number, pc: number) => {
+      const back = -FAN_BACK * Math.sqrt(Math.max(0, pc));
+      if (sp < 0.05) return back;
+      return Math.max(FAN_QMAX * sp * (1 - pc / (FAN_PREF * sp * sp)), back);
+    };
+    const fans = (pc: number) => speeds.reduce((a, sp) => a + fanQ(sp, pc), 0);
+    const qf = (pc: number, pt: number) => {
+      const dp = pc - pt;
+      return Math.sign(dp) * Math.sqrt(Math.abs(dp) / kf);
+    };
+    const qh = (pt: number) => Math.sign(pt) * Math.sqrt(Math.abs(pt) / kh);
+    const top = Math.max(1, ...speeds.map((sp) => FAN_PREF * sp * sp)) + 30_000;
+    const solve = (fn: (x: number) => number, lo: number, hi: number) => {
+      for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        if (fn(mid) > 0) hi = mid;
+        else lo = mid;
+      }
+      return (lo + hi) / 2;
+    };
+    let us = tUs - left * 1e6;
+    let q = { h: 0, f: 0, v: 0 };
+    while (left > 1e-9) {
+      const moving = this.mags.some((v) => v.x > 0 || (!v.held && d.pc > PLATE_OPEN_PA));
+      const h = Math.min(left, moving ? 0.00025 : 0.001);
+      left -= h;
+      us += h * 1e6;
+      this.plates(h, us);
+      const area = this.mags.reduce((a, v) => a + v.x, 0);
+      const kv = area > 0 ? MAG_KV / (area * area) + ki : 0;
+      const qv = (pc: number) => (kv > 0 && pc > 0 ? Math.sqrt(pc / kv) : 0);
+      const pc0 = d.pc;
+      const pt0 = d.pt;
+      let pc = pc0;
+      let pt = pt0;
+      for (let it = 0; it < 3; it++) {
+        const ptc = pt;
+        pc = solve((x) => ((x - pc0) * Vc) / (P_ATM * h) - (fans(x) - qf(x, ptc) - qv(x)), -5000, top);
+        const pcc = pc;
+        pt = solve((x) => ((x - pt0) * Vt) / (P_ATM * h) - (qf(pcc, x) - qh(x)), -5000, top);
+      }
+      d.pc = pc;
+      d.pt = pt;
+      q = { h: qh(pt), f: qf(pc, pt), v: qv(pc) };
+      // Пыль копится, пока идёт поток (с инструментом — быстрее); с мешком почти вся — в мешок.
+      const dust = this.airP[4].value * (this.tool?.amps ? 1 : 0.25);
+      const grow = dust * 0.0015 * (Math.max(0, q.h) / 0.043) * h;
+      const bag = this.dustP('bag') > 0;
+      const onFilter = bag ? grow * 0.2 : grow;
+      const stick = DUST_STICK[Math.round(this.dustP('kind'))] ?? 0.03;
+      d.stuck = Math.min(2, d.stuck + onFilter * stick);
+      d.loose = Math.min(2, d.loose + onFilter * (1 - stick));
+      if (bag) (d.bagFill = Math.min(1, d.bagFill + grow * 0.02)), (d.bagCake = Math.min(1, d.bagCake + grow * 0.3));
+    }
+    const qH = Math.max(0, q.h);
+    this.air = { p: Math.max(0, d.pc), tank: Math.max(0, d.pt), qh: qH, filterDp: d.pc - d.pt, flowDp: VENTURI_K * qH * qH, qv: q.v };
+    this.motors.forEach((m, i) => {
+      const f = fanQ(speeds[i], Math.max(0, d.pc));
+      m.qm3 = f;
+      m.q = speeds[i] > 0.05 ? Math.max(0, Math.min(1.2, f / (FAN_QMAX * speeds[i]))) : 0;
+    });
+  }
+
+  private addMagnet(l: Load): void {
+    const comp = l.comp;
+    const fp = this.p.footprints[comp.footprint];
+    // Плюс магнита — питание, в том числе через предохранитель (самовосстанавливающийся).
+    const plus = (n: Id | undefined): Id | undefined => {
+      const g = n ? this.c.netGroup.get(n) : undefined;
+      if (!n || g === undefined || this.c.groups[g].power) return n;
+      const next = this.fuseNext.get(n);
+      const gn = next ? this.c.netGroup.get(next) : undefined;
+      return next && gn !== undefined && this.c.groups[gn].power === 'vcc' ? next : n;
+    };
+    const coil = [plus(padNet(comp, fp, '+')), padNet(comp, fp, '-')]
+      .map((n) => (n ? this.c.netGroup.get(n) : undefined))
+      .filter((g): g is number => g !== undefined);
+    const ohms = /(\d+)\s*Ом/.exec(comp.value);
+    const v: MagValve = { load: l, params: [param('fault', 'клапан', 0, 0, 3, 1, '', MAG_STATES), param('ohm', 'сопротивление магнита', ohms ? +ohms[1] : 48, 10, 200, 1, 'Ом')], coil, held: false, x: 0, open: false, amps: 0, openedAt: 0, peakRev: 0 };
+    this.mags.push(v);
+    this.devices.push({
+      id: comp.id,
+      comp,
+      set: (k, val) => {
+        const pp = v.params.find((x) => x.key === k);
+        if (pp) pp.value = val;
+      },
+      view: () => ({
+        id: comp.id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'valve',
+        title: `${comp.ref} клапан на магните ${comp.value}`,
+        on: v.open,
+        params: v.params,
+        readings: [
+          { label: 'ток магнита', value: +v.amps.toFixed(2), unit: 'А' },
+          { label: 'тарелка', value: Math.round(v.x * 100), unit: '% открыта' },
+        ],
+        warning: coil.length < 2 ? 'магнит не подключён' : undefined,
+      }),
+    });
+  }
+
+  /** Шунт в истоках ключей магнитов: ток магнитов — в цепь шунта (на нём напряжение для АЦП). */
+  private findShunts(): void {
+    const p = this.p;
+    const c = this.c;
+    const byNet = new Map<Id, MagValve[]>();
+    for (const v of this.mags) {
+      const comp = v.load.comp;
+      const minus = padNet(comp, p.footprints[comp.footprint], '-');
+      if (!minus) continue;
+      for (const q of Object.values(p.components)) {
+        const fp = p.footprints[q.footprint];
+        if (!fp || q.offBoard) continue;
+        const d = padNet(q, fp, 'D');
+        const src = padNet(q, fp, 'S');
+        if (d !== minus || !src) continue;
+        const g = c.netGroup.get(src);
+        if (g === undefined || c.groups[g].power) continue;
+        byNet.set(src, [...(byNet.get(src) ?? []), v]);
+      }
+    }
+    for (const [net, list] of byNet) c.setNetCurrent(net, () => list.reduce((a, v) => a + v.amps, 0), 'magnets');
+  }
+
   /* ---------------- датчики для devices.ts ---------------- */
 
   /** Температура двигателя по обозначению (для термистора с полем «Где стоит»). */
@@ -650,6 +932,14 @@ export class VacuumPlant {
   /** Перепад давления для датчика, Па: «фильтр», «расходомер», «вход турбин» (разрежение). */
   pressureOf(where: string): (() => number) | null {
     const w = where.toLowerCase();
+    if (this.mags.length) {
+      const at = (f: () => number) => () => (this.advanceAir(this.us), f());
+      if (/фильтр/.test(w)) return at(() => this.air.filterDp);
+      if (/расход|вентури|шланг/.test(w)) return at(() => this.air.flowDp);
+      if (/вход|турбин|разреж/.test(w)) return at(() => this.air.p);
+      if (/бак/.test(w)) return at(() => this.air.tank);
+      return null;
+    }
     if (/фильтр/.test(w)) return () => this.air.filterDp;
     if (/расход|вентури|шланг/.test(w)) return () => this.air.flowDp;
     if (/вход|турбин|разреж/.test(w)) return () => this.air.p;
@@ -753,7 +1043,7 @@ export class VacuumPlant {
         on: t.on,
         params: t.params,
         readings: [
-          { label: 'напряжение на розетке', value: l.triac && l.triac.lastCond > 0.5 ? Math.round(this.volts) : 0, unit: 'В' },
+          { label: 'напряжение на розетке', value: (l.triac ? l.triac.lastCond > 0.5 : !!l.relay && this.relayClosed(l.relay)) ? Math.round(this.volts) : 0, unit: 'В' },
           { label: 'ток', value: +t.amps.toFixed(2), unit: 'А' },
         ],
         actions: [{ key: 'switch', label: t.on ? 'Выключить инструмент' : 'Включить инструмент' }],
@@ -788,8 +1078,8 @@ export class VacuumPlant {
   private addRelayDevice(r: Relay): void {
     const comp = r.comp;
     const feeds = () =>
-      [...this.motors.map((m) => m.load), ...this.valves.map((v) => v.load)]
-        .filter((l) => l.triac?.relay === r)
+      [...this.motors.map((m) => m.load), ...this.valves.map((v) => v.load), ...(this.tool ? [this.tool.load] : [])]
+        .filter((l) => l.triac?.relay === r || l.relay === r)
         .map((l) => l.comp.ref)
         .join(', ');
     this.devices.push({
@@ -893,7 +1183,7 @@ export class VacuumPlant {
         comp: comp.id,
         ref: 'Бак',
         kind: 'tank',
-        title: `Бак 40 л: вода ${Math.round(t.level * 100)} %${t.sucking ? ', шланг в воде' : ''}`,
+        title: `Бак ${this.tankL} л: вода ${Math.round(t.level * 100)} %${t.sucking ? ', шланг в воде' : ''}`,
         params,
         readings: [
           { label: 'уровень', value: Math.round(t.level * 100), unit: '%' },
@@ -981,6 +1271,10 @@ export class VacuumPlant {
         if (k === 'dust') this.cake = [Math.min(2, this.cake[0] + 0.4), Math.min(2, this.cake[1] + 0.4)];
         if (k === 'clean') this.cake = [0, 0];
         if (k === 'nozzle') this.blockHeld = !this.blockHeld;
+        if (k === 'palm') this.palm = !this.palm;
+        if (k === 'dust') (this.dyn.loose = Math.min(2, this.dyn.loose + 0.4)), (this.dyn.stuck = Math.min(2, this.dyn.stuck + 0.4 * (DUST_STICK[Math.round(this.dustP('kind'))] ?? 0)));
+        if (k === 'clean') (this.dyn.loose = 0), (this.dyn.stuck = 0), (this.dyn.bagCake = 0);
+        if (k === 'bag') (this.dyn.bagFill = 0), (this.dyn.bagCake = 0);
       },
       view: () => {
         const a = this.air;
@@ -997,12 +1291,14 @@ export class VacuumPlant {
             { label: 'скорость в шланге', value: +(a.qh / ((Math.PI * d * d) / 4)).toFixed(1), unit: 'м/с' },
             { label: 'разрежение у турбин', value: +(a.p / 1000).toFixed(2), unit: 'кПа' },
             { label: 'перепад на фильтре', value: Math.round(a.filterDp), unit: 'Па' },
-            { label: 'пыль на фильтре', value: Math.round(((this.cake[0] + this.cake[1]) / 2) * 100), unit: '%' },
+            { label: 'пыль на фильтре', value: Math.round((this.mags.length ? this.dyn.loose + this.dyn.stuck : (this.cake[0] + this.cake[1]) / 2) * 100), unit: '%' },
+            ...(this.mags.length ? [{ label: 'разрежение в баке', value: +(a.tank / 1000).toFixed(2), unit: 'кПа' }, { label: 'мешок заполнен', value: Math.round(this.dyn.bagFill * 100), unit: '%' }] : []),
           ],
           actions: [
             { key: 'dust', label: 'Насыпать пыли на фильтр' },
             { key: 'clean', label: 'Чистый фильтр' },
             { key: 'nozzle', label: this.blockHeld ? 'Отпустить насадку' : 'Прижать насадку' },
+            ...(this.mags.length ? [{ key: 'palm', label: this.palm ? 'Открыть шланг' : 'Закрыть шланг ладонью' }, { key: 'bag', label: 'Новый мешок' }] : []),
           ],
         };
       },
@@ -1031,11 +1327,26 @@ export class VacuumPlant {
           triac: tr ? (tr.state ? TRIAC_STATES[tr.state] : null) : 'нет симистора',
         };
       }),
-      valves: this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[2].value ? VALVE_STATES[v.params[2].value] : null })),
+      valves: [
+        ...this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[2].value ? VALVE_STATES[v.params[2].value] : null })),
+        ...this.mags.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[0].value ? MAG_STATES[v.params[0].value] : null })),
+      ],
       relays: this.relays.map((r) => ({ ref: r.comp.ref, closed: this.relayClosed(r), fault: r.params[0].value ? RELAY_STATES[r.params[0].value] : null })),
-      tank: this.tank ? { level: this.tank.level, liters: this.tank.level * 40, e: [this.tank.wet[0], this.tank.wet[1]], float: this.tank.level >= 0.8 && !this.tank.params[2].value, sucking: this.tank.sucking } : null,
-      tool: this.tool ? { ref: this.tool.load.comp.ref, on: this.tool.on, powered: !!this.tool.load.triac && this.tool.load.triac.lastCond > 0.5, amps: this.tool.amps, watts: this.tool.amps * this.volts } : null,
-      air: { flow: a.qh * 3600, speed: a.qh / A, vacuum: a.p / 1000, tank: a.tank / 1000, filterDp: a.filterDp, flowDp: a.flowDp, cake: [this.cake[0], this.cake[1]], deep: this.airP[3].value / 100, block: this.blockHeld ? 0.95 : this.airP[2].value / 100, hoseMm: d, hoseM: this.airP[0].value },
+      tank: this.tank ? { level: this.tank.level, liters: this.tank.level * this.tankL, e: [this.tank.wet[0], this.tank.wet[1]], float: this.tank.level >= 0.8 && !this.tank.params[2].value, sucking: this.tank.sucking } : null,
+      tool: this.tool ? { ref: this.tool.load.comp.ref, on: this.tool.on, powered: this.tool.load.triac ? this.tool.load.triac.lastCond > 0.5 : !!this.tool.load.relay && this.relayClosed(this.tool.load.relay) && this.volts > 0, amps: this.tool.amps, watts: this.tool.amps * this.volts } : null,
+      air: {
+        flow: a.qh * 3600,
+        speed: a.qh / A,
+        vacuum: a.p / 1000,
+        tank: a.tank / 1000,
+        filterDp: a.filterDp,
+        flowDp: a.flowDp,
+        cake: this.mags.length ? [this.dyn.loose + this.dyn.stuck, this.dyn.loose + this.dyn.stuck] : [this.cake[0], this.cake[1]],
+        deep: this.airP[3].value / 100,
+        block: this.palm ? 1 : this.blockHeld ? 0.95 : this.airP[2].value / 100,
+        hoseMm: d,
+        hoseM: this.airP[0].value,
+      },
       zc: { width: this.zcWidth, ok: this.zcGroup !== undefined },
     };
   }
