@@ -172,22 +172,26 @@ function PultFront({ view, panel }: { view: SimView; panel: DeviceView }) {
   const t2 = named(/Турбина 2/);
   const off = named(/Выкл/);
   if (side.every(Boolean) && t1 && t2 && off) {
+    // Кнопка — напротив своей подписи на экране: зоны подписей 26 + 104·i по высоте кадра 480.
     const col = (ks: (DeviceView | undefined)[]) => (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: 8, paddingBottom: '9%' }}>
-        {ks.map((k) => (
-          <RoundHold key={k!.id} id={k!.id} pressed={!!k!.pressed} label={k!.ref.slice(2)} />
+      <div className="simfs-softcol">
+        {ks.map((k, i) => (
+          <div key={k!.id} className="simfs-softkey" style={{ top: `${((78 + 104 * i) / 480) * 100}%` }}>
+            <RoundHold id={k!.id} pressed={!!k!.pressed} label={k!.ref.slice(2)} />
+          </div>
         ))}
       </div>
     );
     return (
       <div className="simfs-pultfront">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
+        <div className="simfs-pultrow">
           {col(side.slice(0, 3))}
-          <div className="simfs-screen" style={{ flex: 1 }}>
+          <div className="simfs-screen">
             <PanelScreen d={panel} />
           </div>
           {col(side.slice(3))}
         </div>
+        <p className="hint simfs-softhint">Кнопки 1–6 — подписи у краёв экрана: нажимайте прямо на них.</p>
         {panel.warning && <p className="hint" style={{ color: 'var(--warn)' }}>⚠ {panel.warning}</p>}
         <div className="simfs-controls">
           <div className="simfs-ctl">
