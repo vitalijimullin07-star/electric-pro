@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildVacuumS3, routeVacuumS3 } from '../src/core/examples/vacuum-s3/build';
 import { vacuumS3Notes } from '../src/core/examples/vacuum-s3/notes';
+import { buildPult, routePult } from '../src/core/examples/vacuum-s3/pult';
 import { exportBomCsv } from '../src/core/io/bom';
 import { parseProjectFile, serializeProject } from '../src/core/io/project-file';
 import { computeConnectivity } from '../src/core/model/connectivity';
@@ -475,6 +476,10 @@ describe('Пылесос S3: плата', () => {
     const dip = buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }, { name: 'vacuum-panel.wasm', wasm: panelWasm }, { dip: true });
     writeFileSync('import/vacuum-s3-dip.plata.json', serializeProject(dip, false));
     writeFileSync('import/vacuum-s3-dip-perechen.csv', exportBomCsv(dip));
+    const pult = await routePult(buildPult());
+    expect(pult.result.failed).toBe(0);
+    writeFileSync('import/vacuum-s3-pult.plata.json', serializeProject(pult.project, false));
+    writeFileSync('import/vacuum-s3-pult-perechen.csv', exportBomCsv(pult.project));
     const bin = (from: string, to: string) => {
       if (!existsSync(from)) return;
       const b = readFileSync(from);
@@ -531,6 +536,22 @@ describe('Пылесос S3: плата', () => {
     sim.run(6e6);
     expect(sim.serial).toContain('Продувка закончена');
     expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
+  });
+
+  test('плата пульта: разведена полностью, ошибок нет; кнопки 1–6 напротив подписей на экране', () => {
+    const r = parseProjectFile(readFileSync('import/vacuum-s3-pult.plata.json', 'utf8'));
+    if (r.kind !== 'project') throw new Error('не проект');
+    const p = r.project;
+    expect(runDrc(p).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
+    const conn = computeConnectivity(p);
+    expect([...conn.nets.values()].filter((n) => !n.complete).map((n) => p.nets[n.netId].name)).toEqual([]);
+    const at = (ref: string) => Object.values(p.components).find((c) => c.ref === ref)!.at;
+    // Одинаковая высота слева и справа, шаг — как у зон подписей (104 из 480 кадра).
+    for (let i = 0; i < 3; i++) expect(at(`SB${i + 1}`).y).toBeCloseTo(at(`SB${i + 4}`).y, 1);
+    expect(at('SB2').y - at('SB1').y).toBeCloseTo(at('SB3').y - at('SB2').y, 0);
+    expect(at('SA1').y).toBeGreaterThan(at('SB3').y);
+    const x1 = Object.values(p.components).find((c) => c.ref === 'X1')!;
+    expect(x1.side).toBe('bottom');
   });
 
   test('памятка и перечень', () => {
