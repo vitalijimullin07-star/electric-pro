@@ -398,6 +398,9 @@ static float r_ref;              /* R, от которого считается 
 static float r_grow;             /* рост R за секунду (сглаженный) */
 static float n_auto = 2;         /* ударов, которые помогали в последних сериях */
 static uint8_t stuck_n;          /* серий подряд, которые почти не помогли */
+static uint32_t push_at;         /* «Авто»: R после серии выше нормы, а удары помогают — следующая серия скоро */
+static uint8_t pushed;           /* эта серия — добивающая: по ней рост R не считаем */
+static float band_k = 1;         /* «Авто»: доля порога роста R; фильтр не удаётся вернуть к норме — бьём чаще */
 static float depth_ema;          /* провал разрежения при ударе (фильтр клапанов) */
 /* Магниты: проверка при подаче — сначала один, потом оба. */
 static int mag_phase;            /* 0 — выкл., 1 — только первый, 2 — оба (проверка), 3 — держат */
@@ -748,7 +751,7 @@ static float r_clean(void) { return FILT.r_base > 0 ? FILT.r_base + (vac_cfg.bag
 
 /* Промежуток «Авто»: за сколько R вырастет на порог при нынешнем росте (8…90 с). */
 static void auto_plan(void) {
-  float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f;
+  float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f * band_k;
   float every = r_grow > 1e-6f && r_ref > 0 ? r_ref * band / r_grow : 90;
   vac.every_now = (uint16_t)(PRESET.every ? PRESET.every : every < 8 ? 8 : every > 90 ? 90 : every);
   vac.n_now = (uint8_t)(PRESET.n ? PRESET.n : (int)(n_auto + 0.5f) < 1 ? 1 : (int)(n_auto + 0.5f));
@@ -769,7 +772,7 @@ static void series_done(void) {
   int measured = vac.flow_ls > 8 && vac.r_now > 0;
   if (measured) {
     vac.r_after = vac.r_now;
-    if (!strong && r_ref > 0 && dt > 3000 && dt < 600000) {
+    if (!strong && !pushed && r_ref > 0 && dt > 3000 && dt < 600000) {
       float g = (vac.r_before - r_ref) / ((float)dt / 1000.0f);
       if (g < 0) g = 0;
       r_grow = r_grow > 0 ? r_grow + (g - r_grow) * 0.5f : g;
@@ -777,14 +780,30 @@ static void series_done(void) {
     r_ref = vac.r_after;
     if (!strong && !PRESET.n) n_auto += ((float)(pulse_i - diag_n) - n_auto) * 0.3f;
     float base = r_clean();
+    /* Серия помогла, если R упал хотя бы на 3 %. «Не отбивается» — только когда удары
+     * подряд перестали помогать, а R высокий; пыль липнет быстрее, чем отбивается, — это
+     * повод бить чаще (ниже), а не неисправность. */
+    float drop = vac.r_before > 0 ? (vac.r_before - vac.r_after) / vac.r_before : 0;
+    push_at = 0;
     if (base > 0 && vac.r_before > base * 1.05f) {
       float eff = (vac.r_before - vac.r_after) / (vac.r_before - base);
       vac.dust_kind = eff >= 0.6f ? 1 : eff >= 0.3f ? 2 : 3;
-      if (eff < 0.25f && vac.r_after > base * 1.6f) {
+      /* «Авто»: R ещё выше нормы (чистый + порог), а серия помогла — добиваем через 8 с. */
+      float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f;
+      if (!strong && !PRESET.every && drop >= 0.03f && vac.r_after > base * (1 + band)) push_at = now_ms + 8000;
+      /* Добили до конца, а к норме не вернулись: пыль налипает между сериями — серии чаще
+       * (меньше налипло — легче сбить). Вернулись — понемногу реже. */
+      if (!strong && !push_at) {
+        if (vac.r_after > base * (1 + band)) band_k = band_k * 0.7f < 0.25f ? 0.25f : band_k * 0.7f;
+        else band_k = band_k * 1.2f > 1 ? 1 : band_k * 1.2f;
+      }
+      /* Удары перестали помогать, а R больше чистого в 1,6 раза — три раза подряд: липкая
+       * пыль, обычным ударом не сбить — подсказка «мощная очистка». */
+      if (!push_at && vac.r_after > base * 1.6f) {
         if (++stuck_n >= 3) set_fault(F_STUCK, 1);
-      } else {
+      } else if (vac.r_after < base * 1.3f) {
         stuck_n = 0;
-        if (eff >= 0.5f || vac.r_after < base * 1.3f) set_fault(F_STUCK, 0);
+        set_fault(F_STUCK, 0);
       }
     }
     float rf = vac.r_after - (vac_cfg.bag ? vac_cfg.r_bag : 0);
@@ -799,6 +818,7 @@ static void series_done(void) {
     else if (rf < wash * 0.9f) set_fault(F_FILTER, 0);
     rhist_put(rf);
   }
+  pushed = 0;
   auto_plan();
   if (!hours_dirty_ms) hours_dirty_ms = now_ms;
   if (strong) {
@@ -1004,7 +1024,8 @@ static void purge_step(uint32_t ms) {
       float r = vac.flow_ls > 8 ? 100.0f * vac.filter_pa / (vac.flow_ls * vac.flow_ls) : 0;
       float drop = r_prev_pulse > 0 && r > 0 ? (r_prev_pulse - r) / r_prev_pulse : 0;
       if (r > 0) r_prev_pulse = r;
-      if (pulse_i - diag_n < 4 && drop >= 0.03f) fire(3);
+      /* Бьём, пока удар ещё снижает R (не больше 8 ударов за серию). */
+      if (pulse_i - diag_n < 8 && drop >= 0.02f) fire(3);
       else ph = PH_SETTLE, ph_t = ms;
     }
     break;
@@ -1512,6 +1533,7 @@ static void fm_done(void) {
     set_fault(F_TORN, 0);
     set_fault(F_STUCK, 0);
     stuck_n = 0;
+    band_k = 1;
     r_ref = R;
     vac.r_after = R;
     str_cat(line, "Фильтр "), str_cat(line, fm_filt ? "Б" : "А"), str_cat(line, ": R "), str_cat(line, fmt_num(n, Rf, 1));
@@ -1662,7 +1684,7 @@ static void sensors(void) {
 
   /* Автоочистка: серия по режиму — через промежуток или когда R вырос на порог. */
   if (r_ref <= 0 && up && vac.r_now > 0 && ms - run_since > 6000) r_ref = vac.r_now, auto_plan();
-  float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f;
+  float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f * (PRESET.every ? 1 : band_k);
   if (r_ref > 0 && vac.r_now > 0) {
     float l = (vac.r_now - r_ref) / (r_ref * band) * 100.0f;
     vac.load = l < 0 ? 0 : l > 100 ? 100 : l;
@@ -1674,18 +1696,21 @@ static void sensors(void) {
     uint16_t every = PRESET.every ? PRESET.every : vac.every_now ? vac.every_now : 90;
     vac.next_series = (uint16_t)(series_s < every ? every - series_s : 0);
     int due_time = series_s >= every;
-    int due_r = PRESET.every ? grown >= 2 : grown >= 1 && ms - last_series_ms > 8000;
+    int due_r = PRESET.every ? grown >= 2 : grown >= 1 && ms - last_series_ms > 6000;
+    int due_push = push_at && (int32_t)(ms - push_at) >= 0;
     if (due_r) {
       if (!load_since) load_since = ms;
     } else
       load_since = 0;
-    if (due_time || (load_since && ms - load_since > 1500)) {
+    if (due_time || due_push || (load_since && ms - load_since > 1500)) {
       load_since = 0;
-      hal_log(due_time ? "Очистка по времени" : "Очистка: сопротивление фильтра выросло");
+      push_at = 0;
+      pushed = (uint8_t)due_push;
+      hal_log(due_push ? "Очистка: фильтр ещё грязный — добиваю" : due_time ? "Очистка по времени" : "Очистка: сопротивление фильтра выросло");
       purge_begin(PURGE_SERIES, AFTER_NONE, PRESET.n);
     }
   } else
-    load_since = 0;
+    load_since = 0, push_at = 0;
   fm_step(ms);
   float_update();
 }
@@ -2237,6 +2262,7 @@ void vac_command(const char *c) {
     lock_until[0] = lock_until[1] = 0;
     valve_bad_dp = 0;
     stuck_n = 0;
+    band_k = 1;
     const uint32_t ack = F_OVER1 | F_OVER2 | F_LEAK1 | F_LEAK2 | F_FILTER | F_TORN | F_VALVE1 | F_VALVE2 | F_NOCUR1 | F_NOCUR2 | F_STUCK;
     for (uint32_t b = 1; b && b <= (uint32_t)F_LAST; b <<= 1)
       if (ack & b) set_fault(b, 0);

@@ -202,6 +202,19 @@ describe('Пылесос S3: прошивки в симуляции', () => {
     for (const [a, b] of done) expect(b).toBeLessThan(a);
   });
 
+  test('много пыли: «Авто» добивает фильтр сериями, пока удары помогают, — без «не отбивается»', () => {
+    const { sec, click, set, sim } = start();
+    set(/Шланг, бак, фильтр/, 'dust', 10);
+    set(/Шланг, бак, фильтр/, 'kind', 1);
+    // Журнал целиком: sim.serial хранит только хвост.
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
+    click(/SB7/);
+    sec(420);
+    expect(log).toContain('Очистка: фильтр ещё грязный — добиваю');
+    expect(log).not.toContain('Фильтр не отбивается');
+  });
+
   test('мощная очистка: закрыли шланг ладонью — 4 удара полным разрежением', () => {
     const { sec, click, act, sim } = start();
     click(/SB7/);
