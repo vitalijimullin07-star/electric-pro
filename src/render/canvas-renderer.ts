@@ -170,22 +170,32 @@ function strokePrim(ctx: CanvasRenderingContext2D, pr: Prim, color: string, minW
   ctx.stroke();
 }
 
-const graphicsCache = new WeakMap<Project, { prims: LayerPrims; refs: boolean; values: boolean; fab: boolean }>();
-function componentGraphics(p: Project, w: World, refs: boolean, values: boolean, fab: boolean): LayerPrims {
+type ComponentGfx = { prims: LayerPrims; values: LayerPrims };
+const graphicsCache = new WeakMap<Project, ComponentGfx & { refs: boolean; showValues: boolean; fab: boolean }>();
+/**
+ * Графика корпусов. Номиналы в корпусах — надписи сборочного слоя: без сборочного слоя они
+ * собираются отдельно (values), чтобы галочка «Номиналы» работала сама по себе.
+ */
+function componentGraphics(p: Project, w: World, refs: boolean, showValues: boolean, fab: boolean): ComponentGfx {
   const hit = graphicsCache.get(p);
-  if (hit && hit.refs === refs && hit.values === values && hit.fab === fab) return hit.prims;
+  if (hit && hit.refs === refs && hit.showValues === showValues && hit.fab === fab) return hit;
   const out: LayerPrims = {};
+  const values: LayerPrims = {};
   for (const wc of w.components) {
     if (!wc.footprint) continue;
     const pl = placementOf(wc.component);
     for (const g of wc.footprint.graphics) {
-      if (!fab && (g.layer.endsWith('Fab') || g.layer.endsWith('Courtyard'))) continue;
-      graphicPrims(g, pl, wc.component, out, { hideRef: !refs, hideValue: !values });
+      if (!fab && (g.layer.endsWith('Fab') || g.layer.endsWith('Courtyard'))) {
+        if (showValues && g.kind === 'text' && g.text.includes('${VALUE}') && g.layer.endsWith('Fab')) graphicPrims(g, pl, wc.component, values);
+        continue;
+      }
+      graphicPrims(g, pl, wc.component, out, { hideRef: !refs, hideValue: !showValues });
     }
   }
   for (const d of Object.values(p.drawings)) graphicPrims(d, null, null, out);
-  graphicsCache.set(p, { prims: out, refs, values, fab });
-  return out;
+  const res = { prims: out, values, refs, showValues, fab };
+  graphicsCache.set(p, res);
+  return res;
 }
 
 /** Фон с мягким виньетированием: рисуется один раз на размер холста (градиент на весь экран дорог). */
@@ -337,7 +347,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
 
   // Медь: сначала неактивный слой, потом активный.
   const order: CopperLayer[] = copper.filter((l) => l !== inp.activeLayer).concat(copper.includes(inp.activeLayer) ? [inp.activeLayer] : []);
-  const gfx = componentGraphics(p, w, inp.show.refs, inp.show.values, inp.show.fab);
+  const { prims: gfx, values: valueGfx } = componentGraphics(p, w, inp.show.refs, inp.show.values, inp.show.fab);
   for (const layer of order) {
     if (!vis(layer)) continue;
     const active = layer === inp.activeLayer;
@@ -476,8 +486,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, inp: RenderInput): vo
   for (const l of layerOrder) {
     if (!vis(l)) continue;
     if (l.endsWith('Courtyard') && !inp.show.courtyard) continue;
-    if (l.endsWith('Fab') && !inp.show.fab) continue;
-    const list = gfx[l];
+    // Без сборочного слоя — только номиналы (галочка «Номиналы»).
+    const list = l.endsWith('Fab') && !inp.show.fab ? valueGfx[l] : gfx[l];
     if (!list) continue;
     const col = LAYERS[l].color;
     ctx.globalAlpha = l.startsWith('B.') ? 0.6 : 1;
