@@ -1015,6 +1015,8 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
 
     // --- общий случай: выходы модулей и датчиков → ползунок или переключатель ---
     const isModule = /^Module_|^Sensor_/.test(id) || fp.category === 'Датчики';
+    // Модули питания (понижающие, повышающие, стабилизаторы): напряжение даёт цепь по имени.
+    if (isModule && tags.some((t) => /^(buck|boost|dc-dc|ldo)$/.test(t))) continue;
     let added = false;
     if (isModule) {
       for (const [name] of pads) {

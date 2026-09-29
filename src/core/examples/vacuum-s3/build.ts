@@ -9,8 +9,10 @@ import { MAINS_CLASS, MAINS_CLEARANCE } from '../../model/rules';
 import { netWidth } from '../../model/currents';
 import { applyFit, fitTrackWidthsSafe } from '../../model/track-fit';
 import type { FootprintDef, Project, SchSymbol } from '../../model/types';
+import type { VacPart } from './parts';
 import { addPinLabels, emptySchematic, symbolDef } from '../../schematic/netlist';
 import { SCH_GRID } from '../../schematic/symbols';
+import { S3_DIP_FOOTPRINTS, s3DipParts } from './dip';
 import { S3_BOARD, S3_FOOTPRINTS, S3_MAINS_NETS, S3_MOC_Y, S3_NET_CURRENT, S3_NET_DESCRIPTIONS, S3_PARTS, S3_POWER_NETS } from './parts';
 
 /*
@@ -28,13 +30,18 @@ import { S3_BOARD, S3_FOOTPRINTS, S3_MAINS_NETS, S3_MOC_Y, S3_NET_CURRENT, S3_NE
 export const S3_BAND = { top: S3_MOC_Y - 3.81 + 0.8, bottom: S3_MOC_Y + 3.81 - 0.8 };
 
 function footprintOf(id: string): FootprintDef {
-  const f = S3_FOOTPRINTS.find((x) => x.id === id) ?? libraryFootprint(id);
+  const f = S3_FOOTPRINTS.find((x) => x.id === id) ?? S3_DIP_FOOTPRINTS.find((x) => x.id === id) ?? libraryFootprint(id);
   if (!f) throw new Error(`нет корпуса ${id}`);
   return f;
 }
 
-/** Сборка проекта без дорожек (разводка — routeVacuumS3). */
-export function buildVacuumS3(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }): Project {
+/**
+ * Сборка проекта без дорожек (разводка — routeVacuumS3). dip — вариант на выводных деталях для
+ * ЛУТ: правила для домашней платы, детали разложены по блокам, без дорожек, заливок и зон —
+ * расстановка и разводка вручную.
+ */
+export function buildVacuumS3(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }, opts: { dip?: boolean } = {}): Project {
+  if (opts.dip) return buildDip(firmware, panel);
   const { w, h } = S3_BOARD;
   const p = createProject({ name: 'Пылесос S3 (контроллер)', width: w, height: h, copperLayers: 2, cornerRadius: 1.5 });
   p.meta.author = 'Plata';
@@ -60,39 +67,7 @@ export function buildVacuumS3(firmware?: { name: string; wasm: string }, panel?:
     ],
   ];
 
-  for (const name of S3_MAINS_NETS) ensureNet(p, name, { netClass: 'Mains', description: S3_NET_DESCRIPTIONS[name] });
-  for (const name of S3_POWER_NETS) ensureNet(p, name, { netClass: 'Power', description: S3_NET_DESCRIPTIONS[name] });
-
-  for (const part of S3_PARTS) {
-    const fp = footprintOf(part.fp);
-    const at = part.at ?? [0, 0, 0];
-    const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0 });
-    if (part.offBoard) {
-      c.offBoard = true;
-      c.at = { x: 0, y: 0 };
-    }
-    if (part.fields) c.fields = { ...part.fields };
-    if (!part.value) c.hideValue = true;
-    const f = p.footprints[c.footprint];
-    for (const [pin, net] of Object.entries(part.pins)) {
-      const pads = f.pads.filter((q) => q.type !== 'npth' && q.name === pin);
-      const byNum = pads.length ? pads : f.pads.filter((q) => q.number === pin);
-      if (!byNum.length) throw new Error(`${part.ref}: нет вывода ${pin}`);
-      const n = ensureNet(p, net, { description: S3_NET_DESCRIPTIONS[net] });
-      for (const q of byNum) connectPad(p, c.id, q.number, n.id);
-    }
-  }
-  for (const [name, amps] of Object.entries(S3_NET_CURRENT)) {
-    const n = Object.values(p.nets).find((x) => x.name === name);
-    if (n) n.current = amps;
-  }
-  // Выносные — рядком над платой (на плате их нет, место — только для порядка).
-  let x = 0;
-  for (const c of Object.values(p.components))
-    if (c.offBoard) {
-      c.at = { x, y: -30 };
-      x += 12;
-    }
+  addParts(p, S3_PARTS);
 
   // Земля с обеих сторон низковольтной части (под антенной её не будет: там запрет меди).
   const gnd = ensureNet(p, 'GND').id;
@@ -170,6 +145,112 @@ export function buildVacuumS3(firmware?: { name: string; wasm: string }, panel?:
   return structuredClone(p);
 }
 
+/** Детали, цепи и классы — общее для обоих вариантов. */
+function addParts(p: Project, parts: VacPart[]): void {
+  for (const name of S3_MAINS_NETS) ensureNet(p, name, { netClass: 'Mains', description: S3_NET_DESCRIPTIONS[name] });
+  for (const name of S3_POWER_NETS) ensureNet(p, name, { netClass: 'Power', description: S3_NET_DESCRIPTIONS[name] });
+  for (const part of parts) {
+    const fp = footprintOf(part.fp);
+    const at = part.at ?? [0, 0, 0];
+    const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0 });
+    if (part.offBoard) {
+      c.offBoard = true;
+      c.at = { x: 0, y: 0 };
+    }
+    if (part.fields) c.fields = { ...part.fields };
+    if (!part.value) c.hideValue = true;
+    const f = p.footprints[c.footprint];
+    for (const [pin, net] of Object.entries(part.pins)) {
+      const pads = f.pads.filter((q) => q.type !== 'npth' && q.name === pin);
+      const byNum = pads.length ? pads : f.pads.filter((q) => q.number === pin);
+      if (!byNum.length) throw new Error(`${part.ref}: нет вывода ${pin}`);
+      const n = ensureNet(p, net, { description: S3_NET_DESCRIPTIONS[net] });
+      for (const q of byNum) connectPad(p, c.id, q.number, n.id);
+    }
+  }
+  for (const [name, amps] of Object.entries(S3_NET_CURRENT)) {
+    const n = Object.values(p.nets).find((x) => x.name === name);
+    if (n) n.current = amps;
+  }
+  let x = 0;
+  for (const c of Object.values(p.components))
+    if (c.offBoard) {
+      c.at = { x, y: -30 };
+      x += 12;
+    }
+}
+
+/** Вариант на выводных деталях: детали по блокам схемы рядами, плата — по их площади. */
+function buildDip(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }): Project {
+  const W = 190;
+  const p = createProject({ name: 'Пылесос S3 (выводные детали, ЛУТ)', width: W, height: 150, copperLayers: 2, cornerRadius: 1.5, homemade: true });
+  p.meta.author = 'Plata';
+  p.meta.description =
+    'Пылесос S3 на выводных деталях для ЛУТ: схема та же, что у «Пылесос S3 (контроллер)», корпуса выводные; ESP32-S3-DevKitC-1 вместо модуля, модуль MP1584 вместо AP63205, PCA9555 на переходнике SO-24 → DIP-24. Детали разложены по блокам — расстановка и дорожки вручную. Сетевая часть (230 В) — держите 6 мм до низковольтной.';
+  p.netClasses.Mains = { ...MAINS_CLASS, clearance: 0.7, trackWidth: 1.0, viaDiameter: 1.8, viaDrill: 0.8 };
+  p.rules.classClearances = [{ a: 'Mains', b: '*', clearance: MAINS_CLEARANCE }];
+  addParts(p, s3DipParts());
+  // Раскладка: по порядку блоков схемы, слева направо рядами, зазор 3 мм.
+  const byRef = new Map(Object.values(p.components).map((c) => [c.ref, c]));
+  const order: string[] = [];
+  for (const b of BLOCKS) for (const it of b.parts) order.push(typeof it === 'string' ? it : it[0]);
+  for (const c of Object.values(p.components)) if (!order.includes(c.ref)) order.push(c.ref);
+  const box = (fp: FootprintDef) => {
+    if (fp.courtyard) return fp.courtyard;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of fp.pads) {
+      x0 = Math.min(x0, q.at.x - q.size.x / 2);
+      y0 = Math.min(y0, q.at.y - q.size.y / 2);
+      x1 = Math.max(x1, q.at.x + q.size.x / 2);
+      y1 = Math.max(y1, q.at.y + q.size.y / 2);
+    }
+    return { min: { x: x0 - 1, y: y0 - 1 }, max: { x: x1 + 1, y: y1 + 1 } };
+  };
+  // Сначала всё, что касается 230 В (между ними 7 мм — не меньше 6 мм до чужих выводов), ниже
+  // через полосу 10 мм — низковольтная часть.
+  const mainsNet = (id: string) => p.nets[id]?.netClass === 'Mains';
+  const isMains = (ref: string) => Object.values(byRef.get(ref)?.padNets ?? {}).some(mainsNet);
+  let x = 5;
+  let y = 5;
+  let rowH = 0;
+  const place = (refs: string[], gap: number) => {
+    for (const ref of refs) {
+      const c = byRef.get(ref);
+      if (!c || c.offBoard) continue;
+      const b = box(p.footprints[c.footprint]);
+      const w = b.max.x - b.min.x;
+      const h = b.max.y - b.min.y;
+      if (x + w > W - 5 && x > 5) {
+        x = 5;
+        y += rowH + gap;
+        rowH = 0;
+      }
+      c.at = { x: +(x - b.min.x).toFixed(2), y: +(y - b.min.y).toFixed(2) };
+      c.rotation = 0;
+      x += w + gap;
+      rowH = Math.max(rowH, h);
+    }
+  };
+  place(order.filter(isMains), 7);
+  x = 5;
+  y += rowH + 10;
+  rowH = 0;
+  place(order.filter((r) => !isMains(r)), 3);
+  const H = Math.ceil(y + rowH + 5);
+  p.board.outline = [
+    { x: 0, y: 0 },
+    { x: W, y: 0 },
+    { x: W, y: H },
+    { x: 0, y: H },
+  ];
+  layoutSchematic(p, true);
+  if (firmware) {
+    p.firmware = { name: firmware.name, hex: '', mcu: 'esp32', wasm: firmware.wasm };
+    if (panel) p.firmware.modules = { HG1: { name: panel.name, wasm: panel.wasm } };
+  }
+  return structuredClone(p);
+}
+
 /* ---------------- схема ---------------- */
 
 const BLOCKS: { title: string; at: [number, number]; width: number; parts: (string | [string, number])[] }[] = [
@@ -183,7 +264,7 @@ const BLOCKS: { title: string; at: [number, number]; width: number; parts: (stri
   { title: 'Пульт: экран, кнопки, энкодер, звук', at: [260, 230], width: 190, parts: ['X1', 'HG1', 'DD1', ['C16', 90], ['R35', 90], ['R34', 90], ['C17', 90], ['C18', 90], 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'SB7', 'SB8', 'SB9', 'SA2', 'BA1', 'HG2', 'VT2', ['R33', 90], ['VD2', 90]] },
 ];
 
-function layoutSchematic(p: Project): void {
+function layoutSchematic(p: Project, skipMissing = false): void {
   p.schematic = emptySchematic();
   const byRef = new Map(Object.values(p.components).map((c) => [c.ref, c]));
   const snap = (v: number) => Math.round(v / SCH_GRID) * SCH_GRID;
@@ -195,7 +276,10 @@ function layoutSchematic(p: Project): void {
     for (const item of b.parts) {
       const [ref, rotation] = typeof item === 'string' ? [item, 0] : item;
       const c = byRef.get(ref);
-      if (!c) throw new Error(`на схеме нет ${ref}`);
+      if (!c) {
+        if (skipMissing) continue;
+        throw new Error(`на схеме нет ${ref}`);
+      }
       const def = symbolDef(p.footprints[c.footprint]);
       if (!def) continue;
       const rot = rotation === 90;

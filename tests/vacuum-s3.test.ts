@@ -472,6 +472,9 @@ describe('Пылесос S3: плата', () => {
     writeFileSync('import/vacuum-s3.plata.json', serializeProject(project, false));
     writeFileSync('import/vacuum-s3-perechen.csv', exportBomCsv(project));
     writeFileSync('import/vacuum-s3.txt', vacuumS3Notes(project));
+    const dip = buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }, { name: 'vacuum-panel.wasm', wasm: panelWasm }, { dip: true });
+    writeFileSync('import/vacuum-s3-dip.plata.json', serializeProject(dip, false));
+    writeFileSync('import/vacuum-s3-dip-perechen.csv', exportBomCsv(dip));
     const bin = (from: string, to: string) => {
       if (!existsSync(from)) return;
       const b = readFileSync(from);
@@ -504,6 +507,30 @@ describe('Пылесос S3: плата', () => {
     expect(p.rules.classClearances).toEqual([{ a: 'Mains', b: '*', clearance: 6 }]);
     expect(p.firmware?.wasm).toBe(wasm);
     expect(p.firmware?.modules?.HG1.wasm).toBe(panelWasm);
+  });
+
+  test('вариант на выводных деталях: без SMD, без дорожек, сеть отдельно; симуляция узнаёт все детали', () => {
+    const r = parseProjectFile(readFileSync('import/vacuum-s3-dip.plata.json', 'utf8'));
+    if (r.kind !== 'project') throw new Error('не проект');
+    const p = r.project;
+    const smd = Object.values(p.components).filter((c) => !c.offBoard && p.footprints[c.footprint].pads.some((q) => !q.drill && q.type !== 'npth'));
+    expect(smd.map((c) => c.ref)).toEqual([]);
+    expect(Object.keys(p.tracks)).toEqual([]);
+    expect([...new Set(runDrc(p).markers.filter((m) => m.severity === 'error').map((m) => m.code))]).toEqual(['unrouted']);
+    expect(p.firmware?.wasm).toBe(wasm);
+    const sim = Simulation.createSync(p);
+    sim.run(1e6);
+    expect(sim.unknown).toEqual([]);
+    expect(sim.serial).toContain('Экран на связи');
+    const d = sim.devices.find((x) => /SB7/.test(x.view().title))!;
+    d.press!(true);
+    sim.run(1e5);
+    d.press!(false);
+    sim.run(6e6);
+    sim.serialWrite('purge\n');
+    sim.run(6e6);
+    expect(sim.serial).toContain('Продувка закончена');
+    expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
   });
 
   test('памятка и перечень', () => {
