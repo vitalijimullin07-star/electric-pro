@@ -33,8 +33,9 @@ export function dirToWorld(pl: Placement, v: Vec2): Vec2 {
 /** Слои меди, на которых есть площадка. */
 export function padCopperLayers(pad: PadDef, side: Side): CopperLayer[] {
   if (pad.type === 'npth') return [];
-  if (pad.type === 'tht') return ['F.Cu', 'B.Cu'];
-  // Площадка на обратной стороне корпуса оказывается на противоположном слое.
+  if (pad.type === 'tht' && !pad.layer) return ['F.Cu', 'B.Cu'];
+  // Площадка на обратной стороне корпуса оказывается на противоположном слое (и односторонняя
+  // сквозная — медь только со стороны пайки).
   const top = (side === 'top') !== (pad.layer === 'B.Cu');
   return [top ? 'F.Cu' : 'B.Cu'];
 }

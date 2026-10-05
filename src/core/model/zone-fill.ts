@@ -53,12 +53,11 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey, teardrops: 
 
   // Медь по слоям.
   const cu: Record<CopperLayer, CuObj[]> = { 'F.Cu': [], 'B.Cu': [] };
-  const holes: Shape[] = [];
+  // Отверстия без меди: крепёжные — на всех слоях, односторонние сквозные — со стороны корпуса.
+  const holes: { shape: Shape; layers: CopperLayer[] }[] = [];
   for (const wp of world.pads) {
-    if (!wp.layers.length) {
-      if (wp.drill) holes.push(circleShape(wp.center, wp.drill / 2));
-      continue;
-    }
+    if (wp.drill && wp.layers.length < 2) holes.push({ shape: circleShape(wp.center, wp.drill / 2), layers: (['F.Cu', 'B.Cu'] as CopperLayer[]).filter((l) => !wp.layers.includes(l)) });
+    if (!wp.layers.length) continue;
     for (const l of wp.layers) cu[l].push({ key: 'P' + wp.key, shape: wp.shape, net: wp.net, pad: true });
   }
   for (const s of world.segments) cu[s.track.layer].push({ key: 'T' + s.track.id, shape: s.shape, net: netOf('T' + s.track.id), pad: false });
@@ -112,7 +111,7 @@ export function fillZones(p: Project, world: World, netOf: NetOfKey, teardrops: 
     grid.polygon(z.outline, true, 0);
     grid.polygon(board, true, p.rules.edgeClearance);
     for (const cut of p.board.cutouts) grid.polygon(cut, false, p.rules.edgeClearance);
-    for (const hole of holes) grid.shape(hole, baseClr + margin);
+    for (const hole of holes) if (hole.layers.includes(z.layer as CopperLayer)) grid.shape(hole.shape, baseClr + margin);
     for (const ra of Object.values(p.ruleAreas)) {
       if (ra.layers && !ra.layers.includes(z.layer as CopperLayer)) continue;
       const forbidden = ra.keepoutTracks || (ra.onlyClasses?.length && !ra.onlyClasses.includes(zoneCls?.name ?? netClassOf(p, null).name));

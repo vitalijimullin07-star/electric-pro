@@ -243,6 +243,21 @@ export async function autoroute(p: Project, o: RouteOptions = {}): Promise<Route
         }
       }
     });
+    // Сквозная площадка с медью с одной стороны: с другой — голое отверстие, мимо него — с зазором.
+    if (wp.pad.type === 'tht' && wp.drill && layers.length && layers.length < nl) {
+      // Дорожка идёт через центры клеток: без диагоналей хватает зазора от центра клетки, диагональ
+      // (длина G√2) проходит ближе своих концов.
+      const R = wp.drill / 2 + maxHw + maxClr;
+      const r = ((o.diagonal ?? true) ? Math.hypot(R, G * Math.SQRT1_2) : R) - 1e-6;
+      mark(wp.center.x, wp.center.y, r, (k) => {
+        if (Math.hypot(cx(k) - wp.center.x, cy(k) - wp.center.y) > r) return;
+        for (let l = 0; l < nl; l++)
+          if (!layers.includes(l)) {
+            own[l][k] = -2;
+            padAt[l][k] = -1;
+          }
+      });
+    }
   }
 
   // Особые зазоры между классами (например, 6 мм от 230 В): статичные запреты от площадок

@@ -32,7 +32,7 @@ export const FP = {
   npn: () => find((f) => f.id === 'Q_BC547_TO-92', 'BC547'),
   reg: () => find((f) => f.id === 'REG_7805_TO-220', '7805'),
   transformer: () => find((f) => f.id === 'Transformer_EI30_PCB', 'трансформатор'),
-  bridge: () => find((f) => f.id === 'D_Bridge_KBP_P5.08mm', 'мост KBP'),
+  bridge: () => find((f) => f.id === 'D_Bridge_KBP_P3.81mm', 'мост KBP'),
   fuse: () => find((f) => f.id === 'Fuseholder_Clip-5x20mm_P22.6mm_Horizontal', 'держатель предохранителя'),
   relay: () => find((f) => f.id === 'Relay_SRD_SPDT', 'реле SRD'),
   button: () => find((f) => f.id === 'SW_PUSH_6mm', 'кнопка 6×6'),
@@ -98,7 +98,7 @@ export function examplePsu12(): Project {
   b.add(FP.terminal2(), { ref: 'X1', value: 'Сеть 230 В' }, { '1': 'L', '2': 'N' });
   b.add(FP.fuse(), { ref: 'F1', value: '100 мА' }, { '1': 'L', '2': 'L_F' });
   b.add(FP.transformer(), { ref: 'TV1', value: '230/15 В 5 ВА' }, { P1: 'L_F', P2: 'N', S1: 'AC1', S2: 'AC2' });
-  b.add(FP.bridge(), { ref: 'VD1', value: 'KBP206' }, { '1': 'AC1', '3': 'AC2', '2': 'RAW', '4': 'GND' });
+  b.add(FP.bridge(), { ref: 'VD1', value: 'KBP206' }, { '1': 'RAW', '2': 'AC1', '3': 'AC2', '4': 'GND' });
   b.add(FP.bigElectrolytic(), { ref: 'C1', value: '2200 мкФ × 35 В' }, { '1': 'RAW', '2': 'GND' });
   b.add(FP.reg(), { ref: 'DA1', value: 'LM7812' }, { IN: 'RAW', GND: 'GND', OUT: 'OUT12' });
   b.add(FP.ceramic(), { ref: 'C2', value: '100 нФ' }, { '1': 'OUT12', '2': 'GND' });

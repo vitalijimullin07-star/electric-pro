@@ -61,7 +61,7 @@ export const S3_NET_CURRENT: Record<string, number> = {
 
 /* ---------------- выносные детали: корпуса «на проводах» ---------------- */
 
-function wired(id: string, name: string, description: string, category: string, refPrefix: string, pins: [string, string][], tags: string[], body: [number, number] = [12, 8]): FootprintDef {
+export function wired(id: string, name: string, description: string, category: string, refPrefix: string, pins: [string, string][], tags: string[], body: [number, number] = [12, 8]): FootprintDef {
   const pitch = 3.5;
   const x0 = (-(pins.length - 1) * pitch) / 2;
   const pads: PadDef[] = pins.map(([num, nm], i) => ({ number: num, name: nm, type: 'tht', shape: i ? 'circle' : 'rect', at: { x: x0 + i * pitch, y: 0 }, size: { x: 2.2, y: 2.2 }, drill: 1.2 }));
@@ -178,7 +178,7 @@ export const S3_PARTS: VacPart[] = [
 
   // --- блок питания: трансформатор на шасси, мост, AP63205, AMS1117 ---
   { ref: 'XT5', value: '~9 В с TV1', description: 'Клеммник вторичной обмотки трансформатора TV1', fp: 'TerminalBlock_1x02_P5.08mm', pins: { '1': 'AC1', '2': 'AC2' }, at: [145, 82, 90] },
-  { ref: 'VDS1', value: 'KBP307', description: 'Диодный мост 3 А 700 В: до 1,1 А постоянного (контроллер, экран 7″, магниты, реле розетки)', fp: 'D_Bridge_KBP_P5.08mm', pins: { '1': 'AC1', '3': 'AC2', '2': 'VRECT', '4': 'GND' }, at: [131, 72] },
+  { ref: 'VDS1', value: 'KBP307', description: 'Диодный мост 3 А 700 В: до 1,1 А постоянного (контроллер, экран 7″, магниты, реле розетки)', fp: 'D_Bridge_KBP_P3.81mm', pins: { '1': 'VRECT', '2': 'AC1', '3': 'AC2', '4': 'GND' }, at: [131, 72] },
   { ref: 'VD1', value: 'SS34', description: 'Диод Шоттки 3 А: развязка детектора нуля от накопительного конденсатора', fp: 'D_SMA', pins: { A: 'VRECT', K: 'VIN' }, at: [124, 79, 90] },
   C('C1', '4700 мкФ 25 В', 'Накопительный конденсатор после моста (Ø16, шаг 7,5): пульсации около 2 В при 1 А', 'VIN', 'GND', [133, 89], 'CP_Radial_D16mm_P7.5mm'),
   { ref: 'DA1', value: 'AP63205WU', description: 'Понижающий преобразователь 3,8–32 В → 5 В, 2 А (SOT-23-6)', fp: 'REG_AP63205_SOT-23-6', pins: { VIN: 'VIN', EN: 'VIN', GND: 'GND', SW: 'SW5', BST: 'BST', FB: '5V' }, at: [122, 62] },

@@ -9,21 +9,33 @@ import { CRT_SMD, FAB_W, SILK_W, boxFootprint, circle, courtyardAround, crtGraph
 const GD = { smd: 'SMD', tht: 'Выводные', bridge: 'Диодные мосты' };
 const GL = { smd: 'SMD', tht: 'Выводные', special: 'Специальные' };
 
-/** Диодный мост в линию (KBP/KBL/GBU): 4 вывода с шагом 5,08 мм, стоит вертикально. */
+/**
+ * Диодный мост в линию (KBP/KBL/KBU/GBU), стоит вертикально. KBP — по даташиту Diodes DS21205:
+ * корпус 14,5×3,5 мм, высота 10,4 мм, шаг выводов 3,56–4,06 (3,81), порядок «+ ~ ~ −».
+ * Остальные — шаг 5,08 мм, порядок выводов сверить с даташитом.
+ */
 function bridgeInline(kind: 'KBP' | 'KBU' | 'GBU' | 'KBL'): FootprintDef {
-  const S = { KBP: { body: [21.5, 4.5] as [number, number], h: 14.5, pitch: 5.08, drill: 1.1, pad: 2.2 }, KBL: { body: [20.5, 4.0] as [number, number], h: 15, pitch: 5.08, drill: 1.1, pad: 2.2 }, KBU: { body: [22.5, 6.5] as [number, number], h: 19, pitch: 5.08, drill: 1.4, pad: 2.6 }, GBU: { body: [22.5, 4.0] as [number, number], h: 18, pitch: 5.08, drill: 1.4, pad: 2.6 } }[kind];
-  const names = ['~', '+', '~', '-'];
-  const pads = rowX(4, S.pitch, (i, x) => tht(String(i + 1), x, 0, S.pad, S.pad, S.drill, i === 0 ? 'rect' : 'circle', { name: names[i] }));
+  const S = {
+    KBP: { body: [14.5, 3.5] as [number, number], h: 10.4, pitch: 3.81, drill: 1.1, pad: 2.0, names: ['+', '~', '~', '-'], verified: true },
+    KBL: { body: [20.5, 4.0] as [number, number], h: 15, pitch: 5.08, drill: 1.1, pad: 2.2, names: ['~', '+', '~', '-'], verified: false },
+    KBU: { body: [22.5, 6.5] as [number, number], h: 19, pitch: 5.08, drill: 1.4, pad: 2.6, names: ['~', '+', '~', '-'], verified: false },
+    GBU: { body: [22.5, 4.0] as [number, number], h: 18, pitch: 5.08, drill: 1.4, pad: 2.6, names: ['~', '+', '~', '-'], verified: false },
+  }[kind];
+  const pads = rowX(4, S.pitch, (i, x) => tht(String(i + 1), x, 0, S.pad, S.pad, S.drill, i === 0 ? 'rect' : 'circle', { name: S.names[i] }));
+  const pitch = String(S.pitch).replace('.', ',');
   return boxFootprint({
-    id: `D_Bridge_${kind}_P5.08mm`,
+    id: `D_Bridge_${kind}_P${S.pitch}mm`,
     name: `Мост ${kind}`,
-    description: `Диодный мост ${kind}, 4 вывода в линию с шагом 5,08 мм, стоит вертикально. Порядок выводов (~, +, ~, −) сверить с даташитом`,
+    description: S.verified
+      ? `Диодный мост ${kind} (KBP2xx, KBP3xx), 4 вывода в линию с шагом ${pitch} мм: ${S.names.join(' ')}, стоит вертикально`
+      : `Диодный мост ${kind}, 4 вывода в линию с шагом ${pitch} мм, стоит вертикально. Порядок выводов (${S.names.join(', ')}) сверить с даташитом`,
     category: CAT.D,
     group: GD.bridge,
     refPrefix: 'D',
     pads,
     body: { x0: -S.body[0] / 2, y0: -S.body[1] / 2, x1: S.body[0] / 2, y1: S.body[1] / 2 },
-    verified: false,
+    verified: S.verified,
+    source: S.verified ? 'Diodes Inc. DS21205 (KBP2005G–KBP210G), Package Outline KBP' : undefined,
     height: S.h,
     tags: ['bridge', 'rectifier', kind.toLowerCase()],
   });

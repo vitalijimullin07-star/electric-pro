@@ -3,6 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildVacuumS3, routeVacuumS3 } from '../src/core/examples/vacuum-s3/build';
 import { vacuumS3Notes } from '../src/core/examples/vacuum-s3/notes';
 import { buildPult, routePult } from '../src/core/examples/vacuum-s3/pult';
+import { MOD_PINS, buildVacuumS3Mod, routeVacuumS3Mod, vacuumS3ModNotes } from '../src/core/examples/vacuum-s3/mod';
+import { exportLutPdf } from '../src/core/io/lut-pdf';
 import { exportBomCsv } from '../src/core/io/bom';
 import { parseProjectFile, serializeProject } from '../src/core/io/project-file';
 import { computeConnectivity } from '../src/core/model/connectivity';
@@ -564,5 +566,74 @@ describe('Пылесос S3: плата', () => {
     expect(bom).toContain('G5LE');
     expect(bom).toContain('SI2308');
     expect(bom).toContain('SMAJ30A');
+  });
+});
+
+describe('Пылесос S3 на модулях: плата под ЛУТ', () => {
+  test.runIf(!!process.env.VAC_WRITE)('разводка и файлы для импорта', { timeout: 1_200_000 }, async () => {
+    const { project, report, failed } = await routeVacuumS3Mod(buildVacuumS3Mod());
+    console.log(report.join('\n'));
+    expect(failed).toBe(0);
+    expect(runDrc(project).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
+    writeFileSync('import/vacuum-s3-mod.plata.json', serializeProject(project, false));
+    writeFileSync('import/vacuum-s3-mod-perechen.csv', exportBomCsv(project));
+    writeFileSync('import/vacuum-s3-mod.txt', vacuumS3ModNotes(project));
+    // Для ЛУТ: низ как есть, верх зеркально, точки под кернение.
+    const pdf = exportLutPdf(project, { sheets: [{ layer: 'B.Cu', mirror: false }, { layer: 'F.Cu', mirror: true }], drillMarks: true, outline: true, paper: 'A4' });
+    expect(pdf.tooBig).toBe(false);
+    writeFileSync('import/vacuum-s3-mod-lut.pdf', pdf.bytes);
+  });
+
+  const file = () => {
+    const r = parseProjectFile(readFileSync('import/vacuum-s3-mod.plata.json', 'utf8'));
+    if (r.kind !== 'project') throw new Error('не проект');
+    return r.project;
+  };
+
+  test('файл в import/: разведена полностью, ошибок проверки нет, 6 мм до сети', () => {
+    const p = file();
+    expect(runDrc(p).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
+    const conn = computeConnectivity(p);
+    expect([...conn.nets.values()].filter((n) => !n.complete).map((n) => p.nets[n.netId].name)).toEqual([]);
+    expect(conn.shorts).toEqual([]);
+    expect(p.rules.classClearances).toEqual([{ a: 'Mains', b: '*', clearance: 6 }]);
+  });
+
+  test('без металлизации: выводы паяются только снизу, сверху — дорожки только между переходными', () => {
+    const p = file();
+    const onBoard = Object.values(p.components).filter((c) => !c.offBoard);
+    for (const c of onBoard) for (const pad of p.footprints[c.footprint].pads) if (pad.type === 'tht') expect(pad.layer, `${c.ref}.${pad.number}`).toBe('B.Cu');
+    expect(onBoard.some((c) => p.footprints[c.footprint].pads.some((q) => q.type === 'smd'))).toBe(false);
+    // Сверху у выводов меди нет: верхние дорожки связаны с выводами только через переходные (цепи
+    // при этом целые — проверено выше), висящих концов нет.
+    expect(Object.values(p.tracks).some((t) => t.layer === 'F.Cu')).toBe(true);
+    expect(runDrc(p).markers.filter((m) => m.code === 'dangling').map((m) => m.message)).toEqual([]);
+  });
+
+  test('выводы ESP32-S3: нет IO35–IO37 (PSRAM у N16R8) и USB IO19/IO20; клеммники 5 и 3,5 мм; PCA9555 — 800 mil', () => {
+    const p = file();
+    const a1 = Object.values(p.components).find((c) => c.ref === 'A1')!;
+    const fp = p.footprints[a1.footprint];
+    const used = fp.pads.filter((q) => a1.padNets[q.number]).map((q) => q.name);
+    for (const pin of ['IO35', 'IO36', 'IO37', 'IO19', 'IO20', 'RX']) expect(used).not.toContain(pin);
+    for (const [pin, net] of Object.entries(MOD_PINS)) {
+      const pad = fp.pads.find((q) => q.name === pin)!;
+      expect(p.nets[a1.padNets[pad.number]].name, pin).toBe(net);
+    }
+    const fpOf = (ref: string) => p.footprints[Object.values(p.components).find((c) => c.ref === ref)!.footprint];
+    expect(fpOf('XT1').id).toBe('TerminalBlock_1x02_P5mm');
+    expect(fpOf('X20').id).toBe('TerminalBlock_1x06_P3.5mm');
+    const dd1 = fpOf('DD1');
+    const xs = [...new Set(dd1.pads.map((q) => q.at.x))];
+    expect(Math.abs(xs[0] - xs[1])).toBeCloseTo(20.32, 2);
+    expect(fpOf('VDS1').pads.map((q) => q.name)).toEqual(['+', '~', '~', '-']);
+  });
+
+  test('памятка и перечень', () => {
+    const p = file();
+    const notes = vacuumS3ModNotes(p);
+    for (const s of ['Нижняя сторона', 'перемычку режима', 'MP1584', 'IO43', 'X13', 'XT1', 'Прошивка']) expect(notes).toContain(s);
+    const bom = exportBomCsv(p);
+    for (const s of ['ESP32-S3-DevKitC-1 N16R8', 'PCA9555', 'KBP310', 'SS8050', 'MPX5100DP', 'SLA-05VDC']) expect(bom).toContain(s);
   });
 });

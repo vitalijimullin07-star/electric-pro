@@ -63,6 +63,41 @@ describe('автотрассировка', () => {
     const d = runDrc(q);
     expect(d.markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
   });
+
+  test('без металлизации: выводы паяются только снизу — сверху дорожки лишь между переходными и мимо отверстий', { timeout: 120_000 }, async () => {
+    const p = createProject({ width: 40, height: 30, homemade: true });
+    const bottomOnly = (id: string) => {
+      const f = libraryFootprint(id)!;
+      return { ...f, pads: f.pads.map((q) => ({ ...q, layer: 'B.Cu' as const })) };
+    };
+    const hdr = bottomOnly('PinHeader_1x06_P2.54mm');
+    const u1 = addComponent(p, hdr, { x: 7.62, y: 15.24 }, { ref: 'X1', rotation: 90 });
+    const u2 = addComponent(p, hdr, { x: 31.75, y: 15.24 }, { ref: 'X2', rotation: 90 });
+    // Выводы в обратном порядке: связи перекрещиваются, без верхнего слоя не обойтись.
+    for (let i = 1; i <= 6; i++) connectPad(p, u1.id, String(i), ensureNet(p, `S${i}`).id);
+    for (let i = 1; i <= 6; i++) connectPad(p, u2.id, String(7 - i), ensureNet(p, `S${i}`).id);
+    // Шаг сетки не меньше ширины и зазора (0,6 + 0,3), выводы — на сетке 1,27.
+    const res = await autoroute(p, { iterations: 30, yieldEvery: 1000, grid: 1.27 });
+    const q = applyResult(p, res);
+    const c = computeConnectivity(q);
+    expect([...c.nets.values()].filter((n) => !n.complete).map((n) => q.nets[n.netId].name)).toEqual([]);
+    expect(res.tracks.some((t) => t.layer === 'F.Cu')).toBe(true);
+    // Сверху у выводов меди нет: дорожка не касается их отверстий, концы верхних дорожек — в переходных.
+    const pads = Object.values(q.components).flatMap((cmp) => q.footprints[cmp.footprint].pads.map((pad) => ({ cmp, pad })));
+    expect(pads.every(({ pad }) => pad.layer === 'B.Cu')).toBe(true);
+    const viaAt = (pt: { x: number; y: number }) => res.vias.some((v) => Math.hypot(v.at.x - pt.x, v.at.y - pt.y) < 0.01);
+    for (const t of res.tracks.filter((t) => t.layer === 'F.Cu')) {
+      expect(viaAt(t.points[0])).toBe(true);
+      expect(viaAt(t.points[t.points.length - 1])).toBe(true);
+    }
+    expect(runDrc(q).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
+    // Дорожка сверху прямо через отверстие вывода — ошибка проверки (меди нет, но дырка есть).
+    const x1 = Object.values(q.components).find((cmp) => cmp.ref === 'X1')!;
+    const w = (await import('../src/core/model/world')).getWorld(q).pads.find((wp) => wp.component.id === x1.id)!;
+    addTrack(q, { layer: 'F.Cu', width: 0.6, points: [{ x: w.center.x - 3, y: w.center.y }, { x: w.center.x + 3, y: w.center.y }] });
+    const bad = runDrc(structuredClone(q)).markers.filter((m) => m.severity === 'error' && /отверстие/i.test(m.message));
+    expect(bad.length).toBeGreaterThan(0);
+  });
 });
 
 describe('автотрассировка с полигонами', () => {

@@ -1,5 +1,5 @@
 import { boxOfPoints, expandBox, pointInPolygon, segmentSegment, segmentsIntersect, type Box } from '../math/geom';
-import { distPointShape, shapeGap, type Shape } from '../math/shape';
+import { circleShape, distPointShape, shapeGap, type Shape } from '../math/shape';
 import { SpatialHash } from '../math/spatial-hash';
 import { dist } from '../math/vec';
 import type { Vec2 } from '../math/vec';
@@ -62,6 +62,8 @@ interface CuItem {
   drill?: number;
   drillAt?: Vec2;
   width?: number;
+  /** Голое отверстие сквозного вывода на стороне без меди: близко к нему — ошибка у любой цепи. */
+  hole?: boolean;
 }
 
 const cache = new WeakMap<Project, DrcReport>();
@@ -109,6 +111,12 @@ export function runDrc(p: Project): DrcReport {
         drillAt: wp.drill ? wp.center : undefined,
       });
     }
+    // Сквозная площадка с медью с одной стороны: с другой — голое отверстие, дорожки любой цепи
+    // держат до него зазор (без металлизации оно ничего не соединяет).
+    if (wp.pad.type === 'tht' && wp.drill && wp.layers.length)
+      for (const l of layers)
+        if (!wp.layers.includes(l))
+          items.push({ ref: { kind: 'component', id: wp.component.id }, owner: 'pad:' + wp.key, net: null, cls: null, shape: circleShape(wp.center, wp.drill / 2), layer: l, label: `отверстие ${padLabel(wp)}`, hole: true });
   }
   for (const s of w.segments) {
     const net = conn.itemNet.get(s.track.id);
@@ -165,7 +173,7 @@ export function runDrc(p: Project): DrcReport {
         const touching = g.d <= 1e-4;
         const sameOwnerComp = a.ref.kind === 'component' && b.ref.kind === 'component' && a.ref.id === b.ref.id;
         if (touching && sameOwnerComp && a.net === null && b.net === null) continue;
-        const bothNoNet = !a.net && !b.net;
+        const bothNoNet = !a.net && !b.net && !a.hole && !b.hole;
         add(
           touching && a.net && b.net ? 'short' : 'clearance',
           bothNoNet ? 'warning' : 'error',

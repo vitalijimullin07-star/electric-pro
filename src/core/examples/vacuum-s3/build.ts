@@ -253,7 +253,15 @@ function buildDip(firmware?: { name: string; wasm: string }, panel?: { name: str
 
 /* ---------------- схема ---------------- */
 
-const BLOCKS: { title: string; at: [number, number]; width: number; parts: (string | [string, number])[] }[] = [
+/** Блок схемы: заголовок, левый верхний угол, ширина; детали — обозначения (с поворотом 90 — вертикально). */
+export interface SchBlock {
+  title: string;
+  at: [number, number];
+  width: number;
+  parts: (string | [string, number])[];
+}
+
+const BLOCKS: SchBlock[] = [
   { title: 'Сеть и питание', at: [10, 10], width: 240, parts: ['XP1', 'SA1', 'XT1', ['FU1', 90], ['RU1', 90], ['CX1', 90], 'XT4', 'TV1', 'XT5', 'VDS1', 'VD1', ['C1', 90], 'DA1', ['C2', 90], 'C3', 'L1', ['C4', 90], ['C5', 90], ['C7', 90], 'DA2', ['C6', 90]] },
   { title: 'Детектор нуля', at: [260, 10], width: 110, parts: ['R1', ['R2', 90], 'VT1', ['R3', 90]] },
   { title: 'ESP32-S3 и USB', at: [260, 70], width: 190, parts: ['A1', ['C8', 90], ['C9', 90], ['R4', 90], ['C15', 90], 'SB10', 'SB11', 'R5', 'HL1', 'X6', 'VD5', ['R6', 90], ['R7', 90], 'VD6'] },
@@ -265,11 +273,16 @@ const BLOCKS: { title: string; at: [number, number]; width: number; parts: (stri
 ];
 
 function layoutSchematic(p: Project, skipMissing = false): void {
+  layoutBlocks(p, BLOCKS, skipMissing);
+}
+
+/** Схема по блокам: детали рядами внутри блока, метки цепей на выводах. */
+export function layoutBlocks(p: Project, blocks: SchBlock[], skipMissing = false): void {
   p.schematic = emptySchematic();
   const byRef = new Map(Object.values(p.components).map((c) => [c.ref, c]));
   const snap = (v: number) => Math.round(v / SCH_GRID) * SCH_GRID;
   const placed = new Set<string>();
-  for (const b of BLOCKS) {
+  for (const b of blocks) {
     let x = b.at[0];
     let y = b.at[1] + 8;
     let rowH = 0;
