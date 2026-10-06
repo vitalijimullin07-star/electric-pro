@@ -366,6 +366,9 @@ export function modParts(): ModPart[] {
     off({ ref: 'SB9', value: 'Выкл', description: 'Кнопка «Выкл»', fp: 'SW_PUSH_Panel_19mm', pins: { '1': 'KOFF', '2': 'GND' } }),
     off({ ref: 'SA2', value: 'EC11', description: 'Энкодер с кнопкой на пульте', fp: 'RotaryEncoder_Alps_EC11E_Vertical_H20mm', pins: { A: 'ENC_A', B: 'ENC_B', C: 'GND', S1: 'ENC_SW', S2: 'GND' } }),
     off({ ref: 'BA1', value: 'Зуммер 5 В', description: 'Зуммер без генератора 5 В на пульте', fp: 'Buzzer_12x8.5mm_P6mm', pins: { '1': '5V', '2': 'BZ_K' } }),
+    // По желанию: Bluetooth (с платой проводами не соединены; прошивка принимает до 4 устройств).
+    off({ ref: 'HG2', value: 'Пульт Bluetooth', description: 'По желанию: ручной пульт на ESP32-C3 (firmware/vacuum-remote) — привязка «remote pair»', fp: 'Remote_BLE_Handheld', pins: {} }),
+    off({ ref: 'HG3', value: 'Метка на инструмент', description: 'По желанию: метка на аккумуляторный инструмент (ESP32-C3 + LIS3DH, firmware/vacuum-tag) — привязка «ble pair»', fp: 'Tag_BLE_Tool', pins: {} }),
   );
   return out;
 }
@@ -407,8 +410,12 @@ function terminalLabels(p: Project, ref: string, labels: string[]): void {
   }
 }
 
-/** Плата без дорожек: детали на местах, цепи, правила под ЛУТ, схема. */
-export function buildVacuumS3Mod(): Project {
+/**
+ * Плата без дорожек: детали на местах, цепи, правила под ЛУТ, схема. firmware — ядро прошивки
+ * в WebAssembly (firmware/vacuum-s3), panel — интерфейс экрана (firmware/vacuum-panel): в
+ * симуляции экран HG1 показывает его кадр 800×480 (на самом экране — уменьшенный).
+ */
+export function buildVacuumS3Mod(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }): Project {
   const { w, h } = MOD_BOARD;
   const p = createProject({ name: 'Пылесос S3 на модулях (ЛУТ)', width: w, height: h, copperLayers: 2, cornerRadius: 2, homemade: true });
   p.meta.author = 'Plata';
@@ -471,6 +478,10 @@ export function buildVacuumS3Mod(): Project {
   // Антенна DevKitC: под ней меди нет.
   addRuleArea(p, { name: 'Антенна ESP32-S3', outline: rect(62, 44, 94, 51.5), keepoutTracks: true, keepoutVias: true, showLabel: false });
   layoutBlocks(p, BLOCKS);
+  if (firmware) {
+    p.firmware = { name: firmware.name, hex: '', mcu: 'esp32', wasm: firmware.wasm };
+    if (panel) p.firmware.modules = { HG1: { name: panel.name, wasm: panel.wasm } };
+  }
   return structuredClone(p);
 }
 
@@ -521,6 +532,27 @@ export async function routeVacuumS3Mod(p0: Project, o: { iterations?: number } =
   ];
   addZone(p, { name: 'Земля снизу', layer: 'B.Cu', net: gnd, outline, clearance: 0.6, minWidth: 0.6, priority: 0 });
   return { project: structuredClone(p), report, failed };
+}
+
+/**
+ * Разводка из уже разведённого файла той же платы (дорожки, переходные, заливки — цепи по имени):
+ * выносные детали, прошивку и описания можно поменять, не трогая медь, которую уже напечатали.
+ */
+export function withRoutingOf(p0: Project, routed: Project): Project {
+  const p = structuredClone(p0);
+  const byName = new Map(Object.values(p.nets).map((n) => [n.name, n.id]));
+  const strip = <T extends { id: string }>(x: T): Omit<T, 'id'> => {
+    const y: Partial<T> = structuredClone(x);
+    delete y.id;
+    return y as Omit<T, 'id'>;
+  };
+  for (const t of Object.values(routed.tracks)) addTrack(p, strip(t));
+  for (const v of Object.values(routed.vias)) addVia(p, strip(v));
+  for (const z of Object.values(routed.zones)) {
+    const name = z.net ? routed.nets[z.net]?.name : undefined;
+    addZone(p, { ...strip(z), net: name ? (byName.get(name) ?? null) : null });
+  }
+  return structuredClone(p);
 }
 
 /* ---------------- памятка ---------------- */
@@ -606,9 +638,15 @@ export function vacuumS3ModNotes(p: Project): string {
     '',
     'Прошивка',
     '--------',
-    'Выводы этой платы отличаются от прежней платы S3 (IO35–IO37 нельзя, клапаны через SSR, ШИМ',
-    'регуляторов МР248, датчики SCT-013 с выходом 1 В, MPX5100DP, экран SPI). Прошивку под неё',
-    'собирайте из firmware/vacuum-s3 после её обновления под эту плату.',
+    'Готовая прошивка (версия 5.0, исходники — firmware/vacuum-s3): vacuum-s3-proshivka.bin — целиком,',
+    'с адреса 0x0, первая прошивка через USB DevKitC (esptool или Flash Download Tool); vacuum-s3-app.bin —',
+    'обновление с телефона по Wi-Fi («Телефон» на экране). Arduino IDE: «ESP32S3 Dev Module», Flash',
+    '16 МБ, Partition Scheme «16M Flash (3MB APP/9.9MB FATFS)», PSRAM «OPI PSRAM», USB CDC On Boot — Enabled.',
+    'Экран ILI9488 работает прямо от контроллера: интерфейс тот же, что у пульта 7″, уменьшенный до',
+    '480×288 (сверху и снизу — чёрные полосы). Касание: при первом включении — «lcd cal» в мониторе',
+    'порта или палец 8 с на экране, дальше три крестика. Экран вверх ногами — «lcd flip», красный и',
+    'синий перепутаны — «lcd rgb», экрана нет — «lcd off». Плата с экраном 7″ по X1 работает одновременно.',
+    'Клапаны: удар — целое число полупериодов сети (SSR включается и выключается в нуле).',
     '',
     'Выносные детали',
     '---------------',

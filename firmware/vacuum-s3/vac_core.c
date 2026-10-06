@@ -1,7 +1,7 @@
 /*
- * Ядро прошивки: синхронизация с сетью, реле и фазовое управление турбинами с плавным
+ * Ядро прошивки: синхронизация с сетью, модули реле и регуляторы МР248 (ШИМ) турбин с плавным
  * и поочерёдным пуском, проверка симисторов и реле по току, регулятор расхода (ПИ, вторая
- * турбина — по потребности), очистка фильтра ударами клапанов на магнитах (оба разом,
+ * турбина — по потребности), очистка фильтра ударами клапанов через SSR в нуле сети (оба разом,
  * режимы и «Авто», мощная очистка при закрытом шланге, удары при остановке и после
  * инструмента), паспорт фильтров А и Б, розетка инструмента (автозапуск, предел тока),
  * электроды и поплавок бака, журнал наработки, измерения и защиты.
@@ -12,29 +12,15 @@
 vac_settings_t vac_cfg;
 vac_state_t vac;
 
-/*
- * Мощность (% от полной) → задержка включения симистора в долях 1/10000 полупериода:
- * P(α) = 1 − α/π + sin 2α / 2π для активной нагрузки.
- */
-static const uint16_t PHASE[101] = {
-    10000, 8840, 8531, 8310, 8132, 7980, 7846, 7724, 7612, 7508, 7411, 7319, 7231, 7147, 7067, 6990, 6915, 6842, 6772, 6704, 6637,
-    6572,  6508, 6445, 6384, 6324, 6264, 6206, 6149, 6092, 6036, 5980, 5926, 5871, 5818, 5765, 5712, 5659, 5607, 5556, 5504, 5453,
-    5402,  5351, 5301, 5251, 5200, 5150, 5100, 5050, 5000, 4950, 4900, 4850, 4800, 4749, 4699, 4649, 4598, 4547, 4496, 4444, 4393,
-    4341,  4288, 4235, 4182, 4129, 4074, 4020, 3964, 3908, 3851, 3794, 3736, 3676, 3616, 3555, 3492, 3428, 3363, 3296, 3228, 3158,
-    3085,  3010, 2933, 2853, 2769, 2681, 2589, 2492, 2388, 2276, 2154, 2020, 1868, 1690, 1469, 1160, 0};
-
-/* Трансформаторы тока: турбины — 1000:1 на 68 Ом, инструмент — SCT-013-000 2000:1 на 51 Ом (до 30 А пускового). */
-static const float CT_OHMS[3] = {68.0f, 68.0f, 51.0f};
-static const float CT_RATIO[3] = {1000.0f, 1000.0f, 2000.0f};
+/* Трансформаторы тока SCT-013 с нагрузкой внутри: турбины — 020 (1 В на 20 А), инструмент — 030 (1 В на 30 А). */
+static const float CT_MV_PER_A[3] = {50.0f, 50.0f, 1000.0f / 30.0f};
 static const int CT_PIN[3] = {PIN_CT1, PIN_CT2, PIN_CT3};
-/* Магниты: шунт 0,5 Ом — 500 мВ на ампер. */
-#define MAG_MV_PER_A 500.0f
 /* Детектор нуля: порог = Uбэ·(47к + 10к)/10к, выпрямитель −1,4 В, трансформатор 230/9 В, на холостом ходу +15 %. */
 #define ZC_VTH 3.705f
 #define ZC_KTR (230.0f / (9.0f * 1.41421356f * 1.15f))
 /* Раскачка электродов: полупериод в тактах по 100 мкс (600 мкс — 833 Гц). */
 #define WL_HALF 6
-/* Электроника и магниты в общем токе, А. */
+/* Электроника, модули и клапаны в общем токе, А. */
 #define SELF_AMPS 0.4f
 
 
@@ -43,13 +29,18 @@ static const int CT_PIN[3] = {PIN_CT1, PIN_CT2, PIN_CT3};
 static volatile uint32_t zc_rise, zc_count;
 static volatile uint32_t zc_width = 1800;   /* ширина импульса нуля, мкс */
 static volatile uint32_t zc_half = 10000;   /* полупериод, мкс */
-static volatile uint32_t fire_at[2], gate_off[2];
-static volatile uint8_t armed[2], gate_on[2];
-static volatile uint16_t fire_delay[2] = {0xFFFF, 0xFFFF}; /* 0xFFFF — не включать */
 static volatile uint8_t tick_div, wl_div, wl_lvl;
 static volatile uint32_t wl_edge, wl_phase;
+/*
+ * Клапаны: SSR G3MB включается и выключается в нуле сети, поэтому удар — целое число
+ * полупериодов. Вход SSR подаём заранее (до нуля), снимаем за 1 мс до нуля, на котором удар
+ * должен кончиться: открыт ровно vlv_n полупериодов, считая от первого нуля.
+ */
+static volatile uint8_t vlv_req, vlv_on;    /* маска: удар заказан; вход SSR подан */
+static volatile uint16_t vlv_ms;            /* длина удара, мс */
+static volatile uint32_t vlv_off_at;
 /* Без таблицы: её константы ушли бы во флеш, а код в прерывании должен работать и во время записи во флеш. */
-#define GATE_PIN(ch) ((ch) ? PIN_T2 : PIN_T1)
+#define VLV_PIN(ch) ((ch) ? PIN_VLV2 : PIN_VLV1)
 
 VAC_ISR void vac_on_pin(int pin, int level, uint32_t us) {
   if (pin != PIN_ZC) return;
@@ -58,16 +49,6 @@ VAC_ISR void vac_on_pin(int pin, int level, uint32_t us) {
     uint32_t per = us - zc_rise;
     zc_rise = us;
     if (per > 7000 && per < 12500) zc_half = (zc_half * 7 + per) / 8;
-    uint32_t t0 = us + zc_width / 2 + (uint32_t)(int32_t)vac_cfg.zc_shift_us;
-    for (int ch = 0; ch < 2; ch++) {
-      uint16_t d = fire_delay[ch];
-      if (d == 0xFFFF) {
-        armed[ch] = 0;
-        continue;
-      }
-      fire_at[ch] = t0 + d;
-      armed[ch] = 1;
-    }
     zc_count++;
   } else {
     uint32_t w = us - zc_rise;
@@ -77,19 +58,20 @@ VAC_ISR void vac_on_pin(int pin, int level, uint32_t us) {
 
 VAC_ISR void vac_tick(void) {
   uint32_t now = hal_micros();
-  for (int ch = 0; ch < 2; ch++) {
-    if (armed[ch] && (int32_t)(now - fire_at[ch]) >= 0) {
-      armed[ch] = 0;
-      if ((int32_t)(now - fire_at[ch]) < 2000) {
-        hal_pin_write(GATE_PIN(ch), 1);
-        gate_on[ch] = 1;
-        gate_off[ch] = now + 300;
-      }
-    }
-    if (gate_on[ch] && (int32_t)(now - gate_off[ch]) >= 0) {
-      hal_pin_write(GATE_PIN(ch), 0);
-      gate_on[ch] = 0;
-    }
+  if (vlv_req) {
+    /* Ближайший ноль, до которого ещё не меньше 0,3 мс, — с него SSR откроется. */
+    uint32_t half = zc_half, z = zc_rise + zc_width / 2;
+    for (int i = 0; i < 4 && (int32_t)(z - now) < 300; i++) z += half;
+    uint32_t n = (vlv_ms * 1000u + half / 2) / half;
+    if (n < 1) n = 1;
+    vlv_off_at = z + n * half - 1000;
+    for (int ch = 0; ch < 2; ch++)
+      if (vlv_req & (1 << ch)) hal_pin_write(VLV_PIN(ch), 1);
+    vlv_on = vlv_req;
+    vlv_req = 0;
+  } else if (vlv_on && (int32_t)(now - vlv_off_at) >= 0) {
+    for (int ch = 0; ch < 2; ch++) hal_pin_write(VLV_PIN(ch), 0);
+    vlv_on = 0;
   }
   /* Электроды: переменный ток через воду (конденсатор 1 мкФ не пропускает постоянный — нет электролиза). */
   if (++wl_div >= WL_HALF) {
@@ -318,7 +300,7 @@ static void sample_currents(uint32_t us) {
 }
 
 /* Пик тока с последнего сброса, А (СКЗ синусоиды с таким пиком). */
-static float peak_amps(int i) { return ct_peak[i] > 12 ? ct_peak[i] / CT_OHMS[i] * CT_RATIO[i] / 1000.0f / 1.41421356f : 0; }
+static float peak_amps(int i) { return ct_peak[i] > 12 ? ct_peak[i] / CT_MV_PER_A[i] / 1.41421356f : 0; }
 
 static float ntc_temp(int mv, int *bad) {
   /* 3,3 В — 10 кОм — вход — NTC 10 кОм (B = 3950) — земля. */
@@ -332,16 +314,14 @@ static float ntc_temp(int mv, int *bad) {
   return 1.0f / inv - 273.15f;
 }
 
-/* Разрежение: MPX5050DP, Uвых = 5 В·(0,018·P + 0,04), делитель 10/(6,8+10); без сглаживания. */
+/* Разрежение: MPX5100DP, Uвых = 5 В·(0,009·P + 0,04), делитель 10/(6,8+10); без сглаживания. */
 static float vacuum_raw(int *bad) {
   int mv = hal_adc_mv(PIN_VAC);
   float vout = (float)mv / 1000.0f * (16.8f / 10.0f);
   if (bad) *bad = vout < 0.05f;
-  float kpa = (vout / 5.0f - 0.04f) / 0.018f;
+  float kpa = (vout / 5.0f - 0.04f) / 0.009f;
   return kpa < 0 ? 0 : kpa;
 }
-
-static float mag_raw(void) { return (float)hal_adc_mv(PIN_MAG_I) / MAG_MV_PER_A; }
 
 /* ---------------- состояние управления ---------------- */
 
@@ -364,6 +344,7 @@ static uint32_t pulse_quiet_until; /* после удара поток не ус
 #define KP 2.0f
 #define KI 1.6f
 static float u_pid = 60, e_prev;
+static int pwm_sent[2] = {-1, -1};
 static uint32_t dual_since, single_since;
 static float q_single;           /* сколько дала одна турбина на полной мощности, л/с */
 static uint32_t start_ms;
@@ -389,7 +370,7 @@ enum { AFTER_NONE, AFTER_STOP, AFTER_SLEEP };
 
 /* Удар: быстрые отсчёты (каждые 2 мс, пока открыто и 0,15 с после). */
 static uint32_t watch_until, fast_us;
-static float pa_before, pa_min, pc_before, pc_min, mag_left;
+static float pa_before, pa_min, pc_before, pc_min;
 static int t_front, fast_n;
 static uint8_t valve_bad_dp;     /* ударов подряд без броска перепада */
 /* «Авто»: подбор удара и паузы, оценка пыли. */
@@ -402,10 +383,6 @@ static uint32_t push_at;         /* «Авто»: R после серии выш
 static uint8_t pushed;           /* эта серия — добивающая: по ней рост R не считаем */
 static float band_k = 1;         /* «Авто»: доля порога роста R; фильтр не удаётся вернуть к норме — бьём чаще */
 static float depth_ema;          /* провал разрежения при ударе (фильтр клапанов) */
-/* Магниты: проверка при подаче — сначала один, потом оба. */
-static int mag_phase;            /* 0 — выкл., 1 — только первый, 2 — оба (проверка), 3 — держат */
-static float mag_expect;         /* ток обоих магнитов при проверке, А */
-static uint32_t mag_t;
 /* Розетка и инструмент. */
 static uint32_t tool_on_since, tool_low_since, tool_start_at, runon_until, sock_check_until;
 static uint8_t sock_lock;
@@ -476,10 +453,7 @@ const char *vac_fault_text(uint32_t bit) {
 
 static const char *verr_text(int e) {
   switch (e) {
-  case VE_OPEN_COIL: return "обрыв магнита";
-  case VE_SHORT: return "замыкание магнита";
-  case VE_STUCK: return "тарелка не открывается";
-  case VE_KEY: return "пробит ключ магнита";
+  case VE_STUCK: return "не открывается (заклинил, нет напряжения, обрыв катушки или SSR)";
   }
   return "";
 }
@@ -488,7 +462,7 @@ static void valve_fault(int k, int err) {
   uint32_t bit = k ? F_VALVE2 : F_VALVE1;
   if (err && vac.verr[k] != err) {
     vac.verr[k] = (uint8_t)err;
-    char line[80] = "  клапан ";
+    char line[160] = "  клапан ";
     str_cat(line, k ? "2: " : "1: ");
     hal_log(str_cat(line, verr_text(err)));
   }
@@ -529,6 +503,9 @@ static void beep_poll(void) {
   beep_i += 2;
 }
 
+static uint16_t exp_out = EXP_LCD_RST | EXP_LED, exp_sent = 0xFFFF;
+
+/* Светодиод — на выходе P13 расширителя (горит при «0»); пишем только изменения. */
 static void led(void) {
   uint32_t t = now_ms;
   int on;
@@ -536,7 +513,8 @@ static void led(void) {
   else if (vac.sleep) on = t % 5000 < 40;                                                     /* сон — вспышка раз в 5 с */
   else if (vac.running) on = 1;
   else on = t % 2000 < 100;                                                                   /* готов — раз в 2 с */
-  hal_pin_write(PIN_LED, on);
+  exp_out = (uint16_t)(on ? exp_out & ~EXP_LED : exp_out | EXP_LED);
+  if (exp_out != exp_sent && exp_write(exp_out) == 0) exp_sent = exp_out;
 }
 
 /* ---------------- команды ---------------- */
@@ -839,11 +817,13 @@ static void series_done(void) {
 
 /* ---------------- удар ---------------- */
 
-/* Открыть клапаны маски: магниты отпускают, разрежение вталкивает тарелки. */
+/* Открыть клапаны маски: SSR откроются в ближайшем нуле сети на vac.imp_now (целыми полупериодами). */
 static void fire(uint8_t mask) {
   pulse_mask = mask;
   vac.valve[0] = mask & 1;
   vac.valve[1] = (mask >> 1) & 1;
+  vlv_ms = vac.imp_now;
+  vlv_req = mask;
   pulse_i++;
   if (mask != 3) diag_n++;
   vac.pulse_no = (uint8_t)pulse_i;
@@ -852,8 +832,8 @@ static void fire(uint8_t mask) {
   pc_before = pc_min = vac.vacuum_kpa;
   t_front = -1;
   fast_n = 0;
-  mag_left = 0;
-  watch_until = now_ms + vac.imp_now + 150;
+  /* До нуля сети — до полупериода, плюс округление до полупериода. */
+  watch_until = now_ms + vac.imp_now + 20 + 150;
   if (!watch_until) watch_until = 1;
   fast_us = hal_micros() - 2000;
   ph = PH_OPEN;
@@ -863,7 +843,7 @@ static void fire(uint8_t mask) {
   diag_pulses++;
 }
 
-/* Быстрые отсчёты во время удара: перепад на фильтре, разрежение, ток магнитов. */
+/* Быстрые отсчёты во время удара: перепад на фильтре, разрежение. */
 static void fast_sample(void) {
   float pa;
   if (sdp_read(SDP_FILTER, &pa) == 0 && pa < pa_min) {
@@ -873,10 +853,6 @@ static void fast_sample(void) {
   }
   float pc = vacuum_raw(0);
   if (pc < pc_min) pc_min = pc;
-  if (ph == PH_OPEN && now_ms - pulse_t >= 5) {
-    float a = mag_raw();
-    if (a > mag_left) mag_left = a;
-  }
   fast_n++;
 }
 
@@ -898,7 +874,7 @@ static void intake_update(float s) {
   else if (vac.in_health > 85) set_fault(F_INTAKE, 0);
 }
 
-/* Итог удара: открылся ли клапан (провал перепада), не пробит ли ключ, сила удара, подбор длины. */
+/* Итог удара: открылся ли клапан (провал перепада), сила удара, подбор длины. */
 static void pulse_eval(void) {
   watch_until = 0;
   float depth = pc_before > 1 ? (pc_before - pc_min) / pc_before : 0;
@@ -907,8 +883,7 @@ static void pulse_eval(void) {
   int meaningful = pc_before > 3 && !(vac.faults & F_VAC);
   int dp_ok = (vac.faults & F_SDP_F) || pa_before < 40 || pa_min < pa_before * 0.5f;
   if (pulse_mask == 3) {
-    /* Оба разом: ток магнитов должен пропасть; перепад — провалиться. */
-    if (mag_left > 0.05f && !diag_req) diag_req = 1;
+    /* Оба разом: перепад должен провалиться. */
     if (meaningful && !dp_ok) {
       if (++valve_bad_dp >= 2 && !diag_req) diag_req = 1;
       diag_bad_dp = 1;
@@ -924,20 +899,11 @@ static void pulse_eval(void) {
     }
     return;
   }
-  /* Проверка по одному: удар только клапаном k; ток в это время — ток другого магнита. */
-  int k = pulse_mask == 1 ? 0 : 1, o = k ^ 1;
+  /* Проверка по одному: удар только клапаном k — перепад должен провалиться. */
+  int k = pulse_mask == 1 ? 0 : 1;
   diag_depth[k] = meaningful ? depth : -1;
-  if (vac.verr[o] != VE_SHORT) {
-    if (mag_left < 0.06f) valve_fault(o, VE_OPEN_COIL);
-    else if (mag_left < 1.2f) {
-      vac.mag_a[o] = mag_left;
-      if (vac.verr[o] == VE_OPEN_COIL) valve_fault(o, VE_OK);
-    }
-    mag_expect = vac.mag_a[0] + vac.mag_a[1];
-  }
-  if (mag_left > vac.mag_a[o] + vac.mag_a[k] * 0.5f && vac.mag_a[k] > 0.05f && vac.verr[o] != VE_OPEN_COIL) valve_fault(k, VE_KEY);
-  else if (meaningful && !dp_ok) valve_fault(k, VE_STUCK);
-  else if (meaningful && (vac.verr[k] == VE_STUCK || vac.verr[k] == VE_KEY)) valve_fault(k, VE_OK);
+  if (meaningful && !dp_ok) valve_fault(k, VE_STUCK);
+  else if (meaningful && vac.verr[k]) valve_fault(k, VE_OK);
   if (k == 1) {
     diag_req = 0;
     diag_bad_dp = 0;
@@ -974,7 +940,8 @@ static void purge_step(uint32_t ms) {
       purge_finish("Продувка отменена: турбины не раскрутились");
     break;
   case PH_OPEN:
-    if (ms - pulse_t >= vac.imp_now) {
+    /* SSR закрылись (удар — целыми полупериодами от ближайшего нуля). */
+    if (!vlv_req && !vlv_on && ms - pulse_t >= 5) {
       vac.valve[0] = vac.valve[1] = 0;
       rec_target = pc_before * 0.9f;
       pulse_quiet_until = ms + 600;
@@ -1048,8 +1015,8 @@ static void purge_step(uint32_t ms) {
  * После замыкания 60 мс меряем ток при закрытом симисторе: есть — симистор пробит, реле
  * размыкаем. После остановки — то же перед размыканием и после: ток есть и после размыкания —
  * реле сварилось и симистор пробит, остановить может только выключатель сети.
- * hold — держать реле замкнутым при закрытом симисторе (сейчас не нужно: клапаны на магнитах
- * питаются от 12 В, а не от сети после реле K1).
+ * hold — держать реле замкнутым при закрытом симисторе (сейчас не нужно: клапаны питаются
+ * от сети до реле турбин).
  */
 static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
   int pin = k ? PIN_RL2 : PIN_RL1;
@@ -1136,55 +1103,6 @@ static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
   }
 }
 
-/* ---------------- магниты клапанов ---------------- */
-
-/*
- * Магниты держат тарелки, пока есть разрежение (турбины работают или ещё не остановились):
- * без тока разрежение втолкнуло бы тарелку. При подаче — проверка: сначала первый магнит
- * (его ток), потом оба (ток второго); обрыв — меньше 0,06 А, замыкание — больше 1,2 А (такой
- * магнит больше не включаем, клапан — неисправен).
- */
-static uint32_t mag_low_since;
-
-static void magnets(uint32_t ms) {
-  vac.mag_amps = mag_raw();
-  int want = !vac.sleep && (vac.running || purge_spin || vac.state == VAC_ACTIVE || vac.vacuum_kpa > 1.0f || (stop_ms && ms - stop_ms < 4000));
-  if (!want)
-    mag_phase = 0;
-  else if (mag_phase == 0)
-    mag_phase = 1, mag_t = ms;
-  else if (mag_phase == 1 && ms - mag_t >= 150) {
-    vac.mag_a[0] = vac.mag_amps;
-    mag_phase = 2, mag_t = ms;
-  } else if (mag_phase == 2 && ms - mag_t >= 150) {
-    vac.mag_a[1] = vac.mag_amps - vac.mag_a[0];
-    if (vac.mag_a[1] < 0) vac.mag_a[1] = 0;
-    for (int k = 0; k < 2; k++) {
-      float a = vac.mag_a[k];
-      if (vac.verr[k] == VE_SHORT) continue;
-      if (a < 0.06f) valve_fault(k, VE_OPEN_COIL);
-      else if (a > 1.2f) valve_fault(k, VE_SHORT);
-      else if (vac.verr[k] == VE_OPEN_COIL) valve_fault(k, VE_OK);
-    }
-    mag_expect = vac.mag_a[0] + vac.mag_a[1];
-    mag_phase = 3;
-    mag_low_since = 0;
-  } else if (mag_phase == 3 && !vac.valve[0] && !vac.valve[1] && !watch_until) {
-    /* Держат: ток упал — провод оборвался на ходу. Снимать магнит на ходу нельзя (тарелку
-     * втолкнёт) — какой из двух, покажет проверка по одному в ближайшей серии. */
-    if (mag_expect > 0.1f && vac.mag_amps < mag_expect * 0.6f) {
-      if (!mag_low_since) mag_low_since = ms;
-      if (ms - mag_low_since > 500 && !diag_req) diag_req = 1, mag_low_since = 0, hal_log("Ток магнитов упал — проверю клапаны по одному");
-    } else
-      mag_low_since = 0;
-  }
-  for (int k = 0; k < 2; k++) {
-    int on = mag_phase >= (k ? 2 : 1) && !vac.valve[k] && vac.verr[k] != VE_SHORT;
-    vac.mag[k] = (uint8_t)on;
-    hal_pin_write(k ? PIN_MAG2 : PIN_MAG1, on);
-  }
-}
-
 /* ---------------- розетка и инструмент ---------------- */
 
 /*
@@ -1216,7 +1134,7 @@ static void tool_event(int on) {
   if (vac.auto_started && vac.state == VAC_ACTIVE) {
     runon_until = ms + (uint32_t)vac_cfg.tool_runon * 1000;
     if (!runon_until) runon_until = 1;
-    char line[48] = "Выбег ", n[8];
+    char line[96] = "Выбег ", n[8];
     str_cat(line, fmt_int(n, vac_cfg.tool_runon));
     hal_log(str_cat(line, " с, потом удары и стоп"));
   }
@@ -1396,9 +1314,10 @@ static void control(void) {
       else if (pw > target) pw = pw - 2 < target ? target : pw - 2;
     }
     vac.pcmd[k] = pw;
-    int idx = (int)(pw + 0.5f);
-    if (idx > 100) idx = 100;
-    fire_delay[k] = pw < 15 ? 0xFFFF : (uint16_t)((uint32_t)PHASE[idx] * zc_half / 10000);
+    /* МР248: мощность — доля от напряжения на входе (0…3,3 В), то есть заполнение ШИМ. */
+    int duty = pw < 15 ? 0 : (int)(pw * 10.0f + 0.5f);
+    if (duty > 1000) duty = 1000;
+    if (duty != pwm_sent[k]) hal_pwm(k ? PIN_T2 : PIN_T1, PWM_HZ, duty), pwm_sent[k] = duty;
     if (pw > 0) any = 1;
   }
   if (any && !vac.running) run_since = ms;
@@ -1407,7 +1326,6 @@ static void control(void) {
   if (any) worked_ms += 10;
   if (!any && vac.purging && ph != PH_SPIN && ph != PH_HOSE) purge_finish("Очистка прервана: турбины остановлены");
 
-  magnets(ms);
   tool_control(ms);
   led();
 }
@@ -1724,7 +1642,7 @@ static void currents(void) {
   for (int i = 0; i < 3; i++) {
     float rms2 = ct_sum2[i] / (float)ct_n - 9.0f; /* шум АЦП ~3 мВ */
     float mv = rms2 > 0 ? v_sqrtf(rms2) : 0;
-    amps[i] = mv / CT_OHMS[i] * CT_RATIO[i] / 1000.0f;
+    amps[i] = mv / CT_MV_PER_A[i];
     ct_sum2[i] = 0;
   }
   ct_n = 0;
@@ -1832,7 +1750,6 @@ static void status_line(char *out) {
   str_cat(out, " I2="), str_cat(out, fmt_num(n, vac.amps[1], 2));
   str_cat(out, " Iинстр="), str_cat(out, fmt_num(n, vac.tool_amps, 2));
   str_cat(out, " Iвсего="), str_cat(out, fmt_num(n, vac.total_amps, 1));
-  str_cat(out, " Iмаг="), str_cat(out, fmt_num(n, vac.mag_amps, 2));
   str_cat(out, " t1="), str_cat(out, fmt_num(n, vac.temp[0], 0));
   str_cat(out, " t2="), str_cat(out, fmt_num(n, vac.temp[1], 0));
   str_cat(out, " U="), str_cat(out, fmt_num(n, vac.mains_v, 0));
@@ -1912,22 +1829,24 @@ void vac_setup(void) {
   depth_ema = vac_cfg.in_base;
   auto_plan();
 
-  const int outs[] = {PIN_T1, PIN_T2, PIN_MAG1, PIN_MAG2, PIN_RL1, PIN_RL2, PIN_RL3, PIN_LED, PIN_WL_DRV, PIN_BUZZER};
+  const int outs[] = {PIN_VLV1, PIN_VLV2, PIN_RL1, PIN_RL2, PIN_RL3, PIN_WL_DRV, PIN_BUZZER};
   for (unsigned i = 0; i < sizeof outs / sizeof outs[0]; i++) {
     hal_pin_write(outs[i], 0);
     hal_pin_mode(outs[i], HAL_OUT);
   }
+  for (int k = 0; k < 2; k++) hal_pwm(k ? PIN_T2 : PIN_T1, PWM_HZ, 0), pwm_sent[k] = 0;
   hal_pin_mode(PIN_ZC, HAL_IN);
   hal_pin_irq(PIN_ZC);
 
   hal_i2c_begin(0, PIN_SDA, PIN_SCL, 400000);
+  if (exp_init(exp_out) == 0) exp_sent = exp_out;
   sdp_start(SDP_FILTER);
   sdp_start(SDP_FLOW);
   link_init();
 
   now_ms = hal_millis();
   next_sample = hal_micros();
-  hal_log("Контроллер пылесоса S3 " VAC_VERSION ", ESP32-S3. Команды: help");
+  hal_log("Контроллер пылесоса S3 " VAC_VERSION " (плата на модулях), ESP32-S3. Команды: help");
   char line[160] = "Настройки: режим ", n2[12];
   str_cat(line, mode_name(vac.mode));
   str_cat(line, ", очистка «"), str_cat(line, PRESET_NAME[vac_cfg.preset]), str_cat(line, "», уставка ");
@@ -1987,6 +1906,10 @@ static void line_in(char *buf, int *len, int max, int ch) {
 
 void vac_serial(int ch) { line_in(serial_line, &serial_len, (int)sizeof serial_line, ch); }
 void vac_uart(int ch) { line_in(uart_line, &uart_len, (int)sizeof uart_line, ch); }
+/* Экран на самом контроллере (lcd_s3.cpp): свой буфер — его строки не смешаются с байтами UART. */
+static char lcd_line[160];
+static int lcd_len;
+void vac_uart_local(int ch) { line_in(lcd_line, &lcd_len, (int)sizeof lcd_line, ch); }
 
 /* Следующее слово строки. */
 static const char *word(const char *s) {
@@ -2016,9 +1939,6 @@ static void export_journal(void) {
   str_cat(line, "  ударов клапанов: "), str_cat(line, fmt_int(n, (long)vac_cfg.pulse_count));
   str_cat(line, ", с замены фильтра клапанов: "), str_cat(line, fmt_int(n, (long)vac_cfg.in_pulses));
   str_cat(line, ", сила удара "), str_cat(line, fmt_num(n, vac.in_health, 0)), str_cat(line, " %");
-  hal_log(line);
-  line[0] = 0;
-  str_cat(line, "  магниты, ток, А: "), str_cat(line, fmt_num(n, vac.mag_a[0], 2)), str_cat(line, " / "), str_cat(line, fmt_num(n, vac.mag_a[1], 2));
   hal_log(line);
   for (int i = 0; i < N_FILTERS; i++) {
     const vac_filter_t *f = &vac_cfg.f[i];
@@ -2077,6 +1997,7 @@ void vac_command(const char *c) {
     hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|strong|wl|stag N, clean a|o, coff 0|1, hauto 0|1,");
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
     hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
+    hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
   } else if (str_eq(c, "status")) {
     status_line(line);
     hal_log(line);
@@ -2214,7 +2135,7 @@ void vac_command(const char *c) {
       if (vac.ov_one && vac.en[0] && vac.en[1]) vac.en[1] = 0, sync_state();
       vac.ov = OV_NONE;
       sock_lock = 0;
-      char s[80] = "Турбины ограничены до ", n[8];
+      char s[160] = "Турбины ограничены до ", n[8];
       str_cat(str_cat(s, fmt_int(n, vac.cap)), " %");
       if (vac.ov_one) str_cat(s, ", работает одна");
       hal_log(str_cat(s, " — розетка включена"));
@@ -2267,10 +2188,11 @@ void vac_command(const char *c) {
     for (uint32_t b = 1; b && b <= (uint32_t)F_LAST; b <<= 1)
       if (ack & b) set_fault(b, 0);
     vac.verr[0] = vac.verr[1] = VE_OK;
-    /* Магниты проверятся заново при следующей подаче или проверкой по одному на ходу. */
-    if (vac.running) diag_req = 1;
-    else mag_phase = 0;
+    /* Клапаны проверятся по одному в ближайшей серии. */
+    diag_req = 1;
     hal_log("Аварии сброшены");
+  } else if (str_starts(c, "lcd")) {
+    hal_lcd(c);
   } else if (str_eq(c, "export")) {
     export_journal();
   } else {
@@ -2316,7 +2238,6 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "i2", vac.amps[1], 2);
   json_num(out, "itool", vac.tool_amps, 2);
   json_num(out, "itotal", vac.total_amps, 1);
-  json_num(out, "imag", vac.mag_amps, 2);
   json_num(out, "tool", vac.tool, 0);
   json_num(out, "ov", vac.ov, 0);
   json_num(out, "cap", vac.cap, 0);

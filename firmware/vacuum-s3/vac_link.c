@@ -168,7 +168,6 @@ static void send_slow(void) {
   kv(s, "dh", vac.depth * 100, 0);
   ki(s, "v1", vac.verr[0]);
   ki(s, "v2", vac.verr[1]);
-  kv(s, "ma", vac.mag_amps, 2);
   ki(s, "tg", vac.tags_on);
   ki(s, "tb", vac.tag_low);
   ki(s, "wf", vac.wifi);
@@ -246,8 +245,6 @@ void link_send_journal(void) {
   kv(s, "w1", vac_cfg.whours[0] / 3600.0f, 1);
   kv(s, "h2", vac_cfg.hours[1] / 3600.0f, 1);
   kv(s, "w2", vac_cfg.whours[1] / 3600.0f, 1);
-  kv(s, "m1", vac.mag_a[0], 2);
-  kv(s, "m2", vac.mag_a[1], 2);
   str_cat(s, " rh=");
   for (int i = 0; i < vac_cfg.nrh; i++) {
     if (i) str_cat(s, "/");

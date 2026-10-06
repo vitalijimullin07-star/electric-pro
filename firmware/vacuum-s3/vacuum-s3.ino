@@ -1,18 +1,22 @@
 /*
- * Контроллер строительного пылесоса «S3» на ESP32-S3-WROOM-1 — обвязка для Arduino-ESP32 3.x.
- * Вся логика — в ядре (vac_core.c, vac_link.c, vac_drv.c), здесь только железо: таймер 100 мкс,
- * прерывание детектора нуля, АЦП, I²C, UART1 к экрану (firmware/vacuum-panel), зуммер,
+ * Контроллер строительного пылесоса «S3» на ESP32-S3-DevKitC-1 N16R8 (плата на готовых модулях,
+ * src/core/examples/vacuum-s3/mod.ts) — обвязка для Arduino-ESP32 3.x. Вся логика — в ядре
+ * (vac_core.c, vac_link.c, vac_drv.c), здесь только железо: таймер 100 мкс, прерывание детектора
+ * нуля, АЦП, I²C, ШИМ регуляторов МР248, UART1 к отдельной плате экрана (если она есть), зуммер,
  * настройки во флеше (две копии), приём пульта и меток по Bluetooth (реклама, без соединения)
  * и сеть Wi-Fi для телефона — только по команде «wifi on» (экран: «Телефон»), со случайным
  * паролем и QR-кодом на экране: страница управления, обновление прошивок контроллера и экрана
  * (файл проверяется: чужой не запишется; новая прошивка, которая не проработала 30 с, при
  * следующем сбросе откатывается на старую), резервная копия настроек.
+ * Экран 3,5″ ILI9488 с касанием — прямо на контроллере (lcd_s3.cpp): интерфейс пульта
+ * (firmware/vacuum-panel, копия в src/panel — sync-panel.sh) работает отдельной задачей.
  *
- * Arduino IDE: плата «ESP32S3 Dev Module», Flash Size 8 МБ, Partition Scheme «8M with spiffs»
- * (или любая с двумя разделами приложения — для обновления по воздуху), USB CDC On Boot —
- * Enabled (монитор порта и прошивка — через USB-C на плате).
- * arduino-cli: --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=8M,PartitionScheme=default_8MB
- * Первая прошивка: держать «Загрузка» (SB11), нажать «Сброс» (SB10), отпустить «Загрузка».
+ * Arduino IDE: плата «ESP32S3 Dev Module», Flash Size 16 МБ, Partition Scheme «16M Flash
+ * (3MB APP/9.9MB FATFS)», PSRAM «OPI PSRAM» (для экрана), USB CDC On Boot — Enabled (монитор
+ * порта и прошивка — через разъём USB платы DevKitC, тот, что подписан USB).
+ * arduino-cli: --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi
+ * Первая прошивка: держать BOOT, нажать RST, отпустить BOOT (или просто загрузить — DevKitC
+ * обычно входит в загрузчик сам).
  */
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -33,6 +37,8 @@ extern Preferences prefs;
 extern volatile int wifi_req;
 extern char wifi_ssid[24], wifi_pass[12];
 extern volatile int uart_mute;
+void lcd_start();
+void lcd_poll_tx();
 static WebServer server(80);
 static hw_timer_t *tick_timer;
 static bool wifi_on, app_valid;
@@ -165,7 +171,7 @@ td{padding:3px 10px}.bad{color:#f66}a{color:#8cf}progress{width:100%;height:18px
 const L={state:'Работа',preset:'Режим очистки',sock:'Розетка',tool:'Инструмент',itool:'Ток инструмента, А',itotal:'Общий ток, А',cap:'Ограничение турбин, %',
 p1:'Т1, %',p2:'Т2, %',i1:'Ток Т1, А',i2:'Ток Т2, А',t1:'Т1, °C',t2:'Т2, °C',mains:'Сеть, В',vacuum:'Разрежение, кПа',flow:'Расход, л/с',
 filter:'Фильтр, Па',r:'R фильтра',filt:'Фильтр (0 — А, 1 — Б)',washes:'Моек',intake:'Сила удара, %',imp:'Удар, мс',every:'Промежуток, с',n:'Ударов',
-water:'Вода',imag:'Ток магнитов, А'};
+water:'Вода'};
 function c(x){fetch('/c?q='+encodeURIComponent(x)).then(u)}
 function u(){fetch('/s').then(r=>r.json()).then(s=>{
 document.getElementById('t').innerHTML=Object.keys(L).map(k=>'<tr><td>'+L[k]+'</td><td><b>'+s[k]+'</b></td></tr>').join('');
@@ -297,11 +303,13 @@ void setup() {
   timerAlarm(tick_timer, 100, true, 0);
   web_setup();
   ble_setup();
+  lcd_start();
 }
 
 void loop() {
   while (Serial.available()) vac_serial(Serial.read());
   while (Serial1.available()) vac_uart(Serial1.read());
+  lcd_poll_tx();
   RemotePkt p;
   while (xQueueReceive(remote_q, &p, 0) == pdTRUE) vac_remote(p.data, p.len, p.rssi);
   vac_loop();

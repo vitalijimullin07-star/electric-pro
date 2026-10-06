@@ -220,8 +220,18 @@ export class Simulation {
       return pad ? comp.padNets[pad.number] : undefined;
     };
     const c = this.circuit;
+    // Экран SPI на самом контроллере (ILI9488): интерфейс пульта работает в его прошивке, строки
+    // те же, что по UART; проверяем, что экран подключён к выводам контроллера.
+    const spi = (fp?.tags ?? []).includes('ili9488');
     // Проводка: TX пульта — к RX контроллера, RX пульта — к TX.
     const wiring = (): string | undefined => {
+      if (spi) {
+        const bad = ['CS', 'DC', 'SCK', 'SDI'].find((name) => {
+          const g = c.netGroup.get(padNet(name) ?? '');
+          return g === undefined || !c.groups[g].pins.length;
+        });
+        return bad ? `${bad} экрана не соединён с контроллером` : undefined;
+      }
       const u = esp.uart;
       if (!u) return 'прошивка контроллера не открыла UART к пульту';
       const same = (net: string | undefined, pin: McuPin) => net !== undefined && c.netGroup.get(net) !== undefined && c.netGroup.get(net) === c.pinGroup.get(pin);
@@ -233,7 +243,7 @@ export class Simulation {
     this.devices.push({
       id: comp.id,
       comp,
-      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: `${ref} пульт: ${comp.value}`, width: PANEL_W, height: PANEL_H, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
+      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: spi ? `${ref} экран ${comp.value} (кадр интерфейса 800×480, на экране — в 0,6 раза)` : `${ref} пульт: ${comp.value}`, width: PANEL_W, height: PANEL_H, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
     });
   }
 

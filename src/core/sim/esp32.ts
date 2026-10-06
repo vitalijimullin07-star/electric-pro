@@ -80,6 +80,7 @@ export class Esp32 implements SimMcu {
   private pendingIrq: [number, number, number][] = [];
   private buses: { sda: McuPin; scl: McuPin }[] = [];
   private tones = new Map<McuPin, number>();
+  private pwms = new Map<McuPin, number>();
   private toneToken = new Map<McuPin, number>();
   /** Энергонезависимая память: ключ −1 — одна копия (прошивки 3.x), 0 и 1 — две копии. */
   private nvs = new Map<number, Uint8Array>();
@@ -156,6 +157,7 @@ export class Esp32 implements SimMcu {
         },
         hal_pin_write: (n: number, level: number) => {
           const p = pin(n);
+          this.pwms.delete(p);
           this.out.set(p, level ? 1 : 0);
           const m = this.modes.get(p);
           if (m === 'low' || m === 'high') this.setMode(p, level ? 'high' : 'low');
@@ -184,6 +186,16 @@ export class Esp32 implements SimMcu {
           return 0;
         },
         hal_tone: (n: number, hz: number) => this.tone(pin(n), hz),
+        // ШИМ (регуляторы МР248): фронты не моделируются — скважность читает нагрузка, уровень — «1» при ненулевой.
+        hal_pwm: (n: number, _hz: number, permille: number) => {
+          const p = pin(n);
+          const d = Math.max(0, Math.min(1000, permille)) / 1000;
+          this.pwms.set(p, d);
+          this.out.set(p, d > 0 ? 1 : 0);
+          this.setMode(p, d > 0 ? 'high' : 'low');
+        },
+        // Экран на самом контроллере (ILI9488): в симуляции интерфейс пульта — отдельным модулем.
+        hal_lcd: () => this.onLog?.('Экран на контроллере: в симуляции его показывает модуль пульта (HG1)\n'),
         hal_uart_begin: (tx: number, rx: number, baud: number) => {
           this.uart = { tx: pin(tx), rx: pin(rx), baud };
         },
@@ -234,6 +246,10 @@ export class Esp32 implements SimMcu {
 
   pinMode(pin: McuPin): PinMode {
     return this.modes.get(pin) ?? 'input';
+  }
+
+  pwmDuty(pin: McuPin): number | undefined {
+    return this.pwms.get(pin);
   }
 
   private readPin(p: McuPin): number {

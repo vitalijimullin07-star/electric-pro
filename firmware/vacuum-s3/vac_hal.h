@@ -39,12 +39,18 @@ int hal_i2c_begin(int bus, int sda, int scl, uint32_t hz);
 int hal_i2c_write(int bus, int addr, const uint8_t *data, int len);
 int hal_i2c_read(int bus, int addr, uint8_t *data, int len);
 
+/* ШИМ на выводе: частота, заполнение в тысячных (0 — «0», 1000 — «1»). */
+void hal_pwm(int pin, uint32_t hz, int permille);
+
 /* Меандр на выводе (зуммер), 0 — выключить. */
 void hal_tone(int pin, uint32_t hz);
 
 /* UART к пульту: байты от него ядро получает через vac_uart(). */
 void hal_uart_begin(int tx, int rx, uint32_t baud);
 void hal_uart_write(const char *data, int len);
+
+/* Экран на контроллере (ILI9488 + касание XPT2046): команды «lcd …» из монитора порта. */
+void hal_lcd(const char *cmd);
 
 /* Строка в монитор порта (без перевода строки). */
 void hal_log(const char *line);

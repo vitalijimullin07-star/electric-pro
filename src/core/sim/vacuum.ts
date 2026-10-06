@@ -1,6 +1,7 @@
 import type { Component, FootprintDef, Id, Project } from '../model/types';
 import { isResistor, parseOhms, type Circuit } from './circuit';
 import type { Device, DeviceView, SimParam } from './devices';
+import type { McuPin } from './types';
 
 /*
  * Установка «пылесос» для симуляции: сеть 230 В, симисторы с оптронами MOC (случайной
@@ -12,6 +13,11 @@ import type { Device, DeviceView, SimParam } from './devices';
  * тарелку, без тока её вталкивает разрежение; тогда фильтр в общей камере, а воздух — по
  * динамике двух объёмов (камера за фильтром и бак, неявный метод с шагом до 1 мс), удар —
  * обратным потоком через фильтр, фильтр клапанов на входе, мешок в баке, вид пыли.
+ * Плата на модулях: модули реле (relay-module, включаются «0» на IN), регуляторы мощности МР248
+ * (triac-dimmer: мощность — по скважности ШИМ на входе «управление»), твердотельные реле
+ * (ssr-module: включаются «0» на CHn и только в нуле сети) с импульсными клапанами 230 В —
+ * они тоже бьют по фильтру через камеру (та же динамика двух объёмов), трансформаторы тока
+ * с выходом 1 В (sct013-v: нагрузка внутри, сигнал — относительно середины на S2).
  * Детали находятся по схеме: метки корпусов (universal-motor, triac, solenoid-valve,
  * magnet-valve, tool-outlet, current-transformer, transformer, mains, relay, water-electrode,
  * float-switch) и цепи между ними (симистор → предохранитель → контакт реле); датчики
@@ -62,6 +68,10 @@ const PLATE_OPEN_MS = 6;
 const PLATE_CLOSE_MS = 15;
 const P_ATM = 101_325;
 const MAG_STATES = ['исправен', 'обрыв магнита', 'тарелка заклинила', 'пробит ключ (магнит всегда под током)'];
+/** Импульсный клапан 230 В: якорь втягивается за 8 мс, мембрана открывается за 6 мс, закрывается за 15 мс. */
+const PULSE_PULL_MS = 8;
+const SSR_STATES = ['исправен', 'пробит (всегда включён)', 'обрыв (не включается)'];
+const DIMMER_STATES = ['исправен', 'пробит симистор (всегда полная)', 'не открывается'];
 /** Вид пыли: доля, которая «прилипает» (снимается только мощным ударом или мойкой). */
 const DUST_KINDS = ['сухая мелкая (бетон)', 'средняя', 'липкая (гипс)', 'влажная'];
 const DUST_STICK = [0.03, 0.12, 0.35, 0.6];
@@ -110,6 +120,10 @@ interface Triac {
   state: number;
   /** Когда открылся в текущем полупериоде (мкс) или null. */
   firedAt: number | null;
+  /** Канал твердотельного реле: группы входа (питание модуля и вход канала, включается «0»). */
+  ssr?: number[];
+  /** Регулятор мощности МР248: вход «управление» (группа и вывод контроллера), питание модуля. */
+  dimmer?: { ctrl?: number; pin?: McuPin; vcc?: number; power: number };
   /** Доля полупериода, когда был открыт в прошлом полупериоде, и квадрат действующего напряжения. */
   lastCond: number;
   lastU2: number;
@@ -161,6 +175,19 @@ interface MagValve {
   /** Удар: когда открылась (мкс) и наибольший обратный перепад на фильтре, Па. */
   openedAt: number;
   peakRev: number;
+  /** Импульсный клапан 230 В через SSR (не магнит): сколько катушка под током, мс. */
+  pulse?: { onMs: number };
+}
+
+/** Трансформатор тока: с нагрузкой на плате (ток во вторичную цепь) или с выходом напряжения (vPerA). */
+interface Ct {
+  comp: Component;
+  loads: Load[];
+  ratio: number;
+  s1?: Id;
+  s2?: Id;
+  /** SCT-013 с выходом 1 В: вольт на ампер мгновенного тока (сигнал S1 относительно S2). */
+  vPerA?: number;
 }
 
 export interface VacuumView {
@@ -181,7 +208,7 @@ export class VacuumPlant {
   private valves: Valve[] = [];
   private triacs: Triac[] = [];
   private tool: { load: Load; params: SimParam[]; on: boolean; since: number; amps: number } | null = null;
-  private cts: { comp: Component; loads: Load[]; ratio: number; s1?: Id; s2?: Id }[] = [];
+  private cts: Ct[] = [];
   private mainsP: SimParam[];
   private airP: SimParam[];
   private envP: SimParam[];
@@ -291,13 +318,18 @@ export class VacuumPlant {
       const a = side(p1);
       const b = side(p2);
       const on = a.length && b.length ? (bus(p2) ? a : bus(p1) ? b : [...a, ...b]) : [...a, ...b];
-      this.cts.push({ comp, loads: on, ratio: m ? +m[1] : 1000, s1: padNet(comp, fp, 'S1'), s2: padNet(comp, fp, 'S2') });
+      // SCT-013-020/030 со встроенной нагрузкой: 1 В действующего на 20/30 А.
+      const rated = (fp.tags ?? []).includes('sct013-v') ? +(/SCT-?013-0*(\d+)/i.exec(comp.value)?.[1] ?? 30) : 0;
+      this.cts.push({ comp, loads: on, ratio: m ? +m[1] : 1000, s1: padNet(comp, fp, 'S1'), s2: padNet(comp, fp, 'S2'), vPerA: rated ? 1 / rated : undefined });
       this.claimed.add(comp.id);
     }
     const through = (n: Id | undefined): Id[] => (n ? [n, ...(ctPrim.has(n) ? [ctPrim.get(n)!] : [])] : []);
     // Реле: катушка между питанием и ключом; контакты COM/NO — в цепи нагрузки.
     for (const { comp, fp } of this.tagged('relay')) {
-      const coil = fp.pads.filter((q) => /^COIL/i.test(q.name ?? '') || ((q.number === '1' || q.number === '2') && !q.name)).map((q) => comp.padNets[q.number]);
+      // Модуль реле: катушка с оптроном между DC+ и IN (перемычка L — включается замыканием IN на землю).
+      const coil = (fp.tags ?? []).includes('relay-module')
+        ? [padNet(comp, fp, 'DC+'), padNet(comp, fp, 'IN')]
+        : fp.pads.filter((q) => /^COIL/i.test(q.name ?? '') || ((q.number === '1' || q.number === '2') && !q.name)).map((q) => comp.padNets[q.number]);
       const groups = coil.map((n) => (n ? c.netGroup.get(n) : undefined)).filter((g): g is number => g !== undefined);
       const r: Relay = { comp, coil: groups, cmd: false, closed: false, params: [param('fault', 'реле', 0, 0, 2, 1, '', RELAY_STATES)] };
       (r as Relay & { no?: Id; com?: Id }).no = padNet(comp, fp, 'NO');
@@ -350,25 +382,46 @@ export class VacuumPlant {
       this.claimed.add(comp.id);
     }
     // Симисторы: к какому оптрону подключён затвор, какая нагрузка на MT2/MT1.
-    for (const { comp, fp } of this.tagged('triac')) {
-      const pn = (...names: string[]) => names.map((n) => padNet(comp, fp, n)).find(Boolean);
-      const t: Triac = { comp, mt1: pn('MT1', 'T1', 'A1'), mt2: pn('MT2', 'T2', 'A2'), g: pn('G'), state: 0, firedAt: null, lastCond: 0, lastU2: 0 };
-      t.moc = mocs.find((m) => t.g && m.out.includes(t.g))?.moc;
+    const attach = (t: Triac, viaRelay = true) => {
       const ends = [...through(t.mt1), ...through(t.mt2)];
       for (const l of loads)
         if (!l.triac && l.nets.some((n) => ends.includes(n))) {
           l.triac = t;
           // Вывод симистора со стороны сети (не к нагрузке) — через предохранитель к реле.
           const onLoad = (n: Id | undefined) => !!n && through(n).some((x) => l.nets.includes(x));
-          t.relay = relayOf(onLoad(t.mt1) ? t.mt2 : t.mt1);
+          if (viaRelay) t.relay = relayOf(onLoad(t.mt1) ? t.mt2 : t.mt1);
         }
       this.triacs.push(t);
-      this.claimed.add(comp.id);
+      this.claimed.add(t.comp.id);
+    };
+    for (const { comp, fp } of this.tagged('triac')) {
+      const pn = (...names: string[]) => names.map((n) => padNet(comp, fp, n)).find(Boolean);
+      const t: Triac = { comp, mt1: pn('MT1', 'T1', 'A1'), mt2: pn('MT2', 'T2', 'A2'), g: pn('G'), state: 0, firedAt: null, lastCond: 0, lastU2: 0 };
+      t.moc = mocs.find((m) => t.g && m.out.includes(t.g))?.moc;
+      attach(t);
     }
+    // Регуляторы мощности МР248: сеть L → симистор → OUT; мощность — по входу «управление».
+    const groupOf = (n: Id | undefined) => (n ? c.netGroup.get(n) : undefined);
+    for (const { comp, fp } of this.tagged('triac-dimmer')) {
+      const ctrl = groupOf(padNet(comp, fp, 'CTRL'));
+      const pin = ctrl !== undefined ? c.groups[ctrl].pins[0] : undefined;
+      attach({ comp, mt1: padNet(comp, fp, 'L'), mt2: padNet(comp, fp, 'OUT'), state: 0, firedAt: null, lastCond: 0, lastU2: 0, dimmer: { ctrl, pin, vcc: groupOf(padNet(comp, fp, 'VCC')), power: 0 } });
+    }
+    // Твердотельные реле (каналы CHn → выходы SWnA/SWnB): сеть на них — напрямую, без реле.
+    for (const { comp, fp } of this.tagged('ssr-module'))
+      for (let ch = 1; ch <= 8; ch++) {
+        const inp = padNet(comp, fp, `CH${ch}`);
+        if (!inp) break;
+        const coil = [groupOf(padNet(comp, fp, 'DC+')), groupOf(inp)].filter((g): g is number => g !== undefined);
+        attach({ comp, mt1: padNet(comp, fp, `SW${ch}A`), mt2: padNet(comp, fp, `SW${ch}B`), state: 0, firedAt: null, lastCond: 0, lastU2: 0, ssr: coil }, false);
+      }
+    // Варисторы на катушках и в сети — часть установки (в логической схеме им делать нечего).
+    for (const { comp } of this.tagged('varistor')) this.claimed.add(comp.id);
     // Без симистора — через контакт реле (розетка инструмента за реле 30 А).
     for (const l of loads) if (!l.triac && l.kind === 'tool') l.relay = l.nets.flatMap((n) => through(n)).map((n) => relayOf(n)).find(Boolean);
     for (const l of loads) {
       if (l.kind === 'motor') this.addMotor(l);
+      else if (l.kind === 'valve' && l.triac?.ssr) this.addPulse(l);
       else if (l.kind === 'valve') this.addValve(l);
       else if (l.kind === 'magnet') this.addMagnet(l);
       else this.addTool(l);
@@ -405,6 +458,8 @@ export class VacuumPlant {
       }
       // Катушка: ключ меняет «висит» на «0» без смены уровня — проверяем при любом изменении.
       for (const r of this.relays) this.relayUpdate(r);
+      // Вход SSR — «0» включает: у нуля сети откроется сразу, иначе — в следующем полупериоде.
+      for (const t of this.triacs) if (t.ssr?.includes(g)) this.gateOn(t, (cycle / this.freq) * 1e6);
       if (lvl !== 1) return;
       for (const t of this.triacs) if (t.moc && t.moc.led === g) this.gateOn(t, (cycle / this.freq) * 1e6);
     });
@@ -451,6 +506,7 @@ export class VacuumPlant {
   }
 
   private ledOn(t: Triac): boolean {
+    if (t.ssr) return t.state !== 2 && this.coilEnergized(t.ssr);
     const m = t.moc;
     if (!m || m.led === undefined || !m.ledGnd) return false;
     return this.c.levelOf(m.led) === 1 && !this.c.isFloating(m.led) && m.ma >= m.needMa;
@@ -470,9 +526,9 @@ export class VacuumPlant {
 
   /** Светодиод оптрона загорелся в момент at. */
   private gateOn(t: Triac, at: number): void {
-    if (!t.moc || t.firedAt !== null || !this.ledOn(t)) return;
+    if ((!t.moc && !t.ssr) || t.firedAt !== null || !this.ledOn(t)) return;
     const v = Math.abs(this.vAt(at));
-    if (t.moc.zeroCross) {
+    if (t.ssr || t.moc!.zeroCross) {
       // С детектором нуля: откроется только у нуля (до 20 В), иначе — в следующем полупериоде.
       if (v < 20) this.fire(t, at);
       return;
@@ -485,6 +541,31 @@ export class VacuumPlant {
       if (target > at) this.c.mcu.schedule(() => this.ledOn(t) && this.fire(t, this.us), this.toCycles(target - at));
       else this.fire(t, at);
     }
+  }
+
+  /**
+   * Регулятор МР248: доля мощности — напряжение на входе «управление» к питанию модуля (ШИМ
+   * сглаживается внутри), угол открытия — такой, чтобы среднеквадратичное напряжение на
+   * нагрузке дало эту долю. null — закрыт (вход у нуля или модуль без питания).
+   */
+  private dimmerAngle(t: Triac): number | null {
+    const d = t.dimmer!;
+    const c = this.c;
+    const vcc = d.vcc !== undefined && c.groups[d.vcc].power === 'vcc' ? c.powerOf(d.vcc) : 0;
+    let duty = 0;
+    if (d.pin) duty = c.mcu.pwmDuty?.(d.pin) ?? (c.mcu.pinMode(d.pin) === 'high' ? 1 : 0);
+    const frac = vcc > 0 ? Math.min(1, (duty * c.mcu.vdd) / vcc) : 0;
+    d.power = frac;
+    if (frac < 0.02) return null;
+    // u²(a) = 1 − a/π + sin 2a / 2π убывает от 1 до 0: деление пополам.
+    let lo = 0;
+    let hi = Math.PI;
+    for (let i = 0; i < 30; i++) {
+      const a = (lo + hi) / 2;
+      if (1 - a / Math.PI + Math.sin(2 * a) / (2 * Math.PI) > frac) lo = a;
+      else hi = a;
+    }
+    return (lo + hi) / 2;
   }
 
   /** Новый полупериод: итоги прошлого, симисторы закрываются, детектор нуля. */
@@ -501,11 +582,14 @@ export class VacuumPlant {
     }
     for (const r of this.relays) this.relayUpdate(r);
     this.step(hu / 1e6);
-    // Новый полупериод: пробитые открыты сразу, горящие оптроны открывают у нуля.
+    // Новый полупериод: пробитые открыты сразу, горящие оптроны открывают у нуля, регуляторы — по углу.
     for (const t of this.triacs) {
       if (t.state === 1 && this.powered(t)) t.firedAt = now;
-      else if (this.ledOn(t)) {
-        const wait = t.moc!.zeroCross ? 150 : (Math.asin(Math.min(1, 10 / Math.max(10, this.volts * Math.SQRT2))) / Math.PI) * hu;
+      else if (t.dimmer) {
+        const a = this.dimmerAngle(t);
+        if (a !== null && t.state === 0 && this.powered(t)) t.firedAt = now + (a / Math.PI) * hu;
+      } else if (this.ledOn(t)) {
+        const wait = t.ssr || t.moc!.zeroCross ? 150 : (Math.asin(Math.min(1, 10 / Math.max(10, this.volts * Math.SQRT2))) / Math.PI) * hu;
         this.c.mcu.schedule(() => this.ledOn(t) && this.fire(t, this.us), this.toCycles(wait));
       }
     }
@@ -743,6 +827,10 @@ export class VacuumPlant {
   private plates(h: number, us: number): void {
     const pc = this.dyn.pc;
     for (const v of this.mags) {
+      if (v.pulse) {
+        this.pulsePlate(v, h, us);
+        continue;
+      }
       const f = v.params[0].value;
       const held = (v.held && f !== 1) || f === 3;
       let target: number;
@@ -774,6 +862,37 @@ export class VacuumPlant {
       if (p.peak > 1500) d.stuck *= 1 - 0.2 * Math.min(1, (p.peak - 1500) / 1500);
       d.bagCake *= 1 - 0.3 * k;
     }
+  }
+
+  /** Катушка импульсного клапана под током в момент us: SSR проводит весь полупериод от включения. */
+  private pulseOn(v: MagValve, us: number): boolean {
+    const t = v.load.triac;
+    if (!t || this.volts <= 0 || v.params[2].value === 2) return false;
+    return us <= this.halfStart ? t.lastCond > 0.5 : t.firedAt !== null && us >= t.firedAt;
+  }
+
+  /** Импульсный клапан: якорь втягивается за PULSE_PULL_MS, потом мембрана открывается; без тока — закрывается. */
+  private pulsePlate(v: MagValve, h: number, us: number): void {
+    const on = this.pulseOn(v, us);
+    const p = v.pulse!;
+    p.onMs = on ? p.onMs + h * 1000 : 0;
+    const target = on && v.params[2].value === 0 && p.onMs >= PULSE_PULL_MS ? 1 : 0;
+    if (target > v.x) {
+      v.x = Math.min(1, v.x + (h * 1000) / PLATE_OPEN_MS);
+      if (!v.open) (v.open = true), (v.openedAt = us);
+    } else if (target < v.x) {
+      v.x = Math.max(0, v.x - (h * 1000) / PLATE_CLOSE_MS);
+      if (v.x <= 0) v.open = false;
+    }
+    // Ток катушки: пусковой, пока якорь не втянулся (и всё время, если заклинил), потом — удержания.
+    const va = v.params[2].value === 1 || p.onMs < PULL_MS ? v.params[0].value : v.params[1].value;
+    v.amps = on ? va / Math.max(1, this.volts) : 0;
+  }
+
+  /** Клапан движется или вот-вот откроется: воздух считается мелким шагом. */
+  private valveBusy(v: MagValve, pc: number, us: number): boolean {
+    if (v.x > 0) return true;
+    return v.pulse ? this.pulseOn(v, us) : !v.held && pc > PLATE_OPEN_PA;
   }
 
   /**
@@ -817,7 +936,7 @@ export class VacuumPlant {
     let us = tUs - left * 1e6;
     let q = { h: 0, f: 0, v: 0 };
     while (left > 1e-9) {
-      const moving = this.mags.some((v) => v.x > 0 || (!v.held && d.pc > PLATE_OPEN_PA));
+      const moving = this.mags.some((v) => this.valveBusy(v, d.pc, us));
       const h = Math.min(left, moving ? 0.00025 : 0.001);
       left -= h;
       us += h * 1e6;
@@ -894,6 +1013,46 @@ export class VacuumPlant {
           { label: 'тарелка', value: Math.round(v.x * 100), unit: '% открыта' },
         ],
         warning: coil.length < 2 ? 'магнит не подключён' : undefined,
+      }),
+    });
+  }
+
+  /** Импульсный клапан 230 В через SSR: бьёт по фильтру так же, как клапан на магните (динамика камеры и бака). */
+  private addPulse(l: Load): void {
+    const comp = l.comp;
+    const v: MagValve = {
+      load: l,
+      params: [param('va', 'пусковая мощность катушки', 60, 5, 400, 5, 'ВА'), param('hold', 'мощность удержания', 25, 2, 150, 1, 'ВА'), param('fault', 'клапан', 0, 0, 2, 1, '', VALVE_STATES)],
+      coil: [],
+      held: false,
+      x: 0,
+      open: false,
+      amps: 0,
+      openedAt: 0,
+      peakRev: 0,
+      pulse: { onMs: 0 },
+    };
+    this.mags.push(v);
+    this.devices.push({
+      id: comp.id,
+      comp,
+      set: (k, val) => {
+        const pp = v.params.find((x) => x.key === k);
+        if (pp) pp.value = val;
+      },
+      view: () => ({
+        id: comp.id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'valve',
+        title: `${comp.ref} импульсный клапан ${comp.value}${l.triac ? ` ← ${l.triac.comp.ref}` : ''}`,
+        on: v.open,
+        params: v.params,
+        readings: [
+          { label: 'ток катушки', value: +v.amps.toFixed(2), unit: 'А' },
+          { label: 'мембрана', value: Math.round(v.x * 100), unit: '% открыта' },
+        ],
+        warning: !l.triac ? 'не найдено твердотельное реле в цепи клапана' : undefined,
       }),
     });
   }
@@ -987,7 +1146,7 @@ export class VacuumPlant {
           { label: 'поток', value: Math.round(Math.max(0, m.qm3) * 1000), unit: 'л/с' },
         ],
         level: Math.min(1, m.s / 1.2),
-        warning: !l.triac ? 'не найден симистор в цепи двигателя' : !l.triac.moc ? `затвор ${l.triac.comp.ref} не подключён к оптрону` : undefined,
+        warning: !l.triac ? 'не найден симистор или регулятор в цепи двигателя' : !l.triac.moc && !l.triac.dimmer ? `затвор ${l.triac.comp.ref} не подключён к оптрону` : undefined,
       }),
     });
   }
@@ -1053,24 +1212,47 @@ export class VacuumPlant {
 
   private addTriacDevice(t: Triac): void {
     const comp = t.comp;
-    const params = [param('state', 'симистор', 0, 0, 2, 1, '', TRIAC_STATES)];
+    // У модуля SSR каналов несколько — у каждого своя карточка.
+    const ch = t.ssr ? this.triacs.filter((x) => x.comp === comp).indexOf(t) + 1 : 0;
+    const id = ch ? `${comp.id}:ch${ch}` : comp.id;
+    const states = t.ssr ? SSR_STATES : t.dimmer ? DIMMER_STATES : TRIAC_STATES;
+    const params = [param('state', t.ssr ? `канал ${ch}` : t.dimmer ? 'регулятор' : 'симистор', 0, 0, 2, 1, '', states)];
+    const feeds = () =>
+      [...this.motors.map((m) => m.load), ...this.valves.map((v) => v.load), ...this.mags.map((v) => v.load), ...(this.tool ? [this.tool.load] : [])]
+        .filter((l) => l.triac === t)
+        .map((l) => l.comp.ref)
+        .join(', ');
+    const title = () => {
+      if (t.ssr) return `${comp.ref} SSR ${comp.value}, канал ${ch}${feeds() ? ` → ${feeds()}` : ''}`;
+      if (t.dimmer) return `${comp.ref} регулятор ${comp.value}${feeds() ? ` → ${feeds()}` : ''}`;
+      return `${comp.ref} симистор ${comp.value}${t.moc ? ` ← ${t.moc.comp.ref} ${t.moc.comp.value}` : ''}`;
+    };
+    const warning = () => {
+      if (t.ssr) return t.ssr.length < 2 ? 'вход канала или питание модуля не подключены' : !feeds() ? 'выход канала не в цепи нагрузки' : undefined;
+      if (t.dimmer) return !t.dimmer.pin ? 'вход «управление» не подключён к контроллеру' : t.dimmer.vcc === undefined || this.c.groups[t.dimmer.vcc].power !== 'vcc' ? 'нет питания +VCC регулятора' : undefined;
+      return !t.moc ? 'затвор не подключён к оптрону' : t.moc.ma < t.moc.needMa ? `мало тока светодиода ${t.moc.comp.ref}: ${t.moc.ma.toFixed(1)} мА, нужно ${t.moc.needMa}` : undefined;
+    };
     this.devices.push({
-      id: comp.id,
+      id,
       comp,
       set: (_k, v) => {
         params[0].value = v;
         t.state = Math.round(v);
       },
       view: () => ({
-        id: comp.id,
+        id,
         comp: comp.id,
         ref: comp.ref,
         kind: 'triac',
-        title: `${comp.ref} симистор ${comp.value}${t.moc ? ` ← ${t.moc.comp.ref} ${t.moc.comp.value}` : ''}`,
+        title: title(),
         on: t.lastCond > 0,
         params,
-        readings: [{ label: 'открыт', value: Math.round(t.lastCond * 100), unit: '% полупериода' }],
-        warning: !t.moc ? 'затвор не подключён к оптрону' : t.moc.ma < t.moc.needMa ? `мало тока светодиода ${t.moc.comp.ref}: ${t.moc.ma.toFixed(1)} мА, нужно ${t.moc.needMa}` : undefined,
+        readings: [
+          ...(t.dimmer ? [{ label: 'задано', value: Math.round(t.dimmer.power * 100), unit: '% мощности' }] : []),
+          ...(t.ssr ? [{ label: 'вход', value: this.ledOn(t) ? 1 : 0, unit: this.ledOn(t) ? 'включён' : 'выключен' }] : []),
+          { label: 'открыт', value: Math.round(t.lastCond * 100), unit: '% полупериода' },
+        ],
+        warning: warning(),
       }),
     });
   }
@@ -1210,21 +1392,28 @@ export class VacuumPlant {
     if (t.floatGroup !== undefined) this.c.drive(t.floatGroup, 'vacuum-float', t.level >= 0.8 && !t.params[2].value ? 0 : null);
   }
 
-  private addCt(ct: { comp: Component; loads: Load[]; ratio: number; s1?: Id; s2?: Id }): void {
+  private addCt(ct: Ct): void {
     const c = this.c;
     const amps = (cycle: number) => {
       const t = (cycle / this.freq) * 1e6;
       return ct.loads.reduce((a, l) => a + this.loadAmps(l, t), 0);
     };
-    c.setNetCurrent(ct.s1, (cy) => amps(cy) / ct.ratio, ct.comp.id);
-    c.setNetCurrent(ct.s2, (cy) => -amps(cy) / ct.ratio, ct.comp.id);
+    if (ct.vPerA) {
+      // Нагрузка внутри: на S1 — напряжение середины (S2) плюс сигнал.
+      const k = ct.vPerA;
+      c.setNetSource(ct.s1, (cy) => (ct.s2 ? c.netVolts(ct.s2) : 0) + amps(cy) * k);
+    } else {
+      c.setNetCurrent(ct.s1, (cy) => amps(cy) / ct.ratio, ct.comp.id);
+      c.setNetCurrent(ct.s2, (cy) => -amps(cy) / ct.ratio, ct.comp.id);
+    }
     const comp = ct.comp;
     this.devices.push({
       id: comp.id,
       comp,
       view: () => {
-        const rms = ct.loads.reduce((a, l) => a + (l.kind === 'motor' ? (this.motors.find((m) => m.load === l)?.amps ?? 0) : l.kind === 'tool' ? (this.tool?.amps ?? 0) : (this.valves.find((v) => v.load === l)?.amps ?? 0)), 0);
-        return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} трансформатор тока ${comp.value}: ${ct.loads.map((l) => l.comp.ref).join(', ') || '—'}`, readings: [{ label: 'ток', value: +rms.toFixed(2), unit: 'А' }], warning: !ct.loads.length ? 'через окно не проходит провод нагрузки' : undefined };
+        const rms = ct.loads.reduce((a, l) => a + (l.kind === 'motor' ? (this.motors.find((m) => m.load === l)?.amps ?? 0) : l.kind === 'tool' ? (this.tool?.amps ?? 0) : ([...this.valves, ...this.mags].find((v) => v.load === l)?.amps ?? 0)), 0);
+        const readings = [{ label: 'ток', value: +rms.toFixed(2), unit: 'А' }, ...(ct.vPerA ? [{ label: 'выход', value: +(rms * ct.vPerA).toFixed(3), unit: 'В действ.' }] : [])];
+        return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} трансформатор тока ${comp.value}: ${ct.loads.map((l) => l.comp.ref).join(', ') || '—'}`, readings, warning: !ct.loads.length ? 'через окно не проходит провод нагрузки' : undefined };
       },
     });
   }
@@ -1329,7 +1518,10 @@ export class VacuumPlant {
       }),
       valves: [
         ...this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[2].value ? VALVE_STATES[v.params[2].value] : null })),
-        ...this.mags.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[0].value ? MAG_STATES[v.params[0].value] : null })),
+        ...this.mags.map((v) => {
+          const f = v.params[v.pulse ? 2 : 0].value;
+          return { ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: f ? (v.pulse ? VALVE_STATES : MAG_STATES)[f] : null };
+        }),
       ],
       relays: this.relays.map((r) => ({ ref: r.comp.ref, closed: this.relayClosed(r), fault: r.params[0].value ? RELAY_STATES[r.params[0].value] : null })),
       tank: this.tank ? { level: this.tank.level, liters: this.tank.level * this.tankL, e: [this.tank.wet[0], this.tank.wet[1]], float: this.tank.level >= 0.8 && !this.tank.params[2].value, sucking: this.tank.sucking } : null,

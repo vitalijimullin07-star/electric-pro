@@ -864,6 +864,14 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
         });
         return v;
       };
+      // Выходы (бит конфигурации 0): уровень из регистра выходов — на цепь (светодиод, сброс экрана).
+      const outputs = () =>
+        pins.forEach((name, i) => {
+          const gr = pin(name);
+          if (gr === undefined || c.groups[gr].power) return;
+          const out = !((reg[6 + (i >> 3)] >> (i & 7)) & 1);
+          c.drive(gr, `pca9555:${comp.id}:${name}`, out ? ((reg[2 + (i >> 3)] >> (i & 7)) & 1 ? 1 : 0) : null);
+        });
       const dev: I2cDevice = {
         start: (write) => {
           if (params[0].value) return false;
@@ -882,6 +890,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
           } else {
             reg[ptr] = v;
             ptr ^= 1;
+            outputs();
           }
           return true;
         },
@@ -893,7 +902,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
         stop: () => undefined,
       };
       if (onI2c()) attachI2c(addr, dev);
-      use('SDA', 'SCL', 'VCC', 'GND', 'A0', 'A1', 'A2', 'INT', ...pins);
+      use('SDA', 'SCL', 'VCC', 'VDD', 'GND', 'A0', 'A1', 'A2', 'INT', ...pins);
       devices.push({
         id: comp.id,
         comp,
@@ -911,7 +920,9 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
     }
 
     // --- датчик перепада давления Sensirion SDP8xx (I²C 0x25; SDP8x1 — 0x26) ---
-    if (/SDP8\d\d/i.test(`${comp.value} ${id}`) || tags.includes('sdp810')) {
+    // Разъём или клеммник к датчику (в номинале — его название) — не сам датчик.
+    const connector = /^(TerminalBlock|PinHeader|PinSocket|IDC|JST|Conn)/i.test(id) || tags.includes('terminal');
+    if ((/SDP8\d\d/i.test(`${comp.value} ${id}`) && !connector) || tags.includes('sdp810')) {
       const sdpAddr = /SDP8\d1/i.test(comp.value) ? 0x26 : 0x25;
       const range = /125/.test(comp.value) ? 125 : /25\s*Pa/i.test(comp.value) ? 25 : 500;
       const scale = range === 125 ? 240 : range === 25 ? 1200 : 60;

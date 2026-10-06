@@ -162,7 +162,19 @@ int sdp_read(int addr, float *pa) {
   return 0;
 }
 
-/* ---------------- PCA9555 / TCA9555 (0x20): все выводы — входы (так после включения) ---------------- */
+/* ---------------- PCA9555 / TCA9555 (0x20): входы, кроме P12 (сброс экрана) и P13 (светодиод) ---------------- */
+
+/* Выходы: сначала значения (регистры 2, 3), потом направление (6, 7: 1 — вход). */
+int exp_init(uint16_t out) {
+  if (exp_write(out)) return 1;
+  const uint8_t cfg[3] = {0x06, (uint8_t)~(EXP_OUTS & 0xFF), (uint8_t)~(EXP_OUTS >> 8)};
+  return hal_i2c_write(0, EXP_ADDR, cfg, 3);
+}
+
+int exp_write(uint16_t out) {
+  const uint8_t d[3] = {0x02, (uint8_t)(out | ~EXP_OUTS), (uint8_t)((out | ~EXP_OUTS) >> 8)};
+  return hal_i2c_write(0, EXP_ADDR, d, 3);
+}
 
 int exp_read(uint16_t *in) {
   const uint8_t reg = 0x00; /* входной порт 0, следом — порт 1 */

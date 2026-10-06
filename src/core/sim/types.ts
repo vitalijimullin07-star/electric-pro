@@ -39,5 +39,7 @@ export interface SimMcu {
   setAnalog(pin: McuPin, volts: number): void;
   /** Вызвать fn через cycles тактов. */
   schedule(fn: () => void, cycles: number): void;
+  /** Скважность ШИМ на выводе (0…1) или undefined, если ШИМ на нём не включён (ESP32: hal_pwm). */
+  pwmDuty?(pin: McuPin): number | undefined;
   run(cycles: number): void;
 }

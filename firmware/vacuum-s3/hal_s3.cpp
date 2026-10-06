@@ -49,6 +49,17 @@ int hal_i2c_read(int bus, int addr, uint8_t *data, int len) {
   return 0;
 }
 
+/* ШИМ регуляторов МР248: 20 кГц, 10 бит (каналы LEDC назначает ядро Arduino). */
+static uint32_t pwm_attached;
+void hal_pwm(int pin, uint32_t hz, int permille) {
+  uint32_t bit = 1UL << (pin & 31);
+  if (!(pwm_attached & bit)) {
+    ledcAttach(pin, hz, 10);
+    pwm_attached |= bit;
+  }
+  ledcWrite(pin, (uint32_t)(permille < 0 ? 0 : permille > 1000 ? 1023 : permille * 1023 / 1000));
+}
+
 void hal_tone(int pin, uint32_t hz) {
   if (!tone_attached) {
     ledcAttach(pin, 2000, 8);
@@ -61,8 +72,11 @@ void hal_tone(int pin, uint32_t hz) {
 void hal_uart_begin(int tx, int rx, uint32_t baud) { Serial1.begin(baud, SERIAL_8N1, rx, tx); }
 /* Пока идёт прошивка экрана, строки ядра в UART не идут (там — куски файла). */
 volatile int uart_mute;
+void lcd_rx_put(const char *data, int len);
 void hal_uart_write(const char *data, int len) {
   if (!uart_mute) Serial1.write((const uint8_t *)data, (size_t)len);
+  /* Те же строки — интерфейсу пульта на экране контроллера (lcd_s3.cpp). */
+  lcd_rx_put(data, len);
 }
 
 void hal_log(const char *line) { Serial.println(line); }

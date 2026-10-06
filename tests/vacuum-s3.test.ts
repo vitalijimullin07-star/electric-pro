@@ -1,9 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { buildVacuumS3, routeVacuumS3 } from '../src/core/examples/vacuum-s3/build';
 import { vacuumS3Notes } from '../src/core/examples/vacuum-s3/notes';
 import { buildPult, routePult } from '../src/core/examples/vacuum-s3/pult';
-import { MOD_PINS, buildVacuumS3Mod, routeVacuumS3Mod, vacuumS3ModNotes } from '../src/core/examples/vacuum-s3/mod';
+import { MOD_PINS, buildVacuumS3Mod, routeVacuumS3Mod, vacuumS3ModNotes, withRoutingOf } from '../src/core/examples/vacuum-s3/mod';
 import { exportLutPdf } from '../src/core/io/lut-pdf';
 import { exportBomCsv } from '../src/core/io/bom';
 import { parseProjectFile, serializeProject } from '../src/core/io/project-file';
@@ -12,20 +11,28 @@ import { runDrc } from '../src/core/model/drc';
 import { Simulation, bytesToBase64 } from '../src/core/sim';
 import { siphash24 } from '../src/core/sim/ble-remote';
 import type { Device } from '../src/core/sim/devices';
+import type { Project } from '../src/core/model/types';
 
 /*
- * Пылесос «S3»: контроллер на ESP32-S3 (firmware/vacuum-s3), пульт с экраном (общая прошивка
- * firmware/vacuum-panel) и беспроводной пульт Bluetooth — ядра прошивок в WebAssembly — управляют
- * моделью установки: реле и симисторы турбин, клапаны на магнитах, розетка инструмента с реле K3,
- * метка Bluetooth на инструменте, бак 28 л с электродами и поплавком, камера 2,2 л и фильтр клапанов.
- * С VAC_WRITE=1 плата разводится заново и файлы в import/ пишутся заново.
+ * Пылесос «S3» на модулях: контроллер на ESP32-S3-DevKitC-1 (firmware/vacuum-s3, 5.0), интерфейс
+ * экрана (общая прошивка firmware/vacuum-panel) и беспроводной пульт Bluetooth — ядра прошивок в
+ * WebAssembly — управляют моделью установки: модули реле 30 А и регуляторы МР248 (ШИМ) турбин,
+ * импульсные клапаны 230 В через твердотельное реле G3MB, розетка инструмента с модулем реле K3,
+ * трансформаторы тока SCT-013 с выходом 1 В, метка Bluetooth на инструменте, бак 28 л с электродами
+ * и поплавком, камера 2,2 л и фильтр клапанов. Прежняя плата S3 (SMD, клапаны на магнитах,
+ * прошивка 4.0 внутри файла) — архив: проверяются только её файлы.
+ * С VAC_WRITE=1 файлы в import/ пишутся заново (медь платы на модулях берётся из её файла;
+ * VAC_REROUTE=1 — развести заново).
  */
 
 const wasm = bytesToBase64(readFileSync('firmware/vacuum-s3/vacuum-s3.wasm'));
 const panelWasm = bytesToBase64(readFileSync('firmware/vacuum-panel/vacuum-panel.wasm'));
 
+const fw = { name: 'vacuum-s3.wasm', wasm };
+const panelFw = { name: 'vacuum-panel.wasm', wasm: panelWasm };
+
 function start(withPanel = true) {
-  const sim = Simulation.createSync(buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }, withPanel ? { name: 'vacuum-panel.wasm', wasm: panelWasm } : undefined));
+  const sim = Simulation.createSync(buildVacuumS3Mod(fw, withPanel ? panelFw : undefined));
   const sec = (s: number) => sim.run(Math.round(s * 1e6));
   const dev = (re: RegExp): Device => {
     const d = sim.devices.find((x) => re.test(x.view().title));
@@ -52,13 +59,14 @@ function start(withPanel = true) {
   return { sim, sec, dev, click, plant, cmd, set, act, relay, rpm };
 }
 
-describe('Пылесос S3: прошивки в симуляции', () => {
-  test('запуск: ESP32-S3, пульт на связи, все детали узнаны', () => {
+describe('Пылесос S3 на модулях: прошивки в симуляции', () => {
+  test('запуск: ESP32-S3, экран на связи, все детали узнаны', () => {
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 5.0 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
+    expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;
     let lit = 0;
     for (let i = 0; i < panel.pixels!.length; i++) if (panel.pixels![i] !== panel.pixels![0]) lit++;
@@ -87,9 +95,27 @@ describe('Пылесос S3: прошивки в симуляции', () => {
     expect(sim.serial).toContain('Турбина 1: стоп');
   });
 
+  test('МР248 и SCT-013: скважность ШИМ — мощность регулятора, ток по ТТ с выходом 1 В — как у двигателя', () => {
+    const { sec, click, cmd, plant, sim, dev } = start();
+    cmd('mode m');
+    cmd('pw 50');
+    click(/SB7/);
+    sec(8);
+    const set = dev(/U1 регулятор/).view().readings!.find((r) => r.label === 'задано')!.value;
+    expect(set).toBeGreaterThanOrEqual(48);
+    expect(set).toBeLessThanOrEqual(52);
+    const m = plant().motors.find((x) => x.ref === 'M1')!;
+    expect(m.firing).toBeGreaterThan(60);
+    expect(m.firing).toBeLessThan(120);
+    const i1 = +[...sim.serial.matchAll(/I1=([\d,]+)/g)].at(-1)![1].replace(',', '.');
+    expect(Math.abs(i1 - m.amps) / m.amps).toBeLessThan(0.08);
+    const ta1 = dev(/TA1 трансформатор/).view().readings!;
+    expect(ta1.find((r) => r.label === 'выход')!.value).toBeCloseTo(m.amps / 20, 2);
+  });
+
   test('пробитый симистор: ток при закрытом симисторе — реле размыкается, турбина заблокирована', () => {
     const { sec, click, set, relay, sim } = start();
-    set(/VS3 симистор/, 'state', 1);
+    set(/U1 регулятор/, 'state', 1);
     click(/SB7/);
     sec(1);
     expect(sim.serial).toContain('Пробит симистор 1');
@@ -101,7 +127,7 @@ describe('Пылесос S3: прошивки в симуляции', () => {
     click(/SB7/);
     sec(3);
     set(/K1 реле/, 'fault', 1);
-    set(/VS3 симистор/, 'state', 1);
+    set(/U1 регулятор/, 'state', 1);
     click(/SB7/);
     sec(1);
     expect(sim.serial).toContain('Реле 1 сварилось');
@@ -136,39 +162,40 @@ describe('Пылесос S3: прошивки в симуляции', () => {
     expect(sim.serial).toContain('Бак полон (поплавок)');
   });
 
-  test('клапаны на магнитах: ток магнитов при подаче, удар обоими, обрыв магнита — неисправность', () => {
-    const { sec, click, cmd, set, sim, plant } = start();
+  test('клапаны через SSR: удар обоими — целыми полупериодами сети; обрыв катушки — неисправность', () => {
+    const { sec, click, cmd, set, sim, plant, dev } = start();
     click(/SB7/);
     sec(5);
-    cmd('export');
-    const m = /магниты, ток, А: ([\d,]+) \/ ([\d,]+)/.exec(sim.serial)!;
-    expect(+m[1].replace(',', '.')).toBeGreaterThan(0.15);
-    expect(+m[2].replace(',', '.')).toBeGreaterThan(0.15);
     cmd('purge');
     let both = false;
-    for (let i = 0; i < 400; i++) {
+    const halves: number[] = [];
+    for (let i = 0; i < 600; i++) {
       sec(0.005);
       if (plant().valves.every((v) => v.open)) both = true;
+      halves.push(dev(/U3 SSR .*канал 1/).view().readings!.find((r) => r.label === 'открыт')!.value);
     }
     expect(both).toBe(true);
+    // SSR открывается и закрывается в нуле: полупериод либо целиком (без первых ~150 мкс), либо никак.
+    expect(halves.some((x) => x >= 97)).toBe(true);
+    expect(halves.filter((x) => x !== 0 && x < 97)).toEqual([]);
     sec(4);
     expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
-    set(/YA1 клапан/, 'fault', 1);
-    cmd('stop');
+    // Обрыв катушки: удар обоими его не выдаёт (второй клапан бьёт), проверка по одному — да.
+    set(/YV1 импульсный/, 'fault', 2);
+    cmd('ack');
+    cmd('purge');
     sec(6);
-    click(/SB7/);
-    sec(3);
-    expect(sim.serial).toContain('клапан 1: обрыв магнита');
+    expect(sim.serial).toContain('клапан 1: не открывается');
   });
 
-  test('заклинившая тарелка находится проверкой клапанов по одному в первой серии', () => {
+  test('заклинивший клапан находится проверкой клапанов по одному в первой серии', () => {
     const { sec, click, cmd, set, sim } = start();
-    set(/YA2 клапан/, 'fault', 2);
+    set(/YV2 импульсный/, 'fault', 1);
     click(/SB7/);
     sec(6);
     cmd('purge');
     sec(6);
-    expect(sim.serial).toContain('клапан 2: тарелка не открывается');
+    expect(sim.serial).toContain('клапан 2: не открывается');
     expect(sim.serial).not.toContain('клапан 1:');
   });
 
@@ -332,25 +359,28 @@ describe('Пылесос S3: прошивки в симуляции', () => {
 
   test('фильтр клапанов забит — «Проверьте фильтр клапанов» (клапаны при этом исправны)', () => {
     const { sec, cmd, set, sim } = start();
+    // Журнал целиком: sim.serial хранит только хвост.
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
     cmd('preset 1');
     cmd('start');
     sec(100);
     set(/Шланг, бак, фильтр/, 'intake', 85);
     sec(150);
-    expect(sim.serial).toContain('! Проверьте фильтр клапанов');
-    expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
+    expect(log).toContain('! Проверьте фильтр клапанов');
+    expect(log).not.toMatch(/Клапан \d неисправен/);
   });
 
   test('настройки: две копии, переживают перезапуск; сеть для телефона со случайным паролем', () => {
     let nvs: Uint8Array | null = null;
-    const a = Simulation.createSync(buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }), { onNvs: (d: Uint8Array) => (nvs = d) });
+    const a = Simulation.createSync(buildVacuumS3Mod(fw), { onNvs: (d: Uint8Array) => (nvs = d) });
     a.run(1e6);
     a.serialWrite('preset 3\n');
     a.run(0.5e6);
     a.serialWrite('set n 5\n');
     a.run(3e6);
     expect(nvs).not.toBeNull();
-    const b = Simulation.createSync(buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }), { nvs: nvs! });
+    const b = Simulation.createSync(buildVacuumS3Mod(fw), { nvs: nvs! });
     b.run(1e6);
     expect(b.serial).toContain('очистка «гипс»');
     b.serialWrite('wifi on\n');
@@ -466,39 +496,7 @@ describe('Пылесос S3: прошивки в симуляции', () => {
   });
 });
 
-describe('Пылесос S3: плата', () => {
-  test.runIf(!!process.env.VAC_WRITE)('разводка и файлы для импорта', { timeout: 600_000 }, async () => {
-    const { project, report, failedLinks } = await routeVacuumS3(buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }, { name: 'vacuum-panel.wasm', wasm: panelWasm }));
-    console.log(report.join('\n'));
-    expect(failedLinks).toEqual([]);
-    expect(runDrc(project).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
-    writeFileSync('import/vacuum-s3.plata.json', serializeProject(project, false));
-    writeFileSync('import/vacuum-s3-perechen.csv', exportBomCsv(project));
-    writeFileSync('import/vacuum-s3.txt', vacuumS3Notes(project));
-    const dip = buildVacuumS3({ name: 'vacuum-s3.wasm', wasm }, { name: 'vacuum-panel.wasm', wasm: panelWasm }, { dip: true });
-    writeFileSync('import/vacuum-s3-dip.plata.json', serializeProject(dip, false));
-    writeFileSync('import/vacuum-s3-dip-perechen.csv', exportBomCsv(dip));
-    const pult = await routePult(buildPult());
-    expect(pult.result.failed).toBe(0);
-    writeFileSync('import/vacuum-s3-pult.plata.json', serializeProject(pult.project, false));
-    writeFileSync('import/vacuum-s3-pult-perechen.csv', exportBomCsv(pult.project));
-    const bin = (from: string, to: string) => {
-      if (!existsSync(from)) return;
-      const b = readFileSync(from);
-      let n = b.length;
-      while (n > 0 && b[n - 1] === 0xff) n--;
-      writeFileSync(to, b.subarray(0, (n + 0xfff) & ~0xfff));
-    };
-    bin('firmware/vacuum-s3/build/vacuum-s3.ino.merged.bin', 'import/vacuum-s3-proshivka.bin');
-    bin('firmware/vacuum-remote/build/vacuum-remote.ino.merged.bin', 'import/vacuum-remote-proshivka.bin');
-    bin('firmware/vacuum-panel/build/vacuum-panel.ino.merged.bin', 'import/vacuum-panel-proshivka.bin');
-    bin('firmware/vacuum-tag/build/vacuum-tag.ino.merged.bin', 'import/vacuum-tag-proshivka.bin');
-    // Файлы для обновления с телефона: только приложение, без загрузчика и разделов.
-    const app = (from: string, to: string) => existsSync(from) && writeFileSync(to, readFileSync(from));
-    app('firmware/vacuum-s3/build/vacuum-s3.ino.bin', 'import/vacuum-s3-app.bin');
-    app('firmware/vacuum-panel/build/vacuum-panel.ino.bin', 'import/vacuum-panel-app.bin');
-  });
-
+describe('Пылесос S3, прежняя плата (архив: SMD, клапаны на магнитах, прошивка 4.0 в файле)', () => {
   const file = () => {
     const r = parseProjectFile(readFileSync('import/vacuum-s3.plata.json', 'utf8'));
     if (r.kind !== 'project') throw new Error('не проект');
@@ -512,8 +510,7 @@ describe('Пылесос S3: плата', () => {
     expect([...conn.nets.values()].filter((n) => !n.complete).map((n) => p.nets[n.netId].name)).toEqual([]);
     expect(conn.shorts).toEqual([]);
     expect(p.rules.classClearances).toEqual([{ a: 'Mains', b: '*', clearance: 6 }]);
-    expect(p.firmware?.wasm).toBe(wasm);
-    expect(p.firmware?.modules?.HG1.wasm).toBe(panelWasm);
+    expect(p.firmware?.wasm).toBeTruthy();
   });
 
   test('вариант на выводных деталях: без SMD, без дорожек, сеть отдельно; симуляция узнаёт все детали', () => {
@@ -524,7 +521,6 @@ describe('Пылесос S3: плата', () => {
     expect(smd.map((c) => c.ref)).toEqual([]);
     expect(Object.keys(p.tracks)).toEqual([]);
     expect([...new Set(runDrc(p).markers.filter((m) => m.severity === 'error').map((m) => m.code))]).toEqual(['unrouted']);
-    expect(p.firmware?.wasm).toBe(wasm);
     const sim = Simulation.createSync(p);
     sim.run(1e6);
     expect(sim.unknown).toEqual([]);
@@ -571,17 +567,46 @@ describe('Пылесос S3: плата', () => {
 
 describe('Пылесос S3 на модулях: плата под ЛУТ', () => {
   test.runIf(!!process.env.VAC_WRITE)('разводка и файлы для импорта', { timeout: 1_200_000 }, async () => {
-    const { project, report, failed } = await routeVacuumS3Mod(buildVacuumS3Mod());
-    console.log(report.join('\n'));
-    expect(failed).toBe(0);
+    const fresh = buildVacuumS3Mod(fw, panelFw);
+    // Медь — из уже разведённого файла (её могли напечатать), заново — только с VAC_REROUTE=1.
+    const reroute = !!process.env.VAC_REROUTE || !existsSync('import/vacuum-s3-mod.plata.json');
+    let project: Project;
+    if (reroute) {
+      const r = await routeVacuumS3Mod(fresh);
+      console.log(r.report.join('\n'));
+      expect(r.failed).toBe(0);
+      project = r.project;
+    } else project = withRoutingOf(fresh, file());
     expect(runDrc(project).markers.filter((m) => m.severity === 'error').map((m) => m.message)).toEqual([]);
     writeFileSync('import/vacuum-s3-mod.plata.json', serializeProject(project, false));
     writeFileSync('import/vacuum-s3-mod-perechen.csv', exportBomCsv(project));
     writeFileSync('import/vacuum-s3-mod.txt', vacuumS3ModNotes(project));
-    // Для ЛУТ: низ как есть, верх зеркально, точки под кернение.
-    const pdf = exportLutPdf(project, { sheets: [{ layer: 'B.Cu', mirror: false }, { layer: 'F.Cu', mirror: true }], drillMarks: true, outline: true, paper: 'A4' });
-    expect(pdf.tooBig).toBe(false);
-    writeFileSync('import/vacuum-s3-mod-lut.pdf', pdf.bytes);
+    if (reroute) {
+      // Для ЛУТ: низ как есть, верх зеркально, точки под кернение.
+      const pdf = exportLutPdf(project, { sheets: [{ layer: 'B.Cu', mirror: false }, { layer: 'F.Cu', mirror: true }], drillMarks: true, outline: true, paper: 'A4' });
+      expect(pdf.tooBig).toBe(false);
+      writeFileSync('import/vacuum-s3-mod-lut.pdf', pdf.bytes);
+      const pult = await routePult(buildPult());
+      expect(pult.result.failed).toBe(0);
+      writeFileSync('import/vacuum-s3-pult.plata.json', serializeProject(pult.project, false));
+      writeFileSync('import/vacuum-s3-pult-perechen.csv', exportBomCsv(pult.project));
+    }
+    // Прошивки (собраны arduino-cli в firmware/*/build): целиком — с адреса 0, без хвоста 0xFF.
+    const bin = (from: string, to: string) => {
+      if (!existsSync(from)) return;
+      const b = readFileSync(from);
+      let n = b.length;
+      while (n > 0 && b[n - 1] === 0xff) n--;
+      writeFileSync(to, b.subarray(0, (n + 0xfff) & ~0xfff));
+    };
+    bin('firmware/vacuum-s3/build/vacuum-s3.ino.merged.bin', 'import/vacuum-s3-proshivka.bin');
+    bin('firmware/vacuum-remote/build/vacuum-remote.ino.merged.bin', 'import/vacuum-remote-proshivka.bin');
+    bin('firmware/vacuum-panel/build/vacuum-panel.ino.merged.bin', 'import/vacuum-panel-proshivka.bin');
+    bin('firmware/vacuum-tag/build/vacuum-tag.ino.merged.bin', 'import/vacuum-tag-proshivka.bin');
+    // Файлы для обновления с телефона: только приложение, без загрузчика и разделов.
+    const app = (from: string, to: string) => existsSync(from) && writeFileSync(to, readFileSync(from));
+    app('firmware/vacuum-s3/build/vacuum-s3.ino.bin', 'import/vacuum-s3-app.bin');
+    app('firmware/vacuum-panel/build/vacuum-panel.ino.bin', 'import/vacuum-panel-app.bin');
   });
 
   const file = () => {
@@ -597,6 +622,24 @@ describe('Пылесос S3 на модулях: плата под ЛУТ', () =
     expect([...conn.nets.values()].filter((n) => !n.complete).map((n) => p.nets[n.netId].name)).toEqual([]);
     expect(conn.shorts).toEqual([]);
     expect(p.rules.classClearances).toEqual([{ a: 'Mains', b: '*', clearance: 6 }]);
+  });
+
+  test('файл в import/: прошивки — текущие, симуляция из файла узнаёт все детали', () => {
+    const p = file();
+    expect(p.firmware?.wasm).toBe(wasm);
+    expect(p.firmware?.modules?.HG1.wasm).toBe(panelWasm);
+    const sim = Simulation.createSync(p);
+    sim.run(1e6);
+    expect(sim.unknown).toEqual([]);
+    expect(sim.serial).toContain('Экран на связи');
+  });
+
+  test('интерфейс экрана в прошивке контроллера — копия firmware/vacuum-panel (sync-panel.sh)', () => {
+    for (const f of ['panel_main.c', 'panel_ui.c', 'panel_s3.c', 'gfx.c', 'fonts.c', 'qr.c', 'panel_int.h', 'panel_ui.h', 'gfx.h', 'fonts.h', 'qr.h']) {
+      const copy = readFileSync(`firmware/vacuum-s3/src/panel/${f}`, 'utf8');
+      const src = readFileSync(`firmware/vacuum-panel/${f}`, 'utf8');
+      expect(copy.endsWith(src), `${f}: запустите sh firmware/vacuum-s3/sync-panel.sh`).toBe(true);
+    }
   });
 
   test('без металлизации: выводы паяются только снизу, сверху — дорожки только между переходными', () => {
