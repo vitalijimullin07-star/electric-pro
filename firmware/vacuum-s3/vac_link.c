@@ -182,6 +182,8 @@ void link_send_config(void) {
   ki(s, "ha", c->hose_auto);
   ki(s, "sn", c->strong_n);
   ki(s, "thr", c->thr);
+  ki(s, "dpo", c->dp_on);
+  ki(s, "dpc", (long)(vac_dp_clean() + 0.5f));
   ki(s, "t2", c->t2);
   ki(s, "wl", c->wl_mv);
   ki(s, "bl", c->brush_h);

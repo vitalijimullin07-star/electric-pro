@@ -381,6 +381,8 @@ static float n_auto = 2;         /* ударов, которые помогал�
 static uint8_t stuck_n;          /* серий подряд, которые почти не помогли */
 static uint32_t push_at;         /* «Авто»: R после серии выше нормы, а удары помогают — следующая серия скоро */
 static uint8_t pushed;           /* эта серия — добивающая: по ней рост R не считаем */
+static uint8_t weak_in, strong_in; /* удары серии без обратного потока и с ним */
+static uint8_t weak_n;           /* серий подряд со слабыми ударами */
 static float band_k = 1;         /* «Авто»: доля порога роста R; фильтр не удаётся вернуть к норме — бьём чаще */
 static float depth_ema;          /* провал разрежения при ударе (фильтр клапанов) */
 /* Розетка и инструмент. */
@@ -396,7 +398,7 @@ static int fm_cnt;
 static uint32_t wifi_until;
 
 static int is_warning(uint32_t bit) {
-  return !!(bit & (F_LOWAIR | F_BLOCKED | F_FILTER | F_MAINS | F_WARM1 | F_WARM2 | F_NTC1 | F_NTC2 | F_VALVE1 | F_VALVE2 | F_PROBE | F_EXP | F_SDP_F | F_SDP_Q | F_VAC | F_INTAKE | F_STUCK));
+  return !!(bit & (F_LOWAIR | F_BLOCKED | F_FILTER | F_MAINS | F_WARM1 | F_WARM2 | F_NTC1 | F_NTC2 | F_VALVE1 | F_VALVE2 | F_PROBE | F_EXP | F_SDP_F | F_SDP_Q | F_VAC | F_INTAKE | F_STUCK | F_WEAK));
 }
 
 static void set_fault(uint32_t bit, int on) {
@@ -447,6 +449,7 @@ const char *vac_fault_text(uint32_t bit) {
   case F_PROBE: return "Электроды: проверьте";
   case F_INTAKE: return "Проверьте фильтр клапанов";
   case F_STUCK: return "Фильтр не отбивается";
+  case F_WEAK: return "Удар слабый: шланг широкий";
   }
   return "?";
 }
@@ -553,6 +556,7 @@ static void purge_begin(int kind, int after, int n) {
   pulses_now = n;
   pulse_i = 0;
   diag_n = 0;
+  weak_in = strong_in = 0;
   purge_t0 = ph_t = now_ms;
   vac.pulse_no = 0;
   vac.imp_now = imp_for(kind);
@@ -727,6 +731,16 @@ static void rhist_put(float r) {
 /* R, с которым сравнивать фильтр: после установки, с мешком — вместе с мешком. */
 static float r_clean(void) { return FILT.r_base > 0 ? FILT.r_base + (vac_cfg.bag ? vac_cfg.r_bag : 0) : 0; }
 
+/*
+ * Порог по перепаду: перепад на фильтре растёт с расходом как Q², поэтому порог и «чистый»
+ * перепад — при расходе уставки (Δp = R·Q²/100): сравнение не зависит от шланга и мощности.
+ */
+static float sp_ls(void) { return PRESET.sp ? (float)PRESET.sp : 32.0f; }
+static float r_of_dp(float pa) { return pa * 100.0f / (sp_ls() * sp_ls()); }
+static float dp_of_r(float r) { return r * sp_ls() * sp_ls() / 100.0f; }
+/* Перепад чистого фильтра (паспорт: новый, отмытый) при расходе уставки, Па; 0 — не мерили. */
+float vac_dp_clean(void) { return dp_of_r(FILT.r_new > 0 ? FILT.r_new : r_clean()); }
+
 /* Промежуток «Авто»: за сколько R вырастет на порог при нынешнем росте (8…90 с). */
 static void auto_plan(void) {
   float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f * band_k;
@@ -766,9 +780,10 @@ static void series_done(void) {
     if (base > 0 && vac.r_before > base * 1.05f) {
       float eff = (vac.r_before - vac.r_after) / (vac.r_before - base);
       vac.dust_kind = eff >= 0.6f ? 1 : eff >= 0.3f ? 2 : 3;
-      /* «Авто»: R ещё выше нормы (чистый + порог), а серия помогла — добиваем через 8 с. */
+      /* «Авто»: R ещё выше нормы (чистый + порог или порог перепада), а серия помогла — добиваем через 8 с. */
       float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f;
-      if (!strong && !PRESET.every && drop >= 0.03f && vac.r_after > base * (1 + band)) push_at = now_ms + 8000;
+      float high = vac_cfg.dp_on ? r_of_dp(vac_cfg.dp_on) : base * (1 + band);
+      if (!strong && !PRESET.every && drop >= 0.03f && vac.r_after > high) push_at = now_ms + 8000;
       /* Добили до конца, а к норме не вернулись: пыль налипает между сериями — серии чаще
        * (меньше налипло — легче сбить). Вернулись — понемногу реже. */
       if (!strong && !push_at) {
@@ -778,7 +793,8 @@ static void series_done(void) {
       /* Удары перестали помогать, а R больше чистого в 1,6 раза — три раза подряд: липкая
        * пыль, обычным ударом не сбить — подсказка «мощная очистка». */
       if (!push_at && vac.r_after > base * 1.6f) {
-        if (++stuck_n >= 3) set_fault(F_STUCK, 1);
+        /* Слабые удары — дело в шланге, а не в пыли: «не отбивается» не ставим. */
+        if (!(vac.faults & F_WEAK) && ++stuck_n >= 3) set_fault(F_STUCK, 1);
       } else if (vac.r_after < base * 1.3f) {
         stuck_n = 0;
         set_fault(F_STUCK, 0);
@@ -795,6 +811,18 @@ static void series_done(void) {
     if (rf > wash) set_fault(F_FILTER, 1);
     else if (rf < wash * 0.9f) set_fault(F_FILTER, 0);
     rhist_put(rf);
+  }
+  /* Две серии подряд только со слабыми ударами — подсказка про мощную очистку. */
+  if (!strong) {
+    if (weak_in && !strong_in) {
+      if (++weak_n >= 2 && !(vac.faults & F_WEAK)) {
+        set_fault(F_WEAK, 1);
+        hal_log("  в баке мало разрежения: закройте шланг ладонью на 2 с — мощная очистка (или шланг 36–38 мм)");
+      }
+    } else if (strong_in) {
+      weak_n = 0;
+      set_fault(F_WEAK, 0);
+    }
   }
   pushed = 0;
   auto_plan();
@@ -890,6 +918,12 @@ static void pulse_eval(void) {
     } else
       valve_bad_dp = 0;
     float rev = -pa_min;
+    /* Клапаны открылись (рабочий перепад пропал), а обратного потока через фильтр почти нет:
+     * удар слабый — воздух клапанов выпивают турбины (широкий шланг, в баке мало разрежения). */
+    if (vac.purging == PURGE_SERIES && !(vac.faults & F_SDP_F) && pa_before >= 20 && pa_min < pa_before * 0.5f) {
+      if (rev < pa_before * 0.6f && rev < 150) weak_in++;
+      else strong_in++;
+    }
     if (meaningful && dp_ok && pa_before > 20 && vac.flow_ls > 8 && rev > 0 && rev < 450)
       intake_update(rev * vac.flow_ls * vac.flow_ls / (pa_before * pc_before * 1000.0f));
     /* «Авто»: удар — до самого глубокого обратного перепада и ещё 15 мс, не дольше нужного. */
@@ -1603,7 +1637,14 @@ static void sensors(void) {
   /* Автоочистка: серия по режиму — через промежуток или когда R вырос на порог. */
   if (r_ref <= 0 && up && vac.r_now > 0 && ms - run_since > 6000) r_ref = vac.r_now, auto_plan();
   float band = (float)(vac_cfg.thr > 100 ? vac_cfg.thr - 100 : 15) / 100.0f * (PRESET.every ? 1 : band_k);
-  if (r_ref > 0 && vac.r_now > 0) {
+  /* Порог перепада задан: заполнение — от чистого фильтра до порога. */
+  float r_on = vac_cfg.dp_on ? r_of_dp(vac_cfg.dp_on) : 0, r0 = r_clean();
+  /* Порог ниже чистого фильтра — серии шли бы одна за другой: не ниже чистого + 5 %. */
+  if (r_on > 0 && r0 > 0 && r_on < r0 * 1.05f) r_on = r0 * 1.05f;
+  if (r_on > 0 && vac.r_now > 0) {
+    float l = r0 > 0 && r_on > r0 ? (vac.r_now - r0) / (r_on - r0) * 100.0f : vac.r_now / r_on * 100.0f;
+    vac.load = l < 0 ? 0 : l > 100 ? 100 : l;
+  } else if (r_ref > 0 && vac.r_now > 0) {
     float l = (vac.r_now - r_ref) / (r_ref * band) * 100.0f;
     vac.load = l < 0 ? 0 : l > 100 ? 100 : l;
   }
@@ -1613,8 +1654,10 @@ static void sensors(void) {
   if (can) {
     uint16_t every = PRESET.every ? PRESET.every : vac.every_now ? vac.every_now : 90;
     vac.next_series = (uint16_t)(series_s < every ? every - series_s : 0);
-    int due_time = series_s >= every;
-    int due_r = PRESET.every ? grown >= 2 : grown >= 1 && ms - last_series_ms > 6000;
+    /* По перепаду: серия, когда перепад (при расходе уставки) дошёл до порога; по времени — только
+     * если промежуток задан режимом. Без порога — по росту R от прошлой серии и по времени. */
+    int due_time = series_s >= every && (!r_on || PRESET.every);
+    int due_r = r_on > 0 ? vac.r_now >= r_on && ms - last_series_ms > 6000 : PRESET.every ? grown >= 2 : grown >= 1 && ms - last_series_ms > 6000;
     int due_push = push_at && (int32_t)(ms - push_at) >= 0;
     if (due_r) {
       if (!load_since) load_since = ms;
@@ -1624,7 +1667,7 @@ static void sensors(void) {
       load_since = 0;
       push_at = 0;
       pushed = (uint8_t)due_push;
-      hal_log(due_push ? "Очистка: фильтр ещё грязный — добиваю" : due_time ? "Очистка по времени" : "Очистка: сопротивление фильтра выросло");
+      hal_log(due_push ? "Очистка: фильтр ещё грязный — добиваю" : due_time ? "Очистка по времени" : r_on > 0 ? "Очистка: перепад на фильтре дошёл до порога" : "Очистка: сопротивление фильтра выросло");
       purge_begin(PURGE_SERIES, AFTER_NONE, PRESET.n);
     }
   } else
@@ -1994,7 +2037,7 @@ void vac_command(const char *c) {
     link_send_journal();
   } else if (str_eq(c, "help")) {
     hal_log("Команды: status, start, stop, t1 0|1, t2 0|1, off [now], wake, mode a|m, sp 10…60, pw 30…100, t2allow 0|1,");
-    hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|strong|wl|stag N, clean a|o, coff 0|1, hauto 0|1,");
+    hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|dp|strong|wl|stag N (dp — порог перепада, Па, 0 — авто), clean a|o, coff 0|1, hauto 0|1,");
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
     hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
@@ -2050,6 +2093,16 @@ void vac_command(const char *c) {
     else if (str_starts(a, "pause ") && in_range(x, 0, 3000)) PRESET.pause = (uint16_t)(x && x < 100 ? 100 : x);
     else if (str_starts(a, "hose ")) PRESET.flags = (uint8_t)(x ? PRESET.flags | PF_HOSE : PRESET.flags & ~PF_HOSE);
     else if (str_starts(a, "thr ") && in_range(x, 105, 200)) vac_cfg.thr = (uint16_t)x;
+    else if (str_starts(a, "dp ") && (x == 0 || in_range(x, 20, 2000))) {
+      vac_cfg.dp_on = (uint16_t)x;
+      char line[160] = "Очистка ", n[12];
+      if (!x) str_cat(line, "по росту сопротивления фильтра («авто»)");
+      else {
+        str_cat(line, "по перепаду: "), str_cat(line, fmt_int(n, x)), str_cat(line, " Па при "), str_cat(line, fmt_int(n, (long)sp_ls())), str_cat(line, " л/с");
+        if (vac_dp_clean() > 0) str_cat(line, ", чистый фильтр — "), str_cat(line, fmt_int(n, (long)(vac_dp_clean() + 0.5f))), str_cat(line, " Па");
+      }
+      hal_log(line);
+    }
     else if (str_starts(a, "strong ") && in_range(x, 1, 10)) vac_cfg.strong_n = (uint8_t)x;
     else if (str_starts(a, "wl ") && in_range(x, 50, 1500)) vac_cfg.wl_mv = (uint16_t)x;
     else if (str_starts(a, "stag ") && in_range(x, 0, 5000)) vac_cfg.stagger_ms = (uint16_t)x;

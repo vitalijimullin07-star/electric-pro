@@ -245,6 +245,41 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     expect(log).not.toContain('Фильтр не отбивается');
   });
 
+  test('порог перепада: серия, когда перепад (при расходе уставки) дошёл до порога, — не по времени', () => {
+    const { sec, click, cmd, set, sim } = start();
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
+    set(/Шланг, бак, фильтр/, 'dust', 10);
+    cmd('set dp 150');
+    expect(sim.serial).toContain('Очистка по перепаду: 150 Па при 32 л/с');
+    click(/SB7/);
+    sec(170);
+    expect(log).toContain('Очистка: перепад на фильтре дошёл до порога');
+    expect(log).not.toContain('Очистка по времени');
+    const done = [...log.matchAll(/Продувка закончена: R ([\d,]+) → ([\d,]+)/g)].map((x) => [+x[1].replace(',', '.'), +x[2].replace(',', '.')]);
+    expect(done.length).toBeGreaterThan(0);
+    // Порог 150 Па при 32 л/с — это R = 150·100/32² ≈ 14,6: серия — около него, после — заметно ниже.
+    for (const [a, b] of done) {
+      expect(a).toBeGreaterThan(13.5);
+      expect(b).toBeLessThan(a * 0.8);
+    }
+  });
+
+  test('шланг 50 мм: удар слабый (в баке мало разрежения) — подсказка про мощную очистку, а не «не отбивается»', () => {
+    const { sec, click, set, act, sim } = start();
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
+    set(/Шланг, бак, фильтр/, 'hose', 4);
+    set(/Шланг, бак, фильтр/, 'dust', 10);
+    click(/SB7/);
+    sec(150);
+    expect(log).toContain('! Удар слабый: шланг широкий');
+    expect(log).not.toContain('Фильтр не отбивается');
+    act(/Шланг, бак, фильтр/, 'palm');
+    sec(12);
+    expect(log).toContain('Шланг закрыт 2 с — мощная очистка');
+  });
+
   test('мощная очистка: закрыли шланг ладонью — 4 удара полным разрежением', () => {
     const { sec, click, act, sim } = start();
     click(/SB7/);

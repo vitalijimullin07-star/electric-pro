@@ -171,7 +171,7 @@ static struct {
 /* Строка «C»: настройки. */
 static struct {
   int have;
-  int coff, ha, sn, thr, t2, wl, bl, bt;
+  int coff, ha, sn, thr, dpo, dpc, t2, wl, bl, bt;
   int ps[NPR][6];      /* режимы: уставка, ударов, промежуток, удар, пауза, флаги */
   int ta, tt, tr, te, tm, tf, td; /* розетка: автозапуск, порог ×0,1 А, выбег, удары после, предел, без пылесоса, задержка */
   int fi, bg, ip;      /* какой фильтр стоит, мешок, ударов с замены фильтра клапанов */
@@ -227,7 +227,7 @@ static int link_ok(void) { return S.have && now - S.at < 1500; }
 
 /* ---------------- неисправности ---------------- */
 
-#define NF 31
+#define NF 32
 static const struct {
   const char *text, *hint;
 } FAULT[NF] = {
@@ -262,9 +262,10 @@ static const struct {
     {"Электроды: проверьте", "вода на верхнем без нижнего — грязь или обрыв"},
     {"Проверьте фильтр клапанов", "удар ослаб — фильтр на входе клапанов забит"},
     {"Фильтр не отбивается", "липкая пыль: мощная очистка (шланг ладонью) или мойка"},
+    {"Удар слабый", "широкий шланг: закройте его ладонью на 2 с — мощная очистка"},
 };
 /* Порядок важности: какую неисправность показать на экране «Работа». */
-static const uint8_t FAULT_ORDER[NF] = {21, 22, 23, 26, 20, 0, 11, 12, 1, 2, 7, 8, 14, 13, 9, 10, 24, 25, 15, 30, 29, 3, 4, 5, 6, 16, 17, 18, 19, 27, 28};
+static const uint8_t FAULT_ORDER[NF] = {21, 22, 23, 26, 20, 0, 11, 12, 1, 2, 7, 8, 14, 13, 9, 10, 24, 25, 15, 31, 30, 29, 3, 4, 5, 6, 16, 17, 18, 19, 27, 28};
 #define F_FILTER_BIT 15
 #define F_TORN_BIT 26
 #define F_URGENT ((1UL << 20) | (1UL << 21) | (1UL << 22) | (1UL << 23) | (1UL << 26))
@@ -469,6 +470,8 @@ static void c_field(const char *k, const char *v) {
   else if (seq(k, "ha")) C.ha = x;
   else if (seq(k, "sn")) C.sn = x;
   else if (seq(k, "thr")) C.thr = x;
+  else if (seq(k, "dpo")) C.dpo = x;
+  else if (seq(k, "dpc")) C.dpc = x;
   else if (seq(k, "t2")) C.t2 = x;
   else if (seq(k, "wl")) C.wl = x;
   else if (seq(k, "bl")) C.bl = x;
@@ -765,16 +768,29 @@ static void tool_value(int i, char *s) {
   }
 }
 
-/* «Фильтр · ещё»: 0 — мешок, 1 — новый мешок, 2 — фильтр клапанов заменён, 3 — порог серии, 4 — ударов мощной, 5 — сила удара. */
-#define NF2 6
-static const char *const F2_LABEL[NF2] = {"Мешок в баке", "Новый мешок — замер", "Фильтр клапанов заменён", "Серия, когда R выросло на", "Мощная очистка: ударов", "Сила удара (фильтр клапанов)"};
+/*
+ * «Фильтр · ещё»: 0 — мешок, 1 — новый мешок, 2 — фильтр клапанов заменён, 3 — очистка по перепаду
+ * (порог, Па при расходе уставки; «авто» — по росту R), 4 — порог «авто», 5 — ударов мощной, 6 — сила удара.
+ */
+#define NF2 7
+static const char *const F2_LABEL[NF2] = {"Мешок в баке", "Новый мешок — замер", "Фильтр клапанов заменён", "Очистка при перепаде", "«Авто»: серия, когда R выросло на", "Мощная очистка: ударов", "Сила удара (фильтр клапанов)"};
 
 static void change_f2(int i, int d) {
   if (i == 3) {
+    /* Из «авто» вверх — с чистого перепада ×1,5 (или 100 Па), шаг 10 Па; ниже 20 — снова «авто». */
+    int v = C.dpo;
+    if (!v) v = d > 0 ? (C.dpc > 0 ? (C.dpc * 3 / 2 + 5) / 10 * 10 : 100) : 0;
+    else v += d * 10;
+    if (v < 20) v = 0;
+    if (v > 2000) v = 2000;
+    C.dpo = v;
+    hold("dpo");
+    send_int("set dp ", C.dpo);
+  } else if (i == 4) {
     C.thr = clampi(C.thr + d * 5, 105, 200);
     hold("thr");
     send_int("set thr ", C.thr);
-  } else if (i == 4) {
+  } else if (i == 5) {
     C.sn = clampi(C.sn + d, 1, 10);
     hold("sn");
     send_int("set strong ", C.sn);
@@ -787,9 +803,14 @@ static void f2_value(int i, char *s) {
   case 0: cat(s, C.bg ? "стоит" : "нет"); break;
   case 1: cat(s, C.rb > 0 ? "замерен" : "—"); break;
   case 2: cat(catn(s, (float)C.ip, 0), " ударов назад"); break;
-  case 3: cat(catn(s, (float)(C.thr - 100), 0), " %"); break;
-  case 4: catn(s, (float)C.sn, 0); break;
-  case 5: cat(catn(s, F.ih, 0), " %"); break;
+  case 3:
+    if (!C.dpo) cat(s, "авто");
+    else cat(catn(s, (float)C.dpo, 0), " Па");
+    if (C.dpc > 0) cat(catn(cat(s, " · чистый "), (float)C.dpc, 0), " Па");
+    break;
+  case 4: cat(catn(s, (float)(C.thr - 100), 0), " %"); break;
+  case 5: catn(s, (float)C.sn, 0); break;
+  case 6: cat(catn(s, F.ih, 0), " %"); break;
   }
 }
 
@@ -1247,8 +1268,8 @@ static void scr_filter2(void) {
     f2_value(i, s);
     item(i, F2_LABEL[i], s, i == f2_sel, 0);
   }
-  hint(312, "мешок: пылесос помнит его сопротивление", C_ICON);
-  hint(332, "фильтр клапанов поменяли — отметьте здесь", C_ICON);
+  hint(352, "перепад — при расходе уставки; чистый — по замеру нового фильтра («Фильтр → новый»)", C_ICON);
+  hint(374, "мешок: пылесос помнит его сопротивление; фильтр клапанов поменяли — отметьте здесь", C_ICON);
   tabs(2);
 }
 
