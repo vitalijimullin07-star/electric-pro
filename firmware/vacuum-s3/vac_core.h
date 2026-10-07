@@ -434,6 +434,9 @@ void vac_remote(const uint8_t *data, int len, int rssi);
 void vac_command(const char *cmd);
 /* Состояние в JSON для веб-страницы; возвращает длину. */
 int vac_status_json(char *buf, int len);
+/* «Чёрный ящик»: запись index строкой CSV (0xFFFFFFFF — заголовок); длина, 0 — записи нет.
+ * Записей — hal_bb_count(). */
+int vac_bb_csv(uint32_t index, char *buf, int len);
 /* Настройки для резервной копии: шестнадцатеричная строка; обратно — 0, если подошли. */
 int vac_cfg_export(char *out, int len);
 int vac_cfg_import(const char *hex);

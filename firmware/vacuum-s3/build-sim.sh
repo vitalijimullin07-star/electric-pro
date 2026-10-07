@@ -4,7 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 CC=${CC:-clang}
-EXPORTS="vac_setup vac_loop vac_tick vac_on_pin vac_serial vac_uart vac_uart_local vac_remote vac_command vac_status_json sim_buffer"
+EXPORTS="vac_setup vac_loop vac_tick vac_on_pin vac_serial vac_uart vac_uart_local vac_remote vac_command vac_status_json vac_bb_csv sim_buffer"
 FLAGS=""
 for e in $EXPORTS; do FLAGS="$FLAGS -Wl,--export=$e"; done
 $CC --target=wasm32 -O2 -std=c11 -Wall -Wextra -Wno-unused-parameter \

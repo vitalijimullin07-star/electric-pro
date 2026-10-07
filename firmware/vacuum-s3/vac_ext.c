@@ -386,6 +386,49 @@ void ext_event(int kind, int a, float b) {
   hal_bb_append(&r, sizeof r);
 }
 
+/* Строка CSV «чёрного ящика» (Excel по-русски: «;» и запятая): index = 0xFFFFFFFF — заголовок.
+ * Длина строки или 0, если записи нет. */
+int vac_bb_csv(uint32_t index, char *out, int len) {
+  static const char *const EV[8] = {"замер", "авария", "снята", "серия", "фильтр", "проверка", "включение", "инструмент"};
+  char n[20], tb[24];
+  if (len < 400) return 0;
+  out[0] = 0;
+  if (index == 0xFFFFFFFFu) {
+    str_cat(out, "время;с от включения;событие;что;расход, л/с;разрежение, кПа;R фильтра;мощность турбин, Вт;перепад, Па;ток, А;в баке, кг;t1, °C;t2, °C;ударов;работа;очистка;инструмент;аварий\r\n");
+    return str_len(out);
+  }
+  bb_rec_t r;
+  if (hal_bb_read(index, &r, sizeof r)) return 0;
+  time_str(tb, r.t);
+  if (r.t) {
+    char sec[4] = {':', (char)('0' + r.t % 60 / 10), (char)('0' + r.t % 10), 0};
+    str_cat(tb, sec);
+  }
+  str_cat(out, tb), str_cat(out, ";");
+  str_cat(out, fmt_int(n, (long)r.up)), str_cat(out, ";");
+  str_cat(out, r.type < 8 ? EV[r.type] : "?"), str_cat(out, ";");
+  if (r.type == EV_FAULT_ON || r.type == EV_FAULT_OFF) str_cat(out, vac_fault_text(1UL << (r.b & 31)));
+  else if (r.type == EV_SERIES) str_cat(out, r.a == PURGE_STRONG ? "мощная" : "серия"), str_cat(out, ", R после "), str_cat(out, fmt_num(n, r.b / 10.0f, 1));
+  else if (r.type == EV_FILTER) str_cat(out, "обслуживание, R после "), str_cat(out, fmt_num(n, r.b / 10.0f, 1));
+  else if (r.type == EV_TEST) str_cat(out, "проверка "), str_cat(out, fmt_int(n, r.a)), str_cat(out, r.b ? " — исправно" : " — не прошла");
+  str_cat(out, ";");
+  str_cat(out, fmt_num(n, r.flow10 / 10.0f, 1)), str_cat(out, ";");
+  str_cat(out, fmt_num(n, r.vac10 / 10.0f, 1)), str_cat(out, ";");
+  str_cat(out, fmt_num(n, r.r10 / 10.0f, 1)), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.watts)), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.dp)), str_cat(out, ";");
+  str_cat(out, fmt_num(n, r.amps10 / 10.0f, 1)), str_cat(out, ";");
+  str_cat(out, r.kg10 ? fmt_num(n, r.kg10 / 10.0f, 1) : ""), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.t1)), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.t2)), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.pulses)), str_cat(out, ";");
+  str_cat(out, r.state & 1 ? "да" : ""), str_cat(out, ";");
+  str_cat(out, r.state >> 1 & 7 ? "да" : ""), str_cat(out, ";");
+  str_cat(out, r.state >> 4 & 3 ? "да" : ""), str_cat(out, ";");
+  str_cat(out, fmt_int(n, r.faults_n)), str_cat(out, "\r\n");
+  return str_len(out);
+}
+
 /* Графики: 8 величин, кольцо 120 точек по 5 с (10 минут) и 240 по минуте (4 часа). */
 #define HN 8
 #define HF 120

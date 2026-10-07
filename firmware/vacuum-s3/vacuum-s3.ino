@@ -346,6 +346,20 @@ static void web_setup() {
     vac_command(server.arg("q").c_str());
     server.send(200, "text/plain", "ok");
   });
+  /* «Чёрный ящик» — таблицей для Excel: последние n записей (по умолчанию 2000, ~1,5 суток работы). */
+  server.on("/bb.csv", []() {
+    uint32_t total = hal_bb_count(), n = server.hasArg("n") ? (uint32_t)server.arg("n").toInt() : 2000;
+    if (!n || n > total) n = total;
+    static char row[512];
+    server.sendHeader("Content-Disposition", "attachment; filename=\"pylesos-chernyy-yashchik.csv\"");
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, "text/csv; charset=utf-8", "\xEF\xBB\xBF"); /* BOM: Excel узнаёт UTF-8 */
+    vac_bb_csv(0xFFFFFFFFu, row, sizeof row);
+    server.sendContent(row);
+    for (uint32_t i = total - n; i < total; i++)
+      if (vac_bb_csv(i, row, sizeof row)) server.sendContent(row);
+    server.sendContent("");
+  });
   server.on("/cfg", HTTP_GET, []() {
     static char hex[sizeof(vac_settings_t) * 2 + 4];
     vac_cfg_export(hex, sizeof hex);

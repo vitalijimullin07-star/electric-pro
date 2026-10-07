@@ -788,6 +788,13 @@ describe('Пылесос S3 6.0: экран 3,5″, турбины по отде
     expect(uart).toMatch(/^H m=0 r=0 n=\d+ dt=5 v=/m);
     expect(uart).toMatch(/^X pw2=/m);
     expect(esp.blackBox.length).toBeGreaterThan(0);
+    // /bb.csv: заголовок и записи по-русски (включение, серия очистки).
+    expect(esp.bbCsv(-1)).toMatch(/^время;с от включения;событие;/);
+    expect(esp.bbCsv(0)).toContain(';включение;');
+    const rows = Array.from({ length: esp.blackBox.length }, (_, i) => esp.bbCsv(i) ?? '');
+    expect(rows.some((r) => r.includes(';серия;'))).toBe(true);
+    // Состояние для телефона помещается в буфер страницы /s (1800 байт в vacuum-s3.ino).
+    expect(new TextEncoder().encode(esp.statusJson()!).length).toBeLessThan(1700);
   });
 });
 

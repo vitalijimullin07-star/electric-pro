@@ -31,6 +31,8 @@ interface WasmExports {
   sim_buffer?(): number;
   /** Состояние в JSON (как отдаёт страница для телефона) — у прошивки «S3». */
   vac_status_json?(ptr: number, len: number): number;
+  /** «Чёрный ящик» строкой CSV — у прошивки «S3» 6.0. */
+  vac_bb_csv?(index: number, ptr: number, len: number): number;
 }
 
 interface Ev {
@@ -127,6 +129,16 @@ export class Esp32 implements SimMcu {
     const ptr = ex.sim_buffer();
     let n = 0;
     this.call(() => (n = ex.vac_status_json!(ptr, 2048)));
+    return n > 0 ? new TextDecoder().decode(this.mem().subarray(ptr, ptr + n)) : null;
+  }
+
+  /** Запись «чёрного ящика» строкой CSV, как её отдаёт /bb.csv (−1 — заголовок), или null. */
+  bbCsv(index: number): string | null {
+    const ex = this.ex;
+    if (!ex?.vac_bb_csv || !ex.sim_buffer) return null;
+    const ptr = ex.sim_buffer();
+    let n = 0;
+    this.call(() => (n = ex.vac_bb_csv!(index, ptr, 1024)));
     return n > 0 ? new TextDecoder().decode(this.mem().subarray(ptr, ptr + n)) : null;
   }
 
