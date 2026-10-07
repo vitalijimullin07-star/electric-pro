@@ -23,6 +23,8 @@ interface WasmExports {
   vac_serial(ch: number): void;
   /** Байт от пульта по UART2 (прошивки без пульта его не экспортируют). */
   vac_uart?(ch: number): void;
+  /** Байт от интерфейса экрана в самой прошивке (экран SPI на контроллере) — у прошивки «S3». */
+  vac_uart_local?(ch: number): void;
   /** Посылка беспроводного пульта (данные рекламы Bluetooth) — у прошивки «S3». */
   vac_remote?(ptr: number, len: number, rssi: number): void;
   /** Буфер прошивки для строк и посылок из симулятора. */
@@ -64,6 +66,12 @@ export class Esp32 implements SimMcu {
   /** Второй UART (к пульту): выводы из hal_uart_begin и байты, которые прошивка отправила. */
   uart: { tx: McuPin; rx: McuPin; baud: number } | null = null;
   onUart: ((bytes: Uint8Array) => void) | null = null;
+  /** Голос (DFPlayer Mini по линии 5 кабеля пульта): номер фразы /mp3/00NN.mp3 и громкость 0…30. */
+  onVoice: ((track: number, volume: number) => void) | null = null;
+  voiceOn = false;
+  voiceVolume = 20;
+  /** «Чёрный ящик»: записи по 32 байта (в железе — файл на разделе FAT). */
+  readonly blackBox: Uint8Array[] = [];
 
   private now = 0;
   private ex: WasmExports | null = null;
@@ -227,6 +235,28 @@ export class Esp32 implements SimMcu {
         },
         hal_wifi: (on: number, ssid: number, pass: number) => {
           this.wifi = on ? { ssid: this.cstr(ssid), pass: this.cstr(pass) } : null;
+        },
+        hal_voice_begin: (on: number) => {
+          this.voiceOn = !!on;
+        },
+        hal_voice_write: (ptr: number, len: number) => {
+          // Кадр DFPlayer: 7E FF 06 cmd 00 hi lo sum sum EF; 0x12 — фраза из /mp3, 0x06 — громкость.
+          const f = this.mem().slice(ptr, ptr + len);
+          if (!this.voiceOn || f.length < 10 || f[0] !== 0x7e || f[9] !== 0xef) return;
+          const arg = (f[5] << 8) | f[6];
+          if (f[3] === 0x06) this.voiceVolume = arg;
+          else if (f[3] === 0x12) this.onVoice?.(arg, this.voiceVolume);
+        },
+        hal_bb_append: (ptr: number, len: number) => {
+          if (this.blackBox.length >= 20000) this.blackBox.splice(0, 1000);
+          this.blackBox.push(this.mem().slice(ptr, ptr + len));
+        },
+        hal_bb_count: () => this.blackBox.length,
+        hal_bb_read: (index: number, ptr: number, len: number) => {
+          const r = this.blackBox[index];
+          if (!r || r.length !== len) return 1;
+          this.mem().set(r, ptr);
+          return 0;
         },
       },
     };
@@ -416,12 +446,14 @@ export class Esp32 implements SimMcu {
     this.now = end;
   }
 
-  /** Байты от пульта во второй UART прошивки (без задержки по байтам: строки короткие). */
-  uartWrite(bytes: Uint8Array): void {
+  /** Байты от пульта во второй UART прошивки (без задержки по байтам: строки короткие).
+   *  local — экран на самом контроллере (его интерфейс — внутри прошивки, UART свободен). */
+  uartWrite(bytes: Uint8Array, local = false): void {
     const ex = this.ex;
-    if (!ex?.vac_uart) return;
+    const put = local && ex?.vac_uart_local ? ex.vac_uart_local : ex?.vac_uart;
+    if (!put) return;
     this.schedule(() => {
-      for (const b of bytes) this.call(() => ex.vac_uart!(b));
+      for (const b of bytes) this.call(() => put(b));
     }, 1);
   }
 

@@ -67,9 +67,9 @@ const DESCRIPTIONS: Record<string, string> = {
   VLV2: 'Клапан 2 (SSR CH2): IO41',
   T1: 'ШИМ регулятора МР248 турбины 1: IO39',
   T2: 'ШИМ регулятора МР248 турбины 2: IO38',
-  SDA: 'I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20) — IO11',
+  SDA: 'I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), часы DS3231 (0x68), весы NAU7802 (0x2A) — IO11',
   SCL: 'I²C — IO12',
-  PNL_TX: 'UART к пульту: IO13',
+  PNL_TX: 'UART к пульту (без пульта 7″ — голос DFPlayer, 9600): IO13',
   PNL_RX: 'UART от пульта: IO14',
 };
 
@@ -114,6 +114,11 @@ const MOD_FOOTPRINTS: FootprintDef[] = [
   wired('Valve_Plate_Magnet_230V_Wires', 'Тарельчатый клапан с магнитом 230 В', 'Тарельчатый клапан продувки фильтра (как Kärcher Tact): тарелка Ø90 с якорем, удерживающий магнит 230 В ~ держит её против разрежения, пока под током; без тока тарелку вталкивает разрежение, закрывают три пружины', 'Разное', 'YV', [['1', '1'], ['2', '2']], ['plate-valve'], [20, 30]),
   wired('RV_Wires', 'Варистор на проводах', 'Варистор S10K275 на выводах катушки магнита (гасит выброс при отключении)', 'Защита', 'RU', [['1', '1'], ['2', '2']], ['varistor'], [12, 10]),
   wired('CT_SCT013_1V_Wires', 'Трансформатор тока SCT-013 (выход 1 В)', 'Разъёмный трансформатор тока SCT-013-020/030 со встроенной нагрузкой: 1 В действующего на 20 или 30 А; провод нагрузки — через окно, один', 'Датчики', 'TA', [['P1', 'P1'], ['P2', 'P2'], ['S1', 'S1'], ['S2', 'S2']], ['current-transformer', 'sct013-v']),
+  wired('Module_DS3231_Wires', 'Часы DS3231 (модуль)', 'Часы реального времени DS3231 с батарейкой CR2032 (модуль ZS-042 или мини-модуль): I²C 0x68, питание 3,3 В; у ZS-042 выпаять диод зарядки — CR2032 не аккумулятор', 'Модули', 'DD', [['VCC', 'VCC'], ['GND', 'GND'], ['SDA', 'SDA'], ['SCL', 'SCL']], ['ds3231', 'rtc'], [38, 22]),
+  wired('Module_NAU7802_Wires', 'Весы NAU7802 (модуль)', 'АЦП для тензодатчика NAU7802 24 бит (SparkFun Qwiic Scale или аналог): I²C 0x2A, питание 3,3 В, мост E+ E− A+ A−', 'Модули', 'DD', [['VCC', 'VCC'], ['GND', 'GND'], ['SDA', 'SDA'], ['SCL', 'SCL'], ['E+', 'E+'], ['E-', 'E-'], ['A+', 'A+'], ['A-', 'A-']], ['nau7802', 'scale'], [32, 26]),
+  wired('LoadCell_Bar_Wires', 'Тензодатчик-балка', 'Тензодатчик-балка 50 кг (мост, 1 мВ/В): красный E+, чёрный E−, зелёный A+, белый A−', 'Датчики', 'B', [['E+', 'E+'], ['E-', 'E-'], ['A+', 'A+'], ['A-', 'A-']], ['load-cell'], [80, 13]),
+  wired('Module_DFPlayer_Mini_Wires', 'Плеер DFPlayer Mini', 'MP3-плеер DFPlayer Mini с картой microSD и усилителем 3 Вт: VCC 5 В, GND, RX (команды 9600 бод), SPK1/SPK2 — динамик 4–8 Ом', 'Модули', 'DA', [['VCC', 'VCC'], ['GND', 'GND'], ['RX', 'RX'], ['TX', 'TX'], ['SPK1', 'SPK1'], ['SPK2', 'SPK2']], ['dfplayer', 'voice'], [21, 21]),
+  wired('Speaker_Wires', 'Динамик на проводах', 'Динамик 3 Вт 4 Ом (40–50 мм)', 'Звук', 'BA', [['1', '1'], ['2', '2']], ['speaker'], [40, 40]),
   wired('Display_ILI9488_SPI_Wires', 'Экран 3,5″ ILI9488 SPI с касанием', 'Экран 3,5″ 480×320 ILI9488 по SPI с касанием XPT2046 (MSP3520 или аналог): 14 выводов VCC … T_IRQ', 'Дисплеи', 'HG', [['VCC', 'VCC'], ['GND', 'GND'], ['CS', 'CS'], ['RESET', 'RESET'], ['DC', 'DC'], ['SDI', 'SDI'], ['SCK', 'SCK'], ['LED', 'LED'], ['SDO', 'SDO'], ['T_CLK', 'T_CLK'], ['T_CS', 'T_CS'], ['T_DIN', 'T_DIN'], ['T_DO', 'T_DO'], ['T_IRQ', 'T_IRQ']], ['display', 'ili9488'], [60, 40]),
 ];
 
@@ -355,6 +360,9 @@ export function modParts(): ModPart[] {
     off({ ref: 'RK2', value: '10k B3950', description: 'Термистор на корпусе турбины 2', fp: 'R_NTC_Probe_Wires', pins: { '1': 'NTC2', '2': 'GND' }, fields: { 'Где стоит': 'M2' } }),
     off({ ref: 'B2', value: 'SDP810-500Pa', description: 'Перепад давления на фильтре, I²C 0x25', fp: 'Sensor_SDP810_Wires', pins: { VDD: '3V3', GND: 'GND', SCL: 'SCL', SDA: 'SDA' }, fields: { 'Где стоит': 'фильтр', Камера: '3 л' } }),
     off({ ref: 'B3', value: 'SDP811-125Pa', description: 'Расходомер (сопло Вентури на входе шланга), I²C 0x26', fp: 'Sensor_SDP810_Wires', pins: { VDD: '3V3', GND: 'GND', SCL: 'SCL', SDA: 'SDA' }, fields: { 'Где стоит': 'расходомер' } }),
+    off({ ref: 'DD2', value: 'DS3231 (модуль)', description: 'Часы: дата и время для журнала, отчёта смены и «чёрного ящика» (I²C 0x68) — провода к клеммнику X25 вместе с SDP811', fp: 'Module_DS3231_Wires', pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL' } }),
+    off({ ref: 'DD3', value: 'NAU7802 (модуль)', description: 'Весы бака (I²C 0x2A) — провода к клеммнику X24 вместе с SDP810; к модулю — тензодатчик B4', fp: 'Module_NAU7802_Wires', pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL', 'E+': 'LC_EP', 'E-': 'LC_EN', 'A+': 'LC_AP', 'A-': 'LC_AN' } }),
+    off({ ref: 'B4', value: '50 кг', description: 'Тензодатчик-балка под колесом бака: между баком и колесом (колесо — на конце балки, бак — на другом); провода к NAU7802', fp: 'LoadCell_Bar_Wires', pins: { 'E+': 'LC_EP', 'E-': 'LC_EN', 'A+': 'LC_AP', 'A-': 'LC_AN' }, fields: { 'Где стоит': 'под колесом бака' } }),
     off({ ref: 'E0', value: 'Электрод общий', description: 'Электрод на дне бака: общий', fp: 'Electrode_Water_Probe', pins: { '1': 'WL_E0' }, fields: { 'Где стоит': 'бак, дно', Объём: '30 л' } }),
     off({ ref: 'E1', value: 'Электрод уровня', description: 'Электрод уровня: вода дошла — турбины стоп', fp: 'Electrode_Water_Probe', pins: { '1': 'WL_E1' }, fields: { 'Где стоит': 'бак, уровень' } }),
     off({ ref: 'E2', value: 'Электрод перелива', description: 'Электрод перелива: авария', fp: 'Electrode_Water_Probe', pins: { '1': 'WL_E2' }, fields: { 'Где стоит': 'бак, перелив' } }),
@@ -365,6 +373,8 @@ export function modParts(): ModPart[] {
     off({ ref: 'SB8', value: 'Турбина 2', description: 'Кнопка «Турбина 2»', fp: 'SW_PUSH_Panel_19mm', pins: { '1': 'KT2', '2': 'GND' } }),
     off({ ref: 'SB9', value: 'Выкл', description: 'Кнопка «Выкл»', fp: 'SW_PUSH_Panel_19mm', pins: { '1': 'KOFF', '2': 'GND' } }),
     off({ ref: 'SA2', value: 'EC11', description: 'Энкодер с кнопкой на пульте', fp: 'RotaryEncoder_Alps_EC11E_Vertical_H20mm', pins: { A: 'ENC_A', B: 'ENC_B', C: 'GND', S1: 'ENC_SW', S2: 'GND' } }),
+    off({ ref: 'DA2', value: 'DFPlayer Mini', description: 'Голосовые сообщения: плеер с картой microSD (папка mp3 из архива), к разъёму пульта X1 — 1 (5 В), 3 (земля), 5 (TX контроллера, лучше через резистор 1 кОм). Линия 5 свободна, когда экран — на самом контроллере (без платы пульта 7″); заговорит пульт — голос выключится сам', fp: 'Module_DFPlayer_Mini_Wires', pins: { VCC: '5V', GND: 'GND', RX: 'PNL_TX', SPK1: 'SPK_P', SPK2: 'SPK_N' } }),
+    off({ ref: 'BA2', value: '3 Вт 4 Ом', description: 'Динамик голоса (к DFPlayer)', fp: 'Speaker_Wires', pins: { '1': 'SPK_P', '2': 'SPK_N' } }),
     off({ ref: 'BA1', value: 'Зуммер 5 В', description: 'Зуммер без генератора 5 В на пульте', fp: 'Buzzer_12x8.5mm_P6mm', pins: { '1': '5V', '2': 'BZ_K' } }),
     // По желанию: Bluetooth (с платой проводами не соединены; прошивка принимает до 4 устройств).
     off({ ref: 'HG2', value: 'Пульт Bluetooth', description: 'По желанию: ручной пульт на ESP32-C3 (firmware/vacuum-remote) — привязка «remote pair»', fp: 'Remote_BLE_Handheld', pins: {} }),
@@ -381,9 +391,9 @@ const BLOCKS: SchBlock[] = [
   { title: 'ESP32-S3', at: [260, 70], width: 110, parts: ['A1'] },
   { title: 'Турбины и розетка (модули)', at: [10, 120], width: 240, parts: ['X10', 'R50', ['R51', 90], 'VT2', 'K1', 'X11', 'R52', ['R53', 90], 'VT3', 'K2', 'X12', 'R54', ['R55', 90], 'VT4', 'K3', 'X14', 'R60', ['R61', 90], 'U1', 'X15', 'R62', ['R63', 90], 'U2', 'TA1', 'TA2', 'M1', 'M2', 'QF1', 'TA3', 'XS1'] },
   { title: 'Клапаны (SSR, 230 В)', at: [10, 250], width: 240, parts: ['X13', 'R56', ['R57', 90], 'VT5', 'R58', ['R59', 90], 'VT6', 'U3', 'YV1', 'YV2', 'RU2', 'RU3'] },
-  { title: 'Датчики', at: [460, 10], width: 210, parts: ['X20', 'R20', 'R21', 'R22', ['C20', 90], ['C21', 90], ['C22', 90], ['R23', 90], ['R24', 90], ['C23', 90], 'X21', ['R25', 90], ['R26', 90], ['C24', 90], ['C25', 90], 'RK1', 'RK2', 'B1', ['C13', 90], 'R27', ['R28', 90], ['C14', 90], 'X24', 'X25', ['R29', 90], ['R30', 90], 'B2', 'B3'] },
+  { title: 'Датчики', at: [460, 10], width: 210, parts: ['X20', 'R20', 'R21', 'R22', ['C20', 90], ['C21', 90], ['C22', 90], ['R23', 90], ['R24', 90], ['C23', 90], 'X21', ['R25', 90], ['R26', 90], ['C24', 90], ['C25', 90], 'RK1', 'RK2', 'B1', ['C13', 90], 'R27', ['R28', 90], ['C14', 90], 'X24', 'X25', ['R29', 90], ['R30', 90], 'B2', 'B3', 'DD2', 'DD3', 'B4'] },
   { title: 'Вода в баке', at: [460, 200], width: 210, parts: ['X22', 'X23', 'R40', ['C40', 90], 'R41', ['R42', 90], ['C41', 90], 'R43', ['R44', 90], ['C42', 90], 'E0', 'E1', 'E2', 'SL1'] },
-  { title: 'Пульт, кнопки, экран', at: [380, 70], width: 300, parts: ['X1', 'DD1', ['R31', 90], ['R32', 90], ['R33', 90], ['R34', 90], ['R35', 90], ['C17', 90], ['C18', 90], 'VT7', 'R36', ['VD2', 90], 'R37', 'HL1', 'X2', ['R38', 90], 'HG1', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'SB7', 'SB8', 'SB9', 'SA2', 'BA1'] },
+  { title: 'Пульт, кнопки, экран', at: [380, 70], width: 300, parts: ['X1', 'DD1', ['R31', 90], ['R32', 90], ['R33', 90], ['R34', 90], ['R35', 90], ['C17', 90], ['C18', 90], 'VT7', 'R36', ['VD2', 90], 'R37', 'HL1', 'X2', ['R38', 90], 'HG1', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'SB7', 'SB8', 'SB9', 'SA2', 'BA1', 'DA2', 'BA2'] },
 ];
 
 /** Подписи контактов клеммника на шёлке: со стороны винтов, поперёк ряда выводов. */

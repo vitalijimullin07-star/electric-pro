@@ -7,6 +7,7 @@ import { Avr, type McuPin } from './mcu';
 import { CoilModel } from './metal-detector';
 import { Ssd1306 } from './ssd1306';
 import { placeOf, VacuumPlant } from './vacuum';
+import { VOICE_PHRASES } from './voice-phrases';
 
 /*
  * Детали вокруг контроллера: распознаются по корпусу из библиотеки и именам выводов,
@@ -916,6 +917,167 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
           return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} ${comp.value} (I²C 0x${addr.toString(16)}): нажато ${low.length ? low.join(', ') : 'ничего'}`, params, warning: i2cWarn() };
         },
       });
+      continue;
+    }
+
+    // --- часы DS3231 (I²C 0x68): время — часы компьютера плюс время симуляции ---
+    if (/DS3231/i.test(`${comp.value} ${id}`) || tags.includes('ds3231')) {
+      const bcd = (v: number) => ((Math.floor(v / 10) << 4) | v % 10) & 0xff;
+      const unbcd = (b: number) => (b >> 4) * 10 + (b & 15);
+      const now0 = new Date();
+      /* Секунды «местного времени» от 2000-01-01 в момент пуска симуляции. */
+      let base = Math.floor((now0.getTime() - now0.getTimezoneOffset() * 60000) / 1000) - 946684800;
+      let baseCycles = mcu.cycles;
+      const secs = () => base + Math.floor((mcu.cycles - baseCycles) / mcu.freq);
+      const regs = () => {
+        const d = new Date((secs() + 946684800) * 1000);
+        return [bcd(d.getUTCSeconds()), bcd(d.getUTCMinutes()), bcd(d.getUTCHours()), d.getUTCDay() + 1, bcd(d.getUTCDate()), bcd(d.getUTCMonth() + 1), bcd(d.getUTCFullYear() - 2000)];
+      };
+      let ptr = 0;
+      let wr: number[] = [];
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (write) wr = [];
+          return true;
+        },
+        write: (v) => {
+          wr.push(v);
+          return true;
+        },
+        read: () => {
+          const r = regs();
+          return ptr < 7 ? r[ptr++] : (ptr++, 0);
+        },
+        stop: () => {
+          if (!wr.length) return;
+          ptr = wr[0];
+          if (wr.length >= 8 && wr[0] === 0) {
+            const [ss, mi, hh, , dd, mo, yy] = wr.slice(1, 8).map((b, i) => (i === 3 ? b : unbcd(b & (i === 2 ? 0x3f : 0x7f))));
+            base = Math.floor(Date.UTC(2000 + yy, mo - 1, dd, hh, mi, ss) / 1000) - 946684800;
+            baseCycles = mcu.cycles;
+          }
+          wr = [];
+        },
+      };
+      if (onI2c()) attachI2c(0x68, dev);
+      use('SDA', 'SCL', 'VCC', 'GND');
+      devices.push({
+        id: comp.id,
+        comp,
+        view: () => {
+          const d = new Date((secs() + 946684800) * 1000);
+          const p2 = (v: number) => String(v).padStart(2, '0');
+          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} часы DS3231 (I²C 0x68): ${p2(d.getUTCDate())}.${p2(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:${p2(d.getUTCSeconds())}`, warning: i2cWarn() };
+        },
+      });
+      continue;
+    }
+
+    // --- весы: АЦП NAU7802 (I²C 0x2A) и тензодатчик под колесом бака ---
+    if (/NAU7802/i.test(`${comp.value} ${id}`) || tags.includes('nau7802')) {
+      const mass = plant?.massOf() ?? null;
+      const params = [...(mass ? [] : [param('kg', 'масса', 10, 0, 100, 0.1, 'кг')]), param('extra', 'груз сверху (калибровка)', 0, 0, 50, 0.5, 'кг'), { ...param('fault', 'тензодатчик', 0, 0, 1, 1, ''), options: ['исправен', 'обрыв'] }];
+      const kg = () => (mass ? mass() : params[0].value) + params[params.length - 2].value;
+      /* Отсчёты АЦП: смещение моста и ~8000 на кг (усиление 128, датчик 50 кг 1 мВ/В), шум ±12. */
+      let noise = 0x1234;
+      const counts = () => {
+        noise = (noise * 1103515245 + 12345) & 0x7fffffff;
+        if (params[params.length - 1].value) return 0x7fffff;
+        return Math.round(152000 + kg() * 8000 + ((noise % 25) - 12));
+      };
+      const reg = new Array(32).fill(0);
+      let ptr = 0;
+      let wr: number[] = [];
+      let out: number[] = [];
+      const reset = () => {
+        reg.fill(0);
+        reg[0x1f] = 0x0f;
+      };
+      reset();
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (write) wr = [];
+          else {
+            if (ptr === 0x12) {
+              const v = counts() & 0xffffff;
+              out = [v >> 16, (v >> 8) & 0xff, v & 0xff];
+            } else out = [];
+          }
+          return true;
+        },
+        write: (v) => {
+          wr.push(v);
+          return true;
+        },
+        read: () => {
+          if (out.length) return out.shift()!;
+          let v = reg[ptr & 31];
+          /* PU_CTRL: PUR (готов) — когда цифровая часть включена; CR — данные готовы в непрерывном режиме. */
+          if ((ptr & 31) === 0) v = (v & 0xd7) | (v & 2 ? 0x08 : 0) | (v & 0x10 ? 0x20 : 0);
+          ptr++;
+          return v;
+        },
+        stop: () => {
+          if (wr.length) {
+            ptr = wr[0] & 31;
+            for (let i = 1; i < wr.length; i++) {
+              const r = (wr[0] + i - 1) & 31;
+              if (r === 0 && wr[i] & 1) reset();
+              else if (r === 2) reg[2] = wr[i] & ~0x04; /* калибровка — сразу готова */
+              else reg[r] = wr[i];
+            }
+          }
+          wr = [];
+        },
+      };
+      if (onI2c()) attachI2c(0x2a, dev);
+      use('SDA', 'SCL', 'VCC', 'GND', 'E+', 'E-', 'A+', 'A-');
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+        },
+        view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} весы NAU7802 (I²C 0x2A)${mass ? ': тензодатчик под колесом бака' : ''}`, params, readings: [{ label: 'на датчике', value: +kg().toFixed(1), unit: 'кг' }], warning: i2cWarn() }),
+      });
+      continue;
+    }
+    if (tags.includes('load-cell')) {
+      // Тензодатчик — к модулю NAU7802 (массу показывает он).
+      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} тензодатчик ${comp.value}: ${placeOf(comp) || 'к модулю весов'}` }) });
+      continue;
+    }
+
+    // --- голос: плеер DFPlayer Mini (команды по UART — от прошивки через hal_voice_write) ---
+    if (/DFPlayer/i.test(`${comp.value} ${id}`) || tags.includes('dfplayer')) {
+      let last = 0;
+      let lastAt = -1;
+      let count = 0;
+      if (mcu instanceof Esp32) {
+        const prev = mcu.onVoice;
+        mcu.onVoice = (track, vol) => {
+          last = track;
+          lastAt = mcu.cycles;
+          count++;
+          prev?.(track, vol);
+        };
+      }
+      use('VCC', 'GND', 'RX', 'TX', 'SPK1', 'SPK2');
+      devices.push({
+        id: comp.id,
+        comp,
+        view: () => {
+          const esp = mcu instanceof Esp32 ? mcu : null;
+          const ago = lastAt >= 0 ? (mcu.cycles - lastAt) / mcu.freq : -1;
+          const text = last ? `«${VOICE_PHRASES[last] ?? `фраза ${last}`}»${ago >= 0 && ago < 4 ? ' — говорит' : ''}` : 'молчит';
+          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} голос DFPlayer: ${text}`, readings: [{ label: 'громкость', value: esp?.voiceVolume ?? 0, unit: '/30' }, { label: 'фраз', value: count, unit: '' }], warning: esp && !esp.voiceOn && mcu.cycles > mcu.freq * 6 ? 'линия 5 не отдана голосу (голос выключен или по UART говорит пульт)' : undefined };
+        },
+      });
+      continue;
+    }
+    if (tags.includes('speaker') && !opts.analog) {
+      devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} динамик ${comp.value}` }) });
       continue;
     }
 

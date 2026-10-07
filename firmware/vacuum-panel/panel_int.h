@@ -24,6 +24,13 @@ void s3_rx(int ch);
 int s3_detected(void);
 int s3_sleeping(void);
 
+/* Экран 3,5″ 480×320 на самом контроллере «S3» (прошивка 6.0): свой интерфейс (panel_t35.c). */
+void t35_setup(uint16_t *fb);
+int t35_loop(uint32_t ms);
+void t35_touch(int x, int y, int down);
+void t35_rx(int ch);
+int t35_sleeping(void);
+
 #ifdef __cplusplus
 }
 #endif

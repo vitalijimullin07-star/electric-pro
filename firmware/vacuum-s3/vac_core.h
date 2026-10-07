@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "5.2"
+#define VAC_VERSION "6.0"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*
@@ -54,9 +54,9 @@ extern "C" {
 #define PIN_WL_DRV 46   /* раскачка электродов: меандр → 1 кОм → 1 мкФ → E0 */
 #define PIN_WL2 9       /* электрод перелива E2 */
 #define PIN_VAC 10      /* разрежение MPX5100DP через делитель 6,8к/10к */
-#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20) */
+#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), DS3231 (0x68), NAU7802 (0x2A) */
 #define PIN_SCL 12
-#define PIN_PNL_TX 13   /* UART1 → плата экрана (если экран отдельной платой) */
+#define PIN_PNL_TX 13   /* UART1 → плата экрана (если экран отдельной платой), без неё — голос DFPlayer 9600 */
 #define PIN_PNL_RX 14   /* UART1 ← плата экрана */
 #define PANEL_BAUD 115200
 #define PIN_ENC_A 21
@@ -72,6 +72,8 @@ extern "C" {
 #define PIN_TOUCH_CS 0  /* вывод BOOT: при загрузке подтянут вверх — касание не выбрано */
 
 #define SDP_FILTER 0x25 /* SDP810-500Pa: перепад на фильтре */
+#define RTC_ADDR 0x68   /* DS3231: часы с батарейкой (модуль на шине I²C датчиков) */
+#define SCALE_ADDR 0x2A /* NAU7802: весы — тензодатчик под колесом бака (модуль на шине I²C) */
 #define SDP_FLOW 0x26   /* SDP811-125Pa: расходомер (сопло Вентури) */
 #define EXP_ADDR 0x20   /* PCA9555: A0–A2 на земле */
 
@@ -311,7 +313,102 @@ typedef struct {
   char ssid[24], pass[12];/* сеть для телефона */
   uint32_t ble_code;      /* код сопряжения телефона по Bluetooth (6 цифр, новый при каждом включении) */
   uint8_t phone;          /* телефон на связи по Bluetooth (ставит обвязка) */
+  /* 6.0 */
+  float watts[2];         /* мощность турбин по замеру (ток × напряжение сети по фазе), Вт */
+  float kg;               /* весы: масса в баке, кг (NAN-подобное −1 — весов нет) */
+  uint32_t time_s;        /* часы: секунды от 2000-01-01 (0 — время неизвестно) */
+  uint8_t rtc_ok;         /* часы DS3231 найдены */
+  uint8_t scale_ok;       /* весы NAU7802 найдены */
+  uint8_t test_id;        /* проверка первого пуска: TEST_… */
+  uint8_t test_ph;        /* TP_… */
+  uint8_t test_left;      /* до конца этапа, с */
+  uint8_t boosting;       /* разгон турбин перед ударами */
+  float test_val[4];      /* результаты текущей проверки */
+  float fc_hours;         /* прогноз: часов работы до мойки фильтра (−1 — неизвестно) */
+  uint16_t osc_n;         /* номер последнего записанного удара (осциллограф) */
+  uint8_t svc_mask;       /* обслуживание фильтра: что сделали (SV_…), пока идёт замер */
 } vac_state_t;
+
+/* Проверки первого пуска (мастер на экране). */
+enum { TEST_NONE = 0, TEST_ZERO, TEST_T1, TEST_T2, TEST_V1, TEST_V2, TEST_HOLD, TEST_FILTER };
+/* Этап проверки: идёт, ждём человека (закрыть шланг), готово — хорошо, готово — плохо. */
+enum { TP_IDLE = 0, TP_RUN, TP_WAIT, TP_OK, TP_FAIL };
+/* Обслуживание фильтра: что с ним сделали (биты). */
+enum { SV_TAP = 1, SV_BLOW = 2, SV_VAC = 4, SV_WASH = 8, SV_BRUSH = 16, SV_OTHER = 32, SV_NEW = 128 };
+/* Режим клапанов при ударах серии. */
+enum { VM_BOTH = 0, VM_ALT, VM_ONE, VM_TWO };
+
+/* Голосовые сообщения: номер = файл /mp3/00NN.mp3 на карте DFPlayer (тексты — voice/phrases.txt). */
+enum {
+  V_TANK_FULL = 1, V_OVERFLOW, V_FILTER_WASH, V_FILTER_TORN, V_LOW_AIR, V_BLOCKED, V_HOT, V_WARM,
+  V_OVERLOAD, V_VALVE, V_NOCLOSE, V_HOLD, V_HOSE_CLOSE, V_STRONG_DONE, V_INTAKE, V_WEAK,
+  V_STUCK, V_MAINS, V_FM_DONE, V_BRUSHES, V_BAG_FULL, V_HEAVY, V_WELD, V_TRIAC,
+  V_TOOL_ON, V_FIRST_START, V_MASK, V_TEST_OK, V_TEST_BAD, V_NO_SYNC, V_SENSOR, V_READY,
+  V_FILTER_SERVICE, V_SERIES, V_SHUTDOWN, V_HELLO, V_NOCUR, V_TURB_WORN, V_COUNT
+};
+
+/* ---- настройки 6.0 (отдельная запись: слоты 2 и 3, настройки 5.x не трогаются) ---- */
+#define N_FSVC 12
+typedef struct {
+  uint32_t t;            /* когда (секунды от 2000, 0 — неизвестно) */
+  uint16_t hours;        /* наработка фильтра тогда, ×0,1 ч */
+  uint8_t mask;          /* SV_… */
+  uint8_t pad;
+  uint16_t r_before;     /* R до, ×10 */
+  uint16_t r_after;      /* R после, ×10 */
+} vac_fsvc_t;
+
+typedef struct {
+  uint16_t magic;
+  uint8_t version, pad0;
+  uint32_t seq;
+  /* турбины и удары */
+  uint8_t pw2;           /* ручная мощность турбины 2, % */
+  uint8_t rsel;          /* что меняет ползунок мощности: 0 — обе, 1 — Т1, 2 — Т2 */
+  uint8_t vmode;         /* VM_… */
+  uint8_t boost;         /* разгон турбин перед серией ударов */
+  uint16_t boost_ms;     /* время разгона до полной, мс */
+  uint8_t boost2;        /* вторая турбина к ударам: 0 — нет, 1 — к мощной, 2 — всегда */
+  uint8_t autotune;      /* самонастройка сброса турбин на удар */
+  float at_score[4];     /* оценки вариантов сброса (0, 40, 70, 90 %) */
+  /* голос, экран */
+  uint8_t voice;         /* 0 — молчит, 1 — тревоги, 2 — и предупреждения, 3 — и события */
+  uint8_t volume;        /* громкость DFPlayer 0…30 */
+  uint8_t clicks;        /* щелчок зуммера на касание */
+  uint8_t classm;        /* «класс M»: тревога, если в шланге меньше 20 м/с */
+  /* весы */
+  int32_t sc_tare;       /* сырой отсчёт пустого бака */
+  float sc_k;            /* отсчётов на кг (0 — не откалиброваны) */
+  uint16_t sc_full;      /* «бак тяжёлый», ×0,1 кг (0 — не предупреждать) */
+  uint16_t sc_bag;       /* «мешок полон», ×0,1 кг */
+  /* паспорт пылесоса (первый пуск) */
+  uint32_t pass_t;       /* когда пройден мастер (0 — не пройден) */
+  uint8_t hose_len;      /* длина шланга, м */
+  uint8_t tank_l;        /* бак, л */
+  uint8_t ftype;         /* фильтр: 0 — полиэстер, 1 — с мембраной PTFE, 2 — бумага, 3 — нетканка */
+  uint8_t sensors;       /* проверка датчиков: биты «исправен» */
+  uint16_t t_open_w[2];  /* турбина на 100 % с открытым шлангом: мощность, Вт */
+  uint16_t t_open_q[2];  /* … расход, ×0,1 л/с */
+  uint16_t t_seal[2];    /* … разрежение при закрытом шланге, ×0,1 кПа */
+  uint16_t t_rated[2];   /* мощность турбины по замеру на полной (ведётся всё время), Вт */
+  uint8_t v_ok[2];       /* проверка клапанов: 1 — исправен, 2 — нет, 0 — не проверяли */
+  uint8_t hold_ok;       /* магниты держат при закрытом шланге: 1/2/0 */
+  int8_t vac_off10;      /* поправка нуля датчика разрежения, ×0,1 кПа */
+  /* обслуживание */
+  uint32_t brush_base[2];/* приведённые часы на момент замены щёток, с */
+  uint32_t seal_base;    /* ударов на момент проверки уплотнений тарелок */
+  uint32_t intake_lim;   /* ресурс фильтра клапанов, ударов */
+  uint32_t seal_lim;     /* проверка уплотнений и пружин тарелок, ударов */
+  uint16_t filt_lim;     /* осмотр фильтра, часов работы */
+  uint16_t wash_k;       /* «пора мыть», R от нового ×100 (180 — в 1,8 раза) */
+  uint32_t last_svc_work;/* наработка фильтра при последнем обслуживании, с */
+  vac_fsvc_t svc[N_FSVC];/* история обслуживания фильтра, старые — первыми */
+  uint8_t nsvc;
+  uint8_t pad1[3];
+  uint16_t crc;
+} vac_ext_t;
+
+extern vac_ext_t vac_ext;
 
 extern vac_state_t vac;
 
@@ -329,6 +426,8 @@ void vac_serial(int ch);
 void vac_uart(int ch);
 /* Байт от интерфейса экрана, который работает в самой прошивке контроллера (экран SPI). */
 void vac_uart_local(int ch);
+/* Сколько байт пришло по UART1 (пульт отдельной платой): линию 5 тогда не отдавать голосу. */
+uint32_t vac_uart_bytes(void);
 /* Посылка Bluetooth (пульт, метка): данные производителя из рекламы (без кода компании). */
 void vac_remote(const uint8_t *data, int len, int rssi);
 /* Команда строкой (монитор порта, пульт, веб-страница): help — список. */
@@ -357,6 +456,37 @@ void vac_beep(int kind);  /* 0 — щелчок, 1 — подтверждени�
 uint32_t vac_now_ms(void);
 /* Метка на инструменте n (номер в списке устройств): 1 — работает, 0 — стоит. */
 void vac_tag_tool(int n, int on);
+
+/* vac_ext.c: настройки 6.0, часы, весы, голос, «чёрный ящик», графики, осциллограф удара,
+ * паспорт, обслуживание фильтра, напоминания, отчёт смены */
+void ext_setup(void);                /* настройки 6.0 — до всего */
+void ext_start(void);                /* часы, весы, голос — после пуска шины I²C */
+void ext_loop(uint32_t ms);         /* каждые 50 мс */
+void ext_second(void);
+void ext_save(void);
+void ext_say(int phrase);           /* голосом (если включён и уровень позволяет) */
+void ext_fault(uint32_t bit, int on);
+void ext_event(int kind, int a, float b); /* в «чёрный ящик»: EV_… */
+void ext_osc_begin(uint8_t mask, uint16_t imp);
+void ext_osc_sample(float kpa, float pa);
+void ext_osc_end(float depth, float rev, int t_front);
+void ext_pulse_marker(void);
+/* Команды 6.0; 1 — разобрана. */
+int ext_command(const char *c, const char *a);
+/* Строки экрану: X — настройки 6.0, G — паспорт, M — обслуживание, Q — история фильтра, R — отчёт смены. */
+void ext_send_lines(void);
+void ext_json(char *out);
+void ext_svc_done(float r_after);   /* замер после обслуживания фильтра закончен */
+void ext_series_done(float r_after);
+float ext_scale_kg(void);
+enum { EV_SAMPLE = 0, EV_FAULT_ON, EV_FAULT_OFF, EV_SERIES, EV_FILTER, EV_TEST, EV_POWER, EV_TOOL };
+
+/* vac_core.c → vac_ext.c: проверки первого пуска, замер фильтра */
+int vac_test_start(int id);
+void vac_fm_start(int kind);
+void vac_test_stop(void);
+/* Разобрать «12,5» / «12.5». */
+float str_to_float(const char *s);
 
 /* vac_link.c: кнопки, энкодер, связь с пультом и устройствами Bluetooth */
 void link_init(void);

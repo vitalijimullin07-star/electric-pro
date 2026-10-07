@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")"
 SRC=../vacuum-panel
 mkdir -p src/panel
-for f in panel_main.c panel_ui.c panel_s3.c gfx.c fonts.c qr.c panel_int.h panel_ui.h gfx.h fonts.h qr.h; do
+for f in panel_main.c panel_ui.c panel_s3.c panel_t35.c gfx.c fonts.c qr.c panel_int.h panel_ui.h gfx.h fonts.h qr.h; do
   {
     echo "/* Копия $SRC/$f (sync-panel.sh) — не править здесь. */"
     case $f in *.c) echo "#define PANEL_IN_CTRL 1" ;; esac

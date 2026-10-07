@@ -11,6 +11,10 @@ export const PANEL_H = 480;
 interface PanelExports {
   memory: WebAssembly.Memory;
   sim_setup(): void;
+  /** Экран 3,5″ 480×320 на самом контроллере (интерфейс 4.0 и новее). */
+  sim_setup_t35?(): void;
+  sim_width?(): number;
+  sim_height?(): number;
   sim_frame(): number;
   ui_loop(ms: number): number;
   ui_touch(x: number, y: number, down: number): void;
@@ -28,8 +32,23 @@ export class PanelS3 {
   /** Что пульт отправляет контроллеру. */
   onTx: ((bytes: Uint8Array) => void) | null = null;
   onLog: ((line: string) => void) | null = null;
+  /** Экран 3,5″ (ILI9488 на контроллере): кадр 480×320 и свой интерфейс — задать до первого такта. */
+  small = false;
 
   private constructor() {}
+
+  /** Прошивка умеет экран 3,5″ (480×320). */
+  get hasSmall(): boolean {
+    return !!this.ex?.sim_setup_t35;
+  }
+
+  get width(): number {
+    return this.started && this.ex?.sim_width ? this.ex.sim_width() : this.small && this.hasSmall ? 480 : PANEL_W;
+  }
+
+  get height(): number {
+    return this.started && this.ex?.sim_height ? this.ex.sim_height() : this.small && this.hasSmall ? 320 : PANEL_H;
+  }
 
   static async create(wasm: Uint8Array): Promise<PanelS3> {
     const p = new PanelS3();
@@ -72,7 +91,8 @@ export class PanelS3 {
     const ex = this.ex!;
     if (!this.started) {
       this.started = true;
-      ex.sim_setup();
+      if (this.small && ex.sim_setup_t35) ex.sim_setup_t35();
+      else ex.sim_setup();
       this.version++;
     }
     if (ex.ui_loop(ms >>> 0)) this.version++;
@@ -94,6 +114,6 @@ export class PanelS3 {
   /** Кадр RGB565 (живой вид на память пульта). */
   pixels(): Uint16Array {
     const ex = this.ex!;
-    return new Uint16Array(ex.memory.buffer, ex.sim_frame(), PANEL_W * PANEL_H);
+    return new Uint16Array(ex.memory.buffer, ex.sim_frame(), this.width * this.height);
   }
 }

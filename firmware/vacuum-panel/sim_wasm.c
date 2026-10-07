@@ -7,6 +7,10 @@ static uint16_t frame[GW * GH];
 
 uint16_t *sim_frame(void) { return frame; }
 void sim_setup(void) { ui_setup(frame); }
+/* Экран 3,5″ (480×320) на контроллере. */
+void sim_setup_t35(void) { ui_setup_t35(frame); }
+int sim_width(void) { return g_width(); }
+int sim_height(void) { return g_height(); }
 
 void *memset(void *d, int c, unsigned long n) {
   unsigned char *p = (unsigned char *)d;

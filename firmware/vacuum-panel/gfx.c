@@ -1,8 +1,27 @@
 #include "gfx.h"
 
 static uint16_t *fb;
+/* Размер кадра (800×480 у пульта 7″, 480×320 у экрана 3,5″ на контроллере) и окно отсечения. */
+static int gw = GW, gh = GH;
+static int cx0, cy0, cx1 = GW, cy1 = GH;
 
-void g_init(uint16_t *buf) { fb = buf; }
+void g_init(uint16_t *buf) { g_init_size(buf, GW, GH); }
+
+void g_init_size(uint16_t *buf, int w, int h) {
+  fb = buf;
+  gw = w, gh = h;
+  g_noclip();
+}
+
+int g_width(void) { return gw; }
+int g_height(void) { return gh; }
+
+void g_clip(int x0, int y0, int x1, int y1) {
+  cx0 = x0 < 0 ? 0 : x0, cy0 = y0 < 0 ? 0 : y0;
+  cx1 = x1 > gw ? gw : x1, cy1 = y1 > gh ? gh : y1;
+}
+
+void g_noclip(void) { cx0 = 0, cy0 = 0, cx1 = gw, cy1 = gh; }
 
 float g_sqrt(float x) { return x > 0 ? __builtin_sqrtf(x) : 0; }
 
@@ -15,22 +34,34 @@ static inline uint16_t mix(uint16_t bg, uint16_t fg, int a) {
 }
 
 static inline void blend(int x, int y, uint16_t c, int a) {
-  if ((unsigned)x >= GW || (unsigned)y >= GH || a <= 0) return;
-  uint16_t *p = fb + y * GW + x;
+  if (x < cx0 || x >= cx1 || y < cy0 || y >= cy1 || a <= 0) return;
+  uint16_t *p = fb + y * gw + x;
   *p = a >= 256 ? c : mix(*p, c, a);
 }
 
 void g_fill(int x, int y, int w, int h, uint16_t c) {
-  if (x < 0) w += x, x = 0;
-  if (y < 0) h += y, y = 0;
-  if (x + w > GW) w = GW - x;
-  if (y + h > GH) h = GH - y;
+  if (x < cx0) w -= cx0 - x, x = cx0;
+  if (y < cy0) h -= cy0 - y, y = cy0;
+  if (x + w > cx1) w = cx1 - x;
+  if (y + h > cy1) h = cy1 - y;
   if (w <= 0 || h <= 0) return;
   for (int j = 0; j < h; j++) {
-    uint16_t *p = fb + (y + j) * GW + x;
+    uint16_t *p = fb + (y + j) * gw + x;
     for (int i = 0; i < w; i++) p[i] = c;
   }
 }
+
+void g_dim(int x, int y, int w, int h, uint16_t c, int alpha) {
+  if (x < cx0) w -= cx0 - x, x = cx0;
+  if (y < cy0) h -= cy0 - y, y = cy0;
+  if (x + w > cx1) w = cx1 - x;
+  if (y + h > cy1) h = cy1 - y;
+  for (int j = 0; j < h; j++) {
+    uint16_t *p = fb + (y + j) * gw + x;
+    for (int i = 0; i < w; i++) p[i] = mix(p[i], c, alpha);
+  }
+}
+
 
 /* Покрытие точки по расстоянию до края (d > 0 — снаружи). */
 static inline int cover(float d) {
@@ -45,7 +76,7 @@ void g_rrect(float x, float y, float w, float h, float r, uint16_t c) {
   int x0 = (int)x, y0 = (int)y, x1 = (int)(x + w + 0.999f), y1 = (int)(y + h + 0.999f);
   float cx = x + w / 2, cy = y + h / 2, hw = w / 2 - r, hh = h / 2 - r;
   for (int j = y0; j < y1; j++) {
-    if ((unsigned)j >= GH) continue;
+    if (j < cy0 || j >= cy1) continue;
     float py = j + 0.5f - cy;
     float qy = (py < 0 ? -py : py) - hh;
     for (int i = x0; i < x1; i++) {
@@ -56,6 +87,28 @@ void g_rrect(float x, float y, float w, float h, float r, uint16_t c) {
       else d = (qx > qy ? qx : qy) - r;
       /* Прямые края тоже сглаживаются по расстоянию — дробные координаты не «прыгают». */
       blend(i, j, c, cover(d));
+    }
+  }
+}
+
+void g_rrect_line(float x, float y, float w, float h, float r, float t, uint16_t c) {
+  /* Контур: расстояние до края скруглённого прямоугольника меньше толщины t (внутрь). */
+  if (r > w / 2) r = w / 2;
+  if (r > h / 2) r = h / 2;
+  int x0 = (int)x, y0 = (int)y, x1 = (int)(x + w + 0.999f), y1 = (int)(y + h + 0.999f);
+  float cx = x + w / 2, cy = y + h / 2, hw = w / 2 - r, hh = h / 2 - r;
+  for (int j = y0; j < y1; j++) {
+    float py = j + 0.5f - cy;
+    float qy = (py < 0 ? -py : py) - hh;
+    for (int i = x0; i < x1; i++) {
+      float px = i + 0.5f - cx;
+      float qx = (px < 0 ? -px : px) - hw;
+      float d;
+      if (qx > 0 && qy > 0) d = g_sqrt(qx * qx + qy * qy) - r;
+      else d = (qx > qy ? qx : qy) - r;
+      if (d < -t - 1) continue;
+      float e = d + t / 2;
+      blend(i, j, c, cover((e < 0 ? -e : e) - t / 2));
     }
   }
 }
@@ -135,6 +188,40 @@ void g_arc(float cx, float cy, float r, float w, float frac, uint16_t c) {
     }
 }
 
+void g_arc2(float cx, float cy, float r, float w, float a0, float span, uint16_t c) {
+  /* Дуга от a0 (доля оборота от «12 часов» по часовой) длиной span, скруглённые концы. */
+  if (span <= 0) return;
+  if (span >= 1) {
+    g_ring(cx, cy, r, w, c);
+    return;
+  }
+  a0 -= (float)(int)a0;
+  if (a0 < 0) a0 += 1;
+  float a1 = a0 + span;
+  float sx = cx + r * sin_turn(a0), sy = cy - r * sin_turn(a0 + 0.25f);
+  float ex = cx + r * sin_turn(a1), ey = cy - r * sin_turn(a1 + 0.25f);
+  float R = r + w / 2 + 1;
+  for (int j = (int)(cy - R); j <= (int)(cy + R); j++)
+    for (int i = (int)(cx - R); i <= (int)(cx + R); i++) {
+      float dx = i + 0.5f - cx, dy = j + 0.5f - cy;
+      float dist = g_sqrt(dx * dx + dy * dy);
+      float rel = turn_of(dx, dy) - a0;
+      if (rel < 0) rel += 1;
+      float d;
+      if (rel <= span) d = (dist > r ? dist - r : r - dist) - w / 2;
+      else {
+        float d1 = g_sqrt((i + 0.5f - sx) * (i + 0.5f - sx) + (j + 0.5f - sy) * (j + 0.5f - sy));
+        float d2 = g_sqrt((i + 0.5f - ex) * (i + 0.5f - ex) + (j + 0.5f - ey) * (j + 0.5f - ey));
+        d = (d1 < d2 ? d1 : d2) - w / 2;
+      }
+      blend(i, j, c, cover(d));
+    }
+}
+
+float g_sin_turn(float f) { return sin_turn(f); }
+
+void g_circle(float cx, float cy, float r, uint16_t c) { g_rrect(cx - r, cy - r, 2 * r, 2 * r, r, c); }
+
 void g_line(float x0, float y0, float x1, float y1, float w, uint16_t c) {
   float minx = (x0 < x1 ? x0 : x1) - w, maxx = (x0 < x1 ? x1 : x0) + w;
   float miny = (y0 < y1 ? y0 : y1) - w, maxy = (y0 < y1 ? y1 : y0) + w;
@@ -148,8 +235,8 @@ void g_line(float x0, float y0, float x1, float y1, float w, uint16_t c) {
       float dx = px - t * vx, dy = py - t * vy;
       /* Толщину берём по наибольшему покрытию: соседние отрезки ломаной не темнеют в стыках. */
       int a = cover(g_sqrt(dx * dx + dy * dy) - w / 2);
-      if ((unsigned)i < GW && (unsigned)j < GH && a > 0) {
-        uint16_t *p = fb + j * GW + i;
+      if (i >= cx0 && i < cx1 && j >= cy0 && j < cy1 && a > 0) {
+        uint16_t *p = fb + j * gw + i;
         if (*p != c) *p = a >= 256 ? c : mix(*p, c, a);
       }
     }

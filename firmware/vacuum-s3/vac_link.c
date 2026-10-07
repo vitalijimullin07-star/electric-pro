@@ -98,7 +98,7 @@ static void kc(char *out, const char *k, char c) {
 static char mode_char(int m) { return m == VAC_AUTO ? 'a' : 'm'; }
 
 static void send_status(void) {
-  char s[520] = "S";
+  char s[640] = "S";
   ki(s, "st", vac.state);
   ki(s, "sl", vac.sleep);
   kc(s, "md", mode_char(vac.mode));
@@ -144,12 +144,20 @@ static void send_status(void) {
   ki(s, "ov", vac.ov);
   ki(s, "cp", vac.cap);
   ki(s, "au", vac.auto_started);
+  /* 6.0: мощность турбин по замеру, ручная мощность Т2, разгон, проверка первого пуска. */
+  kv(s, "w1", vac.watts[0], 0);
+  kv(s, "w2", vac.watts[1], 0);
+  ki(s, "q2", vac_ext.pw2 ? vac_ext.pw2 : vac_cfg.power);
+  ki(s, "bo", vac.boosting);
+  ki(s, "ts", vac.test_id);
+  ki(s, "vl", vac.valve[0] | vac.valve[1] << 1);
+  ki(s, "hd", vac.hold);
   link_send(s);
 }
 
 /* Реже: розетка, замер фильтра, «Авто», сила удара, клапаны, метки, сеть для телефона. */
 static void send_slow(void) {
-  char s[400] = "F";
+  char s[480] = "F";
   ki(s, "oc", vac.ov_cap);
   ki(s, "o1", vac.ov_one);
   kv(s, "ot", vac.ov_tool, 1);
@@ -172,6 +180,14 @@ static void send_slow(void) {
   ki(s, "tb", vac.tag_low);
   ki(s, "wf", vac.wifi);
   ki(s, "pc", (long)vac_cfg.pulse_count);
+  /* 6.0: весы, часы, кто меняет мощность, режим клапанов, прогноз мойки, удар для осциллографа. */
+  kv(s, "kg", ext_scale_kg(), 1);
+  ki(s, "tm", (long)vac.time_s);
+  ki(s, "rs", vac_ext.rsel);
+  ki(s, "vm", vac_ext.vmode);
+  kv(s, "fc", vac.fc_hours, 1);
+  ki(s, "on", vac.osc_n);
+  ki(s, "sv", vac.svc_mask);
   link_send(s);
 }
 
@@ -240,6 +256,7 @@ void link_send_config(void) {
     str_cat(str_cat(str_cat(w, vac.ssid), " p="), vac.pass);
     link_send(w);
   }
+  ext_send_lines();
 }
 
 void link_send_journal(void) {

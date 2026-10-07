@@ -23,7 +23,7 @@ describe('Приложение для телефона: демо', () => {
   test('состояние от прошивки — все поля, что показывает приложение', () => {
     const { s } = demo();
     const st = s();
-    expect(st.ver).toBe('5.2');
+    expect(st.ver).toBe('6.0');
     // Поля, на которые опираются экраны.
     const keys: (keyof VacStatus)[] = ['state', 'running', 'flow', 'vacuum', 'speed', 'itotal', 'p1', 'p2', 'i1', 'i2', 't1', 't2', 'mode', 'sp', 'power', 'preset', 'pn', 'pe', 'pi', 'pp', 'dip', 'dpon', 'vk', 'hold', 'v1', 'v2', 'r', 'rnew', 'filt', 'fst', 'tauto', 'tthr', 'limit', 'faults', 'phone', 'wifi'];
     for (const k of keys) expect(st, k).toHaveProperty(k);

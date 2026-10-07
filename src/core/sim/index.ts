@@ -7,7 +7,8 @@ import { AnalogSim } from './analog/build';
 import { analogDevices } from './analog/devices';
 import { NullMcu, noMcuFound } from './null-mcu';
 import { Avr, pinTitle } from './mcu';
-import { PANEL_H, PANEL_W, PanelS3 } from './panel-s3';
+import { PanelS3 } from './panel-s3';
+import { VOICE_PHRASES } from './voice-phrases';
 import type { McuPin, PinMode, SimMcu } from './types';
 import type { VacuumPlant, VacuumView } from './vacuum';
 
@@ -100,6 +101,8 @@ export class Simulation {
   serial = '';
   readonly mcuTitle: string;
   onSerial: ((text: string) => void) | null = null;
+  /** Голос (DFPlayer у пылесоса «S3» 6.0): номер фразы, её текст и громкость 0…30. */
+  onVoice: ((track: number, text: string, volume: number) => void) | null = null;
   /** Аналоговый расчёт схемы (если включён и схема собралась). */
   readonly analog: AnalogSim | null = null;
   /** Почему аналоговый расчёт не включился. */
@@ -176,6 +179,14 @@ export class Simulation {
     this.unknown = b.unknown;
     this.plant = b.plant;
     if (this.analog) this.mergeAnalogDevices(analogDevices(this.analog));
+    if (this.mcu instanceof Esp32) {
+      const esp = this.mcu;
+      const prev = esp.onVoice;
+      esp.onVoice = (track, vol) => {
+        prev?.(track, vol);
+        this.onVoice?.(track, VOICE_PHRASES[track] ?? '', vol);
+      };
+    }
     if (this.mcu instanceof Avr) this.mcu.usart.onByteTransmit = (v) => this.log(String.fromCharCode(v));
     for (const [ref, panel] of panels) this.attachPanel(ref, panel);
     // Беспроводной пульт (выносная деталь с меткой ble-remote), если прошивка его принимает.
@@ -207,22 +218,24 @@ export class Simulation {
     const comp = Object.values(this.project.components).find((x) => x.ref === ref);
     if (!(esp instanceof Esp32) || !comp) return;
     this.unknown = this.unknown.filter((u) => !u.startsWith(`${ref} `));
+    const fp = this.project.footprints[comp.footprint];
+    // Экран SPI на самом контроллере (ILI9488): интерфейс пульта работает в его прошивке, строки
+    // те же, что по UART; проверяем, что экран подключён к выводам контроллера.
+    const spi = (fp?.tags ?? []).includes('ili9488');
+    // Экран 3,5″ на контроллере: интерфейс 480×320 (если прошивка экрана его умеет).
+    if (spi) panel.small = true;
     esp.onUart = (bytes) => panel.rx(bytes);
-    panel.onTx = (bytes) => esp.uartWrite(bytes);
+    panel.onTx = (bytes) => esp.uartWrite(bytes, spi);
     const tick = () => {
       panel.loop(esp.cycles / 1000);
       esp.schedule(tick, 10_000);
     };
     esp.schedule(tick, 1);
-    const fp = this.project.footprints[comp.footprint];
     const padNet = (name: string) => {
       const pad = fp?.pads.find((q) => (q.name ?? q.number).toUpperCase() === name);
       return pad ? comp.padNets[pad.number] : undefined;
     };
     const c = this.circuit;
-    // Экран SPI на самом контроллере (ILI9488): интерфейс пульта работает в его прошивке, строки
-    // те же, что по UART; проверяем, что экран подключён к выводам контроллера.
-    const spi = (fp?.tags ?? []).includes('ili9488');
     // Проводка: TX пульта — к RX контроллера, RX пульта — к TX.
     const wiring = (): string | undefined => {
       if (spi) {
@@ -243,7 +256,7 @@ export class Simulation {
     this.devices.push({
       id: comp.id,
       comp,
-      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: spi ? `${ref} экран ${comp.value} (кадр интерфейса 800×480, на экране — в 0,6 раза)` : `${ref} пульт: ${comp.value}`, width: PANEL_W, height: PANEL_H, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
+      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: spi ? (panel.hasSmall ? `${ref} экран ${comp.value} (480×320, касания)` : `${ref} экран ${comp.value} (кадр интерфейса 800×480, на экране — в 0,6 раза)`) : `${ref} пульт: ${comp.value}`, width: panel.width, height: panel.height, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
     });
   }
 

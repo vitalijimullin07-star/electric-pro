@@ -10,6 +10,8 @@ import { computeConnectivity } from '../src/core/model/connectivity';
 import { runDrc } from '../src/core/model/drc';
 import { Simulation, bytesToBase64 } from '../src/core/sim';
 import { siphash24 } from '../src/core/sim/ble-remote';
+import type { Esp32 } from '../src/core/sim/esp32';
+import { VOICE_PHRASES } from '../src/core/sim/voice-phrases';
 import type { Device } from '../src/core/sim/devices';
 import type { Project } from '../src/core/model/types';
 
@@ -64,7 +66,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 5.2 (плата на модулях)');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.0 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
     expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;
@@ -614,6 +616,178 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const key = Uint8Array.from({ length: 16 }, (_, i) => i);
     const data = Uint8Array.from({ length: 15 }, (_, i) => i);
     expect(siphash24(key, data)).toBe(0xa129ca6149be45e5n);
+  });
+});
+
+describe('Пылесос S3 6.0: экран 3,5″, турбины по отдельности, клапаны, разгон, часы, весы, голос', () => {
+  const espOf = (sim: Simulation) => sim.mcu as Esp32;
+  const status = (sim: Simulation) => JSON.parse(espOf(sim).statusJson()!) as Record<string, number>;
+
+  test('экран 3,5″: свой интерфейс 480×320, касание вкладки «Меню» меняет экран', () => {
+    const { sim, sec } = start();
+    const panel = () => sim.view().devices.find((d) => d.kind === 'panel')!;
+    expect(panel().width).toBe(480);
+    expect(panel().height).toBe(320);
+    const before = Array.from(panel().pixels!.slice(0, 480 * 260));
+    sim.touch(panel().id, 432, 295, true);
+    sec(0.1);
+    sim.touch(panel().id, 432, 295, false);
+    sec(0.5);
+    const after = panel().pixels!;
+    let diff = 0;
+    for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) diff++;
+    expect(diff).toBeGreaterThan(5000);
+  });
+
+  test('часы DS3231 и весы NAU7802: ноль, калибровка грузом 10 кг, мусор в баке', () => {
+    const { sim, sec, cmd, set, act } = start();
+    expect(sim.serial).toContain('6.0: часы есть, весы есть');
+    expect(status(sim).time).toBeGreaterThan(820_000_000); // после 2025 года
+    cmd('scale tare');
+    set(/NAU7802/, 'extra', 10);
+    sec(1.5);
+    cmd('scale cal 10');
+    set(/NAU7802/, 'extra', 0);
+    act(/Бак 30 л/, 'debris');
+    sec(2);
+    expect(status(sim).kg / 10).toBeCloseTo(5, 0);
+  });
+
+  test('голос: проверка голоса и тревога «бак полон» — фразы плееру DFPlayer', () => {
+    const { sim, sec, cmd, act, click } = start();
+    const said: string[] = [];
+    sim.onVoice = (_t, text) => said.push(text);
+    sec(4);
+    cmd('voice test 36');
+    sec(1);
+    expect(said).toContain('Пылесос готов к работе.');
+    click(/SB7/);
+    sec(4);
+    act(/Бак 30 л/, 'suck');
+    sec(80);
+    expect(said).toContain('Бак полон. Слейте воду.');
+    expect(sim.devices.find((d) => /DFPlayer/.test(d.view().title))!.view().warning).toBeUndefined();
+  });
+
+  test('турбины по отдельности: ручной режим, Т1 — 50 %, Т2 — 90 %', () => {
+    const { sec, click, cmd, dev } = start();
+    cmd('mode m');
+    click(/SB7/);
+    click(/SB8/);
+    cmd('pw1 50');
+    cmd('pw2 90');
+    sec(10);
+    const set = (re: RegExp) => dev(re).view().readings!.find((r) => r.label === 'задано')!.value;
+    expect(set(/U1 регулятор/)).toBeGreaterThanOrEqual(48);
+    expect(set(/U1 регулятор/)).toBeLessThanOrEqual(52);
+    expect(set(/U2 регулятор/)).toBeGreaterThanOrEqual(88);
+    expect(set(/U2 регулятор/)).toBeLessThanOrEqual(92);
+  });
+
+  test('мощность турбины в ваттах — по току и фазе сети (Domel 1600 Вт на полной)', () => {
+    const { sim, sec, click, cmd } = start();
+    cmd('mode m');
+    cmd('pw 100');
+    click(/SB7/);
+    sec(10);
+    const w1 = status(sim).w1;
+    expect(w1).toBeGreaterThan(1000);
+    expect(w1).toBeLessThan(2000);
+    expect(status(sim).w2).toBe(0);
+  });
+
+  test('клапаны: «только клапан 1» — второй не открывается (после первой серии с проверкой по одному)', () => {
+    const { sim, sec, click, cmd, plant } = start();
+    cmd('set vmode 2');
+    click(/SB7/);
+    sec(6);
+    cmd('purge');
+    sec(12);
+    expect(sim.serial).toContain('Продувка закончена');
+    let v1 = false;
+    let v2 = false;
+    // Первый удар — сразу по команде: смотрим с самого начала.
+    sim.serialWrite('purge\n');
+    for (let i = 0; i < 2000; i++) {
+      sec(0.005);
+      if (plant().valves[0].open) v1 = true;
+      if (plant().valves[1].open) v2 = true;
+    }
+    expect(v1).toBe(true);
+    expect(v2).toBe(false);
+  });
+
+  test('разгон: работает одна Т1, мощная очистка — Т2 плавно, но быстро разгоняется к ударам', () => {
+    const { sim, sec, click, act, rpm } = start();
+    click(/SB7/);
+    sec(8);
+    expect(rpm('M2')).toBe(0);
+    act(/Шланг, бак, фильтр/, 'palm');
+    sec(5);
+    expect(sim.serial).toContain('мощная очистка');
+    expect(rpm('M2')).toBeGreaterThan(15000);
+  });
+
+  test('мастер первого пуска: датчики, турбина 1 (шланг закрыть по просьбе), паспорт', () => {
+    const { sim, sec, cmd, act } = start();
+    cmd('test zero');
+    sec(4);
+    expect(sim.serial).toContain('Проверка пройдена');
+    cmd('test t1');
+    sec(9);
+    act(/Шланг, бак, фильтр/, 'palm');
+    sec(5);
+    expect(sim.serial.match(/Проверка пройдена/g)!.length).toBe(2);
+    cmd('test stop');
+    cmd('pass done');
+    expect(sim.serial).toContain('паспорт пылесоса сохранён');
+    expect(status(sim).pass).toBe(1);
+  });
+
+  test('обслуживание фильтра: «обстучал и продул» — замер и запись в истории (R до → после)', () => {
+    const { sim, sec, click, cmd, act } = start();
+    click(/SB7/);
+    sec(5);
+    act(/Шланг, бак, фильтр/, 'dust');
+    act(/Шланг, бак, фильтр/, 'dust');
+    sec(5);
+    cmd('fsvc 3');
+    sec(30);
+    expect(sim.serial).toMatch(/Обслуживание фильтра записано: R [\d,]+ → [\d,]+/);
+  });
+
+  test('голос: фразы — по номерам V_… ядра, файлы mp3 для карты плеера — все', () => {
+    const h = readFileSync('firmware/vacuum-s3/vac_core.h', 'utf8');
+    const names = /V_TANK_FULL = 1,([\s\S]*?)V_COUNT/.exec(h)![1].split(',').map((x) => x.trim()).filter(Boolean);
+    expect(names.length + 1).toBe(VOICE_PHRASES.length - 1);
+    const txt = readFileSync('firmware/vacuum-s3/voice/phrases.txt', 'utf8').trimEnd().split('\n');
+    expect(txt).toEqual(VOICE_PHRASES.slice(1));
+    for (let i = 1; i < VOICE_PHRASES.length; i++) expect(existsSync(`firmware/vacuum-s3/voice/mp3/${String(i).padStart(4, '0')}.mp3`), `фраза ${i}`).toBe(true);
+    const len = /PH_LEN\[V_COUNT\] = \{([^}]*)\}/.exec(readFileSync('firmware/vacuum-s3/vac_ext.c', 'utf8'))![1].split(',').map((x) => x.trim()).filter(Boolean);
+    expect(len.length).toBe(VOICE_PHRASES.length);
+  });
+
+  test('осциллограф удара, графики и «чёрный ящик»', () => {
+    const { sim, sec, click, cmd } = start();
+    let uart = '';
+    const esp = espOf(sim);
+    const prev = esp.onUart!;
+    esp.onUart = (b) => {
+      uart += new TextDecoder().decode(b);
+      prev(b);
+    };
+    click(/SB7/);
+    sec(6);
+    cmd('purge');
+    sec(10);
+    cmd('osc');
+    cmd('hist 0 0');
+    cmd('get ext');
+    sec(0.5);
+    expect(uart).toMatch(/^O k=\d+ n=\d+ dt=2/m);
+    expect(uart).toMatch(/^H m=0 r=0 n=\d+ dt=5 v=/m);
+    expect(uart).toMatch(/^X pw2=/m);
+    expect(esp.blackBox.length).toBeGreaterThan(0);
   });
 });
 

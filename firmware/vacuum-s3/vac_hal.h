@@ -64,6 +64,17 @@ void hal_settings_save2(int slot, const void *buf, int len);
 /* Одна копия прошивки 3.x — только чтение, для переноса настроек при обновлении. */
 int hal_settings_load(void *buf, int len);
 
+/* Голос: байты плееру DFPlayer Mini (UART 9600 по линии 5 кабеля пульта — она свободна, когда
+ * экран на самом контроллере). begin(1) — переключить линию на плеер, begin(0) — вернуть пульту. */
+void hal_voice_begin(int on);
+void hal_voice_write(const uint8_t *data, int len);
+
+/* «Чёрный ящик»: записи по 32 байта в файле на флеше (раздел FAT), по кругу. */
+void hal_bb_append(const void *rec, int len);
+/* Прочитать len байт с записи номер index (0 — самая старая из хранимых); число прочитанных. */
+int hal_bb_read(uint32_t index, void *rec, int len);
+uint32_t hal_bb_count(void);
+
 /* Случайное число (аппаратный генератор): пароль сети Wi-Fi. */
 uint32_t hal_rand32(void);
 /* Сеть Wi-Fi для телефона (страница, обновление, резервная копия): on = 0 — выключить. */

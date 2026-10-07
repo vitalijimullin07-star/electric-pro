@@ -1,9 +1,10 @@
 /*
  * Экран на контроллере: ILI9488 3,5″ 480×320 по SPI (по этой шине — только 18 бит на точку) и
- * касание XPT2046 на той же шине. Интерфейс — тот же, что у отдельной платы с экраном
- * (firmware/vacuum-panel: panel_main.c, panel_s3.c, gfx.c, fonts.c — копия в src/panel, её
- * обновляет sync-panel.sh): он рисует кадр 800×480 в PSRAM, здесь кадр уменьшается в 0,6 раза
- * (480×288, полосы по 16 точек сверху и снизу) и уходит на экран только изменившимися полосами.
+ * касание XPT2046 на той же шине. Интерфейс — из прошивки пульта (firmware/vacuum-panel — копия
+ * в src/panel, её обновляет sync-panel.sh): с 6.0 — свой интерфейс экрана 3,5″ (panel_t35.c),
+ * кадр 480×320 в PSRAM точка в точку; «lcd old» — прежний интерфейс пульта 7″ (кадр 800×480
+ * уменьшается в 0,6 раза до 480×288 с полосами сверху и снизу), «lcd new» — обратно (после
+ * перезапуска). На экран уходят только изменившиеся полосы.
  * Строки контроллера интерфейс получает из hal_uart_write (те же, что идут по UART), его
  * команды — через кольцо в loop() (vac_uart_local). Всё это — отдельной задачей на ядре 0: ядро
  * прошивки (loop на ядре 1) не ждёт отрисовку.
@@ -26,9 +27,10 @@ extern Preferences prefs;
 
 #define LCD_HZ 26000000
 #define TOUCH_HZ 2000000
-#define SW 480 /* уменьшенный кадр */
-#define SH 288
-#define SY 16  /* поле сверху */
+#define SW 480 /* кадр на экране */
+#define SH_OLD 288 /* прежний интерфейс: уменьшенный кадр 800×480 */
+static int SH = 320, SY = 0; /* высота кадра и поле сверху */
+static bool native = true;   /* интерфейс 480×320 точка в точку */
 
 static SPIClass spi(FSPI);
 static uint16_t *fb, *cur, *prev, *keep;
@@ -56,8 +58,8 @@ template <int N> struct Ring {
 static Ring<8192> rx; /* контроллер → интерфейс */
 static Ring<1024> tx; /* интерфейс → контроллер */
 
-static volatile int cmd_flip, cmd_rgb, cmd_cal, cmd_off = -1;
-static uint8_t flags; /* бит 0 — на 180°, бит 1 — RGB вместо BGR, бит 2 — выключен */
+static volatile int cmd_flip, cmd_rgb, cmd_cal, cmd_off = -1, cmd_old = -1;
+static uint8_t flags; /* бит 0 — на 180°, бит 1 — RGB вместо BGR, бит 2 — выключен, бит 3 — прежний интерфейс 7″ */
 static bool started;
 
 extern "C" {
@@ -73,7 +75,9 @@ void hal_lcd(const char *c) {
   else if (!strcmp(c, "lcd cal")) cmd_cal = 1;
   else if (!strcmp(c, "lcd off")) cmd_off = 1;
   else if (!strcmp(c, "lcd on")) cmd_off = 0;
-  else Serial.println("lcd flip | lcd rgb | lcd cal | lcd off | lcd on");
+  else if (!strcmp(c, "lcd old")) cmd_old = 1;
+  else if (!strcmp(c, "lcd new")) cmd_old = 0;
+  else Serial.println("lcd flip | lcd rgb | lcd cal | lcd off | lcd on | lcd old | lcd new");
 }
 }
 
@@ -138,7 +142,7 @@ static void window(int x0, int y0, int x1, int y1) {
   wcmd(0x2B, ra, 4);
 }
 
-/* Прямоугольник из кадра 480×288 (строки src шириной SW) → экран, RGB565 → RGB666. */
+/* Прямоугольник из кадра (строки src шириной SW) → экран, RGB565 → RGB666. */
 static void push_rect(const uint16_t *src, int x0, int y0, int x1, int y1) {
   static uint8_t line[SW * 3];
   window(x0, y0 + SY, x1, y1 + SY);
@@ -181,6 +185,7 @@ static void fill_band(int y0, int h) {
 static const uint8_t WT[3][5] = {{3, 2, 0, 0, 0}, {0, 1, 3, 1, 0}, {0, 0, 0, 2, 3}};
 
 static void shrink() {
+  if (native) return; /* кадр интерфейса и есть кадр экрана */
   for (int by = 0; by < SH / 3; by++)
     for (int bx = 0; bx < SW / 3; bx++) {
       /* Сначала по строкам: 5 строк × 3 точки, суммы с весами (×5). */
@@ -211,6 +216,7 @@ static void shrink() {
 /* Изменившиеся полосы (до 16 строк) — на экран; всё — после смены ориентации и калибровки. */
 static void push(bool all) {
   shrink();
+  uint16_t *cur = native ? fb : ::cur;
   for (int y = 0; y < SH;) {
     int x0 = SW, x1 = -1, y1 = y;
     for (; y1 < SH && y1 < y + 16; y1++) {
@@ -281,13 +287,14 @@ static void to_screen(int rx_, int ry_, int *x, int *y) {
 static const int CX[3] = {40, 440, 40}, CY[3] = {40, 40, 280};
 
 static void cal_draw(int i) {
-  g_fill(0, 0, GW, GH, 0);
-  /* Крестик в точке экрана (CX, CY) — в кадре 800×480 это (CX/0,6, (CY − 16)/0,6). */
-  float x = CX[i] / 0.6f, y = (CY[i] - SY) / 0.6f;
-  g_line(x - 30, y, x + 30, y, 4, 0xFFFF);
-  g_line(x, y - 30, x, y + 30, 4, 0xFFFF);
-  g_text_at(&F_S20, GW / 2, GH / 2 - 20, "Калибровка касания", 0xFFFF, 1);
-  g_text_at(&F_S16, GW / 2, GH / 2 + 20, i == 0 ? "коснитесь центра крестика и отпустите" : "теперь — следующего", 0xC618, 1);
+  int w = g_width(), h = g_height();
+  g_fill(0, 0, w, h, 0);
+  /* Крестик в точке экрана (CX, CY); в прежнем кадре 800×480 это (CX/0,6, (CY − 16)/0,6). */
+  float k = native ? 1 : 0.6f, x = CX[i] / k, y = (CY[i] - SY) / k, a = 30 * k;
+  g_line(x - a, y, x + a, y, 3, 0xFFFF);
+  g_line(x, y - a, x, y + a, 3, 0xFFFF);
+  g_text_at(&F_S20, w / 2, h / 2 - 20, "Калибровка касания", 0xFFFF, 1);
+  g_text_at(&F_S16, w / 2, h / 2 + 20, i == 0 ? "коснитесь центра крестика и отпустите" : "теперь — следующего", 0xC618, 1);
   push(true);
 }
 
@@ -359,8 +366,9 @@ static void lcd_task(void *) {
   spi.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, -1);
   lcd_init();
   fill_band(0, 320);
-  memset(prev, 0, SW * SH * 2);
-  ui_setup(fb);
+  memset(prev, 0, SW * 320 * 2);
+  if (native) ui_setup_t35(fb);
+  else ui_setup(fb);
   bool all = true, sleeping = false, down = false;
   int lx = 0, ly = 0, hx = 0, hy = 0, miss = 0;
   uint32_t t_touch = 0, hold_t0 = 0;
@@ -371,6 +379,10 @@ static void lcd_task(void *) {
     if (cmd_flip) cmd_flip = 0, flags ^= 1, prefs.putUChar("lcdf", flags), madctl(), fill_band(0, 320), all = true;
     if (cmd_rgb) cmd_rgb = 0, flags ^= 2, prefs.putUChar("lcdf", flags), madctl(), all = true;
     if (cmd_off >= 0) flags = (uint8_t)(cmd_off ? flags | 4 : flags & ~4), cmd_off = -1, prefs.putUChar("lcdf", flags), all = true;
+    if (cmd_old >= 0) {
+      flags = (uint8_t)(cmd_old ? flags | 8 : flags & ~8), cmd_old = -1, prefs.putUChar("lcdf", flags);
+      Serial.println("Интерфейс экрана сменится после перезапуска");
+    }
     if (cmd_cal && cal_i < 0) {
       cmd_cal = 0;
       if (down) ui_touch(lx, ly, 0), down = false;
@@ -389,12 +401,12 @@ static void lcd_task(void *) {
       if (touch_raw(&rx_, &ry_)) {
         int x, y;
         to_screen(rx_, ry_, &x, &y);
-        /* Экран 480×320 → кадр интерфейса 800×480. */
-        lx = constrain((int)(x / 0.6f), 0, GW - 1);
-        ly = constrain((int)((y - SY) / 0.6f), 0, GH - 1);
+        /* Экран 480×320 → кадр интерфейса (480×320 или прежний 800×480). */
+        if (native) lx = constrain(x, 0, SW - 1), ly = constrain(y, 0, 319);
+        else lx = constrain((int)(x / 0.6f), 0, GW - 1), ly = constrain((int)((y - SY) / 0.6f), 0, GH - 1);
         ui_touch(lx, ly, 1);
         miss = 0;
-        if (!down || abs(lx - hx) > 40 || abs(ly - hy) > 40) hold_t0 = ms, hx = lx, hy = ly;
+        if (!down || abs(lx - hx) > 30 || abs(ly - hy) > 30) hold_t0 = ms, hx = lx, hy = ly;
         down = true;
         /* Палец 8 с на одном месте — калибровка (если касание совсем мимо, кнопками её не вызвать). */
         if (ms - hold_t0 > 8000) ui_touch(lx, ly, 0), down = false, cal_start();
@@ -407,7 +419,7 @@ static void lcd_task(void *) {
     bool sl = ui_sleeping() != 0;
     if (!(flags & 4)) {
       /* Подсветка у экрана всегда от 3,3 В — «сон» показываем чёрным экраном (кадр интерфейса не трогаем). */
-      if (sl && !sleeping) fill_band(0, 320), memset(prev, 0, SW * SH * 2);
+      if (sl && !sleeping) fill_band(0, 320), memset(prev, 0, SW * 320 * 2);
       else if (!sl && (drawn || all || sleeping)) push(all || sleeping), all = false;
     }
     sleeping = sl;
@@ -418,14 +430,16 @@ static void lcd_task(void *) {
 void lcd_start() {
   fb = (uint16_t *)heap_caps_malloc(GW * GH * 2, MALLOC_CAP_SPIRAM);
   keep = (uint16_t *)heap_caps_malloc(GW * GH * 2, MALLOC_CAP_SPIRAM);
-  cur = (uint16_t *)heap_caps_malloc(SW * SH * 2, MALLOC_CAP_SPIRAM);
-  prev = (uint16_t *)heap_caps_malloc(SW * SH * 2, MALLOC_CAP_SPIRAM);
+  cur = (uint16_t *)heap_caps_malloc(SW * 320 * 2, MALLOC_CAP_SPIRAM);
+  prev = (uint16_t *)heap_caps_malloc(SW * 320 * 2, MALLOC_CAP_SPIRAM);
   if (!fb || !keep || !cur || !prev) {
     Serial.println("Экран на контроллере выключен: нет PSRAM (плата N16R8, в настройках сборки — OPI PSRAM)");
     return;
   }
   memset(fb, 0, GW * GH * 2);
   flags = prefs.getUChar("lcdf", 0);
+  native = !(flags & 8);
+  SH = native ? 320 : SH_OLD, SY = native ? 0 : 16;
   if (prefs.isKey("tcal")) prefs.getBytes("tcal", &cal, sizeof cal);
   if (!cal.ok) Serial.println("Касание экрана не откалибровано: lcd cal (или палец 8 с на экране)");
   started = true;

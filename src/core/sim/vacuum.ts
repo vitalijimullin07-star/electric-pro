@@ -249,6 +249,10 @@ export class VacuumPlant {
   private mags: MagValve[] = [];
   private dyn = { pc: 0, pt: 0, t: 0, loose: 0.05, stuck: 0, bagCake: 0, bagFill: 0 };
   private tankL = 40;
+  /** Мусор в баке, кг (растёт с пылью и потоком; «Слить бак» — ноль). */
+  private debrisKg = 0;
+  /** Пустой бак на тензодатчике под колесом, кг. */
+  private tankTareKg = 9;
   /** Предохранители: цепь по одну сторону → цепь по другую. */
   private fuseNext = new Map<Id, Id>();
   private chamberL = 2.2;
@@ -819,6 +823,7 @@ export class VacuumPlant {
     const dust = this.airP[4].value * (this.tool?.amps ? 1 : 0.25);
     const grow = dust * 0.0015 * (qh / 0.043) * dt;
     this.cake = [Math.min(2, this.cake[0] + grow), Math.min(2, this.cake[1] + grow)];
+    this.debrisKg += dust * 0.0004 * (qh / 0.043) * dt;
   }
 
   /* ---------------- клапаны на магнитах: камера за фильтром и бак ---------------- */
@@ -1014,6 +1019,7 @@ export class VacuumPlant {
       // Пыль копится, пока идёт поток (с инструментом — быстрее); с мешком почти вся — в мешок.
       const dust = this.airP[4].value * (this.tool?.amps ? 1 : 0.25);
       const grow = dust * 0.0015 * (Math.max(0, q.h) / 0.043) * h;
+      this.debrisKg += dust * 0.0004 * (Math.max(0, q.h) / 0.043) * h;
       const bag = this.dustP('bag') > 0;
       const onFilter = bag ? grow * 0.2 : grow;
       const stick = DUST_STICK[Math.round(this.dustP('kind'))] ?? 0.03;
@@ -1184,6 +1190,11 @@ export class VacuumPlant {
   temperatureOf(where: string): (() => number) | null {
     const m = this.motors.find((x) => up(x.load.comp.ref) === up(where));
     return m ? () => m.temp : null;
+  }
+
+  /** Масса на тензодатчике под колесом бака, кг: пустой бак, вода и мусор (весы NAU7802). */
+  massOf(): () => number {
+    return () => this.tankTareKg + (this.tank ? this.tank.level * this.tankL : 0) + this.debrisKg;
   }
 
   /** Перепад давления для датчика, Па: «фильтр», «расходомер», «вход турбин» (разрежение). */
@@ -1455,7 +1466,8 @@ export class VacuumPlant {
       },
       act: (k) => {
         if (k === 'suck') t.sucking = !t.sucking;
-        if (k === 'drain') (t.level = 0), (t.sucking = false);
+        if (k === 'drain') (t.level = 0), (t.sucking = false), (this.debrisKg = 0);
+        if (k === 'debris') this.debrisKg += 5;
         if (k === 'full') t.level = Math.max(t.level, 0.8);
       },
       view: () => ({
@@ -1463,7 +1475,7 @@ export class VacuumPlant {
         comp: comp.id,
         ref: 'Бак',
         kind: 'tank',
-        title: `Бак ${this.tankL} л: вода ${Math.round(t.level * 100)} %${t.sucking ? ', шланг в воде' : ''}`,
+        title: `Бак ${this.tankL} л: вода ${Math.round(t.level * 100)} %, мусор ${this.debrisKg.toFixed(1)} кг${t.sucking ? ', шланг в воде' : ''}`,
         params,
         readings: [
           { label: 'уровень', value: Math.round(t.level * 100), unit: '%' },
@@ -1473,7 +1485,8 @@ export class VacuumPlant {
         actions: [
           { key: 'suck', label: t.sucking ? 'Вынуть шланг из воды' : 'Сосать воду' },
           { key: 'full', label: 'Бак почти полон (80 %)' },
-          { key: 'drain', label: 'Слить бак' },
+          { key: 'debris', label: 'Насыпать 5 кг мусора' },
+          { key: 'drain', label: 'Опорожнить бак' },
         ],
         warning: t.drive === undefined && t.e.length ? 'не найдена раскачка общего электрода (вывод → резистор → конденсатор)' : undefined,
       }),

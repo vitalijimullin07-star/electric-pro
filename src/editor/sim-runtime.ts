@@ -111,6 +111,8 @@ class SimRuntime {
         if (id !== this.startId) return;
         this.sim = sim;
         this.synced = project;
+        // Голос пылесоса: фразы DFPlayer произносит браузер.
+        sim.onVoice = (_track, text, volume) => this.say(text, volume);
         if (sim.analog) sim.analog.engine.noise = this.noise;
         this.history = { t: [], s: {} };
         this.view = sim.view();
@@ -131,6 +133,23 @@ class SimRuntime {
         this.patch({ error: e.message, status: 'off' });
       },
     );
+  }
+
+  /** Произнести фразу голосом браузера (громкость 0…30, как у DFPlayer). */
+  private say(text: string, volume: number): void {
+    try {
+      const synth = globalThis.speechSynthesis;
+      if (!synth || !text || !volume) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      u.volume = Math.max(0, Math.min(1, volume / 30));
+      u.rate = 1.05;
+      const ru = synth.getVoices().find((v) => v.lang.startsWith('ru'));
+      if (ru) u.voice = ru;
+      synth.speak(u);
+    } catch {
+      /* голоса в браузере нет — не страшно */
+    }
   }
 
   pause(): void {
@@ -361,6 +380,11 @@ class SimRuntime {
       }
     }
     this.tones.clear();
+    try {
+      globalThis.speechSynthesis?.cancel();
+    } catch {
+      /* нет голоса */
+    }
   }
 }
 
