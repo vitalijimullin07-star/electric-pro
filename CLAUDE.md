@@ -30,3 +30,4 @@
 - Меняя формат проекта, добавьте миграцию в `src/core/io/project-file.ts` (`migrateProject`).
 - Плата пылесоса из старого формата (`src/core/io/legacy-plata.ts`, данные — `src/core/examples/vacuum-controller`) осталась только для тестов: в редакторе её нет по просьбе автора. Её вариант на выводных деталях — `import/plata-dip*.plata.json`.
 - Сайт https://vitalijimullin07-star.github.io/electric-pro/ — GitHub Pages из корня ветки `main`. Корневой `index.html` и `router.worker-*.js` — собранный редактор (генерирует `npm run build`), исходная страница — `app.html`. После любых изменений кода: `npm run build` и закоммитить обновлённый `index.html`, иначе CI упадёт.
+- Архив идей и расчётов по пылесосу (ячейка, клапаны, потоки, пульт, вода) — `notes/pylesos-idei.tgz.enc`, AES-256; пароль спросить у автора, команды — `notes/README.md`.
