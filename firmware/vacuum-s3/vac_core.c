@@ -3,7 +3,8 @@
  * и поочерёдным пуском, проверка симисторов и реле по току, регулятор расхода (ПИ, вторая
  * турбина — по потребности), очистка фильтра ударами клапанов через SSR в нуле сети (оба разом,
  * режимы и «Авто», мощная очистка при закрытом шланге, удары при остановке и после
- * инструмента), паспорт фильтров А и Б, розетка инструмента (автозапуск, предел тока),
+ * инструмента; тарельчатые клапаны — магнит держит тарелку, удар — снять ток, тарелка не села —
+ * сброс турбин, пока пружины её не закроют), паспорт фильтров А и Б, розетка инструмента (автозапуск, предел тока),
  * электроды и поплавок бака, журнал наработки, измерения и защиты.
  * Не зависит от Arduino: железо — через vac_hal.h.
  */
@@ -33,10 +34,15 @@ static volatile uint8_t tick_div, wl_div, wl_lvl;
 static volatile uint32_t wl_edge, wl_phase;
 /*
  * Клапаны: SSR G3MB включается и выключается в нуле сети, поэтому удар — целое число
- * полупериодов. Вход SSR подаём заранее (до нуля), снимаем за 1 мс до нуля, на котором удар
- * должен кончиться: открыт ровно vlv_n полупериодов, считая от первого нуля.
+ * полупериодов. Импульсные: вход SSR подаём заранее (до нуля), снимаем за 1 мс до нуля, на
+ * котором удар должен кончиться: открыт ровно vlv_n полупериодов, считая от первого нуля.
+ * Тарельчатые (VK_PLATE): магнит под током всё время, пока есть разрежение (vlv_arm), — на удар
+ * вход снимаем до нуля и подаём снова за 1 мс до нуля конца: магнит без тока те же полупериоды.
+ * Выводы клапанов пишет только прерывание.
  */
-static volatile uint8_t vlv_req, vlv_on;    /* маска: удар заказан; вход SSR подан */
+static volatile uint8_t vlv_req, vlv_on;    /* маска: удар заказан; удар идёт */
+static volatile uint8_t vlv_plate, vlv_arm; /* тарельчатые клапаны; магниты держат (маска) */
+static uint8_t vlv_pins;                    /* что сейчас на выводах (маска) */
 static volatile uint16_t vlv_ms;            /* длина удара, мс */
 static volatile uint32_t vlv_off_at;
 /* Без таблицы: её константы ушли бы во флеш, а код в прерывании должен работать и во время записи во флеш. */
@@ -65,13 +71,16 @@ VAC_ISR void vac_tick(void) {
     uint32_t n = (vlv_ms * 1000u + half / 2) / half;
     if (n < 1) n = 1;
     vlv_off_at = z + n * half - 1000;
-    for (int ch = 0; ch < 2; ch++)
-      if (vlv_req & (1 << ch)) hal_pin_write(VLV_PIN(ch), 1);
     vlv_on = vlv_req;
     vlv_req = 0;
-  } else if (vlv_on && (int32_t)(now - vlv_off_at) >= 0) {
-    for (int ch = 0; ch < 2; ch++) hal_pin_write(VLV_PIN(ch), 0);
+  } else if (vlv_on && (int32_t)(now - vlv_off_at) >= 0)
     vlv_on = 0;
+  /* Импульсные — под током на удар; тарельчатые — под током, кроме удара. */
+  uint8_t pins = vlv_plate ? (uint8_t)(vlv_arm & ~vlv_on) : vlv_on;
+  if (pins != vlv_pins) {
+    for (int ch = 0; ch < 2; ch++)
+      if ((pins ^ vlv_pins) & (1 << ch)) hal_pin_write(VLV_PIN(ch), (pins >> ch) & 1);
+    vlv_pins = pins;
   }
   /* Электроды: переменный ток через воду (конденсатор 1 мкФ не пропускает постоянный — нет электролиза). */
   if (++wl_div >= WL_HALF) {
@@ -91,7 +100,7 @@ VAC_ISR void vac_tick(void) {
 /* ---------------- настройки ---------------- */
 
 #define CFG_MAGIC 0x5653
-#define CFG_VERSION 4
+#define CFG_VERSION 5
 
 /* CRC-16/CCITT по всему, что до поля crc. */
 static uint16_t cfg_crc(const vac_settings_t *s) {
@@ -106,6 +115,17 @@ static uint16_t cfg_crc(const vac_settings_t *s) {
 }
 
 /* Режимы очистки по умолчанию: уставка, ударов, промежуток, удар, пауза, флаги. */
+/* Тарельчатые клапаны (как у Kärcher Tact): магнит без тока 80–120 мс, удары через 0,5 с. */
+static const vac_preset_t PRESET_PLATE[N_PRESETS] = {
+    {32, 0, 0, 0, 0, PF_HOSE, 0},      /* Авто: всё подбирает сам */
+    {36, 3, 15, 100, 500, PF_HOSE, 0}, /* Бетон, штроба: три удара по 100 мс через 0,5 с */
+    {30, 1, 30, 100, 0, 0, 0},         /* Бурение с присоской */
+    {32, 2, 20, 120, 500, PF_HOSE, 0}, /* Гипс, шпаклёвка: липкая пыль — удар длиннее */
+    {28, 1, 60, 100, 0, PF_HOSE, 0},   /* Уборка */
+    {30, 2, 30, 100, 500, PF_HOSE, 0}, /* Мешок */
+    {30, 0, 0, 0, 0, PF_NOCLEAN, 0},   /* Вода: мокрый фильтр ударами не отбить */
+};
+/* Импульсные клапаны на соленоидах. */
 static const vac_preset_t PRESET_DEF[N_PRESETS] = {
     {32, 0, 0, 0, 0, PF_HOSE, 0},      /* Авто: всё подбирает сам */
     {36, 3, 15, 40, 300, PF_HOSE, 0},  /* Бетон, штроба: как у Hilti — три удара по 40 мс через 0,3 с */
@@ -130,7 +150,10 @@ static void cfg_defaults(void) {
   d.hose_auto = 1;
   d.strong_n = 4;
   d.thr = 115;
-  for (int i = 0; i < N_PRESETS; i++) d.pr[i] = PRESET_DEF[i];
+  d.vlv_kind = VK_PLATE;
+  /* Расчёт потоков (3D): турбины на 30 % на время удара — обратный поток через фильтр в среднем в 1,25–1,5 раза больше. */
+  d.dip = 70;
+  for (int i = 0; i < N_PRESETS; i++) d.pr[i] = PRESET_PLATE[i];
   d.min_speed = 12;
   d.hose_mm = 36;
   d.mains_cal = 1000;
@@ -212,7 +235,18 @@ static int migrate_v3(void) {
   return 1;
 }
 
-static int cfg_valid(const vac_settings_t *s) { return s->magic == CFG_MAGIC && s->version == CFG_VERSION && s->crc == cfg_crc(s); }
+/* Настройки 5.0 (версия 4) — те же поля; на их месте были пустые байты: клапаны были импульсные. */
+static int cfg_valid(vac_settings_t *s) {
+  if (s->magic != CFG_MAGIC || s->crc != cfg_crc(s)) return 0;
+  if (s->version == 4) {
+    s->version = CFG_VERSION;
+    s->vlv_kind = VK_PULSE;
+    s->dip = 0;
+    s->pad3 = 0;
+    s->crc = cfg_crc(s);
+  }
+  return s->version == CFG_VERSION;
+}
 
 /* Из двух копий — целая и более новая; нет ни одной — перенос с 3.x или заводские. */
 static void cfg_load(void) {
@@ -225,7 +259,15 @@ static void cfg_load(void) {
   else cfg_defaults();
   if (vac_cfg.preset >= N_PRESETS) vac_cfg.preset = PR_AUTO;
   if (vac_cfg.filt >= N_FILTERS) vac_cfg.filt = 0;
+  if (vac_cfg.vlv_kind > VK_PULSE) vac_cfg.vlv_kind = VK_PLATE;
+  if (vac_cfg.dip > 90) vac_cfg.dip = 0;
+  vlv_plate = vac_cfg.vlv_kind == VK_PLATE;
 }
+
+static const vac_preset_t *preset_def(void) { return vac_cfg.vlv_kind == VK_PLATE ? PRESET_PLATE : PRESET_DEF; }
+/* Длина удара «Авто»: тарелке нужно 4–5 мс открыться и ~30 мс вернуться — удар длиннее, чем у соленоида. */
+#define IMP_MIN (vlv_plate ? 60 : 25)
+#define IMP_MAX (vlv_plate ? 150 : 80)
 
 void vac_save_settings(void) {
   vac_cfg.seq++;
@@ -374,7 +416,9 @@ static float pa_before, pa_min, pc_before, pc_min;
 static int t_front, fast_n;
 static uint8_t valve_bad_dp;     /* ударов подряд без броска перепада */
 /* «Авто»: подбор удара и паузы, оценка пыли. */
-static uint16_t imp_auto = 40;
+static uint16_t imp_auto = 100;
+static uint32_t dip_until;        /* тарельчатые: турбины сброшены на время удара */
+static uint8_t plate_seated;      /* тарельчатые: после удара разрежение вернулось — тарелки сели */
 static float r_ref;              /* R, от которого считается рост до серии */
 static float r_grow;             /* рост R за секунду (сглаженный) */
 static float n_auto = 2;         /* ударов, которые помогали в последних сериях */
@@ -456,7 +500,9 @@ const char *vac_fault_text(uint32_t bit) {
 
 static const char *verr_text(int e) {
   switch (e) {
-  case VE_STUCK: return "не открывается (заклинил, нет напряжения, обрыв катушки или SSR)";
+  case VE_STUCK: return vlv_plate ? "не открывается (тарелка заклинила или SSR пробит — магнит не отпускает)" : "не открывается (заклинил, нет напряжения, обрыв катушки или SSR)";
+  case VE_NOCLOSE: return "тарелка не садится после удара (грязь в седле, пружины, магнит не ловит)";
+  case VE_HOLD: return "магнит не держит тарелку (обрыв магнита, нет 230 В, SSR, слабый магнит)";
   }
   return "";
 }
@@ -544,7 +590,7 @@ static void purge_finish(const char *why) {
 
 /* Длина удара: мощная — не короче 60 мс; режим задал — его; иначе — подобранная. */
 static uint16_t imp_for(int kind) {
-  if (kind == PURGE_STRONG) return imp_auto > 60 ? imp_auto : 60;
+  if (kind == PURGE_STRONG) return vlv_plate ? (imp_auto > 120 ? imp_auto : 120) : imp_auto > 60 ? imp_auto : 60;
   if (kind == PURGE_SERIES && PRESET.imp) return PRESET.imp;
   return imp_auto;
 }
@@ -869,6 +915,9 @@ static void fire(uint8_t mask) {
   vac_cfg.in_pulses++;
   FILT.pulses++;
   diag_pulses++;
+  /* Тарельчатые: турбины на время удара слабее — больше атмосферы уходит через фильтр в бак. */
+  if (vlv_plate && vac_cfg.dip) dip_until = now_ms + vac.imp_now + 30;
+  plate_seated = 0;
 }
 
 /* Быстрые отсчёты во время удара: перепад на фильтре, разрежение. */
@@ -924,12 +973,12 @@ static void pulse_eval(void) {
       if (rev < pa_before * 0.6f && rev < 150) weak_in++;
       else strong_in++;
     }
-    if (meaningful && dp_ok && pa_before > 20 && vac.flow_ls > 8 && rev > 0 && rev < 450)
+    if (meaningful && dp_ok && pa_before > 20 && vac.flow_ls > 8 && rev > 0 && rev < (vlv_plate ? 2500 : 450))
       intake_update(rev * vac.flow_ls * vac.flow_ls / (pa_before * pc_before * 1000.0f));
     /* «Авто»: удар — до самого глубокого обратного перепада и ещё 15 мс, не дольше нужного. */
     if (vac.purging == PURGE_SERIES && !PRESET.imp && meaningful && t_front >= 0) {
       int want = t_front + 15;
-      imp_auto = (uint16_t)(want < 25 ? 25 : want > 80 ? 80 : want);
+      imp_auto = (uint16_t)(want < IMP_MIN ? IMP_MIN : want > IMP_MAX ? IMP_MAX : want);
     }
     return;
   }
@@ -984,7 +1033,7 @@ static void purge_step(uint32_t ms) {
     }
     break;
   case PH_PAUSE: {
-    if (watch_until) break;
+    if (watch_until || vac.reseat) break;
     uint32_t dt = ms - ph_t;
     int ready;
     if (vac.purging == PURGE_STRONG && pulse_i < pulses_now) {
@@ -1000,7 +1049,8 @@ static void purge_step(uint32_t ms) {
     else if (vac.purging == PURGE_SERIES && PRESET.pause)
       ready = dt >= PRESET.pause;
     else
-      ready = dt >= 150 && (vac.vacuum_kpa >= rec_target || dt >= 800);
+      /* Тарельчатые: не села — следующий удар только после сброса турбин (plate_watch). */
+      ready = dt >= 150 && (vac.vacuum_kpa >= rec_target || dt >= (vlv_plate ? 1500u : 800u));
     if (!ready) break;
     if (vac.purging == PURGE_SERIES && !pulses_now && pulse_i - diag_n >= 1 && !diag_req) {
       /* «Авто»: после удара меряем R — стоит ли бить ещё. */
@@ -1241,6 +1291,112 @@ static void overload_trip(float tl, float turb) {
   vac_beep(3);
 }
 
+/* ---------------- тарельчатые клапаны: магниты и посадка тарелок ---------------- */
+
+/*
+ * Магниты держат тарелки, пока турбины работают или в камере есть разрежение, и ещё 3 с после.
+ * Пружины одни держат тарелку закрытой только до ~0,9 кПа, поэтому турбины пускаются, когда
+ * магниты уже 150 мс под током. Тарелка не села после удара (или магнит отпустил её сам) —
+ * разрежение в камере и перепад на фильтре пропадают (воздух идёт мимо фильтра): турбины на 0,6 с
+ * сбрасываются, разрежение падает, пружины закрывают тарелку, магнит её ловит. Больше трёх раз
+ * подряд — неисправность клапанов (какой из двух — не видно, обе тарелки на одной камере).
+ */
+static uint32_t hold_since, hold_off_at, reseat_until, last_reseat, collapse_since, last_pulse_end, plate_ok_since;
+static float vac_ema, fpa_ema;
+static int reseat_n, chat_n;
+static uint32_t chat_t0;
+static uint8_t in_dip;
+
+static int plate_ready(uint32_t ms) { return !vlv_plate || (vac.hold && ms - hold_since >= 150); }
+
+static int plate_fault(void) { return vac.verr[0] == VE_NOCLOSE || vac.verr[0] == VE_HOLD || vac.verr[1] == VE_NOCLOSE || vac.verr[1] == VE_HOLD; }
+
+static void plate_watch(uint32_t ms, int spin) {
+  if (!vlv_plate) {
+    vlv_arm = 0;
+    vac.hold = vac.reseat = 0;
+    reseat_until = 0;
+    return;
+  }
+  int need = spin || vac.ts[0] != TS_OFF || vac.ts[1] != TS_OFF || vac.vacuum_kpa > 0.4f;
+  if (need) hold_off_at = ms + 3000;
+  int arm = need || (int32_t)(hold_off_at - ms) > 0;
+  if (arm && !vac.hold) hold_since = ms;
+  vac.hold = (uint8_t)arm;
+  vlv_arm = arm ? 3 : 0;
+
+  int pulsing = vlv_req || vlv_on || (vac.purging && ph == PH_OPEN);
+  if (pulsing) last_pulse_end = ms;
+  if (reseat_until) {
+    if ((int32_t)(ms - reseat_until) < 0) return;
+    reseat_until = 0;
+    vac.reseat = 0;
+    collapse_since = 0;
+    last_pulse_end = ms;  /* турбины разгоняются — как после удара */
+  }
+  float pc = vac.vacuum_kpa, fp = vac.filter_pa;
+  if (!vac.running || ms - run_since <= 3000) {
+    /* Пуск: запоминаем, каким разрежение и перепад бывают при закрытых тарелках. */
+    vac_ema = pc, fpa_ema = fp, collapse_since = 0;
+    return;
+  }
+  if (pulsing || ms - last_pulse_end < 400) {
+    collapse_since = 0;
+    return;
+  }
+  /* Открытая тарелка (или висящая на пружинах) держит в камере лишь ~3 кПа, воздух идёт мимо фильтра. */
+  int coll = vac_ema > 2 && pc < vac_ema * 0.5f && ((vac.faults & F_SDP_F) || fpa_ema < 20 || fp < fpa_ema * 0.6f);
+  /* Слабый магнит: тарелка срывается, пружины её закрывают, магнит ловит — и снова (дребезг):
+   * короткие провалы разрежения без ударов. Три за 3 с — как провал. */
+  /* Открыли шланг — разрежение тоже падает, но перепад на фильтре растёт: это не тарелка. */
+  if (!in_dip && vac_ema > 2 && pc < vac_ema * 0.75f && fp < fpa_ema * 1.2f + 10) {
+    in_dip = 1;
+    if (ms - chat_t0 > 3000) chat_t0 = ms, chat_n = 0;
+    chat_n++;
+  } else if (in_dip && pc > vac_ema * 0.9f)
+    in_dip = 0;
+  if (chat_n >= 3 && !coll) {
+    coll = 1;
+    plate_seated = 1;
+  }
+  if (!coll) {
+    collapse_since = 0;
+    if (pc >= vac_ema * 0.8f) plate_seated = 1;
+    /* Вверх — быстро, вниз — медленно (~5 с): провал от открытой тарелки не успевает стать «нормой». */
+    if (!in_dip) {
+      vac_ema += (pc - vac_ema) * (pc > vac_ema ? 0.05f : 0.002f);
+      fpa_ema += (fp - fpa_ema) * (fp > fpa_ema ? 0.05f : 0.002f);
+    }
+    if (!plate_ok_since) plate_ok_since = ms;
+    if (ms - plate_ok_since > 20000) {
+      reseat_n = 0;
+      if (plate_fault()) valve_fault(0, VE_OK), valve_fault(1, VE_OK);
+    }
+    return;
+  }
+  plate_ok_since = 0;
+  if (!collapse_since) collapse_since = ms;
+  if ((ms - collapse_since < 200 && chat_n < 3) || (plate_fault() && ms - last_reseat < 10000)) return;
+  chat_n = 0;
+  /* Причина — по первому провалу подряд: после сброса турбин разрежение растёт заново. */
+  static uint8_t ep_after;
+  if (!reseat_n) ep_after = !plate_seated;
+  int after = ep_after;
+  char line[160] = "Тарелка ", n[12];
+  str_cat(line, after ? "не села после удара" : "открылась сама при "), str_cat(line, after ? "" : fmt_num(n, vac_ema, 1)), str_cat(line, after ? "" : " кПа");
+  hal_log(str_cat(line, " — сброс турбин, пружины закроют"));
+  if (++reseat_n > 3) {
+    valve_fault(0, after ? VE_NOCLOSE : VE_HOLD);
+    valve_fault(1, after ? VE_NOCLOSE : VE_HOLD);
+    reseat_n = 0;
+  }
+  reseat_until = ms + 600;
+  last_reseat = ms;
+  vac.reseat = 1;
+  collapse_since = 0;
+  pulse_quiet_until = ms + 2000;
+}
+
 /* ---------------- управление (каждые 10 мс) ---------------- */
 
 static void control(void) {
@@ -1325,6 +1481,7 @@ static void control(void) {
     for (int k = 0; k < 2; k++)
       if (spin_mask & (1 << k)) tgt[k] = 100;
 
+  plate_watch(ms, spin);
   float rate = 10.0f / (vac_cfg.softstart ? vac_cfg.softstart : 1); /* % за 10 мс */
   int any = 0;
   for (int k = 0; k < 2; k++) {
@@ -1337,7 +1494,7 @@ static void control(void) {
     /* Поочерёдный пуск: вторая — после разгона первой (бросок тока — по одному). */
     int other_starting = vac.ts[k ^ 1] >= TS_CLOSE && vac.ts[k ^ 1] <= TS_RUN && vac.pcmd[k ^ 1] > 0 && ms - on_since[k ^ 1] < vac_cfg.stagger_ms;
     int first = k == 0 || tgt[0] <= 0 || vac.ts[0] == TS_RUN;
-    int on = spin && target > 0 && !locked && (vac.ts[k] == TS_RUN || (first && !other_starting));
+    int on = spin && target > 0 && !locked && (vac.ts[k] == TS_RUN || (first && !other_starting && plate_ready(ms)));
     turbine_fsm(k, on, 0, ms);
     float pw = vac.pcmd[k];
     if (vac.ts[k] != TS_RUN || !on)
@@ -1351,6 +1508,8 @@ static void control(void) {
     /* МР248: мощность — доля от напряжения на входе (0…3,3 В), то есть заполнение ШИМ. */
     int duty = pw < 15 ? 0 : (int)(pw * 10.0f + 0.5f);
     if (duty > 1000) duty = 1000;
+    if (vac.reseat) duty = 0;
+    else if (dip_until && (int32_t)(dip_until - ms) > 0) duty = duty * (100 - vac_cfg.dip) / 100;
     if (duty != pwm_sent[k]) hal_pwm(k ? PIN_T2 : PIN_T1, PWM_HZ, duty), pwm_sent[k] = duty;
     if (pw > 0) any = 1;
   }
@@ -1890,6 +2049,7 @@ void vac_setup(void) {
   now_ms = hal_millis();
   next_sample = hal_micros();
   hal_log("Контроллер пылесоса S3 " VAC_VERSION " (плата на модулях), ESP32-S3. Команды: help");
+  hal_log(vlv_plate ? "Клапаны тарельчатые: магниты держат тарелки, удар — снять ток" : "Клапаны импульсные: удар — подать ток");
   char line[160] = "Настройки: режим ", n2[12];
   str_cat(line, mode_name(vac.mode));
   str_cat(line, ", очистка «"), str_cat(line, PRESET_NAME[vac_cfg.preset]), str_cat(line, "», уставка ");
@@ -2037,7 +2197,8 @@ void vac_command(const char *c) {
     link_send_journal();
   } else if (str_eq(c, "help")) {
     hal_log("Команды: status, start, stop, t1 0|1, t2 0|1, off [now], wake, mode a|m, sp 10…60, pw 30…100, t2allow 0|1,");
-    hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|dp|strong|wl|stag N (dp — порог перепада, Па, 0 — авто), clean a|o, coff 0|1, hauto 0|1,");
+    hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|dp|strong|wl|stag|dip N (dp — порог перепада, Па, 0 — авто; dip — сброс турбин на удар, %),");
+    hal_log("  set valves plate|pulse (тарельчатые на магнитах / импульсные), clean a|o, coff 0|1, hauto 0|1,");
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
     hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
@@ -2104,6 +2265,14 @@ void vac_command(const char *c) {
       hal_log(line);
     }
     else if (str_starts(a, "strong ") && in_range(x, 1, 10)) vac_cfg.strong_n = (uint8_t)x;
+    else if (str_starts(a, "dip ") && in_range(x, 0, 90)) vac_cfg.dip = (uint8_t)x;
+    else if (str_eq(a, "valves plate") || str_eq(a, "valves pulse")) {
+      vac_cfg.vlv_kind = str_eq(a, "valves plate") ? VK_PLATE : VK_PULSE;
+      vlv_plate = vac_cfg.vlv_kind == VK_PLATE;
+      imp_auto = vlv_plate ? 100 : 40;
+      for (int i = 0; i < N_PRESETS; i++) vac_cfg.pr[i] = preset_def()[i];
+      hal_log(vlv_plate ? "Клапаны тарельчатые: магниты держат, удар — снять ток; режимы очистки — заводские" : "Клапаны импульсные: удар — подать ток; режимы очистки — заводские");
+    }
     else if (str_starts(a, "wl ") && in_range(x, 50, 1500)) vac_cfg.wl_mv = (uint16_t)x;
     else if (str_starts(a, "stag ") && in_range(x, 0, 5000)) vac_cfg.stagger_ms = (uint16_t)x;
     else return;
@@ -2121,7 +2290,7 @@ void vac_command(const char *c) {
       cfg_changed();
     }
   } else if (str_eq(c, "preset reset")) {
-    for (int i = 0; i < N_PRESETS; i++) vac_cfg.pr[i] = PRESET_DEF[i];
+    for (int i = 0; i < N_PRESETS; i++) vac_cfg.pr[i] = preset_def()[i];
     auto_plan();
     hal_log("Режимы очистки — заводские");
     cfg_changed();

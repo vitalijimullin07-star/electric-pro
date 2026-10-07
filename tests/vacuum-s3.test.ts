@@ -14,12 +14,12 @@ import type { Device } from '../src/core/sim/devices';
 import type { Project } from '../src/core/model/types';
 
 /*
- * Пылесос «S3» на модулях: контроллер на ESP32-S3-DevKitC-1 (firmware/vacuum-s3, 5.0), интерфейс
+ * Пылесос «S3» на модулях: контроллер на ESP32-S3-DevKitC-1 (firmware/vacuum-s3, 5.1), интерфейс
  * экрана (общая прошивка firmware/vacuum-panel) и беспроводной пульт Bluetooth — ядра прошивок в
- * WebAssembly — управляют моделью установки: модули реле 30 А и регуляторы МР248 (ШИМ) турбин,
- * импульсные клапаны 230 В через твердотельное реле G3MB, розетка инструмента с модулем реле K3,
- * трансформаторы тока SCT-013 с выходом 1 В, метка Bluetooth на инструменте, бак 28 л с электродами
- * и поплавком, камера 2,2 л и фильтр клапанов. Прежняя плата S3 (SMD, клапаны на магнитах,
+ * WebAssembly — управляют моделью установки: модули реле 30 А и регуляторы МР248 (ШИМ) турбин
+ * Domel 467, тарельчатые клапаны с удерживающими магнитами 230 В через твердотельное реле G3MB,
+ * розетка инструмента с модулем реле K3, трансформаторы тока SCT-013 с выходом 1 В, метка
+ * Bluetooth на инструменте, бак 30 л с электродами и поплавком, камера коробки 3 л и фильтр клапанов. Прежняя плата S3 (SMD, клапаны на магнитах,
  * прошивка 4.0 внутри файла) — архив: проверяются только её файлы.
  * С VAC_WRITE=1 файлы в import/ пишутся заново (медь платы на модулях берётся из её файла;
  * VAC_REROUTE=1 — развести заново).
@@ -64,7 +64,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 5.0 (плата на модулях)');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 5.1 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
     expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;
@@ -137,7 +137,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sec, click, act, relay, rpm, sim, plant } = start();
     click(/SB7/);
     sec(4);
-    act(/Бак 28 л/, 'suck');
+    act(/Бак 30 л/, 'suck');
     sec(80);
     expect(sim.serial).toContain('Бак полон');
     expect(relay('K1')).toBe(false);
@@ -154,10 +154,10 @@ describe('Пылесос S3 на модулях: прошивки в симул�
 
   test('пена: электроды не видят — останавливает поплавок', () => {
     const { sec, click, act, set, sim } = start();
-    set(/Бак 28 л/, 'water', 3);
+    set(/Бак 30 л/, 'water', 3);
     click(/SB7/);
     sec(4);
-    act(/Бак 28 л/, 'suck');
+    act(/Бак 30 л/, 'suck');
     sec(90);
     expect(sim.serial).toContain('Бак полон (поплавок)');
   });
@@ -181,7 +181,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     sec(4);
     expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
     // Обрыв катушки: удар обоими его не выдаёт (второй клапан бьёт), проверка по одному — да.
-    set(/YV1 импульсный/, 'fault', 2);
+    set(/YV1 тарельчатый/, 'fault', 2);
     cmd('ack');
     cmd('purge');
     sec(6);
@@ -190,7 +190,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
 
   test('заклинивший клапан находится проверкой клапанов по одному в первой серии', () => {
     const { sec, click, cmd, set, sim } = start();
-    set(/YV2 импульсный/, 'fault', 1);
+    set(/YV2 тарельчатый/, 'fault', 2);
     click(/SB7/);
     sec(6);
     cmd('purge');
@@ -215,9 +215,10 @@ describe('Пылесос S3 на модулях: прошивки в симул�
       if (a.valves.every((v) => v.open)) longest = Math.max(longest, (bothMs += 2.5));
       else bothMs = 0;
     }
-    // Первая серия: проверка по одному клапану и удар обоими — 25–80 мс; поток проседает, но не до нуля.
-    expect(longest).toBeGreaterThanOrEqual(25);
-    expect(longest).toBeLessThanOrEqual(85);
+    // Первая серия: проверка по одному клапану и удар обоими — магнит без тока 80–120 мс, тарелка
+    // открывается за ~5 мс и возвращается за ~30 мс; поток проседает, но не до нуля.
+    expect(longest).toBeGreaterThanOrEqual(60);
+    expect(longest).toBeLessThanOrEqual(170);
     expect(minFlow).toBeGreaterThan(before * 0.1);
   });
 
@@ -433,6 +434,91 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     sec(30);
     expect(sim.serial).toContain('Продувка закончена');
     expect(sim.serial).not.toMatch(/Клапан \d неисправен/);
+  });
+
+  test('тарельчатые клапаны: магниты под током раньше турбин, удар — снять ток; без разрежения магниты отпускают', () => {
+    const { sec, click, cmd, sim, plant, dev, relay } = start();
+    const ssrOn = () => dev(/U3 SSR .*канал 1/).view().readings!.find((r) => r.label === 'открыт')!.value > 50;
+    expect(sim.serial).toContain('Клапаны тарельчатые');
+    expect(ssrOn()).toBe(false);
+    click(/SB7/);
+    expect(ssrOn()).toBe(true);
+    expect(relay('K1')).toBe(true);
+    sec(6);
+    expect(plant().valves.every((v) => !v.open)).toBe(true);
+    cmd('purge');
+    let offWhileOpen = false;
+    for (let i = 0; i < 800; i++) {
+      sec(0.005);
+      if (plant().valves.every((v) => v.open) && !ssrOn()) offWhileOpen = true;
+    }
+    expect(offWhileOpen).toBe(true);
+    expect(ssrOn()).toBe(true);
+    sec(3);
+    expect(plant().valves.every((v) => !v.open)).toBe(true);
+    expect(sim.serial).not.toContain('Тарелка');
+    click(/SB7/);
+    sec(20);
+    expect(ssrOn()).toBe(false);
+  });
+
+  test('тарелка не садится (грязь в седле): сброс турбин — пружины закрывают, разрежение возвращается', () => {
+    const { sec, click, cmd, set, sim, plant } = start();
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
+    click(/SB7/);
+    sec(6);
+    const before = plant().air.vacuum;
+    set(/YV1 тарельчатый/, 'fault', 3);
+    cmd('purge');
+    sec(3);
+    expect(log).toContain('Тарелка не села после удара — сброс турбин');
+    set(/YV1 тарельчатый/, 'fault', 0);
+    sec(6);
+    expect(plant().valves.every((v) => !v.open)).toBe(true);
+    expect(plant().air.vacuum).toBeGreaterThan(before * 0.8);
+  });
+
+  test('обрыв магнита: при заметном разрежении тарелка открывается сама — после трёх сбросов «магнит не держит»', () => {
+    const { sec, click, set, sim } = start();
+    let log = '';
+    sim.onSerial = (t: string) => (log += t);
+    // Без магнита пружины держат ~3 кПа: при открытом шланге разницы почти нет — шланг полуперекрыт.
+    set(/Шланг, бак, фильтр/, 'block', 70);
+    click(/SB7/);
+    sec(6);
+    set(/YV2 тарельчатый/, 'fault', 1);
+    sec(60);
+    expect(log).toContain('Тарелка открылась сама');
+    expect(log).toContain('клапан 2: магнит не держит тарелку');
+  });
+
+  test('закрытый шланг (~24 кПа): магнит 150 Н держит, слабый (60 Н) — тарелка срывается сама', () => {
+    for (const force of [150, 60]) {
+      const { sec, click, cmd, act, set, sim } = start();
+      let log = '';
+      sim.onSerial = (t: string) => (log += t);
+      set(/YV1 тарельчатый/, 'force', force);
+      set(/YV2 тарельчатый/, 'force', force);
+      // Без мощной очистки: разрежение копится, удары его не сбрасывают.
+      cmd('hauto 0');
+      click(/SB7/);
+      click(/SB8/);
+      sec(6);
+      act(/Шланг, бак, фильтр/, 'palm');
+      sec(10);
+      if (force === 150) expect(log).not.toContain('Тарелка');
+      else expect(log).toMatch(/Тарелка открылась сама при 1\d/);
+    }
+  });
+
+  test('«set valves pulse» — импульсные клапаны: SSR только на удар, режимы — заводские для соленоидов', () => {
+    const { sec, click, cmd, sim, dev } = start();
+    cmd('set valves pulse');
+    expect(sim.serial).toContain('Клапаны импульсные');
+    click(/SB7/);
+    sec(2);
+    expect(dev(/U3 SSR .*канал 1/).view().readings!.find((r) => r.label === 'открыт')!.value).toBe(0);
   });
 
   test('режим «Бетон»: серия по времени — удары; только турбина 2 — реле K1 клапанам не нужно', () => {

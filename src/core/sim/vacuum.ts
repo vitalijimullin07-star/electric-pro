@@ -16,7 +16,9 @@ import type { McuPin } from './types';
  * Плата на модулях: модули реле (relay-module, включаются «0» на IN), регуляторы мощности МР248
  * (triac-dimmer: мощность — по скважности ШИМ на входе «управление»), твердотельные реле
  * (ssr-module: включаются «0» на CHn и только в нуле сети) с импульсными клапанами 230 В —
- * они тоже бьют по фильтру через камеру (та же динамика двух объёмов), трансформаторы тока
+ * они тоже бьют по фильтру через камеру (та же динамика двух объёмов), тарельчатые клапаны
+ * (plate-valve: удерживающий магнит 230 В через SSR держит тарелку Ø90 против разрежения,
+ * без тока её вталкивает разрежение, закрывают пружины), трансформаторы тока
  * с выходом 1 В (sct013-v: нагрузка внутри, сигнал — относительно середины на S2).
  * Детали находятся по схеме: метки корпусов (universal-motor, triac, solenoid-valve,
  * magnet-valve, tool-outlet, current-transformer, transformer, mains, relay, water-electrode,
@@ -68,6 +70,21 @@ const PLATE_OPEN_MS = 6;
 const PLATE_CLOSE_MS = 15;
 const P_ATM = 101_325;
 const MAG_STATES = ['исправен', 'обрыв магнита', 'тарелка заклинила', 'пробит ключ (магнит всегда под током)'];
+/**
+ * Тарельчатый клапан (свой, по принципу Kärcher Tact): площадь под уплотнением 52,8 см², ход 9 мм —
+ * щель как труба Ø54; три пружины 0,39 Н/мм: закрыт — 4,7 Н, открыт — 15,4 Н. Магнит Ø40 на якоре
+ * при зазоре 0,5 мм — по паспорту (150 Н), на открытой тарелке (зазор 9 мм) — несколько процентов.
+ * Без тока поле спадает за ~6 мс; тарелка открывается за 4,5 мс, пружины возвращают за ~27 мс.
+ */
+const PLATE_AREA = 52.8e-4;
+const PLATE_SPRING_CLOSED = 4.7;
+const PLATE_SPRING_OPEN = 15.4;
+const PLATE_FIELD_MS = 6;
+const PLATE_GO_MS = 4.5;
+const PLATE_BACK_MS = 27;
+/** Проход открытой тарелки относительно Ø40: (54/40)². */
+const PLATE_SIZE = (54 / 40) ** 2;
+const PLATE_STATES = ['исправен', 'обрыв магнита', 'тарелка заклинила', 'тарелка не садится (грязь в седле)', 'SSR пробит (магнит всегда под током)'];
 /** Импульсный клапан 230 В: якорь втягивается за 8 мс, мембрана открывается за 6 мс, закрывается за 15 мс. */
 const PULSE_PULL_MS = 8;
 const SSR_STATES = ['исправен', 'пробит (всегда включён)', 'обрыв (не включается)'];
@@ -177,6 +194,8 @@ interface MagValve {
   peakRev: number;
   /** Импульсный клапан 230 В через SSR (не магнит): сколько катушка под током, мс. */
   pulse?: { onMs: number };
+  /** Тарельчатый клапан с удерживающим магнитом через SSR: доля поля магнита (0…1). */
+  plate?: { field: number };
 }
 
 /** Трансформатор тока: с нагрузкой на плате (ток во вторичную цепь) или с выходом напряжения (vPerA). */
@@ -293,6 +312,7 @@ export class VacuumPlant {
     for (const [tag, kind] of [
       ['universal-motor', 'motor'],
       ['solenoid-valve', 'valve'],
+      ['plate-valve', 'valve'],
       ['magnet-valve', 'magnet'],
       ['tool-outlet', 'tool'],
     ] as const)
@@ -421,7 +441,7 @@ export class VacuumPlant {
     for (const l of loads) if (!l.triac && l.kind === 'tool') l.relay = l.nets.flatMap((n) => through(n)).map((n) => relayOf(n)).find(Boolean);
     for (const l of loads) {
       if (l.kind === 'motor') this.addMotor(l);
-      else if (l.kind === 'valve' && l.triac?.ssr) this.addPulse(l);
+      else if (l.kind === 'valve' && l.triac?.ssr) this.addPulse(l, !!this.p.footprints[l.comp.footprint]?.tags?.includes('plate-valve'));
       else if (l.kind === 'valve') this.addValve(l);
       else if (l.kind === 'magnet') this.addMagnet(l);
       else this.addTool(l);
@@ -827,6 +847,10 @@ export class VacuumPlant {
   private plates(h: number, us: number): void {
     const pc = this.dyn.pc;
     for (const v of this.mags) {
+      if (v.plate) {
+        this.holdPlate(v, h, us);
+        continue;
+      }
       if (v.pulse) {
         this.pulsePlate(v, h, us);
         continue;
@@ -867,7 +891,7 @@ export class VacuumPlant {
   /** Катушка импульсного клапана под током в момент us: SSR проводит весь полупериод от включения. */
   private pulseOn(v: MagValve, us: number): boolean {
     const t = v.load.triac;
-    if (!t || this.volts <= 0 || v.params[2].value === 2) return false;
+    if (!t || this.volts <= 0 || (!v.plate && v.params[2].value === 2)) return false;
     return us <= this.halfStart ? t.lastCond > 0.5 : t.firedAt !== null && us >= t.firedAt;
   }
 
@@ -889,9 +913,39 @@ export class VacuumPlant {
     v.amps = on ? va / Math.max(1, this.volts) : 0;
   }
 
+  /**
+   * Тарельчатый клапан: закрытую держат магнит и пружины против разрежения на площади уплотнения;
+   * открытую закрывают пружины (магнит на зазоре 9 мм почти не тянет), когда разрежение спало.
+   */
+  private holdPlate(v: MagValve, h: number, us: number): void {
+    const f = v.params[1].value;
+    const on = (this.pulseOn(v, us) && f !== 1) || (f === 4 && this.volts > 0);
+    const pl = v.plate!;
+    const k = (h * 1000) / PLATE_FIELD_MS;
+    pl.field = on ? Math.min(1, pl.field + k) : Math.max(0, pl.field - k);
+    // Магнит тянет якорь тем слабее, чем больше зазор (0,5 мм закрытой, +9 мм хода): ~ (0,5/зазор)².
+    const force = v.params[0].value * pl.field * (0.5 / (0.5 + 9 * v.x)) ** 2;
+    const spring = PLATE_SPRING_CLOSED + (PLATE_SPRING_OPEN - PLATE_SPRING_CLOSED) * v.x;
+    const push = Math.max(0, this.dyn.pc) * PLATE_AREA;
+    let target: number;
+    if (f === 2) target = 0;
+    // Не садится — грязь в седле: закроется, только когда разрежение почти пропадёт (турбины сброшены).
+    else if (f === 3 && v.x > 0) target = push > 150 * PLATE_AREA ? 1 : 0;
+    else target = push > spring + force ? 1 : 0;
+    if (target > v.x) {
+      v.x = Math.min(1, v.x + (h * 1000) / PLATE_GO_MS);
+      if (!v.open) (v.open = true), (v.openedAt = us);
+    } else if (target < v.x) {
+      v.x = Math.max(0, v.x - (h * 1000) / PLATE_BACK_MS);
+      if (v.x <= 0) v.open = false;
+    }
+    v.amps = on && this.volts > 0 ? v.params[2].value / Math.max(1, this.volts) : 0;
+  }
+
   /** Клапан движется или вот-вот откроется: воздух считается мелким шагом. */
   private valveBusy(v: MagValve, pc: number, us: number): boolean {
     if (v.x > 0) return true;
+    if (v.plate) return v.plate.field < 1 && pc * PLATE_AREA > v.params[0].value * v.plate.field;
     return v.pulse ? this.pulseOn(v, us) : !v.held && pc > PLATE_OPEN_PA;
   }
 
@@ -941,7 +995,7 @@ export class VacuumPlant {
       left -= h;
       us += h * 1e6;
       this.plates(h, us);
-      const area = this.mags.reduce((a, v) => a + v.x, 0);
+      const area = this.mags.reduce((a, v) => a + v.x * (v.plate ? PLATE_SIZE : 1), 0);
       const kv = area > 0 ? MAG_KV / (area * area) + ki : 0;
       const qv = (pc: number) => (kv > 0 && pc > 0 ? Math.sqrt(pc / kv) : 0);
       const pc0 = d.pc;
@@ -1018,8 +1072,9 @@ export class VacuumPlant {
   }
 
   /** Импульсный клапан 230 В через SSR: бьёт по фильтру так же, как клапан на магните (динамика камеры и бака). */
-  private addPulse(l: Load): void {
+  private addPulse(l: Load, plate = false): void {
     const comp = l.comp;
+    if (plate) return this.addHoldPlate(l);
     const v: MagValve = {
       load: l,
       params: [param('va', 'пусковая мощность катушки', 60, 5, 400, 5, 'ВА'), param('hold', 'мощность удержания', 25, 2, 150, 1, 'ВА'), param('fault', 'клапан', 0, 0, 2, 1, '', VALVE_STATES)],
@@ -1053,6 +1108,49 @@ export class VacuumPlant {
           { label: 'мембрана', value: Math.round(v.x * 100), unit: '% открыта' },
         ],
         warning: !l.triac ? 'не найдено твердотельное реле в цепи клапана' : undefined,
+      }),
+    });
+  }
+
+  /** Тарельчатый клапан с удерживающим магнитом 230 В через SSR. */
+  private addHoldPlate(l: Load): void {
+    const comp = l.comp;
+    const n = /(\d+)\s*Н/.exec(comp.value);
+    const v: MagValve = {
+      load: l,
+      params: [param('force', 'сила магнита (зазор 0,5 мм)', n ? +n[1] : 150, 20, 400, 5, 'Н'), param('fault', 'клапан', 0, 0, PLATE_STATES.length - 1, 1, '', PLATE_STATES), param('va', 'мощность магнита', 12, 2, 60, 1, 'ВА')],
+      coil: [],
+      held: false,
+      x: 0,
+      open: false,
+      amps: 0,
+      openedAt: 0,
+      peakRev: 0,
+      plate: { field: 0 },
+    };
+    this.mags.push(v);
+    this.devices.push({
+      id: comp.id,
+      comp,
+      set: (k, val) => {
+        const pp = v.params.find((x) => x.key === k);
+        if (pp) pp.value = val;
+      },
+      view: () => ({
+        id: comp.id,
+        comp: comp.id,
+        ref: comp.ref,
+        kind: 'valve',
+        title: `${comp.ref} тарельчатый клапан ${comp.value}${l.triac ? ` ← ${l.triac.comp.ref}` : ''}`,
+        on: v.open,
+        params: v.params,
+        readings: [
+          { label: 'магнит держит', value: Math.round(v.params[0].value * v.plate!.field), unit: 'Н' },
+          { label: 'давит разрежение', value: Math.round(Math.max(0, this.dyn.pc) * PLATE_AREA), unit: 'Н' },
+          { label: 'тарелка', value: Math.round(v.x * 100), unit: '% открыта' },
+          { label: 'ток магнита', value: +v.amps.toFixed(3), unit: 'А' },
+        ],
+        warning: !l.triac ? 'не найдено твердотельное реле в цепи магнита' : undefined,
       }),
     });
   }
@@ -1519,8 +1617,8 @@ export class VacuumPlant {
       valves: [
         ...this.valves.map((v) => ({ ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: v.params[2].value ? VALVE_STATES[v.params[2].value] : null })),
         ...this.mags.map((v) => {
-          const f = v.params[v.pulse ? 2 : 0].value;
-          return { ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: f ? (v.pulse ? VALVE_STATES : MAG_STATES)[f] : null };
+          const f = v.params[v.plate ? 1 : v.pulse ? 2 : 0].value;
+          return { ref: v.load.comp.ref, open: v.open, amps: v.amps, fault: f ? (v.plate ? PLATE_STATES : v.pulse ? VALVE_STATES : MAG_STATES)[f] : null };
         }),
       ],
       relays: this.relays.map((r) => ({ ref: r.comp.ref, closed: this.relayClosed(r), fault: r.params[0].value ? RELAY_STATES[r.params[0].value] : null })),
