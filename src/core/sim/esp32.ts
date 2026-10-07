@@ -27,6 +27,8 @@ interface WasmExports {
   vac_remote?(ptr: number, len: number, rssi: number): void;
   /** Буфер прошивки для строк и посылок из симулятора. */
   sim_buffer?(): number;
+  /** Состояние в JSON (как отдаёт страница для телефона) — у прошивки «S3». */
+  vac_status_json?(ptr: number, len: number): number;
 }
 
 interface Ev {
@@ -108,6 +110,16 @@ export class Esp32 implements SimMcu {
       this.mem().set(data.subarray(0, 480), ptr);
       this.call(() => ex.vac_remote!(ptr, Math.min(480, data.length), rssi));
     }, 1);
+  }
+
+  /** Состояние прошивки в JSON (то же, что видит приложение на телефоне), или null. */
+  statusJson(): string | null {
+    const ex = this.ex;
+    if (!ex?.vac_status_json || !ex.sim_buffer) return null;
+    const ptr = ex.sim_buffer();
+    let n = 0;
+    this.call(() => (n = ex.vac_status_json!(ptr, 2048)));
+    return n > 0 ? new TextDecoder().decode(this.mem().subarray(ptr, ptr + n)) : null;
   }
 
   /** Для браузера: модуль больше 4 КБ компилируется только асинхронно. */
@@ -415,16 +427,20 @@ export class Esp32 implements SimMcu {
 
   /** Байты в порт прошивки (как из монитора порта, 115200 бод). */
   serialWrite(text: string): void {
-    const bytes = [...new TextEncoder().encode(text)];
-    let i = 0;
+    // Очередь: строки, отправленные подряд, идут друг за другом, а не вперемешку.
+    const idle = !this.txQ.length;
+    this.txQ.push(...new TextEncoder().encode(text));
+    if (!idle) return;
     const send = () => {
-      if (i >= bytes.length || !this.ex) return;
-      const b = bytes[i++];
+      if (!this.txQ.length || !this.ex) return;
+      const b = this.txQ.shift()!;
       this.call(() => this.ex!.vac_serial(b));
-      this.schedule(send, 87);
+      if (this.txQ.length) this.schedule(send, 87);
     };
     this.schedule(send, 1);
   }
+
+  private txQ: number[] = [];
 }
 
 /*

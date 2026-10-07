@@ -1,9 +1,9 @@
 // Service worker Plata: редактор открывается и работает без интернета.
 // Страница — сначала из сети (чтобы получать обновления), при отсутствии сети — из кеша;
 // остальное (воркер, иконки) — из кеша с фоновым обновлением.
-const VERSION = '88c73e857924';
+const VERSION = '09a4d361dc63';
 const CACHE = 'plata-' + VERSION;
-const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","router.worker-CQbbK91E.js"];
+const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","pylesos.html","pylesos.webmanifest","router.worker-CQbbK91E.js"];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -22,14 +22,16 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
+    // Две страницы: редактор (index.html) и приложение пылесоса (pylesos.html).
+    const page = /pylesos\.html$/.test(new URL(req.url).pathname) ? 'pylesos.html' : 'index.html';
     e.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          if (res.ok) caches.open(CACHE).then((c) => c.put('index.html', copy));
+          if (res.ok) caches.open(CACHE).then((c) => c.put(page, copy));
           return res;
         })
-        .catch(() => caches.match('index.html').then((r) => r || caches.match('./'))),
+        .catch(() => caches.match(page).then((r) => r || caches.match('./'))),
     );
     return;
   }

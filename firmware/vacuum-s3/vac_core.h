@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "5.1"
+#define VAC_VERSION "5.2"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*
@@ -309,6 +309,8 @@ typedef struct {
   uint32_t uptime_s;
   uint32_t purges;        /* серий за включение */
   char ssid[24], pass[12];/* сеть для телефона */
+  uint32_t ble_code;      /* код сопряжения телефона по Bluetooth (6 цифр, новый при каждом включении) */
+  uint8_t phone;          /* телефон на связи по Bluetooth (ставит обвязка) */
 } vac_state_t;
 
 extern vac_state_t vac;

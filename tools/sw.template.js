@@ -22,14 +22,16 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
+    // Две страницы: редактор (index.html) и приложение пылесоса (pylesos.html).
+    const page = /pylesos\.html$/.test(new URL(req.url).pathname) ? 'pylesos.html' : 'index.html';
     e.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          if (res.ok) caches.open(CACHE).then((c) => c.put('index.html', copy));
+          if (res.ok) caches.open(CACHE).then((c) => c.put(page, copy));
           return res;
         })
-        .catch(() => caches.match('index.html').then((r) => r || caches.match('./'))),
+        .catch(() => caches.match(page).then((r) => r || caches.match('./'))),
     );
     return;
   }

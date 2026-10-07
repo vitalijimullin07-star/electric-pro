@@ -2,7 +2,7 @@
 // Такой файл можно открыть с диска, переслать или опубликовать как одну страницу.
 // Воркер автотрассировки кладётся рядом (dist/router.worker-*.js); если его нет,
 // автотрассировка работает в основном потоке.
-import { copyFileSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -30,7 +30,9 @@ writeFileSync(join(dist, 'index.html'), html);
 // Работа без сети: service worker кеширует страницу, воркер, манифест и иконки.
 // Версия кеша — от содержимого, чтобы новая сборка вытесняла старую.
 const workers = readdirSync(dist).filter((f) => /^router\.worker-.*\.js$/.test(f));
-const statics = ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+// Приложение «Пылесос S3» (pylesos.html — собирает tools/inline-pylesos.mjs) — тоже без сети.
+if (existsSync(join(root, 'pylesos.html'))) copyFileSync(join(root, 'pylesos.html'), join(dist, 'pylesos.html'));
+const statics = ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', ...(existsSync(join(dist, 'pylesos.html')) ? ['pylesos.html', 'pylesos.webmanifest'] : [])];
 const version = createHash('sha256').update(html).update(workers.join()).digest('hex').slice(0, 12);
 const sw = readFileSync(new URL('./sw.template.js', import.meta.url), 'utf8')
   .replace('__VERSION__', version)

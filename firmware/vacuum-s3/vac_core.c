@@ -2049,6 +2049,8 @@ void vac_setup(void) {
   now_ms = hal_millis();
   next_sample = hal_micros();
   hal_log("Контроллер пылесоса S3 " VAC_VERSION " (плата на модулях), ESP32-S3. Команды: help");
+  /* Код для телефона: Android спросит его при первом подключении по Bluetooth (виден на экране «Телефон»). */
+  vac.ble_code = 100000 + hal_rand32() % 900000;
   hal_log(vlv_plate ? "Клапаны тарельчатые: магниты держат тарелки, удар — снять ток" : "Клапаны импульсные: удар — подать ток");
   char line[160] = "Настройки: режим ", n2[12];
   str_cat(line, mode_name(vac.mode));
@@ -2438,9 +2440,9 @@ static char *json_num(char *out, const char *key, float v, int dec) {
 }
 
 int vac_status_json(char *buf, int len) {
-  char out[1100];
+  char out[1700];
   out[0] = 0;
-  str_cat(out, "{");
+  str_cat(out, "{\"ver\":\"" VAC_VERSION "\",");
   json_num(out, "state", vac.state, 0);
   json_num(out, "sleep", vac.sleep, 0);
   json_num(out, "mode", vac.mode, 0);
@@ -2485,6 +2487,49 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "float", vac.float_on, 0);
   json_num(out, "panel", vac.panel, 0);
   json_num(out, "remote", vac.remote, 0);
+  /* Для приложения на телефоне: клапаны, очистка, фильтр, розетка, настройки. */
+  json_num(out, "vk", vac_cfg.vlv_kind, 0);
+  json_num(out, "hold", vac.hold, 0);
+  json_num(out, "reseat", vac.reseat, 0);
+  json_num(out, "v1", vac.verr[0], 0);
+  json_num(out, "v2", vac.verr[1], 0);
+  json_num(out, "vo1", vac.valve[0], 0);
+  json_num(out, "vo2", vac.valve[1], 0);
+  json_num(out, "pno", vac.pulse_no, 0);
+  json_num(out, "hose", vac.hose_closed, 0);
+  json_num(out, "hwait", vac.hose_wait, 0);
+  json_num(out, "dual", vac.dual, 0);
+  json_num(out, "dip", vac_cfg.dip, 0);
+  json_num(out, "dpon", vac_cfg.dp_on, 0);
+  json_num(out, "thr", vac_cfg.thr, 0);
+  json_num(out, "clean", vac_cfg.clean_auto, 0);
+  json_num(out, "coff", vac_cfg.clean_off, 0);
+  json_num(out, "hauto", vac_cfg.hose_auto, 0);
+  json_num(out, "strong", vac_cfg.strong_n, 0);
+  json_num(out, "t2a", vac_cfg.t2, 0);
+  json_num(out, "pn", PRESET.n, 0);
+  json_num(out, "pe", PRESET.every, 0);
+  json_num(out, "pi", PRESET.imp, 0);
+  json_num(out, "pp", PRESET.pause, 0);
+  json_num(out, "psp", PRESET.sp, 0);
+  json_num(out, "phose", (PRESET.flags & PF_HOSE) != 0, 0);
+  json_num(out, "fst", FILT.state, 0);
+  json_num(out, "rbase", FILT.r_base, 1);
+  json_num(out, "fwork", FILT.work_s / 3600.0f, 1);
+  json_num(out, "fpulses", (float)FILT.pulses, 0);
+  json_num(out, "bag", vac_cfg.bag, 0);
+  json_num(out, "pulses", (float)vac_cfg.pulse_count, 0);
+  json_num(out, "h1", vac_cfg.hours[0] / 3600.0f, 1);
+  json_num(out, "h2", vac_cfg.hours[1] / 3600.0f, 1);
+  json_num(out, "tauto", vac_cfg.tool_auto, 0);
+  json_num(out, "tthr", vac_cfg.tool_thr / 10.0f, 1);
+  json_num(out, "runon", vac_cfg.tool_runon, 0);
+  json_num(out, "tend", vac_cfg.tool_end, 0);
+  json_num(out, "limit", vac_cfg.limit_a, 0);
+  json_num(out, "sfree", vac_cfg.sock_free, 0);
+  json_num(out, "hosemm", vac_cfg.hose_mm, 0);
+  json_num(out, "phone", vac.phone, 0);
+  json_num(out, "wifi", vac.wifi, 0);
   char fa[16];
   str_cat(str_cat(str_cat(out, "\"faults\":"), fmt_int(fa, (long)vac.faults)), ",");
   int n = str_len(out);

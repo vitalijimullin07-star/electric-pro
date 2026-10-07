@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node tools/inline.mjs",
+    "build": "vite build -c vite.pylesos.config.ts && VITE_PYLESOS_LITE=1 vite build -c vite.pylesos.config.ts && node tools/inline-pylesos.mjs && vite build && node tools/inline.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

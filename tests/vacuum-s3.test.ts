@@ -64,7 +64,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 5.1 (плата на модулях)');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 5.2 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
     expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;

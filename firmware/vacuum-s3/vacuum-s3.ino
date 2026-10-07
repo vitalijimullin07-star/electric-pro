@@ -5,9 +5,12 @@
  * нуля, АЦП, I²C, ШИМ регуляторов МР248, UART1 к отдельной плате экрана (если она есть), зуммер,
  * настройки во флеше (две копии), приём пульта и меток по Bluetooth (реклама, без соединения)
  * и сеть Wi-Fi для телефона — только по команде «wifi on» (экран: «Телефон»), со случайным
- * паролем и QR-кодом на экране: страница управления, обновление прошивок контроллера и экрана
- * (файл проверяется: чужой не запишется; новая прошивка, которая не проработала 30 с, при
- * следующем сбросе откатывается на старую), резервная копия настроек.
+ * паролем и QR-кодом на экране: приложение «Пылесос S3» (src/pylesos, app_page.h — собирает
+ * npm run build), обновление прошивок контроллера и экрана (файл проверяется: чужой не запишется;
+ * новая прошивка, которая не проработала 30 с, при следующем сбросе откатывается на старую),
+ * резервная копия настроек. Телефон по Bluetooth (то же приложение с сайта, Chrome на Android):
+ * служба BLE_SVC — команды строками, состояние и журнал уведомлениями (строки до «\n» кусками
+ * по MTU); команды и чтение — только после сопряжения с кодом с экрана «Телефон».
  * Экран 3,5″ ILI9488 с касанием — прямо на контроллере (lcd_s3.cpp): интерфейс пульта
  * (firmware/vacuum-panel, копия в src/panel — sync-panel.sh) работает отдельной задачей.
  *
@@ -21,12 +24,16 @@
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEScan.h>
+#include <BLEServer.h>
+#include <BLESecurity.h>
+#include <BLEUtils.h>
 #include <Preferences.h>
 #include <Update.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include "esp_ota_ops.h"
 #include "vac_core.h"
+#include "app_page.h"
 
 /* Метка прошивки: по ней страница обновления узнаёт файл («чужой» не запишется). */
 extern "C" const char VAC_MARK[] __attribute__((used)) = "VACFW:S3-CTRL:" VAC_VERSION;
@@ -74,13 +81,174 @@ class RemoteScan : public BLEAdvertisedDeviceCallbacks {
 
 static void ble_setup() {
   remote_q = xQueueCreate(8, sizeof(RemotePkt));
-  BLEDevice::init("");
+  /* Имя — как у сети Wi-Fi: «Pylesos-S3-XXXX». */
+  static const char H[] = "0123456789ABCDEF";
+  char name[20] = "Pylesos-S3-";
+  for (int i = 0; i < 4; i++) name[11 + i] = H[(vac_cfg.dev_id >> (12 - 4 * i)) & 15];
+  name[15] = 0;
+  BLEDevice::init(name);
   BLEScan *scan = BLEDevice::getScan();
   scan->setAdvertisedDeviceCallbacks(new RemoteScan(), true);
   scan->setActiveScan(false);
   scan->setInterval(160);
   scan->setWindow(80); /* половина эфира — Wi-Fi тоже бывает нужен */
   scan->start(0, nullptr, false);
+}
+
+/* ---------------- журнал для телефона ---------------- */
+
+/* Последние строки журнала с номерами: Wi-Fi отдаёт их по /l?n=…, Bluetooth — уведомлениями. */
+#define LOG_N 48
+#define LOG_LEN 200
+static char log_ring[LOG_N][LOG_LEN];
+static int32_t log_seq; /* номер следующей строки */
+static int32_t ble_log_sent;
+static portMUX_TYPE log_mux = portMUX_INITIALIZER_UNLOCKED;
+
+extern "C" void phone_log(const char *line) {
+  portENTER_CRITICAL(&log_mux);
+  strlcpy(log_ring[log_seq % LOG_N], line, LOG_LEN);
+  log_seq++;
+  portEXIT_CRITICAL(&log_mux);
+}
+
+static void json_str(String &out, const char *s) {
+  out += '"';
+  for (; *s; s++) {
+    if (*s == '"' || *s == '\\') out += '\\';
+    if ((uint8_t)*s >= 0x20) out += *s;
+  }
+  out += '"';
+}
+
+/* {"n":следующий,"lines":[…]} — строки начиная с from (если отстали больше, чем помним, — с самой старой). */
+static void phone_log_json(int32_t from, String &out) {
+  char line[LOG_LEN];
+  int32_t end = log_seq;
+  out = "{\"n\":";
+  out += String(end);
+  out += ",\"lines\":[";
+  if (from >= 0) {
+    if (from < end - LOG_N) from = end - LOG_N;
+    for (int32_t i = from; i < end; i++) {
+      portENTER_CRITICAL(&log_mux);
+      memcpy(line, log_ring[i % LOG_N], LOG_LEN);
+      portEXIT_CRITICAL(&log_mux);
+      if (i > from) out += ',';
+      json_str(out, line);
+    }
+  }
+  out += "]}";
+}
+
+/* ---------------- телефон по Bluetooth ---------------- */
+
+#define BLE_SVC "5a3c0001-8d2e-4f1b-9a37-6b0e4c2d7f10"
+#define BLE_CMD "5a3c0002-8d2e-4f1b-9a37-6b0e4c2d7f10"
+#define BLE_STAT "5a3c0003-8d2e-4f1b-9a37-6b0e4c2d7f10"
+#define BLE_LOG "5a3c0004-8d2e-4f1b-9a37-6b0e4c2d7f10"
+
+static BLEServer *ble_srv;
+static BLECharacteristic *ch_stat, *ch_log;
+static volatile bool phone_on;
+/* Команды приходят в задаче Bluetooth — в ядро их передаёт loop(). */
+struct PhoneCmd {
+  char s[184];
+};
+static QueueHandle_t phone_q;
+
+class PhoneServer : public BLEServerCallbacks {
+  void onConnect(BLEServer *) override {
+    phone_on = true;
+    ble_log_sent = log_seq;
+  }
+  void onDisconnect(BLEServer *) override { phone_on = false; }
+};
+
+class PhoneCmdCb : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *c) override {
+    String v = c->getValue();
+    PhoneCmd m;
+    int n = 0;
+    for (unsigned i = 0; i < v.length() && n < (int)sizeof m.s - 1; i++)
+      if (v[i] != '\n' && v[i] != '\r') m.s[n++] = v[i];
+    m.s[n] = 0;
+    if (n) xQueueSend(phone_q, &m, 0);
+  }
+};
+
+class PhoneSecurity : public BLESecurityCallbacks {
+  void onPassKeyNotify(uint32_t) override { hal_log("Телефон: введите код с экрана «Телефон»"); }
+  bool onSecurityRequest() override { return true; }
+  bool onConfirmPIN(uint32_t) override { return false; }
+  uint32_t onPassKeyRequest() override { return vac.ble_code; }
+};
+
+static void phone_setup() {
+  phone_q = xQueueCreate(6, sizeof(PhoneCmd));
+  /* Код — с экрана: Android спрашивает его при первом сопряжении, дальше телефон помнит пылесос. */
+  BLESecurity *sec = new BLESecurity();
+  sec->setPassKey(true, vac.ble_code);
+  sec->setCapability(ESP_IO_CAP_OUT);
+  sec->setAuthenticationMode(true, true, true);
+  BLEDevice::setSecurityCallbacks(new PhoneSecurity());
+  ble_srv = BLEDevice::createServer();
+  ble_srv->setCallbacks(new PhoneServer());
+  ble_srv->advertiseOnDisconnect(true);
+  BLEService *svc = ble_srv->createService(BLE_SVC);
+  BLECharacteristic *cmd = svc->createCharacteristic(BLE_CMD, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_AUTHEN);
+  cmd->setAccessPermissions(ESP_GATT_PERM_WRITE_ENC_MITM);
+  cmd->setCallbacks(new PhoneCmdCb());
+  /* Состояние читается только после сопряжения: чтение и вызывает окно с кодом. */
+  ch_stat = svc->createCharacteristic(BLE_STAT, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_READ_AUTHEN | BLECharacteristic::PROPERTY_NOTIFY);
+  ch_stat->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM);
+  ch_stat->setValue("ok");
+  ch_log = svc->createCharacteristic(BLE_LOG, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_READ_AUTHEN | BLECharacteristic::PROPERTY_NOTIFY);
+  ch_log->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM);
+  ch_log->setValue("ok");
+  svc->start();
+  BLEAdvertising *adv = BLEDevice::getAdvertising();
+  adv->addServiceUUID(BLE_SVC);
+  adv->setScanResponse(true);
+  BLEDevice::startAdvertising();
+}
+
+/* Строка кусками по MTU, в конце «\n». */
+static void ble_send_line(BLECharacteristic *c, const char *s, int n) {
+  uint16_t mtu = ble_srv->getPeerMTU(ble_srv->getConnId());
+  int part = mtu > 23 ? mtu - 3 : 20;
+  if (part > 240) part = 240;
+  static uint8_t buf[244];
+  for (int i = 0; i < n + 1; i += part) {
+    int k = n + 1 - i < part ? n + 1 - i : part;
+    for (int j = 0; j < k; j++) buf[j] = i + j < n ? (uint8_t)s[i + j] : '\n';
+    c->setValue(buf, k);
+    c->notify();
+  }
+}
+
+static void phone_poll() {
+  PhoneCmd m;
+  while (xQueueReceive(phone_q, &m, 0) == pdTRUE) vac_command(m.s);
+  vac.phone = phone_on;
+  if (!phone_on) return;
+  static uint32_t last;
+  if (millis() - last >= 500) {
+    last = millis();
+    static char buf[1800];
+    int n = vac_status_json(buf, sizeof buf);
+    if (n > 0) ble_send_line(ch_stat, buf, n);
+  }
+  /* Журнал — по строке за проход. */
+  if (ble_log_sent < log_seq) {
+    if (ble_log_sent < log_seq - LOG_N) ble_log_sent = log_seq - LOG_N;
+    char line[LOG_LEN];
+    portENTER_CRITICAL(&log_mux);
+    memcpy(line, log_ring[ble_log_sent % LOG_N], LOG_LEN);
+    portEXIT_CRITICAL(&log_mux);
+    ble_log_sent++;
+    ble_send_line(ch_log, line, strlen(line));
+  }
 }
 
 /* ---------------- проверка файла прошивки по метке ---------------- */
@@ -152,45 +320,25 @@ static bool panel_send(const uint8_t *d, size_t n) {
 
 /* ---------------- страница для телефона ---------------- */
 
-static const char PAGE[] PROGMEM = R"HTML(<!doctype html><html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Пылесос S3</title>
-<style>body{font:16px system-ui;margin:16px;background:#111;color:#eee}b{font-size:20px}h3{margin:18px 0 6px}
-button,input[type=submit]{font-size:17px;margin:4px;padding:10px 14px;border-radius:8px;border:0;background:#2b6cb0;color:#fff}
-td{padding:3px 10px}.bad{color:#f66}a{color:#8cf}progress{width:100%;height:18px}</style></head><body><h2>Пылесос S3</h2>
-<div><button onclick="c('start')">Пуск</button><button onclick="c('stop')">Стоп</button><button onclick="c('purge')">Продуть</button>
-<button onclick="c('purge strong')">Мощная (закрыть шланг)</button><button onclick="c('sock on')">Розетка вкл</button><button onclick="c('off')">Выкл</button></div>
-<table id="t"></table><p class="bad" id="f"></p>
-<h3>Обновление</h3><p>Турбины остановятся. Файл проверяется: прошивка не того устройства не запишется, а новая прошивка,
-которая не проработала 30 с, при сбросе откатится на старую. Настройки и паспорта фильтров сохраняются.</p>
-<p>Контроллер (vacuum-s3-app.bin): <input type="file" id="fc" accept=".bin"> <button onclick="up('fc','/fw')">Загрузить</button></p>
-<p>Экран (vacuum-panel-app.bin), через провод пульта, около 3 минут: <input type="file" id="fp" accept=".bin"> <button onclick="up('fp','/fwp')">Загрузить</button></p>
-<progress id="pr" max="100" value="0"></progress><p id="m"></p>
-<h3>Резервная копия настроек</h3><p><a href="/cfg" download="pylesos-s3-nastroyki.txt">Скачать</a> ·
-восстановить: <input type="file" id="fb" accept=".txt"> <button onclick="rb()">Загрузить</button></p>
-<script>
-const L={state:'Работа',preset:'Режим очистки',sock:'Розетка',tool:'Инструмент',itool:'Ток инструмента, А',itotal:'Общий ток, А',cap:'Ограничение турбин, %',
-p1:'Т1, %',p2:'Т2, %',i1:'Ток Т1, А',i2:'Ток Т2, А',t1:'Т1, °C',t2:'Т2, °C',mains:'Сеть, В',vacuum:'Разрежение, кПа',flow:'Расход, л/с',
-filter:'Фильтр, Па',r:'R фильтра',filt:'Фильтр (0 — А, 1 — Б)',washes:'Моек',intake:'Сила удара, %',imp:'Удар, мс',every:'Промежуток, с',n:'Ударов',
-water:'Вода'};
-function c(x){fetch('/c?q='+encodeURIComponent(x)).then(u)}
-function u(){fetch('/s').then(r=>r.json()).then(s=>{
-document.getElementById('t').innerHTML=Object.keys(L).map(k=>'<tr><td>'+L[k]+'</td><td><b>'+s[k]+'</b></td></tr>').join('');
-document.getElementById('f').textContent=s.faults?'Неисправности: код '+s.faults:''})}
-function up(id,url){const f=document.getElementById(id).files[0];if(!f)return;const x=new XMLHttpRequest(),d=new FormData();d.append('fw',f);
-x.upload.onprogress=e=>{document.getElementById('pr').value=e.loaded/e.total*100};x.onload=()=>{document.getElementById('m').textContent=x.responseText};
-x.open('POST',url);x.send(d);document.getElementById('m').textContent='Загрузка…'}
-function rb(){const f=document.getElementById('fb').files[0];if(!f)return;f.text().then(t=>fetch('/cfg',{method:'POST',body:t.trim()}).then(r=>r.text()).then(t=>document.getElementById('m').textContent=t))}
-setInterval(u,1000);u();
-</script></body></html>)HTML";
+/* Страница — приложение «Пылесос S3» целиком (app_page.h, gzip): состояние /s, команды /c, журнал /l. */
 
 static MarkScan fw_scan, fwp_scan;
 static bool fw_ok, fwp_ok, fwp_started;
 static String fw_msg;
 
 static void web_setup() {
-  server.on("/", []() { server.send_P(200, "text/html; charset=utf-8", PAGE); });
+  server.on("/", []() {
+    server.sendHeader("Content-Encoding", "gzip");
+    server.sendHeader("Cache-Control", "no-cache");
+    server.send_P(200, "text/html; charset=utf-8", (const char *)APP_PAGE_GZ, APP_PAGE_GZ_LEN);
+  });
+  server.on("/l", []() {
+    static String out;
+    phone_log_json(server.hasArg("n") ? server.arg("n").toInt() : -1, out);
+    server.send(200, "application/json; charset=utf-8", out);
+  });
   server.on("/s", []() {
-    static char buf[1200];
+    static char buf[1800];
     vac_status_json(buf, sizeof buf);
     server.send(200, "application/json", buf);
   });
@@ -303,6 +451,7 @@ void setup() {
   timerAlarm(tick_timer, 100, true, 0);
   web_setup();
   ble_setup();
+  phone_setup();
   lcd_start();
 }
 
@@ -313,6 +462,7 @@ void loop() {
   RemotePkt p;
   while (xQueueReceive(remote_q, &p, 0) == pdTRUE) vac_remote(p.data, p.len, p.rssi);
   vac_loop();
+  phone_poll();
   wifi_poll();
   if (wifi_on) server.handleClient();
   /* Проработали 30 с — прошивка годная, откат больше не нужен. */

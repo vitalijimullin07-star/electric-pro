@@ -79,7 +79,12 @@ void hal_uart_write(const char *data, int len) {
   lcd_rx_put(data, len);
 }
 
-void hal_log(const char *line) { Serial.println(line); }
+/* Журнал: в порт и телефону (Wi-Fi /l и Bluetooth) — см. phone_log в vacuum-s3.ino. */
+void phone_log(const char *line);
+void hal_log(const char *line) {
+  Serial.println(line);
+  phone_log(line);
+}
 
 /* Две копии настроек («cfg0», «cfg1»), запись по очереди; «cfg» — одна копия прошивки 3.x. */
 int hal_settings_load(void *buf, int len) { return prefs.isKey("cfg") ? (int)prefs.getBytes("cfg", buf, (size_t)len) : 0; }

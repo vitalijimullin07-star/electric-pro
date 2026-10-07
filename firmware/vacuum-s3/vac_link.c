@@ -233,6 +233,7 @@ void link_send_config(void) {
   }
   ki(s, "bt", link_ble_count(BLE_REMOTE));
   ki(s, "wf", vac.wifi);
+  ki(s, "bk", (int)vac.ble_code);
   link_send(s);
   if (vac.wifi) {
     char w[64] = "W s=";
