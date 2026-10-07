@@ -1718,13 +1718,21 @@ static void set_row_ext(int id, float v) {
 
 /* ---------------- «Обслуживание» ---------------- */
 
-enum { M_BR1 = 1, M_BR2, M_SEALS, M_INTAKE, M_FILTER };
+enum { M_BR1 = 1, M_BR2, M_SEALS, M_INTAKE, M_FILTER, M_TEST1, M_TEST2 };
+static void wiz_go(int step);
+static int wiz;
 
 static void maint_row(int id, float v) {
   (void)v;
   static const char *const C[] = {"", "maint brush1", "maint brush2", "maint seals", "intake new", "maint filter"};
   static const char *const T[] = {"", "Щётки Т1: отсчёт заново", "Щётки Т2: отсчёт заново", "Уплотнения проверены", "Фильтр клапанов новый", "Фильтр осмотрен"};
   if (id >= M_BR1 && id <= M_FILTER) cmd(C[id]), toast(T[id]);
+  else if (id == M_TEST1 || id == M_TEST2) {
+    /* Та же проверка, что в первом пуске: результат сравнивается с паспортом. */
+    back_to = SC_MENU;
+    go(SC_WIZ);
+    wiz_go(id == M_TEST1 ? 3 : 4);
+  }
   dirty = 1;
 }
 
@@ -1746,6 +1754,9 @@ static void build_maint(void) {
   maint_bar("Щётки Т2", V("Mb2"), b);
   r_btn(M_BR1, "Заменил щётки Т1", IC_CHECK, K_ACC);
   r_btn(M_BR2, "Заменил щётки Т2", IC_CHECK, K_ACC);
+  r_text("Здоровье турбин: та же проверка, что при первом пуске (шланг открыт, потом — закрыть ладонью), сравнивается с паспортом; хуже на 15 % — «турбина ослабла».");
+  r_btn(M_TEST1, "Проверить турбину 1", IC_FAN, K_ACC);
+  r_btn(M_TEST2, "Проверить турбину 2", IC_FAN, K_ACC);
   r_head("Клапаны");
   maint_bar("Фильтр клапанов", V("Min"), 0);
   maint_bar("Уплотнения и пружины тарелок", V("Mse"), 0);
@@ -2098,7 +2109,6 @@ static void build_about(void) {
 /* Шаги: 0 — вступление, 1 — шланг и бак, 2 — датчики, 3–4 — турбины, 5–6 — клапаны, 7 — магниты,
  * 8 — новый фильтр, 9 — готово. */
 enum { W_INTRO, W_PASS, W_ZERO, W_T1, W_T2, W_V1, W_V2, W_HOLD, W_FILT, W_DONE, W_N };
-static int wiz;
 static const char *const W_TITLE[W_N] = {"Первый пуск", "Шланг, бак, фильтр", "Датчики", "Турбина 1", "Турбина 2", "Клапан 1", "Клапан 2", "Магниты тарелок", "Новый фильтр", "Готово"};
 static const char *const W_TEST[W_N] = {0, 0, "test zero", "test t1", "test t2", "test v1", "test v2", "test hold", "test filter", 0};
 static const int W_TID[W_N] = {0, 0, 1, 2, 3, 4, 5, 6, 7, 0};
@@ -2148,10 +2158,16 @@ static void wiz_result(char *out) {
     break;
   }
   case W_T1:
-  case W_T2:
+  case W_T2: {
     catn(out, v1, 0), cat(out, " Вт, "), catn(out, v0, 1), cat(out, " л/с на открытом шланге");
     if (v2 > 0) catn(cat(out, "\nшланг закрыт: "), v2, 1), cat(out, " кПа, "), catn(out, v3, 0), cat(out, " Вт");
+    char kw[4] = {'G', 'w', (char)(wiz == W_T1 ? '1' : '2'), 0}, kq[4] = {'G', 'q', kw[2], 0}, kv[4] = {'G', 'v', kw[2], 0};
+    if (Vi("Gdone") && V(kw) > 0) {
+      catn(cat(out, "\nв паспорте: "), V(kw), 0), cat(out, " Вт, "), catn(out, V(kq), 1), cat(out, " л/с, "), catn(out, V(kv), 1), cat(out, " кПа");
+      if (Vi("Tph") == 4 && v2 > 5) cat(out, " — турбина ослабла: щётки, подшипники");
+    }
     break;
+  }
   case W_V1:
   case W_V2: catn(cat(out, "провал разрежения "), v0, 0), cat(out, " %, обратный перепад "), catn(out, v1, 0), cat(out, " Па"); break;
   case W_HOLD: catn(cat(out, "разрежение до "), v0, 1), cat(out, " кПа, срывов тарелок: "), catn(out, v1, 0); break;

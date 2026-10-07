@@ -744,6 +744,32 @@ describe('Пылесос S3 6.0: экран 3,5″, турбины по отде
     expect(status(sim).pass).toBe(1);
   });
 
+  test('здоровье турбины: повторная проверка сравнивается с паспортом — износ щёток → «Турбина ослабла»', () => {
+    const { sim, sec, cmd, act, set } = start();
+    const said: string[] = [];
+    sim.onVoice = (_t, text) => said.push(text);
+    const check = () => {
+      cmd('test t1');
+      sec(9);
+      act(/Шланг, бак, фильтр/, 'palm');
+      sec(5);
+      act(/Шланг, бак, фильтр/, 'palm');
+      cmd('test stop');
+      sec(40); // выбег
+    };
+    check();
+    cmd('pass done');
+    const w1 = status(sim).pass;
+    expect(w1).toBe(1);
+    // Та же турбина — паспорт не меняется, «ослабла» нет.
+    check();
+    expect(sim.serial).not.toContain('ослабла');
+    set(/M1 /, 'wear', 80);
+    check();
+    expect(sim.serial).toMatch(/! Турбина 1 ослабла: \d+ Вт/);
+    expect(said).toContain('Турбина ослабла. Проверьте щётки и подшипники.');
+  });
+
   test('обслуживание фильтра: «обстучал и продул» — замер и запись в истории (R до → после)', () => {
     const { sim, sec, click, cmd, act } = start();
     click(/SB7/);

@@ -670,6 +670,8 @@ static void purge_begin(int kind, int after, int n) {
     ph = vac.running && !vac_ext.boost && spin_mask == was ? PH_PAUSE : PH_SPIN;
   vac.boosting = (uint8_t)(ph == PH_SPIN || (kind == PURGE_STRONG && (vac_ext.boost || add2)));
   if (kind == PURGE_STRONG && vac.hose_wait) ext_say(V_HOSE_CLOSE);
+  else if (kind == PURGE_SERIES) ext_say(V_SERIES);
+  else if (kind == PURGE_OFF) ext_say(V_SHUTDOWN);
 }
 
 /* Остановка: после работы — сначала n ударов (турбины ещё крутятся), потом стоп. */
@@ -780,6 +782,7 @@ void vac_wake(void) {
   hal_log("Включено");
   link_send("P on");
   vac_beep(1);
+  ext_say(V_READY);
 }
 
 void vac_purge_now(int kind) {
@@ -1506,6 +1509,7 @@ void vac_fm_start(int kind) { fm_begin(vac_cfg.filt, kind); }
  * паспорт (vac_ext), этапы — экрану (vac.test_*): мастер «Первый пуск».
  */
 static uint8_t test_calm; /* проверка датчиков: воздух остановился, меряем «ноль» */
+static uint8_t test_worn; /* проверка турбины: хуже паспорта (меньше 85 %) */
 
 static void test_done(int ok) {
   test_mask = 0;
@@ -1600,8 +1604,14 @@ static void test_step(uint32_t ms) {
           return test_done(0);
         }
         vac.test_val[0] = t_acc[0] / t_cnt, vac.test_val[1] = t_acc[1] / t_cnt;
-        vac_ext.t_open_q[k] = (uint16_t)(vac.test_val[0] * 10);
-        vac_ext.t_open_w[k] = (uint16_t)vac.test_val[1];
+        /* Паспорт уже есть — сравниваем с ним (паспорт не трогаем): «ослабла» — меньше 85 %. */
+        test_worn = 0;
+        if (vac_ext.pass_t && vac_ext.t_open_w[k] > 300) {
+          if (vac.test_val[1] < vac_ext.t_open_w[k] * 0.85f || vac.test_val[0] * 10 < vac_ext.t_open_q[k] * 0.85f) test_worn = 1;
+        } else {
+          vac_ext.t_open_q[k] = (uint16_t)(vac.test_val[0] * 10);
+          vac_ext.t_open_w[k] = (uint16_t)vac.test_val[1];
+        }
         vac.test_ph = TP_WAIT;
         test_t0 = ms, t_cnt = 0, t_acc[2] = 0;
         ext_say(V_HOSE_CLOSE);
@@ -1614,8 +1624,20 @@ static void test_step(uint32_t ms) {
       if (t_cnt >= 300) {
         vac.test_val[2] = t_acc[2];
         vac.test_val[3] = vac.watts[k];
-        vac_ext.t_seal[k] = (uint16_t)(t_acc[2] * 10);
-        return test_done(t_acc[2] > 5);
+        if (vac_ext.pass_t && vac_ext.t_seal[k]) {
+          if (t_acc[2] * 10 < vac_ext.t_seal[k] * 0.85f) test_worn = 1;
+        } else
+          vac_ext.t_seal[k] = (uint16_t)(t_acc[2] * 10);
+        if (test_worn) {
+          char line[160] = "! Турбина ", n[12];
+          str_cat(line, k ? "2" : "1"), str_cat(line, " ослабла: "), str_cat(line, fmt_int(n, (long)vac.test_val[1]));
+          str_cat(line, " Вт, "), str_cat(line, fmt_num(n, vac.test_val[0], 1)), str_cat(line, " л/с, "), str_cat(line, fmt_num(n, t_acc[2], 1));
+          str_cat(line, " кПа — в паспорте "), str_cat(line, fmt_int(n, vac_ext.t_open_w[k])), str_cat(line, " Вт, ");
+          str_cat(line, fmt_num(n, vac_ext.t_open_q[k] / 10.0f, 1)), str_cat(line, " л/с, "), str_cat(line, fmt_num(n, vac_ext.t_seal[k] / 10.0f, 1));
+          hal_log(str_cat(line, " кПа: щётки, подшипники, уплотнение турбины"));
+          ext_say(V_TURB_WORN);
+        }
+        return test_done(t_acc[2] > 5 && !test_worn);
       }
       if (el > 30000) return test_done(0);
     }
