@@ -1139,7 +1139,7 @@ static void turbine_tile(int k, int x, int y, int w, int h) {
     catn(s, t, 0), cat(s, " °C");
     txt(&F_D13, x + w - 10, y + h - 12, s, t > 85 ? K_RED : t > 70 ? K_WARN : K_DIM, 2);
   } else
-    txt(&F_N12, x + 12, y + h - 14, "коснитесь, чтобы включить", K_DIM, 0);
+    txt(&F_N12, x + 12, y + h - 14, "коснитесь — вкл.", K_DIM, 0);
   zone(x, y, w, h, ZT_BTN, B_T1 + k, 0);
 }
 
@@ -1425,6 +1425,7 @@ static void filter_card(int i, int x, int y, int w, int h) {
 static void build_filter(void) {
   char s[192], what[160];
   row_fn = filter_row;
+  r_btn(F_SVC, "Обслуживание фильтра", IC_WRENCH, K_ACC);
   s[0] = 0;
   catn(s, V("Sfl"), 0), cat(s, " %");
   r_bar("Загрузка до серии", s, V("Sfl") / 100.0f, V("Sfl") > 85 ? K_WARN : K_ACC);
@@ -1436,7 +1437,6 @@ static void build_filter(void) {
   if (fc >= 0) cat(s, "через ~"), catn(s, fc, fc < 10 ? 1 : 0), cat(s, " ч работы");
   else cat(s, "копит данные (4 серии)");
   r_info("Мойка фильтра", s, fc >= 0 && fc < 2 ? K_WARN : K_ACC);
-  r_btn(F_SVC, "Обслуживание фильтра", IC_WRENCH, K_ACC);
   r_text("Снял фильтр, обстучал, продул, промыл или поставил новый — отметьте здесь: пылесос замерит его и запомнит, сколько это вернуло.");
   r_head("История обслуживания");
   int any = 0;
@@ -2144,8 +2144,9 @@ static void wiz_result(char *out) {
   case W_ZERO: {
     int b = ri(v3);
     static const char *const N[8] = {"разрежение", "перепад", "расход", "часы", "весы", "кнопки", "сеть", "термисторы"};
-    for (int i = 0; i < 8; i++) cat(cat(cat(out, b >> i & 1 ? "✓ " : "× "), N[i]), i == 3 ? "\n" : "   ");
+    for (int i = 0; i < 8; i++) cat(cat(cat(out, b >> i & 1 ? "✓ " : "× "), N[i]), i == 3 ? "\n" : i == 7 ? "" : "   ");
     catn(cat(out, "\nноль разрежения "), v0, 1), cat(out, " кПа");
+    if (!(b & 1)) cat(out, "\nразрежение не ушло: турбины стоят? шланг открыт?");
     break;
   }
   case W_T1:
@@ -2179,10 +2180,31 @@ static void scr_wiz(void) {
     r_btn(5, "Часы…", IC_CLOCK, K_ACC);
     draw_list(6, y, 462, CY1 - y - 52);
   } else {
-    int lines = wrap(&F_N14, 20, y + 14, 440, 19, W_TEXT[wiz], K_SUB, 4, 1);
+    int here = W_TID[wiz] && wiz_test_here(), ph0 = here ? Vi("Tph") : 0;
+    /* Результат проверки — на месте описания (оно больше не нужно). */
+    if (ph0 == 3 || ph0 == 4) {
+      g_circle(46, (float)y + 24, 22, ph0 == 3 ? K_GREEN_D : K_RED_D);
+      icon_c(&F_I24, 46, y + 24, ph0 == 3 ? IC_CHECK : IC_CROSS, ph0 == 3 ? K_GREEN : K_RED);
+      txt(&F_D20, 80, y + 32, ph0 == 3 ? "Исправно" : "Не прошло", ph0 == 3 ? K_GREEN : K_RED, 0);
+      wiz_result(s);
+      wrap(&F_N14, 24, y + 70, 436, 19, s, K_TEXT, 4, 0);
+    }
+    int lines;
+    if (ph0 == 3 || ph0 == 4)
+      lines = 0;
+    else if (ph0 == 2) {
+      /* Ждём человека: крупно и на месте описания. */
+      int tw = g_text_w(&F_D20, "Закройте шланг ладонью", 0);
+      icon(&F_I32, 240 - (tw + 40) / 2, y + 2, IC_HAND, K_WARN);
+      txt(&F_D20, 240 - (tw + 40) / 2 + 40, y + 28, "Закройте шланг ладонью", K_WARN, 0);
+      lines = wrap(&F_N14, 20, y + 56, 440, 19, "держите, пока не закончится отсчёт", K_SUB, 1, 1) + 2;
+    } else if (wiz == W_ZERO && ph0 == 1 && V("Sf") > 1.5f)
+      lines = wrap(&F_N14, 20, y + 14, 440, 19, "Турбины ещё на выбеге — ждём, пока воздух остановится, потом меряем «ноль».", K_WARN, 3, 1);
+    else
+      lines = wrap(&F_N14, 20, y + 14, 440, 19, W_TEXT[wiz], K_SUB, 4, 1);
     y += lines * 19 + 10;
-    if (W_TID[wiz]) {
-      int here = wiz_test_here(), ph = here ? Vi("Tph") : 0;
+    if (W_TID[wiz] && ph0 != 3 && ph0 != 4) {
+      int ph = ph0;
       int cy = y + 52;
       if (ph == 1 || ph == 2) {
         g_ring(240, (float)cy, 34, 6, K_FAINT);
@@ -2191,16 +2213,6 @@ static void scr_wiz(void) {
         g_arc2(240, (float)cy, 34, 6, spin, 0.25f, ph == 2 ? K_WARN : K_ACC);
         s[0] = 0, catn(s, V("Tleft"), 0);
         txt(&F_D24, 240, cy + 9, s, K_TEXT, 1);
-        if (ph == 2) {
-          icon(&F_I32, 120, cy - 16, IC_HAND, K_WARN);
-          txt(&F_D17, 290, cy + 6, "Закройте шланг ладонью", K_WARN, 0);
-        }
-      } else if (ph == 3 || ph == 4) {
-        g_circle(240 - 150, (float)cy, 22, ph == 3 ? K_GREEN_D : K_RED_D);
-        icon_c(&F_I24, 240 - 150, cy, ph == 3 ? IC_CHECK : IC_CROSS, ph == 3 ? K_GREEN : K_RED);
-        txt(&F_D17, 240 - 118, cy - 8, ph == 3 ? "Исправно" : "Не прошло", ph == 3 ? K_GREEN : K_RED, 0);
-        wiz_result(s);
-        wrap(&F_N14, 240 - 118, cy + 14, 330, 18, s, K_TEXT, 4, 0);
       } else
         button(160, cy - 26, 160, 50, "Проверить", IC_PLAY, 1, ZT_BTN, B_WIZ, 10);
     }
@@ -2262,14 +2274,14 @@ static void scr_svc(void) {
   } else if (svc_step == 2) {
     txt(&F_D20, 240, y + 20, "Что сделали? (можно несколько)", K_TEXT, 1);
     for (int i = 0; i < 6; i++) {
-      int c = i % 3, r = i / 3, x = 6 + c * 158, yy = y + 36 + r * 74;
+      int c = i % 3, r = i / 3, x = 6 + c * 158, yy = y + 32 + r * 62;
       int on = svc_mask >> i & 1, p = is_p(ZT_BTN, B_SVC, 20 + i);
-      g_rrect((float)x, (float)yy, 152, 66, 12, on ? K_ACC_D : p ? K_PRESS : K_CARD);
-      if (on) g_rrect_line((float)x, (float)yy, 152, 66, 12, 2, K_ACC);
-      icon(&F_I24, x + 10, yy + 10, SV_IC[i], on ? K_ACC : K_SUB);
+      g_rrect((float)x, (float)yy, 152, 56, 12, on ? K_ACC_D : p ? K_PRESS : K_CARD);
+      if (on) g_rrect_line((float)x, (float)yy, 152, 56, 12, 2, K_ACC);
+      icon(&F_I18, x + 10, yy + 8, SV_IC[i], on ? K_ACC : K_SUB);
       if (on) icon(&F_I18, x + 124, yy + 8, IC_CHECK, K_ACC);
-      txt(&F_D15, x + 12, yy + 56, SV_LONG[i], on ? K_TEXT : K_SUB, 0);
-      zone(x, yy, 152, 66, ZT_BTN, B_SVC, 20 + i);
+      txt(&F_D15, x + 12, yy + 46, SV_LONG[i], on ? K_TEXT : K_SUB, 0);
+      zone(x, yy, 152, 56, ZT_BTN, B_SVC, 20 + i);
     }
     button(6, CY1 - 46, 120, 46, "Назад", IC_BACK, 0, ZT_BTN, B_SVC, 9);
     button(334, CY1 - 46, 140, 46, "Дальше", IC_CHEV, svc_mask ? 1 : 4, ZT_BTN, B_SVC, 4);
@@ -2287,7 +2299,11 @@ static void scr_svc(void) {
       g_arc2(240, (float)y + 70, 40, 7, spin, 0.25f, K_ACC);
       s[0] = 0, catn(s, V("Ffx"), 0);
       txt(&F_D24, 240, y + 79, s, K_TEXT, 1);
-      txt(&F_N14, 240, y + 140, "замер: шланг открыт, ничего не трогайте", K_SUB, 1);
+      if (Vi("Sru") && V("Sf") < 4) {
+        icon(&F_I24, 70, y + 122, IC_HOSE, K_WARN);
+        txt(&F_D15, 104, y + 140, "Потока нет — откройте шланг", K_WARN, 0);
+      } else
+        txt(&F_N14, 240, y + 140, "замер: шланг открыт, ничего не трогайте", K_SUB, 1);
     } else {
       float r = V("Ffq"), pct = V("Ffp");
       g_circle(80, (float)y + 50, 26, K_GREEN_D);

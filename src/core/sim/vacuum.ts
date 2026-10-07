@@ -732,7 +732,8 @@ export class VacuumPlant {
       const inom = m.params[0].value / 230;
       m.ifull = open ? 0 : inom * (V / 230) * (1 + MOTOR_R0) / (r + m.s);
       const tm = (MOTOR_C * u2) / (r + m.s) ** 2 / (1 + wear);
-      const tl = m.s * m.s * (0.35 + 0.65 * m.q) + 0.02 * m.s;
+      // Нагрузка вентилятора и трение щёток и подшипников (без него выбег тянулся бы минутами).
+      const tl = m.s * m.s * (0.35 + 0.65 * m.q) + 0.02 * m.s + (m.s > 0 ? 0.04 : 0);
       m.s = Math.max(0, m.s + ((tm - tl) * dt) / MOTOR_J);
       m.amps = m.ifull * Math.sqrt(cond2);
       m.watts = V * m.amps * 0.95;

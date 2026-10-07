@@ -1505,6 +1505,8 @@ void vac_fm_start(int kind) { fm_begin(vac_cfg.filt, kind); }
  * магниты при закрытом шланге (тарелки не срываются), замер нового фильтра. Результаты — в
  * паспорт (vac_ext), этапы — экрану (vac.test_*): мастер «Первый пуск».
  */
+static uint8_t test_calm; /* проверка датчиков: воздух остановился, меряем «ноль» */
+
 static void test_done(int ok) {
   test_mask = 0;
   vac.test_ph = (uint8_t)(ok ? TP_OK : TP_FAIL);
@@ -1535,6 +1537,7 @@ int vac_test_start(int id) {
   reseat_events = 0;
   test_t0 = now_ms;
   test_mask = 0;
+  test_calm = 0;
   if (id == TEST_T1 || id == TEST_T2) test_mask = (uint8_t)(id == TEST_T1 ? 1 : 2);
   if (id == TEST_V1 || id == TEST_V2 || id == TEST_HOLD) test_mask = 3;
   if (id == TEST_FILTER) {
@@ -1562,6 +1565,12 @@ static void test_step(uint32_t ms) {
   if (vac.test_ph != TP_RUN && vac.test_ph != TP_WAIT) return;
   switch (vac.test_id) {
   case TEST_ZERO:
+    /* Турбины ещё на выбеге (воздух идёт) — ждём до 25 с: «ноль» — только в тишине. */
+    if ((vac.flow_ls > 1.5f || vac.filter_pa > 15 || vac.filter_pa < -15) && ms - test_t0 < 25000 && !t_cnt && !test_calm) {
+      vac.test_left = 3;
+      break;
+    }
+    if (!test_calm) test_calm = 1, test_t0 = ms, el = 0;
     /* 3 с: среднее «нуля» разрежения, перепада и расхода при стоящих турбинах. */
     vac.test_left = (uint8_t)(el < 3000 ? (3000 - el) / 1000 + 1 : 0);
     if (el > 500) {
@@ -2540,7 +2549,11 @@ void vac_command(const char *c) {
     /* Обе турбины (на экране — «обе»): и вторая. */
     if (in_range(v, 30, 100)) vac_cfg.power = (uint8_t)v, vac_ext.pw2 = (uint8_t)v, cfg_changed();
   } else if (str_starts(c, "pw1 ")) {
-    if (in_range(v, 30, 100)) vac_cfg.power = (uint8_t)v, cfg_changed();
+    /* Только Т1: у Т2 своя мощность (не задана — была общей, она и остаётся). */
+    if (in_range(v, 30, 100)) {
+      if (!vac_ext.pw2) vac_ext.pw2 = vac_cfg.power;
+      vac_cfg.power = (uint8_t)v, cfg_changed();
+    }
   } else if (str_starts(c, "pw2 ")) {
     if (in_range(v, 30, 100)) vac_ext.pw2 = (uint8_t)v, cfg_changed();
   } else if (str_starts(c, "test ")) {

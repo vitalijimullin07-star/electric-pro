@@ -524,6 +524,24 @@ void ext_osc_end(float depth, float rev, int t_front) {
   if (ext_panel) send_osc();
 }
 
+/* ---------------- отчёт смены ---------------- */
+
+static struct {
+  uint32_t t0, up0;     /* начало смены: часы и секунды от включения */
+  uint32_t run_s, tool_s, series, pulses0;
+  float wh, kg0, tmax, flow_sum;
+  uint32_t flow_n, faults;
+} rep;
+
+static void report_reset(void) {
+  rep.t0 = vac.time_s, rep.up0 = vac.uptime_s;
+  rep.run_s = rep.tool_s = rep.series = 0;
+  rep.pulses0 = vac_cfg.pulse_count;
+  rep.wh = 0, rep.tmax = 0, rep.flow_sum = 0, rep.flow_n = 0, rep.faults = 0;
+  float kg = ext_scale_kg();
+  rep.kg0 = kg > 0 ? kg : 0;
+}
+
 /* ---------------- фильтр: обслуживание, прогноз ---------------- */
 
 static float svc_r_before;
@@ -547,7 +565,9 @@ void ext_svc_done(float r_after) {
   str_cat(line, fmt_num(n, svc_r_before, 1)), str_cat(line, " → "), str_cat(line, fmt_num(n, r_after, 1));
   hal_log(line);
   ext_event(EV_FILTER, vac.svc_mask, r_after * 10);
+  ext_say(V_FILTER_SERVICE);
   ext_changed();
+  ext_send_lines(); /* история — экрану сразу: он показывает «было → стало» */
 }
 
 /* Прогноз: R после серий от наработки фильтра — прямая по последним точкам. */
@@ -557,6 +577,7 @@ static int fc_n;
 
 void ext_series_done(float r_after) {
   ext_event(EV_SERIES, vac.purging, r_after * 10);
+  rep.series++;
   if (r_after <= 0) return;
   if (fc_n == FC_N) {
     for (int i = 1; i < FC_N; i++) fc_h[i - 1] = fc_h[i], fc_r[i - 1] = fc_r[i];
@@ -578,24 +599,6 @@ void ext_series_done(float r_after) {
     float h = (lim - r_after) / k;
     vac.fc_hours = h < 0 ? 0 : h;
   }
-}
-
-/* ---------------- отчёт смены ---------------- */
-
-static struct {
-  uint32_t t0, up0;     /* начало смены: часы и секунды от включения */
-  uint32_t run_s, tool_s, series, pulses0;
-  float wh, kg0, tmax, flow_sum;
-  uint32_t flow_n, faults;
-} rep;
-
-static void report_reset(void) {
-  rep.t0 = vac.time_s, rep.up0 = vac.uptime_s;
-  rep.run_s = rep.tool_s = rep.series = 0;
-  rep.pulses0 = vac_cfg.pulse_count;
-  rep.wh = 0, rep.tmax = 0, rep.flow_sum = 0, rep.flow_n = 0, rep.faults = 0;
-  float kg = ext_scale_kg();
-  rep.kg0 = kg > 0 ? kg : 0;
 }
 
 /* ---------------- строки экрану ---------------- */
@@ -972,6 +975,8 @@ void ext_second(void) {
     if (vac.flow_ls > 1) rep.flow_sum += vac.flow_ls, rep.flow_n++;
   }
   if (vac.tool) rep.tool_s++;
+  /* Весы заработали (откалибровали) посреди смены — собранное считаем с этого момента. */
+  if (rep.kg0 <= 0 && ext_scale_kg() > 0) rep.kg0 = ext_scale_kg();
   float tm = vac.temp[0] > vac.temp[1] ? vac.temp[0] : vac.temp[1];
   if (vac.running && tm > rep.tmax) rep.tmax = tm;
   /* Мощность турбины на полной (замер ведётся всё время): для паспорта и перегрузки. */
