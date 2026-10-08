@@ -112,6 +112,8 @@ function padLine(pad: PadDef, c: Component, netNo: (pad: PadDef) => [number, str
 export interface KicadExportOptions {
   /** Дополнительные свойства деталей по обозначению (например, LCSC) — дописываются к `fields`. */
   extraFields?: Record<string, Record<string, string>>;
+  /** Связь со схемой: обозначение → UUID символа (KiCad пишет его в корпус как путь "/uuid"). */
+  paths?: Record<string, string>;
 }
 
 /** Плата в формате KiCad 6. Выносные детали (`offBoard`) не выгружаются. */
@@ -185,6 +187,7 @@ export function exportKicadPcb(p: Project, o: KicadExportOptions = {}): string {
     const smdOnly = fp.pads.length > 0 && fp.pads.every((pd) => pd.type !== 'tht');
     out.push(`  (footprint ${q('Plata:' + fp.id)} (layer ${q(bottom ? 'B.Cu' : 'F.Cu')})`);
     out.push(`    (at ${xy(c.at)}${normAng(c.rotation) ? ' ' + n(normAng(c.rotation)) : ''})`);
+    if (o.paths?.[c.ref]) out.push(`    (path ${q('/' + o.paths[c.ref])})`);
     if (fp.description || c.description) out.push(`    (descr ${q(c.description ?? fp.description ?? '')})`);
     const fields: Record<string, string> = { ...(c.fields ?? {}), ...(o.extraFields?.[c.ref] ?? {}) };
     for (const [k, v] of Object.entries(fields)) if (v) out.push(`    (property ${q(k)} ${q(v)})`);
