@@ -9,6 +9,7 @@ import { exportLutPdf, lutMirrorFor, type LutSheet } from '@core/io/lut-pdf';
 import type { LayerId } from '@core/model/types';
 import { exportBomCsv, exportNetlistText, exportPickPlaceCsv } from '@core/io/bom';
 import { serializeProject, PROJECT_EXT } from '@core/io/project-file';
+import { exportKicadPcb } from '@core/io/kicad-export';
 import { boardCopperLayers, LAYERS } from '@core/model/layers';
 import { runDrc } from '@core/model/drc';
 import { computeConnectivity } from '@core/model/connectivity';
@@ -157,6 +158,9 @@ export function ExportDialog() {
       <div className="row">
         <button className="btn" disabled={!!busy} onClick={() => run('Файл проекта', () => saveTextFile(`${base}${PROJECT_EXT}`, serializeProject(p, true), 'application/json'))}>
           Сохранить проект файлом
+        </button>
+        <button className="btn" disabled={!!busy} title="Плата для KiCad 6–9 и EasyEDA Pro («Импорт → KiCad»): детали, цепи, дорожки, полигоны" onClick={() => run('Плата KiCad', () => saveTextFile(`${base}.kicad_pcb`, exportKicadPcb(p), 'application/octet-stream'))}>
+          Плата для KiCad / EasyEDA (.kicad_pcb)
         </button>
         <button className="btn" disabled={!!busy} onClick={() => run('Копирование', async () => {
           if (!(await copyText(serializeProject(p)))) throw new Error('буфер обмена недоступен');
