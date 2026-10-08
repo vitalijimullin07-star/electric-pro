@@ -1,5 +1,12 @@
 import { libraryFootprint } from '../../library';
-import { addComponent, connectPad, ensureNet } from '../../model/edit';
+import { addComponent, addDrawing, addRuleArea, addTrack, addVia, addZone, connectPad, ensureNet } from '../../model/edit';
+import { netWidth } from '../../model/currents';
+import { applyFit, fitTrackWidthsSafe } from '../../model/track-fit';
+import { getWorld } from '../../model/world';
+import { computeConnectivity } from '../../model/connectivity';
+import { runDrc } from '../../model/drc';
+import { autoroute, type RouteOptions, type RouteResult } from '../../router/autoroute';
+import { autorouteWithZones } from '../../router/zone-aware';
 import { createProject } from '../../model/project';
 import { MAINS_CLASS, MAINS_CLEARANCE } from '../../model/rules';
 import type { FootprintDef, PadDef, Project } from '../../model/types';
@@ -18,7 +25,7 @@ import { S3_FOOTPRINTS } from './parts';
  *   SSR G3MB клапанов → MOC3063 (включение в нуле) + BT136S-600E (DPAK) — как SSR, без правок;
  *   модуль DS3231 → DS3231SN# с батарейкой CR2032 на плате;
  *   модуль NAU7802 → NAU7802SGI на плате, тензодатчик — к разъёму;
- *   PCA9555 на платке → PCA9555PW (TSSOP-24).
+ *   PCA9555 на платке → PCA9555DWR (SOIC-24, шаг 1,27 — проще развести).
  * Снаружи остаются: трансформатор 9 В, двигатели, магниты клапанов, реле розетки 30 А (на DIN,
  * катушка 12 В — ключ на плате), трансформаторы тока SCT-013, термисторы, SDP810/SDP811, бак,
  * экран ILI9488, пульт и по желанию плеер голоса DFPlayer (к разъёму пульта, как раньше).
@@ -60,7 +67,11 @@ function box(id: string, name: string, description: string, refPrefix: string, p
       { kind: 'rect', layer: 'F.Fab', a: { x: -w / 2, y: -h / 2 }, b: { x: w / 2, y: h / 2 }, width: 0.1 },
       { kind: 'rect', layer: 'F.Silk', a: { x: -w / 2 - 0.15, y: -h / 2 - 0.15 }, b: { x: w / 2 + 0.15, y: h / 2 + 0.15 }, width: 0.12 },
     ],
-    courtyard: { min: { x: -w / 2 - 0.5, y: -h / 2 - 0.5 }, max: { x: w / 2 + 0.5, y: h / 2 + 0.5 } },
+    // Габарит — корпус вместе с площадками и запасом 0,5 мм.
+    courtyard: {
+      min: { x: Math.min(-w / 2, ...pads.map((q) => q.at.x - q.size.x / 2)) - 0.5, y: Math.min(-h / 2, ...pads.map((q) => q.at.y - q.size.y / 2)) - 0.5 },
+      max: { x: Math.max(w / 2, ...pads.map((q) => q.at.x + q.size.x / 2)) + 0.5, y: Math.max(h / 2, ...pads.map((q) => q.at.y + q.size.y / 2)) + 0.5 },
+    },
     source,
     verified: false,
   };
@@ -142,7 +153,6 @@ export const SMD_FOOTPRINTS: FootprintDef[] = [
     ['terminal', '30a', 'mains'],
     'DORABO DBT50P-9.5 (сверить)',
   ),
-  named('TSSOP-24_4.4x7.8mm_P0.65mm', 'IC_PCA9555_TSSOP-24', ['INT', 'A1', 'A2', 'P00', 'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'GND', 'P10', 'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'A0', 'SCL', 'SDA', 'VDD']),
   named('SOIC-16W_7.5x10.3mm_P1.27mm', 'IC_DS3231_SOIC-16W', ['32K', 'VCC', 'INT', 'RST', 'NC5', 'NC6', 'NC7', 'NC8', 'NC9', 'NC10', 'NC11', 'NC12', 'GND', 'VBAT', 'SDA', 'SCL']),
   named('SOIC-16_3.9x9.9mm_P1.27mm', 'IC_NAU7802_SOP-16', ['REFP', 'VIN1N', 'VIN1P', 'VIN2N', 'VIN2P', 'VBG', 'REFN', 'AVSS', 'DRDY', 'SDIO', 'SCLK', 'XOUT', 'XIN', 'DVDD', 'VDDA', 'AVDD']),
   named('TO-252-2', 'Triac_DPAK', ['MT1', 'MT2', 'G']),
@@ -266,10 +276,8 @@ export function smdParts(): SmdPart[] {
     { group: g2, ref: 'SB1', value: 'Сброс', description: 'Кнопка сброса (EN)', fp: 'SW_PUSH_3x6mm_SMD', pins: { '1': 'EN', '4': 'GND' }, lcsc: 'C49234146', mpn: 'HX-3x6x3.5-CA-0.6-2.5N' },
     { group: g2, ref: 'SB2', value: 'Загрузка', description: 'Кнопка загрузчика (IO0 — он же CS касания): держать при сбросе — прошивка по USB', fp: 'SW_PUSH_3x6mm_SMD', pins: { '1': P.IO0, '4': 'GND' }, lcsc: 'C49234146', mpn: 'HX-3x6x3.5-CA-0.6-2.5N' },
     R(g2, 'R5', '10k', 'IO0 (CS касания): подтяжка — обычный запуск, касание не выбрано', P.IO0, '3V3'),
-    { group: g2, ref: 'X1', value: 'USB-C', description: 'USB-C: прошивка и монитор порта (USB-Serial/JTAG ESP32-S3). От USB питается только логика', fp: 'USB_C_Receptacle_16P_SMD', pins: { VBUS: 'VBUS', GND: 'GND', SHIELD: 'GND', CC1: 'CC1', CC2: 'CC2', 'D+': 'USB_DP', 'D-': 'USB_DN' }, lcsc: 'C165948', mpn: 'TYPE-C-31-M-12' },
+    { group: g2, ref: 'X1', value: 'micro-USB', description: 'micro-USB: прошивка и монитор порта (USB-Serial/JTAG ESP32-S3). От USB питается только логика', fp: 'USB_Micro-B_Receptacle_SMD', pins: { VBUS: 'VBUS', GND: 'GND', SHIELD: 'GND', 'D+': 'USB_DP', 'D-': 'USB_DN' }, lcsc: 'C145791', mpn: 'U-F-M5DD-Y-L1' },
     { group: g2, ref: 'VD6', value: 'USBLC6-2SC6', description: 'Защита USB от статики', fp: 'D_TVS_Array_SOT-23-6_ESD', pins: { '1': 'USB_DP', '6': 'USB_DP', '3': 'USB_DN', '4': 'USB_DN', '2': 'GND', '5': 'VBUS' }, lcsc: 'C7519', mpn: 'USBLC6-2SC6' },
-    R(g2, 'R6', '5,1k', 'USB-C CC1', 'CC1', 'GND'),
-    R(g2, 'R7', '5,1k', 'USB-C CC2', 'CC2', 'GND'),
     { group: g2, ref: 'VD7', value: 'SS14', description: 'Питание 5 В от USB (без сети — только прошивка); в USB не пропускает', fp: 'D_SMA', pins: { '1': '5V', '2': 'VBUS' }, lcsc: 'C2480', mpn: 'SS14' },
   );
 
@@ -282,12 +290,12 @@ export function smdParts(): SmdPart[] {
       { group: g3, ref: `K${k}`, value: 'SLA-05VDC-SL-A', description: `Реле турбины ${k}: 30 А 250 В, катушка 5 В. В разрыв фазы перед симистором: отключение при аварии и пробое симистора`, fp: 'Relay_SLA-05VDC-SL-A', pins: { COIL1: '5V', COIL2: `${sig}_D`, COM: 'L', NO: `M${k}_L` }, lcsc: 'C250645', mpn: 'SLA-05VDC-SL-A', tht: true },
       ...coilKey(g3, k - 1, sig, `реле турбины ${k}`, '5V'),
       R(g3, `R${20 + k}`, '220', `Светодиод оптрона турбины ${k} (≈9 мА от вывода ESP32)`, gate, `${gate}_LED`),
-      { group: g3, ref: `U${k}`, value: 'MOC3023S', description: `Оптосимистор случайной фазы: турбина ${k} (угол открытия — от детектора нуля)`, fp: 'Opto_SMD-6_P2.54mm', pins: { A: `${gate}_LED`, K: 'GND', MT2: `M${k}_R`, MT1: `G${k}` }, lcsc: 'C115469', mpn: 'MOC3023S-TA1' },
+      { group: g3, ref: `U${k}`, value: 'MOC3023S', description: `Оптосимистор случайной фазы: турбина ${k} (угол открытия — от детектора нуля)`, fp: 'Opto_SMD-6_P2.54mm', pins: { A: `${gate}_LED`, K: 'GND', MT1: `M${k}_R`, MT2: `G${k}` }, lcsc: 'C115469', mpn: 'MOC3023S-TA1' },
       { group: g3, ref: `R${22 + k}`, value: '360', description: `Резистор оптрона турбины ${k} (2010, 0,75 Вт, 400 В)`, fp: 'R_2010_5025Metric', pins: { '1': `M${k}_R`, '2': `M${k}_SW` }, lcsc: 'C230895', mpn: 'AC2010JK-07360RL' },
       { group: g3, ref: `VS${k}`, value: 'BTA24-600BWRG', description: `Симистор турбины ${k}: 25 А, изолированный TO-220, без снаббера. Ставится на радиатор, который выходит над компаундом`, fp: 'Triac_TO-220', pins: { MT1: `M${k}_L`, MT2: `M${k}_SW`, G: `G${k}` }, lcsc: 'C83957', mpn: 'BTA24-600BWRG', tht: true },
     );
   }
-  add({ group: g3, ref: 'XT4', value: 'Турбины', description: 'К двигателям (через окна трансформаторов тока ТТ1, ТТ2): M1, M2; ноль двигателей — проводом мимо платы. Клеммник 30 А', fp: 'TerminalBlock_1x02_P9.5mm', pins: { '1': 'M1_SW', '2': 'M2_SW' }, lcsc: 'C496129', mpn: 'DBT50P-9.5-2P-GN-P', tht: true });
+  add({ group: g3, ref: 'XT4', value: 'Турбины', description: 'К двигателям (через окна трансформаторов тока ТТ1, ТТ2): 1 — турбина 2, 2 — турбина 1; ноль двигателей — проводом мимо платы. Клеммник 30 А', fp: 'TerminalBlock_1x02_P9.5mm', pins: { '1': 'M2_SW', '2': 'M1_SW' }, lcsc: 'C496129', mpn: 'DBT50P-9.5-2P-GN-P', tht: true });
   // Реле розетки — на корпусе (30 А, катушка 12 В), на плате ключ.
   add(
     ...coilKey(g3, 2, P.IO42, 'реле розетки K3 (на корпусе, катушка 12 В)', 'VIN'),
@@ -301,13 +309,13 @@ export function smdParts(): SmdPart[] {
     const sig = k === 1 ? P.IO40 : P.IO41; // VLV1, VLV2
     add(
       R(g4, `R${30 + k}`, '220', `Светодиод оптрона клапана ${k}`, sig, `${sig}_LED`),
-      { group: g4, ref: `U${2 + k}`, value: 'MOC3063S', description: `Оптосимистор с включением в нуле: удерживающий магнит клапана ${k}`, fp: 'Opto_SMD-6_P2.54mm', pins: { A: `${sig}_LED`, K: 'GND', MT2: `V${k}_R`, MT1: `GV${k}` }, lcsc: 'C77950', mpn: 'MOC3063S-TA1' },
+      { group: g4, ref: `U${2 + k}`, value: 'MOC3063S', description: `Оптосимистор с включением в нуле: удерживающий магнит клапана ${k}`, fp: 'Opto_SMD-6_P2.54mm', pins: { A: `${sig}_LED`, K: 'GND', MT1: `V${k}_R`, MT2: `GV${k}` }, lcsc: 'C77950', mpn: 'MOC3063S-TA1' },
       { group: g4, ref: `R${32 + k}`, value: '360', description: `Резистор оптрона клапана ${k} (2010)`, fp: 'R_2010_5025Metric', pins: { '1': 'L_V', '2': `V${k}_R` }, lcsc: 'C230895', mpn: 'AC2010JK-07360RL' },
-      R(g4, `R${34 + k}`, '1k', `Затвор — MT1 симистора клапана ${k}: помехи не откроют`, `GV${k}`, `YV${k}`),
+      { group: g4, ref: `R${34 + k}`, value: '1k', description: `Затвор — MT1 симистора клапана ${k}: помехи не откроют (2010 — между выводами сетевой зазор)`, fp: 'R_2010_5025Metric', pins: { '1': `GV${k}`, '2': `YV${k}` }, lcsc: 'C270963', mpn: '201007J0102T4E' },
       { group: g4, ref: `VS${2 + k}`, value: 'BT136S-600E', description: `Симистор магнита клапана ${k} (4 А, DPAK)`, fp: 'Triac_DPAK', pins: { MT2: 'L_V', MT1: `YV${k}`, G: `GV${k}` }, lcsc: 'C2980277', mpn: 'BT136S-600E' },
     );
   }
-  add(PLUG(g4, 'XT5', 'Клапаны', 'Удерживающие магниты 230 В тарельчатых клапанов: YV1, YV2, ноль', ['YV1', 'YV2', 'N']));
+  add(PLUG(g4, 'XT5', 'Клапаны', 'Удерживающие магниты 230 В тарельчатых клапанов: 1 — клапан 2, 2 — клапан 1 (ноль магнитов — проводом мимо платы, как у двигателей)', ['YV2', 'YV1']));
 
   /* ---- аналоговые входы ---- */
   const g5: G = 'Аналоговые входы';
@@ -350,12 +358,12 @@ export function smdParts(): SmdPart[] {
     {
       group: g6,
       ref: 'DD1',
-      value: 'PCA9555PW',
+      value: 'PCA9555DWR',
       description: 'Расширитель I²C 0x20: кнопки пульта, кнопка энкодера, сброс экрана (P12), светодиод (P13), касание (P14), поплавок (P17). Подтяжки входов — свои 100 кОм',
-      fp: 'IC_PCA9555_TSSOP-24',
-      pins: { VDD: '3V3', GND: 'GND', SDA: sda, SCL: scl, A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
-      lcsc: 'C128392',
-      mpn: 'PCA9555PW,118',
+      fp: 'IC_PCA9555_SOIC-24W',
+      pins: { VCC: '3V3', GND: 'GND', SDA: sda, SCL: scl, A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
+      lcsc: 'C2652274',
+      mpn: 'PCA9555DWR',
     },
     C(g6, 'C31', '100 нФ', 'Питание PCA9555', '3V3', 'GND'),
     R(g6, 'R56', '1k', 'Светодиод состояния (горит, когда P13 — «0»)', '3V3', 'LED_A'),
@@ -478,4 +486,518 @@ export function buildVacuumS3Smd(): Project {
     { x: 0, y: Math.max(110, y + 2) },
   ];
   return structuredClone(p);
+}
+
+/* ---------------- плата: компактная расстановка, разводка, подписи ---------------- */
+
+export const SMD_BOARD = { w: 146, h: 100 };
+
+/**
+ * Места сетевой части и крупных деталей: [x, y, поворот]. Сеть — полосой у верхнего края
+ * (реле контактами вверх, симисторы турбин — тыльной стороной к краю, под общий радиатор над
+ * компаундом), оптроны — поперёк границы, логика ниже; ESP32 — антенной за нижний край.
+ */
+export const SMD_PLACE: Record<string, [number, number, number]> = {
+  // Левая колонка: сеть, трансформатор, клапаны.
+  XT1: [11, 7.5, 0],
+  FU1: [5.5, 17.5, 0],
+  RU1: [15.5, 17.5, 0],
+  XT5: [11, 26, 0],
+  XT2: [11, 36.5, 0],
+  FU2: [25, 9, 90],
+  VS3: [25, 20, 0],
+  VS4: [35, 20, 0],
+  R35: [25, 29, 180],
+  R36: [35, 29, 180],
+  R33: [19.5, 30.5, 270],
+  R34: [30, 30.5, 270],
+  U3: [23.5, 42, 90],
+  U4: [34, 42, 90],
+  // Реле контактами вверх, обмотками вниз, к логике.
+  K1: [53.5, 17.5, 90],
+  K2: [82.4, 17.5, 90],
+  // Симисторы турбин — тыльной стороной к краю (общий радиатор над компаундом).
+  VS1: [102.5, 7.5, 0],
+  VS2: [115, 7.5, 0],
+  R23: [100, 15, 90],
+  R24: [112.5, 15, 90],
+  U1: [102.5, 26, 90],
+  U2: [115, 26, 90],
+  XT4: [135.5, 8, 0],
+  A1: [70, 87.5, 180],
+  // Разъёмы и крупное в логике: USB-C у нижнего края рядом с выводами USB модуля, пульт и экран — к краям.
+  X1: [104, 96.5, 0],
+  // Блок питания: накопители столбиком у левого края, клеммник 9 В над ними.
+  C1: [8.5, 54, 0],
+  C2: [8.5, 68, 0],
+  C3: [8.5, 82, 0],
+  XT3: [24, 54, 0],
+  BT1: [129.5, 88, 0],
+  X9: [20, 94.5, 0],
+  X10: [143, 52, 90],
+};
+
+/** Граница сети: всё, что внутри, — только цепи 230 В (до логики ещё 6 мм правила классов). */
+const MAINS_ZONE = [
+  { x: 0, y: 0 },
+  { x: 146, y: 0 },
+  { x: 146, y: 16 },
+  { x: 121.5, y: 16 },
+  { x: 121.5, y: 23.5 },
+  { x: 97, y: 23.5 },
+  { x: 97, y: 13 },
+  { x: 41, y: 13 },
+  { x: 41, y: 40.5 },
+  { x: 0, y: 40.5 },
+];
+
+/** Короткая подпись номинала для шелкографии: без корпуса и напряжения. */
+export function silkLabel(value: string): string {
+  if (/^~?\d+ В/.test(value)) return value.replace(/^(~?\d+) В.*$/, '$1В');
+  if (value === 'зелёный') return 'LED';
+  let v = value.replace(/\s*\d+\s*В$/, '').replace(/\s+(?=[мнкпμ]{0,2}[ФГ]|Ом)/g, '');
+  v = v.replace(/^(\d+),(\d)k$/, '$1k$2');
+  if (/^ESP32-S3/.test(v)) return 'ESP32-S3';
+  return v.replace(/-7$|DWR$|SN#$|SGI$|-TA1$|WRG$|LT1G$/, '').replace(/^SLA-05VDC-SL-A$/, 'SLA 5V').replace(/^(\d+)\s*мкФ$/, '$1мкФ');
+}
+
+/** Ставит сеть и крупные детали, контур, правила, зоны, землю; остальное расставит autoplace. */
+export function layoutVacuumS3Smd(p0: Project): Project {
+  const p = structuredClone(p0);
+  const { w, h } = SMD_BOARD;
+  p.board.outline = [
+    { x: 0, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: h },
+    { x: 0, y: h },
+  ];
+  p.board.cornerRadius = 2;
+  // Ток турбин (до 7,5 А каждая) идёт по плате: медь 70 мкм, нагрев 20 °C, ширина по IPC-2221.
+  p.rules.copperThickness = 70;
+  p.rules.tempRise = 20;
+  p.rules.maxAutoWidth = 4;
+  p.rules.edgeClearance = 0.4;
+  p.netClasses.Mains = { ...p.netClasses.Mains, clearance: 0.7, trackWidth: 0.5, viaDiameter: 1.6, viaDrill: 0.8 };
+  p.netClasses.Power = { ...p.netClasses.Power, trackWidth: 0.4 };
+  const cur: Record<string, number> = { L_F: 0.2, L: 15, M1_L: 7.5, M2_L: 7.5, M1_SW: 7.5, M2_SW: 7.5, L_V: 0.5, YV1: 0.3, YV2: 0.3, N: 0.5, AC1: 1.2, AC2: 1.2, VRECT: 1.2, VIN: 0.9, SW5: 1.2, '5V': 1.2, '3V3': 0.5, GND: 1.2 };
+  for (const n of Object.values(p.nets)) if (cur[n.name]) n.current = cur[n.name];
+  for (const c of Object.values(p.components)) {
+    const at = SMD_PLACE[c.ref];
+    if (at) {
+      c.at = { x: at[0], y: at[1] };
+      c.rotation = at[2];
+      c.locked = true;
+    }
+    c.hideRef = true;
+    c.hideValue = true;
+  }
+  addRuleArea(p, { name: 'Сеть 230 В', outline: MAINS_ZONE, onlyClasses: ['Mains'], showLabel: false });
+  // Антенна ESP32 за нижним краем: под модулем у края меди нет.
+  addRuleArea(p, { name: 'Антенна ESP32-S3', outline: [{ x: 60, y: 93 }, { x: 80, y: 93 }, { x: 80, y: h }, { x: 60, y: h }], keepoutTracks: true, keepoutVias: true, showLabel: false });
+  return structuredClone(p);
+}
+
+/** Земля заливкой с двух сторон в низковольтной части. */
+export function addGroundZones(p0: Project): Project {
+  const p = structuredClone(p0);
+  const gnd = ensureNet(p, 'GND').id;
+  const { w, h } = SMD_BOARD;
+  // Граница сети, отодвинутая на 6 мм вниз, — дальше начинается земля.
+  const outline = [
+    { x: 0.5, y: 46.5 },
+    { x: 47.5, y: 46.5 },
+    { x: 47.5, y: 19.5 },
+    { x: 91, y: 19.5 },
+    { x: 91, y: 30 },
+    { x: 127.5, y: 30 },
+    { x: 127.5, y: 22.5 },
+    { x: w - 0.5, y: 22.5 },
+    { x: w - 0.5, y: h - 0.5 },
+    { x: 0.5, y: h - 0.5 },
+  ];
+  addZone(p, { name: 'Земля снизу', layer: 'B.Cu', net: gnd, outline, clearance: 0.3, minWidth: 0.25, priority: 0 });
+  addZone(p, { name: 'Земля сверху', layer: 'F.Cu', net: gnd, outline, clearance: 0.3, minWidth: 0.25, priority: 0 });
+  return structuredClone(p);
+}
+
+/**
+ * Подписи номиналов на шелкографии: у каждой детали — номинал (у микросхем, диодов и
+ * транзисторов — название, у разъёмов — назначение), без корпуса и напряжения. Место — сверху,
+ * снизу, слева или справа от габарита, где подпись не задевает площадки, габариты и другие подписи.
+ */
+export function addValueLabels(p0: Project): Project {
+  const p = structuredClone(p0);
+  for (const [id, d] of Object.entries(p.drawings)) if (d.kind === 'text' && d.layer === 'F.Silk') delete p.drawings[id];
+  const world = getWorld(p);
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const pads: Box[] = world.pads.map((q) => {
+    const b = q.shape.box;
+    return { x0: b.minX - 0.2, y0: b.minY - 0.2, x1: b.maxX + 0.2, y1: b.maxY + 0.2 };
+  });
+  const bodies: Box[] = world.components.map((wc) => {
+    const xs = wc.outline.map((v) => v.x);
+    const ys = wc.outline.map((v) => v.y);
+    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  });
+  const used: Box[] = [];
+  const hit = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const H = 0.9;
+  const big = 1.4;
+  const { w, h } = SMD_BOARD;
+  for (const wc of world.components) {
+    const c = wc.component;
+    const text = silkLabel(c.value);
+    if (!text) continue;
+    const b = bodies[world.components.indexOf(wc)];
+    const bw = b.x1 - b.x0;
+    const bh = b.y1 - b.y0;
+    const size = Math.min(bw, bh) > 8 ? big : H;
+    const len = text.length * size * 0.75;
+    // Крупные детали — надпись на корпусе (по центру, если там нет площадок), мелкие — рядом.
+    const cand: { x: number; y: number; rot: number }[] = [
+      { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, rot: bw >= bh ? 0 : 90 },
+      { x: (b.x0 + b.x1) / 2, y: b.y0 - size * 0.8, rot: 0 },
+      { x: (b.x0 + b.x1) / 2, y: b.y1 + size * 0.8, rot: 0 },
+      { x: b.x0 - len / 2 - 0.4, y: (b.y0 + b.y1) / 2, rot: 0 },
+      { x: b.x1 + len / 2 + 0.4, y: (b.y0 + b.y1) / 2, rot: 0 },
+      { x: b.x0 - size * 0.8, y: (b.y0 + b.y1) / 2, rot: 90 },
+      { x: b.x1 + size * 0.8, y: (b.y0 + b.y1) / 2, rot: 90 },
+    ];
+    let placed = false;
+    for (const [k, q] of cand.entries()) {
+      const hw = (q.rot ? size : len) / 2 + 0.1;
+      const hh = (q.rot ? len : size) / 2 + 0.1;
+      const box = { x0: q.x - hw, y0: q.y - hh, x1: q.x + hw, y1: q.y + hh };
+      if (box.x0 < 0.3 || box.y0 < 0.3 || box.x1 > w - 0.3 || box.y1 > h - 0.3) continue;
+      if (k === 0 && (bw < len + 1 || bh < size + 1) && !(q.rot && bh >= len + 1 && bw >= size + 1)) continue;
+      if (pads.some((x) => hit(box, x)) || used.some((x) => hit(box, x))) continue;
+      if (k > 0 && bodies.some((x, i) => i !== world.components.indexOf(wc) && hit(box, x))) continue;
+      used.push(box);
+      addDrawing(p, { kind: 'text', layer: 'F.Silk', at: { x: +q.x.toFixed(2), y: +q.y.toFixed(2) }, text, size, thickness: 0.15, rotation: q.rot || undefined, align: 'center' });
+      placed = true;
+      break;
+    }
+    if (!placed) addDrawing(p, { kind: 'text', layer: 'F.Fab', at: { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }, text: `${c.ref} ${text}`, size: 0.6, thickness: 0.1, align: 'center' });
+  }
+  return structuredClone(p);
+}
+
+/**
+ * Сужение у выводов с шагом 2,54 (TO-220): последний отрезок дорожки длиной len у площадки этих
+ * деталей — шириной width, иначе широкая дорожка подходит к соседнему выводу ближе зазора.
+ */
+function neckAtPads(p: Project, r: Pick<RouteResult, 'tracks' | 'vias'>, refs: string[], width: number, len: number): Pick<RouteResult, 'tracks' | 'vias'> {
+  const pads = getWorld(p).pads.filter((q) => refs.includes(q.component.ref)).map((q) => q.center);
+  const near = (v: { x: number; y: number }) => pads.some((c) => Math.hypot(c.x - v.x, c.y - v.y) < 0.05);
+  const tracks: RouteResult['tracks'] = [];
+  for (const t of r.tracks) {
+    let pts = [...t.points];
+    const cut = (from: 'start' | 'end') => {
+      const a = from === 'start' ? pts[0] : pts[pts.length - 1];
+      if (!near(a)) return;
+      const b = from === 'start' ? pts[1] : pts[pts.length - 2];
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      const k = Math.min(1, len / d);
+      const m = { x: +(a.x + (b.x - a.x) * k).toFixed(4), y: +(a.y + (b.y - a.y) * k).toFixed(4) };
+      tracks.push({ ...t, width: Math.min(t.width, width), points: [a, m] });
+      if (k >= 1) pts = from === 'start' ? pts.slice(1) : pts.slice(0, -1);
+      else if (from === 'start') pts[0] = m;
+      else pts[pts.length - 1] = m;
+    };
+    cut('start');
+    if (pts.length >= 2) cut('end');
+    if (pts.length >= 2) tracks.push({ ...t, points: pts });
+  }
+  return { tracks, vias: r.vias };
+}
+
+/** Переходное 0,6/0,3 рядом с каждой планарной площадкой земли, где оно встаёт с зазором 0,25. */
+export function groundVias(p0: Project): { project: Project; vias: number } {
+  const p = structuredClone(p0);
+  const gnd = Object.values(p.nets).find((n) => n.name === 'GND');
+  if (!gnd) return { project: p, vias: 0 };
+  const world = getWorld(p);
+  const conn = computeConnectivity(p);
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const obst: Box[] = [];
+  for (const q of world.pads) if (q.net !== gnd.id) obst.push({ x0: q.shape.box.minX, y0: q.shape.box.minY, x1: q.shape.box.maxX, y1: q.shape.box.maxY });
+  for (const [id, t] of Object.entries(p.tracks))
+    if (conn.itemNet.get(id) !== gnd.id)
+      for (let i = 1; i < t.points.length; i++) {
+        const a = t.points[i - 1];
+        const b = t.points[i];
+        const m = t.width / 2;
+        obst.push({ x0: Math.min(a.x, b.x) - m, y0: Math.min(a.y, b.y) - m, x1: Math.max(a.x, b.x) + m, y1: Math.max(a.y, b.y) + m });
+      }
+  for (const v of Object.values(p.vias)) obst.push({ x0: v.at.x - v.diameter / 2, y0: v.at.y - v.diameter / 2, x1: v.at.x + v.diameter / 2, y1: v.at.y + v.diameter / 2 });
+  for (const a of Object.values(p.ruleAreas))
+    if (a.keepoutVias || (a.onlyClasses && !a.onlyClasses.includes(gnd.netClass))) {
+      const xs = a.outline.map((v) => v.x);
+      const ys = a.outline.map((v) => v.y);
+      obst.push({ x0: Math.min(...xs) - 6, y0: Math.min(...ys) - 6, x1: Math.max(...xs) + 6, y1: Math.max(...ys) + 6 });
+    }
+  const bodies = world.pads.filter((q) => q.net === gnd.id);
+  const xs = p.board.outline.map((v) => v.x);
+  const ys = p.board.outline.map((v) => v.y);
+  const clear = (c: { x: number; y: number }, r: number, gap: number) =>
+    c.x - r > Math.min(...xs) + 0.6 && c.x + r < Math.max(...xs) - 0.6 && c.y - r > Math.min(...ys) + 0.6 && c.y + r < Math.max(...ys) - 0.6 &&
+    obst.every((b) => {
+      const dx = Math.max(b.x0 - c.x, 0, c.x - b.x1);
+      const dy = Math.max(b.y0 - c.y, 0, c.y - b.y1);
+      return Math.hypot(dx, dy) >= r + gap;
+    });
+  let n = 0;
+  for (const q of bodies) {
+    if (q.drill) continue;
+    const b = q.shape.box;
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    let done = false;
+    for (const r of [0.9, 1.2, 1.6, 2.1]) {
+      for (let k = 0; k < 8 && !done; k++) {
+        const a = (k * Math.PI) / 4;
+        const at = { x: +(cx + Math.cos(a) * (r + (b.maxX - b.minX) / 2 * Math.abs(Math.cos(a)))).toFixed(3), y: +(cy + Math.sin(a) * (r + (b.maxY - b.minY) / 2 * Math.abs(Math.sin(a)))).toFixed(3) };
+        if (!clear(at, 0.3, 0.3)) continue;
+        // Отвод от площадки до переходного не должен задевать чужое.
+        const mid = { x: (at.x + cx) / 2, y: (at.y + cy) / 2 };
+        if (!clear(mid, 0.15, 0.25)) continue;
+        addTrack(p, { layer: q.layers.includes('F.Cu') ? 'F.Cu' : 'B.Cu', width: 0.3, points: [{ x: cx, y: cy }, at] });
+        addVia(p, { at, diameter: 0.6, drill: 0.3 });
+        obst.push({ x0: at.x - 0.3, y0: at.y - 0.3, x1: at.x + 0.3, y1: at.y + 0.3 });
+        n++;
+        done = true;
+      }
+      if (done) break;
+    }
+  }
+  return { project: structuredClone(p), vias: n };
+}
+
+/**
+ * Отрезанные площадки земли (в тесноте заливка до них не дотекает) — переходным рядом с площадкой
+ * на заливку другого слоя: перебор мест вокруг площадки, место годится, если DRC не хуже и
+ * островков земли стало меньше.
+ */
+export function stitchGround(p0: Project): { project: Project; vias: number; left: number } {
+  let p = structuredClone(p0);
+  const gnd = Object.values(p.nets).find((n) => n.name === 'GND');
+  if (!gnd) return { project: p, vias: 0, left: 0 };
+  const errs = (q: Project) => runDrc(q).markers.filter((m) => m.severity === 'error' && m.code !== 'unrouted').length;
+  const islandsOf = (q: Project) => computeConnectivity(q).nets.get(gnd.id)?.islands ?? [];
+  let vias = 0;
+  let base = errs(p);
+  for (let guard = 0; guard < 20; guard++) {
+    const isl = [...islandsOf(p)].sort((a, b) => b.pads.length - a.pads.length);
+    if (isl.length <= 1) break;
+    const world = getWorld(p);
+    const byKey = new Map(world.pads.map((q) => [q.key, q]));
+    let fixed = false;
+    for (const island of isl.slice(1)) {
+      for (const key of island.pads) {
+        const wp = byKey.get(key);
+        if (!wp) continue;
+        const layer = wp.layers.includes('F.Cu') ? 'F.Cu' : 'B.Cu';
+        for (const r of [0.8, 1.1, 1.5, 2.0, 2.6, 3.3, 4.2, 5.2]) {
+          for (let k = 0; k < 24 && !fixed; k++) {
+            const a = (k * Math.PI) / 12;
+            const at = { x: +(wp.center.x + r * Math.cos(a)).toFixed(3), y: +(wp.center.y + r * Math.sin(a)).toFixed(3) };
+            const q = structuredClone(p);
+            addTrack(q, { layer, width: 0.25, points: [wp.center, at] });
+            addVia(q, { at, diameter: 0.6, drill: 0.3 });
+            const q2 = structuredClone(q);
+            if (islandsOf(q2).length >= isl.length) continue;
+            if (errs(q2) > base) continue;
+            p = q2;
+            base = errs(p);
+            vias++;
+            fixed = true;
+          }
+          if (fixed) break;
+        }
+        if (fixed) break;
+      }
+      if (fixed) break;
+    }
+    // Второй способ: одиночное переходное там, где кусок заливки островка на одном слое лежит над
+    // основной землёй на другом (точки сетки 0,8 мм в 8 мм от площадок островка).
+    if (!fixed)
+      for (const island of isl.slice(1)) {
+        const centers = island.pads.map((k) => byKey.get(k)?.center).filter((c): c is { x: number; y: number } => !!c);
+        const seen = new Set<string>();
+        for (const c of centers)
+          for (let dy = -8; dy <= 8 && !fixed; dy += 0.8)
+            for (let dx = -8; dx <= 8 && !fixed; dx += 0.8) {
+              const at = { x: +(Math.round((c.x + dx) / 0.4) * 0.4).toFixed(2), y: +(Math.round((c.y + dy) / 0.4) * 0.4).toFixed(2) };
+              const key = `${at.x},${at.y}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              const q = structuredClone(p);
+              addVia(q, { at, diameter: 0.6, drill: 0.3 });
+              const q2 = structuredClone(q);
+              if (islandsOf(q2).length >= isl.length) continue;
+              if (errs(q2) > base) continue;
+              p = q2;
+              base = errs(p);
+              vias++;
+              fixed = true;
+            }
+        if (fixed) break;
+      }
+    if (!fixed) break;
+  }
+  return { project: p, vias, left: Math.max(0, islandsOf(p).length - 1) };
+}
+
+function applyRoute(p: Project, r: Pick<RouteResult, 'tracks' | 'vias'>): Project {
+  for (const t of r.tracks) addTrack(p, t);
+  for (const v of r.vias) addVia(p, v);
+  return structuredClone(p);
+}
+
+function withMains(q: Project, width: number, clearance: number, others?: number): Project {
+  const c = structuredClone(q);
+  // Запрет под антенной — для трассировщика на 0,3 мм шире: он проверяет центры клеток, а у дорожки есть ширина.
+  for (const a of Object.values(c.ruleAreas))
+    if (a.keepoutTracks) {
+      const xs = a.outline.map((v) => v.x);
+      const ys = a.outline.map((v) => v.y);
+      const [x0, x1, y0, y1] = [Math.min(...xs) - 0.3, Math.max(...xs) + 0.3, Math.min(...ys) - 0.3, Math.max(...ys) + 0.3];
+      a.outline = [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+    }
+  c.netClasses.Mains = { ...c.netClasses.Mains, trackWidth: width, clearance };
+  if (others) for (const k of Object.keys(c.netClasses)) if (k !== 'Mains') c.netClasses[k] = { ...c.netClasses[k], trackWidth: others };
+  return c;
+}
+
+/**
+ * Разводка по этапам: ток турбин — 2 мм; остальная сеть — 0,5 мм с запасом 1,3; выпрямитель —
+ * 0,4 мм на сетке 0,635; USB — на сетке 0,25; логика — 0,2 мм на сетке 0,4233 (земля — заливкой),
+ * потом расширение по току.
+ */
+export async function routeVacuumS3Smd(p0: Project, o: { iterations?: number; extra?: RouteOptions; onStage?: (name: string, p: Project) => void } = {}): Promise<{ project: Project; report: string[]; failed: number }> {
+  let p = structuredClone(p0);
+  const report: string[] = [];
+  const it = o.iterations ?? 60;
+  const x: RouteOptions = o.extra ?? { greed: 1, diagonal: false };
+  const byName = (names: string[]) => Object.values(p.nets).filter((n) => names.includes(n.name)).map((n) => n.id);
+  const ids = (f: (cls: string, name: string) => boolean) => Object.values(p.nets).filter((n) => f(n.netClass, n.name)).map((n) => n.id);
+  const heavy = ['L', 'M1_L', 'M2_L', 'M1_SW', 'M2_SW'];
+  let failed = 0;
+  // Земля micro-USB — коротким отводом к ближнему выводу корпуса разъёма: заливка между соседними
+  // площадками (шаг 0,65) к ней не подходит.
+  const wd = getWorld(p);
+  const padsOf = (ref: string, name: string) => wd.pads.filter((q) => q.component.ref === ref && (q.pad.name || q.pad.number) === name);
+  const shields = padsOf('X1', 'SHIELD').map((q) => q.center);
+  for (const g of padsOf('X1', 'GND')) {
+    const s0 = shields.reduce((a, b) => (Math.hypot(b.x - g.center.x, b.y - g.center.y) < Math.hypot(a.x - g.center.x, a.y - g.center.y) ? b : a));
+    addTrack(p, { layer: 'F.Cu', width: 0.3, points: [g.center, s0] });
+  }
+  p = structuredClone(p);
+  const r0 = await autoroute(withMains(p, 2.0, 1.3), { iterations: it, hopCost: 40, yieldEvery: 1e9, grid: 1.27, nets: byName(heavy), ...x });
+  report.push(`ток турбин: дорожек ${r0.tracks.length}, не проведено ${r0.failed}`);
+  failed += r0.failed;
+  const heavyIds: string[] = [];
+  {
+    const nr = neckAtPads(p, r0, ['VS1', 'VS2'], 1.0, 2.2);
+    for (const t of nr.tracks) if (t.width > 1.5) heavyIds.push(addTrack(p, t).id);
+      else addTrack(p, t);
+    for (const v of nr.vias) addVia(p, v);
+    p = structuredClone(p);
+  }
+  // Трансформатор (L_F, N) — отдельно: у левого края им тесно рядом с клапанами.
+  const rt = await autoroute(withMains(p, 0.5, 1.3), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: byName(['L_F', 'N']), ...x });
+  p = applyRoute(p, rt);
+  const r1 = await autoroute(withMains(p, 0.5, 1.3), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: ids((c, n) => c === 'Mains' && !heavy.includes(n) && n !== 'L_F' && n !== 'N'), ...x });
+  p = applyRoute(p, r1);
+  // Добор с зазором 0,8 мм (правило платы — 0,7; плата под компаундом) на мелкой сетке.
+  const r1b = await autoroute(withMains(p, 0.5, 0.8), { iterations: it, hopCost: 10, yieldEvery: 1e9, grid: 0.3175, keepExisting: true, nets: ids((c, n) => c === 'Mains' && !heavy.includes(n)), ...x });
+  p = applyRoute(p, r1b);
+  report.push(`230 В: дорожек ${rt.tracks.length + r1.tracks.length + r1b.tracks.length}, не проведено ${r1b.failed}`);
+  failed += r1b.failed;
+  const power = byName(['VIN', 'VRECT', 'AC1', 'AC2']);
+  const r2 = await autoroute(withMains(p, 0.5, 0.7, 0.4), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.635, keepExisting: true, nets: power, ...x });
+  report.push(`выпрямитель: дорожек ${r2.tracks.length}, переходных ${r2.vias.length}, не проведено ${r2.failed}`);
+  failed += r2.failed;
+  p = applyRoute(p, r2);
+  const usb = byName(['USB_DN', 'USB_DP', 'VBUS']);
+  // USB (шаг 0,65): сначала сетка 0,3175 — на 0,25 соседние дорожки ложатся ближе зазора, — остаток на 0,25.
+  const ru0 = await autoroute(withMains(p, 0.5, 0.7, 0.2), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.3175, keepExisting: true, nets: usb, ...x });
+  p = applyRoute(p, ru0);
+  const ru = await autoroute(withMains(p, 0.5, 0.7, 0.2), { iterations: it, hopCost: 20, yieldEvery: 1e9, grid: 0.25, keepExisting: true, nets: usb, ...x });
+  report.push(`USB: дорожек ${ru0.tracks.length + ru.tracks.length}, переходных ${ru0.vias.length + ru.vias.length}, не проведено ${ru.failed}`);
+  failed += ru.failed;
+  for (const v of ru.vias) addVia(p, v);
+  const done = new Set([...power, ...usb]);
+  const thinIds: string[] = [];
+  for (const t of ru.tracks) addTrack(p, t);
+  p = structuredClone(p);
+  // У каждой площадки земли — своё переходное на нижнюю сплошную землю (до разводки логики, пока
+  // рядом свободно): заливку сверху дорожки режут, а снизу земля почти сплошная.
+  const gv = groundVias(p);
+  p = gv.project;
+  report.push(`земля: переходных у площадок ${gv.vias}`);
+  o.onStage?.('логика', p);
+  const r3 = await autorouteWithZones(withMains(p, 0.5, 0.7, 0.2), {
+    iterations: it,
+    hopCost: 12,
+    congestionGrowth: 1.3,
+    yieldEvery: 1e9,
+    grid: 1.27 / 3,
+    keepExisting: true,
+    nets: ids((c, n) => c !== 'Mains' && !done.has(Object.values(p.nets).find((q) => q.name === n)!.id)),
+    // Логика — в основном сверху: снизу остаётся почти сплошная земля.
+    layerCost: [1, 2.2],
+    ...x,
+  });
+  report.push(`логика: дорожек ${r3.tracks.length}, переходных ${r3.vias.length}, сшивок ${r3.stitches}, не проведено ${r3.failed}`);
+  failed += r3.failed;
+  for (const t of r3.tracks) thinIds.push(addTrack(p, t).id);
+  for (const v of r3.vias) addVia(p, v);
+  p = structuredClone(p);
+  const want = new Map<string, number>();
+  for (const id of Object.keys(p.nets)) want.set(id, netWidth(p, id).width);
+  const f = fitTrackWidthsSafe(structuredClone(p), { tracks: [...thinIds, ...heavyIds], widths: want });
+  if (f.nets.length) applyFit(p, f);
+  p = structuredClone(p);
+  report.push(`ширина: расширено цепей ${f.nets.length}, не везде хватило места: ${f.short.map((n) => p.nets[n.net]?.name ?? n.net).join(', ') || 'нет'}`);
+  // Добор: недоведённые цепи логики — на мелких сетках (переходные 0,6/0,3).
+  for (const g of [0.3175, 1.27 / 6]) {
+    const conn = computeConnectivity(p);
+    const open = Object.values(p.nets)
+      .filter((n) => n.netClass !== 'Mains' && n.name !== 'GND' && conn.nets.get(n.id) && !conn.nets.get(n.id)!.complete)
+      .map((n) => n.id);
+    if (!open.length) break;
+    const q = withMains(p, 0.5, 0.7, 0.2);
+    for (const k of Object.keys(q.netClasses)) if (k !== 'Mains') q.netClasses[k] = { ...q.netClasses[k], viaDiameter: 0.6, viaDrill: 0.3 };
+    const rr = await autoroute(q, { iterations: 20, hopCost: 8, yieldEvery: 1e9, grid: g, keepExisting: true, nets: open, ...x });
+    p = applyRoute(p, rr);
+    report.push(`добор на сетке ${g.toFixed(3)}: цепей ${open.length}, дорожек ${rr.tracks.length}, не проведено ${rr.failed}`);
+  }
+  // Земля, до которой не дотекла заливка, — сначала дорожками на мелкой сетке, остальное — переходными.
+  const gIds = byName(['GND']);
+  const rgq = withMains(p, 0.5, 0.7, 0.2);
+  for (const k of Object.keys(rgq.netClasses)) if (k !== 'Mains') rgq.netClasses[k] = { ...rgq.netClasses[k], viaDiameter: 0.6, viaDrill: 0.3 };
+  const rg = await autoroute(rgq, { iterations: 10, hopCost: 5, yieldEvery: 1e9, grid: 1.27 / 6, keepExisting: true, nets: gIds, ...x });
+  p = applyRoute(p, rg);
+  // Дорожки земли, задевшие запрет под антенной, — убрать: землю соединят заливка и сшивка.
+  {
+    const gid = gIds[0];
+    const conn = computeConnectivity(p);
+    const boxes = Object.values(p.ruleAreas).filter((a) => a.keepoutTracks).map((a) => {
+      const xs = a.outline.map((v) => v.x);
+      const ys = a.outline.map((v) => v.y);
+      return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    });
+    for (const [id, t] of Object.entries(p.tracks)) {
+      if (conn.itemNet.get(id) !== gid) continue;
+      const m = t.width / 2;
+      if (t.points.some((v, i) => i > 0 && boxes.some((b) => Math.max(v.x, t.points[i - 1].x) + m > b.x0 && Math.min(v.x, t.points[i - 1].x) - m < b.x1 && Math.max(v.y, t.points[i - 1].y) + m > b.y0 && Math.min(v.y, t.points[i - 1].y) - m < b.y1)))
+        delete p.tracks[id];
+    }
+    p = structuredClone(p);
+  }
+  const st = stitchGround(p);
+  p = st.project;
+  report.push(`земля: переходных к заливке ${st.vias}, отрезанных площадок осталось ${st.left}`);
+  return { project: p, report, failed };
 }

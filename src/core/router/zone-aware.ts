@@ -112,12 +112,12 @@ export async function autorouteWithZones(p: Project, o: ZoneRouteOptions = {}): 
   // Состояние, от которого разводим: без дорожек, если их стирают.
   const base = structuredClone(p);
   if (!o.keepExisting) clearRouting(base);
-  const c0 = computeConnectivity(base);
   const all = o.nets ?? Object.keys(p.nets);
   // Только цепи этого прохода: при разводке по этапам землю не дотягивают на этапе сети 230 В.
   const inPass = new Set(all);
-  const byZone = [...zoneNets].filter((id) => inPass.has(id) && c0.nets.get(id)?.complete);
-  const first = all.filter((id) => !byZone.includes(id));
+  // Цепи заливки, даже не связанные до конца, — после остальных: в общем проходе их заливка
+  // на обоих слоях считалась бы уже проложенной медью и закрыла бы дорогу всем остальным.
+  const first = all.filter((id) => !zoneNets.has(id));
   const r1 = await autoroute(base, { ...o, keepExisting: o.keepExisting, nets: first });
 
   const q = structuredClone(base);
@@ -126,7 +126,7 @@ export async function autorouteWithZones(p: Project, o: ZoneRouteOptions = {}): 
   const vias = o.stitch === false ? [] : stitchVias(structuredClone(q), o.stitchPitch);
   for (const v of vias) addVia(q, v);
   const c1 = computeConnectivity(structuredClone(q));
-  const left = byZone.filter((id) => !c1.nets.get(id)?.complete);
+  const left = all.filter((id) => zoneNets.has(id) && !c1.nets.get(id)?.complete);
   let r2: RouteResult | null = null;
   if (left.length) r2 = await autoroute(structuredClone(q), { ...o, keepExisting: true, nets: left });
   return {
@@ -138,7 +138,7 @@ export async function autorouteWithZones(p: Project, o: ZoneRouteOptions = {}): 
     iterations: r1.iterations + (r2?.iterations ?? 0),
     grid: r1.grid,
     ms: r1.ms + (r2?.ms ?? 0),
-    zoneNets: byZone.length - left.length,
+    zoneNets: [...zoneNets].filter((id) => inPass.has(id)).length - left.length,
     stitches: vias.length,
     hot: [...(r1.hot ?? []), ...(r2?.hot ?? [])],
   };
