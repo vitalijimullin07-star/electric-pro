@@ -2427,6 +2427,42 @@ textarea:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.stlv-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 6px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.stlv-group .stlv-name > div {
+  font-weight: 600;
+}
+.stlv-group .ibtn {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  box-shadow: none;
+}
+.stlv-fold {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mute);
+}
+.stlv-row.in-group {
+  padding-left: 22px;
+}
+.stlv-explode {
+  display: grid !important;
+  gap: 4px;
+}
+.stlv-explode input {
+  width: 100%;
+}
 .stlv-sel-act {
   margin: 0;
   flex: none;

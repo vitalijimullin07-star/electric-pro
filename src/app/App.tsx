@@ -20,7 +20,7 @@ import { LayerMoveDialog } from '@ui/dialogs/LayerMoveDialog';
 import { ReplaceDialog, type ReplaceData } from '@ui/dialogs/ReplaceDialog';
 import { View3D } from '@ui/dialogs/View3D';
 import { StlViewer } from '@ui/dialogs/StlViewer';
-import { openStlFiles } from '@ui/stl-session';
+import { MODEL_FILES, openStlFiles } from '@ui/stl-session';
 import { SchematicView } from '@ui/SchematicView';
 import { gfxProfile } from '@render/quality';
 import { installBackButton } from '@ui/back-button';
@@ -43,7 +43,7 @@ export function App() {
   // Кнопка «Назад» на телефоне закрывает окна и панели, а не приложение.
   useEffect(() => installBackButton(), []);
 
-  // Перетаскивание файлов в окно: модели STL (и ZIP с ними) открываются в просмотре.
+  // Перетаскивание файлов в окно: модели STL, STEP, IGES (и ZIP с ними) открываются в просмотре.
   useEffect(() => {
     const over = (e: DragEvent) => {
       if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault();
@@ -52,9 +52,9 @@ export function App() {
       const files = [...(e.dataTransfer?.files ?? [])];
       if (!files.length) return;
       e.preventDefault();
-      const stl = files.filter((f) => /\.(stl|zip)$/i.test(f.name));
+      const stl = files.filter((f) => MODEL_FILES.test(f.name));
       if (stl.length) void openStlFiles(stl);
-      else useEditor.getState().setMessage('Сюда можно перетащить модели STL (или архив ZIP с ними).');
+      else useEditor.getState().setMessage('Сюда можно перетащить 3D-модели STL, STEP, IGES (или архив ZIP с ними).');
     };
     window.addEventListener('dragover', over);
     window.addEventListener('drop', drop);

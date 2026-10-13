@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
-import { binaryStl, parseStl, raycastStl, stlSize, stlSources, STL_EDGE_LIMIT } from '../src/core/io/stl';
+import { binaryStl, parseStl, raycastStl, stlSize, modelSources, STL_EDGE_LIMIT } from '../src/core/io/stl';
 
 /** Куб со стороной s от (x0,y0,z0): 12 треугольников, обход против часовой снаружи. */
 function cube(s = 10, x0 = 0, y0 = 0, z0 = 0): number[] {
@@ -83,10 +83,10 @@ describe('STL', () => {
       'readme.txt': strToU8('привет'),
       '__MACOSX/печать/._кожух.stl': strToU8('мусор'),
     });
-    const src = stlSources('Пылесос.zip', z);
+    const src = modelSources('Пылесос.zip', z);
     expect(src.map((s) => s.name)).toEqual(['печать/кожух.stl', 'печать/стакан.stl']);
     expect(parseStl(src[0].bytes, src[0].name).volume).toBeCloseTo(64, 6);
-    const one = stlSources('C:\\детали\\a.stl', binaryStl(new Float32Array(cube(1))));
+    const one = modelSources('C:\\детали\\a.stl', binaryStl(new Float32Array(cube(1))));
     expect(one).toHaveLength(1);
     expect(one[0].name).toBe('a.stl');
   });

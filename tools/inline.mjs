@@ -2,7 +2,7 @@
 // Такой файл можно открыть с диска, переслать или опубликовать как одну страницу.
 // Воркер автотрассировки кладётся рядом (dist/router.worker-*.js); если его нет,
 // автотрассировка работает в основном потоке.
-import { copyFileSync, existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -45,4 +45,12 @@ writeFileSync(join(root, 'index.html'), html);
 writeFileSync(join(root, 'sw.js'), sw);
 for (const f of workers) copyFileSync(join(dist, f), join(root, f));
 for (const f of statics) copyFileSync(join(dist, f), join(root, f));
+// OpenCascade (occt-import-js, LGPL-2.1) для STEP и IGES — отдельными файлами рядом с сайтом:
+// просмотр 3D-моделей загружает их только при открытии такого файла.
+const occtSrc = join(root, 'node_modules/occt-import-js/dist');
+if (existsSync(occtSrc))
+  for (const d of [join(dist, 'occt'), join(root, 'occt')]) {
+    mkdirSync(d, { recursive: true });
+    for (const f of ['occt-import-js.js', 'occt-import-js.wasm', 'license.occt-import-js.txt', 'license.occt.txt']) copyFileSync(join(occtSrc, f), join(d, f));
+  }
 console.log(`dist/plata.html ${(html.length / 1024).toFixed(0)} КБ`);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '@editor/store';
 import { safeStorage } from '@editor/storage';
 import { raycastStl, stlSize, type StlModel, type V3 } from '@core/io/stl';
@@ -7,10 +7,11 @@ import { StlGl, STL_FOV, camBasis, type StlCam, type StlItem } from '@render/stl
 import { gfxProfile } from '@render/quality';
 import { onBack } from '../back-button';
 import { saveTextFile } from '../files';
-import { STL_COLORS, clearStlErrors, pickStlFiles, stlSnapshot, subscribeStl, updateStlEntries, type StlEntry } from '../stl-session';
+import { STL_COLORS, clearStlErrors, pickStlFiles, rotateAllStl, splitStlEntry, stlSnapshot, subscribeStl, updateStlEntries, type StlEntry } from '../stl-session';
 
 /*
- * Просмотр моделей STL: несколько файлов сразу (и ZIP с ними), вращение, сдвиг, масштаб
+ * Просмотр 3D-моделей STL, STEP, IGES: несколько файлов сразу (и ZIP с ними), сборки STEP — по
+ * деталям, сборка одним файлом разбивается на тела, разнесение; вращение, сдвиг, масштаб
  * мышью и пальцами, стандартные виды, разрез плоскостью, замер расстояния по двум точкам
  * на поверхности, габарит, объём, масса по материалу, проверка замкнутости.
  */
@@ -70,12 +71,18 @@ const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot3 = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
 const mm = (v: number) => fmt(v, Math.abs(v) >= 100 ? 1 : 2);
+/** Большое число — с разбивкой на тысячи. */
+const big = (v: number, digits: number) => (Math.abs(v) >= 10000 ? Math.round(v).toLocaleString('ru-RU') : fmt(v, digits));
+/** Объём в см³, от литра — в литрах. */
+const volText = (cm3: number) => (cm3 >= 1000 ? `${big(cm3 / 1000, cm3 >= 100000 ? 0 : 2)} л` : `${fmt(cm3, cm3 < 10 ? 2 : 1)} см³`);
+/** Масса в граммах, от килограмма — в килограммах. */
+const massText = (g: number) => (g >= 1000 ? `${big(g / 1000, g >= 100000 ? 0 : 2)} кг` : `${fmt(g, g < 10 ? 1 : 0)} г`);
 
 /**
  * Модели в мире: масштаб единиц и раскладка «рядом» — каждая на свой участок стола,
  * рядами слева направо и сверху вниз (как текст на виде сверху), все стоят на z = 0.
  */
-function layout(entries: StlEntry[], scale: number, row: boolean): { items: StlItem[]; box: Box | null } {
+function layout(entries: StlEntry[], scale: number, row: boolean, explode = 0): { items: StlItem[]; box: Box | null } {
   const vis = entries.filter((e) => e.visible);
   const dims = vis.map((e) => stlSize(e.model).map((v) => v * scale));
   const biggest = Math.max(0, ...dims.map((d) => Math.max(d[0], d[1])));
@@ -101,13 +108,25 @@ function layout(entries: StlEntry[], scale: number, row: boolean): { items: StlI
       cx += w + gap;
       depth = Math.max(depth, h);
     }
-    if (e.visible) {
-      const lo = [0, 1, 2].map((k) => m.min[k] * scale + off[k]) as V3;
-      const hi = [0, 1, 2].map((k) => m.max[k] * scale + off[k]) as V3;
-      box = box ? { min: [0, 1, 2].map((k) => Math.min(box!.min[k], lo[k])) as V3, max: [0, 1, 2].map((k) => Math.max(box!.max[k], hi[k])) as V3 } : { min: lo, max: hi };
-    }
     return { key: e.key, model: m, color: hexRgb(e.color), visible: e.visible, offset: off };
   });
+  // Разнесение (взрыв-схема): каждая деталь отодвигается от центра сборки вдоль своего направления.
+  if (explode > 0 && !row) {
+    const vb = items.filter((i) => i.visible).map((i) => itemBox(i, scale));
+    if (vb.length > 1) {
+      const c = [0, 1, 2].map((k) => (Math.min(...vb.map((b) => b.min[k])) + Math.max(...vb.map((b) => b.max[k]))) / 2);
+      for (const it of items) {
+        if (!it.visible) continue;
+        const b = itemBox(it, scale);
+        it.offset = [0, 1, 2].map((k) => it.offset[k] + ((b.min[k] + b.max[k]) / 2 - c[k]) * explode * 1.5) as V3;
+      }
+    }
+  }
+  for (const it of items) {
+    if (!it.visible) continue;
+    const b = itemBox(it, scale);
+    box = box ? { min: [0, 1, 2].map((k) => Math.min(box!.min[k], b.min[k])) as V3, max: [0, 1, 2].map((k) => Math.max(box!.max[k], b.max[k])) as V3 } : b;
+  }
   return { items, box };
 }
 
@@ -156,13 +175,16 @@ export function StlViewer() {
   const [others, setOthers] = useState(false);
   // Следующее касание задаёт место разреза.
   const [clipPick, setClipPick] = useState(false);
+  // Разнесение деталей (0…1) и свёрнутые сборки в списке.
+  const [explode, setExplode] = useState(0);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   const cvRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<StlGl | null>(null);
   const cam = useRef<StlCam>({ yaw: VIEWS.iso.yaw, pitch: VIEWS.iso.pitch, dist: 300, target: [0, 0, 0], ortho: prefs.ortho });
   const raf = useRef(0);
 
-  const { items: laid, box: sceneBox } = useMemo(() => layout(entries, prefs.scale, prefs.row), [entries, prefs.scale, prefs.row]);
+  const { items: laid, box: sceneBox } = useMemo(() => layout(entries, prefs.scale, prefs.row, explode), [entries, prefs.scale, prefs.row, explode]);
   const focusItem = focus ? (laid.find((i) => i.key === focus && i.visible) ?? null) : null;
   const items = useMemo(
     () => (focusItem ? laid.map((it) => ({ ...it, visible: it.visible && (it.key === focusItem.key || others), clip: it.key === focusItem.key })) : laid),
@@ -504,18 +526,24 @@ export function StlViewer() {
     const closed = ed ? (ed.open === 0 && ed.nonManifold === 0 ? 'замкнута — годится для печати' : `не замкнута: дыр (рёбер) ${ed.open}${ed.nonManifold ? `, лишних граней на рёбрах ${ed.nonManifold}` : ''}`) : 'не проверялась (больше 400 тыс. граней)';
     return (
       <dl className="stlv-info">
-        <dt>Файл</dt>
+        <dt>{e.group ? 'Деталь' : 'Файл'}</dt>
         <dd className="stlv-wrap">{m.name}</dd>
+        {e.group ? (
+          <>
+            <dt>Сборка</dt>
+            <dd className="stlv-wrap">{e.path ? `${e.group} · ${e.path}` : e.group}</dd>
+          </>
+        ) : null}
         <dt>Габарит</dt>
         <dd>{sizeText(sizeOf(m))}</dd>
         <dt>Объём</dt>
-        <dd>{fmt(vol, vol < 10 ? 2 : 1)} см³</dd>
+        <dd>{volText(vol)}</dd>
         <dt>Масса</dt>
         <dd>
-          ≈ {fmt(vol * mat.rho, vol * mat.rho < 10 ? 1 : 0)} г ({mat.name}, сплошная)
+          ≈ {massText(vol * mat.rho)} ({mat.name}, сплошная)
         </dd>
         <dt>Площадь</dt>
-        <dd>{fmt((m.area * k * k) / 100, 1)} см²</dd>
+        <dd>{big((m.area * k * k) / 100, 1)} см²</dd>
         <dt>Граней</dt>
         <dd>{m.triangles.toLocaleString('ru-RU')}</dd>
         <dt>Поверхность</dt>
@@ -546,9 +574,9 @@ export function StlViewer() {
   })();
 
   return (
-    <div className={`stlv${panel ? ' with-panel' : ''}`} role="dialog" aria-label="Просмотр STL">
+    <div className={`stlv${panel ? ' with-panel' : ''}`} role="dialog" aria-label="Просмотр 3D-моделей">
       <div className="stlv-bar">
-        <b className="stlv-title">STL</b>
+        <b className="stlv-title">3D</b>
         <button className="btn" onClick={() => void pickStlFiles()}>
           Открыть…
         </button>
@@ -610,6 +638,13 @@ export function StlViewer() {
                   <input type="checkbox" checked={others} onChange={(e) => setOthers(e.target.checked)} /> Показывать остальные модели (без разреза)
                 </label>
               )}
+              <label className="stlv-explode">
+                Разнести детали
+                <input type="range" min={0} max={100} value={Math.round(explode * 100)} disabled={prefs.row || entries.length < 2} aria-label="Разнести детали" onChange={(e) => setExplode(Number(e.target.value) / 100)} />
+              </label>
+              <button className="btn" onClick={rotateAllStl} disabled={!entries.length} title="Модель из САПР с осью Y вверх лежит на боку — поставить на Z">
+                Повернуть всё на 90° (лежит на боку)
+              </button>
               <label>
                 Единицы файла{' '}
                 <select value={prefs.scale} onChange={(e) => setPrefs({ scale: Number(e.target.value) })}>
@@ -626,13 +661,13 @@ export function StlViewer() {
             </div>
           )}
         </div>
-        <button className="btn primary stlv-close" onClick={s.closeDialog} aria-label="Закрыть просмотр STL">
+        <button className="btn primary stlv-close" onClick={s.closeDialog} aria-label="Закрыть просмотр 3D-моделей">
           Закрыть
         </button>
       </div>
 
       <div className="stlv-stage">
-        <canvas ref={cvRef} aria-label="Модели STL" />
+        <canvas ref={cvRef} aria-label="3D-модели" />
         {clip.on && box && (
           <div className="stlv-clip">
             {focusItem && <span className="stlv-cliptarget mute">{shortName(focusItem.model.name)}</span>}
@@ -665,8 +700,8 @@ export function StlViewer() {
 
         {!entries.length && !snap.busy && (
           <div className="stlv-empty">
-            <b>Просмотр 3D-моделей STL</b>
-            <p>Выберите один или несколько файлов STL — или архив ZIP, в котором они лежат. Можно перетащить файлы прямо сюда.</p>
+            <b>Просмотр 3D-моделей</b>
+            <p>Выберите файлы STL, STEP или IGES — или архив ZIP, в котором они лежат. Сборка STEP откроется по деталям. Можно перетащить файлы прямо сюда.</p>
             <button className="btn primary" onClick={() => void pickStlFiles()}>
               Открыть файлы
             </button>
@@ -703,7 +738,7 @@ export function StlViewer() {
             <button className="stlv-chip-main" onClick={() => setPanel(true)} title="Подробнее — в списке моделей">
               <b>{shortName(sel.model.name)}</b>
               <small>
-                {sizeText(sizeOf(sel.model))} · {fmt((sel.model.volume * k ** 3) / 1000, 1)} см³
+                {sizeText(sizeOf(sel.model))} · {volText((sel.model.volume * k ** 3) / 1000)}
               </small>
             </button>
             {focusItem?.key === sel.key ? (
@@ -746,60 +781,119 @@ export function StlViewer() {
             </div>
           )}
           <div className="stlv-list">
-            {entries.map((e) => (
-              <div key={e.key} className={`stlv-row${selected === e.key ? ' sel' : ''}${e.visible ? '' : ' off'}`} onClick={() => setSelected(selected === e.key ? null : e.key)}>
-                <button
-                  className="stlv-swatch"
-                  style={{ background: e.color }}
-                  title="Другой цвет"
-                  aria-label={`Цвет: ${shortName(e.model.name)}`}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    updateStlEntries((list) => list.map((x) => (x.key === e.key ? { ...x, color: STL_COLORS[(STL_COLORS.indexOf(x.color) + 1) % STL_COLORS.length] } : x)));
-                  }}
-                />
-                <input
-                  type="checkbox"
-                  checked={e.visible}
-                  aria-label={`Показывать ${shortName(e.model.name)}`}
-                  onClick={(ev) => ev.stopPropagation()}
-                  onChange={(ev) => updateStlEntries((list) => list.map((x) => (x.key === e.key ? { ...x, visible: ev.target.checked } : x)))}
-                />
-                <div className="stlv-name">
-                  <div title={e.model.name}>{shortName(e.model.name)}</div>
-                  <small>{sizeText(sizeOf(e.model))}</small>
-                </div>
-                <button
-                  className={`ibtn${focusItem?.key === e.key ? ' on' : ''}`}
-                  aria-label={`Смотреть отдельно: ${shortName(e.model.name)}`}
-                  aria-pressed={focusItem?.key === e.key}
-                  title={focusItem?.key === e.key ? 'Вернуться ко всем моделям' : 'Смотреть отдельно: камера вокруг неё, разрез по ней'}
-                  disabled={!e.visible}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    focusOn(focusItem?.key === e.key ? null : e.key);
-                  }}
-                >
-                  ◎
-                </button>
-                <button
-                  className="ibtn"
-                  aria-label={`Убрать ${shortName(e.model.name)}`}
-                  title="Убрать из просмотра"
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    updateStlEntries((list) => list.filter((x) => x.key !== e.key));
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+            {entries.map((e, i) => {
+              const head = e.group && e.group !== entries[i - 1]?.group;
+              const members = head ? entries.filter((x) => x.group === e.group) : [];
+              const shut = !!e.group && collapsed.has(e.group);
+              return (
+                <Fragment key={e.key}>
+                  {head && (
+                    <div className="stlv-group">
+                      <button
+                        className="stlv-fold"
+                        aria-expanded={!shut}
+                        aria-label={`${shut ? 'Раскрыть' : 'Свернуть'} сборку ${e.group}`}
+                        onClick={() =>
+                          setCollapsed((c) => {
+                            const n = new Set(c);
+                            if (n.has(e.group!)) n.delete(e.group!);
+                            else n.add(e.group!);
+                            return n;
+                          })
+                        }
+                      >
+                        {shut ? '▸' : '▾'}
+                      </button>
+                      <input
+                        type="checkbox"
+                        checked={members.every((x) => x.visible)}
+                        aria-label={`Показывать сборку ${e.group}`}
+                        onChange={(ev) => updateStlEntries((list) => list.map((x) => (x.group === e.group ? { ...x, visible: ev.target.checked } : x)))}
+                      />
+                      <div className="stlv-name">
+                        <div title={e.group}>{e.group}</div>
+                        <small>сборка · деталей: {members.length}</small>
+                      </div>
+                      <button
+                        className="ibtn"
+                        aria-label={`Убрать сборку ${e.group}`}
+                        title="Убрать всю сборку из просмотра"
+                        onClick={() => updateStlEntries((list) => list.filter((x) => x.group !== e.group))}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  {!shut &&
+                <div className={`stlv-row${e.group ? ' in-group' : ''}${selected === e.key ? ' sel' : ''}${e.visible ? '' : ' off'}`} onClick={() => setSelected(selected === e.key ? null : e.key)}>
+                  <button
+                    className="stlv-swatch"
+                    style={{ background: e.color }}
+                    title="Другой цвет"
+                    aria-label={`Цвет: ${shortName(e.model.name)}`}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      updateStlEntries((list) => list.map((x) => (x.key === e.key ? { ...x, color: STL_COLORS[(STL_COLORS.indexOf(x.color) + 1) % STL_COLORS.length] } : x)));
+                    }}
+                  />
+                  <input
+                    type="checkbox"
+                    checked={e.visible}
+                    aria-label={`Показывать ${shortName(e.model.name)}`}
+                    onClick={(ev) => ev.stopPropagation()}
+                    onChange={(ev) => updateStlEntries((list) => list.map((x) => (x.key === e.key ? { ...x, visible: ev.target.checked } : x)))}
+                  />
+                  <div className="stlv-name">
+                    <div title={e.model.name}>{shortName(e.model.name)}</div>
+                    <small>{sizeText(sizeOf(e.model))}</small>
+                  </div>
+                  <button
+                    className={`ibtn${focusItem?.key === e.key ? ' on' : ''}`}
+                    aria-label={`Смотреть отдельно: ${shortName(e.model.name)}`}
+                    aria-pressed={focusItem?.key === e.key}
+                    title={focusItem?.key === e.key ? 'Вернуться ко всем моделям' : 'Смотреть отдельно: камера вокруг неё, разрез по ней'}
+                    disabled={!e.visible}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      focusOn(focusItem?.key === e.key ? null : e.key);
+                    }}
+                  >
+                    ◎
+                  </button>
+                  <button
+                    className="ibtn"
+                    aria-label={`Убрать ${shortName(e.model.name)}`}
+                    title="Убрать из просмотра"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      updateStlEntries((list) => list.filter((x) => x.key !== e.key));
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>}
+                </Fragment>
+              );
+            })}
           </div>
           {sel ? (
             <>
               {info(sel)}
               <span className="row stlv-sel-act">
+                {(sel.model.edges?.bodies ?? 1) > 1 && (
+                  <button
+                    className="btn sm"
+                    title="Сборка одним файлом: каждое тело — отдельной деталью"
+                    onClick={() => {
+                      const n = splitStlEntry(sel.key);
+                      setSelected(null);
+                      setFocus(null);
+                      s.setMessage(`Разделено на ${n} деталей.`);
+                    }}
+                  >
+                    Разделить на тела ({sel.model.edges!.bodies})
+                  </button>
+                )}
                 {focusItem?.key === sel.key ? (
                   <button className="btn sm" onClick={() => focusOn(null)}>
                     Ко всем моделям

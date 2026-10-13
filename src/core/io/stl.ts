@@ -2,7 +2,8 @@ import { unzipSync } from 'fflate';
 
 /*
  * STL: разбор двоичного и текстового вида, сведения о модели (габарит, объём, площадь,
- * замкнутость, число тел), острые рёбра для показа и пересечение луча с моделью.
+ * замкнутость, число тел), острые рёбра для показа, разбиение на тела, поворот и пересечение
+ * луча с моделью. STEP и IGES читает OpenCascade (см. step.ts) — сюда приходят их треугольники.
  * Единицы — как в файле (обычно мм). Вывернутая модель (отрицательный объём) при чтении
  * переворачивается: снаружи у всех граней обход против часовой стрелки.
  */
@@ -46,17 +47,26 @@ const FEATURE_COS = Math.cos((30 * Math.PI) / 180);
 const isZip = (b: Uint8Array) => b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 const baseName = (n: string) => n.slice(n.replace(/\\/g, '/').lastIndexOf('/') + 1);
 
-/** Файлы STL из выбранного файла: сам STL или все STL из архива ZIP (с путями внутри архива). */
-export function stlSources(name: string, bytes: Uint8Array): { name: string; bytes: Uint8Array }[] {
-  if (!isZip(bytes)) return [{ name: baseName(name), bytes }];
+/** Вид файла модели по имени: STL, STEP, IGES или null. */
+export function modelKind(name: string): ModelKind | null {
+  const m = /\.(stl|step|stp|iges|igs)$/i.exec(name);
+  if (!m) return null;
+  const e = m[1].toLowerCase();
+  return e === 'stl' ? 'stl' : e === 'iges' || e === 'igs' ? 'iges' : 'step';
+}
+export type ModelKind = 'stl' | 'step' | 'iges';
+
+/** Модели из выбранного файла: сам файл или все STL, STEP и IGES из архива ZIP (с путями внутри архива). */
+export function modelSources(name: string, bytes: Uint8Array): { name: string; bytes: Uint8Array; kind: ModelKind }[] {
+  if (!isZip(bytes)) return [{ name: baseName(name), bytes, kind: modelKind(name) ?? 'stl' }];
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(bytes, { filter: (f) => /\.stl$/i.test(f.name) && !/(^|\/)__MACOSX\//.test(f.name) });
+    files = unzipSync(bytes, { filter: (f) => modelKind(f.name) !== null && !/(^|\/)__MACOSX\//.test(f.name) });
   } catch {
     throw new Error(`${baseName(name)}: архив повреждён или сжат неизвестным способом`);
   }
   return Object.keys(files)
-    .map((k) => ({ name: zipName(k), bytes: files[k] }))
+    .map((k) => ({ name: zipName(k), bytes: files[k], kind: modelKind(k)! }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
@@ -129,20 +139,28 @@ function readAscii(text: string): { pos: Float32Array; name: string } {
   return { pos: out.slice(0, n - (n % 9)), name };
 }
 
-/** Модель из вершин треугольников (9 чисел на треугольник): убирает битые грани, считает всё остальное. */
-export function buildModel(raw: Float32Array, name: string): StlModel {
+/**
+ * Модель из вершин треугольников (9 чисел на треугольник): убирает битые грани, считает всё остальное.
+ * smooth — нормали у вершин (из STEP: поверхность гладкая); без них — нормаль грани.
+ */
+export function buildModel(raw: Float32Array, name: string, smooth?: Float32Array): StlModel {
   // Треугольники с NaN или бесконечностью — пропустить.
   let pos = raw;
+  let nrmIn = smooth && smooth.length === raw.length ? smooth : undefined;
   let bad = 0;
   for (let i = 0; i < raw.length; i++) if (!Number.isFinite(raw[i])) bad++;
   if (bad) {
     const keep: number[] = [];
+    const keepN: number[] = [];
     for (let t = 0; t < raw.length / 9; t++) {
       let ok = true;
       for (let k = 0; k < 9; k++) if (!Number.isFinite(raw[t * 9 + k])) ok = false;
-      if (ok) for (let k = 0; k < 9; k++) keep.push(raw[t * 9 + k]);
+      if (!ok) continue;
+      for (let k = 0; k < 9; k++) keep.push(raw[t * 9 + k]);
+      if (nrmIn) for (let k = 0; k < 9; k++) keepN.push(nrmIn[t * 9 + k]);
     }
     pos = new Float32Array(keep);
+    if (nrmIn) nrmIn = new Float32Array(keepN);
   }
   const T = pos.length / 9;
   const min: V3 = [Infinity, Infinity, Infinity];
@@ -169,26 +187,29 @@ export function buildModel(raw: Float32Array, name: string): StlModel {
   const flipped = vol6 < 0;
   if (flipped) {
     if (pos === raw) pos = raw.slice();
-    for (let o = 0; o < pos.length; o += 9) {
-      for (let a = 0; a < 3; a++) {
-        const v = pos[o + 3 + a];
-        pos[o + 3 + a] = pos[o + 6 + a];
-        pos[o + 6 + a] = v;
+    if (nrmIn && nrmIn === smooth) nrmIn = nrmIn.slice();
+    for (const arr of nrmIn ? [pos, nrmIn] : [pos]) {
+      for (let o = 0; o < arr.length; o += 9) {
+        for (let a = 0; a < 3; a++) {
+          const v = arr[o + 3 + a];
+          arr[o + 3 + a] = arr[o + 6 + a];
+          arr[o + 6 + a] = v;
+        }
       }
     }
   }
-  const normals = faceNormals(pos);
+  const faces = faceNormals(pos);
   return {
     name,
     positions: pos,
-    normals,
+    normals: nrmIn ?? faces,
     triangles: T,
     min,
     max,
     volume: Math.abs(vol6) / 6,
     area: area2 / 2,
     flipped,
-    edges: T <= STL_EDGE_LIMIT ? analyzeEdges(pos, normals) : null,
+    edges: T <= STL_EDGE_LIMIT ? analyzeEdges(pos, faces) : null,
   };
 }
 
@@ -215,11 +236,10 @@ function faceNormals(pos: Float32Array): Float32Array {
 
 const pow2 = (n: number) => 2 ** Math.ceil(Math.log2(Math.max(2, n)));
 
-/** Общие вершины (по точному совпадению координат), тела, рёбра: дыры, «лишние» грани, острые рёбра. */
-function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
+/** Общие вершины по точному совпадению координат: номер общей вершины у каждой вершины треугольника. */
+function weld(pos: Float32Array): { vid: Int32Array; first: Int32Array; nu: number } {
   const nv = pos.length / 3;
-  const T = nv / 3;
-  // Вершины: открытая адресация по битам float32 (−0 и +0 — одна точка).
+  // Открытая адресация по битам float32 (−0 и +0 — одна точка).
   const bits = new Uint32Array(pos.buffer, pos.byteOffset, pos.length);
   const key = (i: number) => (bits[i] === 0x80000000 ? 0 : bits[i]);
   const vcap = pow2(nv * 2);
@@ -248,24 +268,22 @@ function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
       s = (s + 1) & (vcap - 1);
     }
   }
-  // Тела: объединение вершин по граням.
-  const parent = new Int32Array(nu);
-  for (let i = 0; i < nu; i++) parent[i] = i;
-  const find = (a: number) => {
-    while (parent[a] !== a) {
-      parent[a] = parent[parent[a]];
-      a = parent[a];
-    }
-    return a;
-  };
-  const union = (a: number, b: number) => {
-    const ra = find(a), rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
-  };
+  return { vid, first, nu };
+}
+
+/**
+ * Общие вершины (по точному совпадению координат), рёбра: дыры, «лишние» грани, острые рёбра;
+ * тела — грани, связанные через рёбра ровно с двумя гранями (детали сборки, касающиеся друг друга
+ * гранями или вершинами, остаются разными телами). bodyOf — номер тела у каждой грани.
+ */
+function topology(pos: Float32Array, nrm: Float32Array): StlEdges & { bodyOf: Int32Array } {
+  const T = pos.length / 9;
+  const { vid, first, nu } = weld(pos);
   // Рёбра: ключ — пара номеров вершин (меньший·nu + больший), при второй грани — проверка угла.
   const ecap = pow2(T * 4);
   const ekey = new Float64Array(ecap).fill(-1);
   const etri = new Int32Array(ecap);
+  const etri2 = new Int32Array(ecap);
   const ecnt = new Uint8Array(ecap);
   const lines: number[] = [];
   const pushLine = (a: number, b: number) => {
@@ -274,8 +292,6 @@ function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
   };
   for (let t = 0; t < T; t++) {
     const v = [vid[t * 3], vid[t * 3 + 1], vid[t * 3 + 2]];
-    union(v[0], v[1]);
-    union(v[0], v[2]);
     for (let e = 0; e < 3; e++) {
       const a = Math.min(v[e], v[(e + 1) % 3]);
       const b = Math.max(v[e], v[(e + 1) % 3]);
@@ -293,11 +309,24 @@ function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
       }
       if (ecnt[s] < 255) ecnt[s]++;
       if (ecnt[s] === 2) {
+        etri2[s] = t;
         const o1 = etri[s] * 9, o2 = t * 9;
         if (nrm[o1] * nrm[o2] + nrm[o1 + 1] * nrm[o2 + 1] + nrm[o1 + 2] * nrm[o2 + 2] < FEATURE_COS) pushLine(a, b);
       }
     }
   }
+  // Тела: объединение граней через рёбра. Ребро двух граней — одно тело; ребро трёх и более граней
+  // (детали касаются, сетки совпали) — грани по кругу вокруг ребра, в пару — те, между которыми
+  // материал (по направлению обхода, как у правильно вывернутого тела).
+  const parent = new Int32Array(T);
+  for (let t = 0; t < T; t++) parent[t] = t;
+  const find = (a: number) => {
+    while (parent[a] !== a) {
+      parent[a] = parent[parent[a]];
+      a = parent[a];
+    }
+    return a;
+  };
   let open = 0;
   let nonManifold = 0;
   for (let s = 0; s < ecap; s++) {
@@ -307,11 +336,125 @@ function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
       const k = ekey[s];
       const a = Math.floor(k / nu);
       pushLine(a, k - a * nu);
-    } else if (ecnt[s] > 2) nonManifold++;
+    } else if (ecnt[s] === 2) {
+      const ra = find(etri[s]), rb = find(etri2[s]);
+      if (ra !== rb) parent[rb] = ra;
+    } else nonManifold++;
   }
-  const roots = new Set<number>();
-  for (let i = 0; i < nu; i++) roots.add(find(i));
-  return { open, nonManifold, bodies: roots.size, lines: new Float32Array(lines) };
+  if (nonManifold) pairAroundEdges(pos, vid, first, nu, ekey, ecnt, ecap, (x, y) => {
+    const ra = find(x), rb = find(y);
+    if (ra !== rb) parent[rb] = ra;
+  });
+  const bodyOf = new Int32Array(T);
+  let bodies = 0;
+  for (let t = 0; t < T; t++) {
+    const r = find(t);
+    if (r === t) bodies++;
+    bodyOf[t] = r;
+  }
+  return { open, nonManifold, bodies, lines: new Float32Array(lines), bodyOf };
+}
+
+/** Рёбра с тремя и более гранями: грани сортируются по углу вокруг ребра, связываются пары с материалом между ними. */
+function pairAroundEdges(pos: Float32Array, vid: Int32Array, first: Int32Array, nu: number, ekey: Float64Array, ecnt: Uint8Array, ecap: number, join: (a: number, b: number) => void): void {
+  const lists = new Map<number, { t: number; s: number }[]>();
+  const T = pos.length / 9;
+  for (let t = 0; t < T; t++) {
+    for (let e = 0; e < 3; e++) {
+      const p = vid[t * 3 + e], q = vid[t * 3 + ((e + 1) % 3)];
+      if (p === q) continue;
+      const a = Math.min(p, q), b = Math.max(p, q);
+      const k = a * nu + b;
+      let h = Math.imul(a, 0x9e3779b1) ^ Math.imul(b, 0x85ebca77);
+      h ^= h >>> 13;
+      let sl = h & (ecap - 1);
+      while (ekey[sl] !== k) sl = (sl + 1) & (ecap - 1);
+      if (ecnt[sl] < 3) continue;
+      let l = lists.get(sl);
+      if (!l) lists.set(sl, (l = []));
+      l.push({ t, s: p === a ? 1 : -1 });
+    }
+  }
+  for (const [sl, l] of lists) {
+    const k = ekey[sl];
+    const a = Math.floor(k / nu), b = k - a * nu;
+    const A = first[a] * 3, B = first[b] * 3;
+    let dx = pos[B] - pos[A], dy = pos[B + 1] - pos[A + 1], dz = pos[B + 2] - pos[A + 2];
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    dx /= dl;
+    dy /= dl;
+    dz /= dl;
+    // Базис поперёк ребра: e1 ⟂ d, e2 = d × e1.
+    const ax = Math.abs(dx) < 0.6 ? [1, 0, 0] : Math.abs(dy) < 0.6 ? [0, 1, 0] : [0, 0, 1];
+    let e1x = dy * ax[2] - dz * ax[1], e1y = dz * ax[0] - dx * ax[2], e1z = dx * ax[1] - dy * ax[0];
+    const el = Math.hypot(e1x, e1y, e1z) || 1;
+    e1x /= el;
+    e1y /= el;
+    e1z /= el;
+    const e2x = dy * e1z - dz * e1y, e2y = dz * e1x - dx * e1z, e2z = dx * e1y - dy * e1x;
+    const ang = l.map(({ t, s }) => {
+      let c = 0;
+      for (let v = 0; v < 3; v++) if (vid[t * 3 + v] !== a && vid[t * 3 + v] !== b) c = (t * 3 + v) * 3;
+      const ux = pos[c] - pos[A], uy = pos[c + 1] - pos[A + 1], uz = pos[c + 2] - pos[A + 2];
+      let th = Math.atan2(ux * e2x + uy * e2y + uz * e2z, ux * e1x + uy * e1y + uz * e1z);
+      // ±π — одно направление: собрать у −π, чтобы совпавшие грани не разъехались по краям списка.
+      if (th > Math.PI - 0.02) th -= 2 * Math.PI;
+      return { t, s, th };
+    });
+    // Совпавшие грани (касание деталей; на кривой поверхности — почти совпавшие, до ~1°): сначала та,
+    // у которой материал «до» неё, — между ними пусто.
+    ang.sort((p, q) => (Math.abs(p.th - q.th) > 0.02 ? p.th - q.th : q.s - p.s));
+    for (let i = 0; i < ang.length; i++) {
+      const nx = ang[(i + 1) % ang.length];
+      if (ang[i].s === -1 && nx.s === 1) join(ang[i].t, nx.t);
+    }
+  }
+}
+
+function analyzeEdges(pos: Float32Array, nrm: Float32Array): StlEdges {
+  const { bodyOf: _, ...e } = topology(pos, nrm);
+  return e;
+}
+
+/**
+ * Разбить модель на тела (грани, связанные общими рёбрами): сборка из одного файла STL или «составное
+ * тело» STEP. Крупные тела — первыми. Одно тело — массив из одной модели.
+ */
+export function splitBodies(m: StlModel): StlModel[] {
+  const { bodyOf } = topology(m.positions, faceNormals(m.positions));
+  const T = m.triangles;
+  const groups = new Map<number, number[]>();
+  for (let t = 0; t < T; t++) {
+    const r = bodyOf[t];
+    let g = groups.get(r);
+    if (!g) groups.set(r, (g = []));
+    g.push(t);
+  }
+  if (groups.size <= 1) return [m];
+  const parts = [...groups.values()].sort((a, b) => b.length - a.length);
+  return parts.map((tris, i) => {
+    const pos = new Float32Array(tris.length * 9);
+    const nrm = new Float32Array(tris.length * 9);
+    tris.forEach((t, k) => {
+      pos.set(m.positions.subarray(t * 9, t * 9 + 9), k * 9);
+      nrm.set(m.normals.subarray(t * 9, t * 9 + 9), k * 9);
+    });
+    return buildModel(pos, `${m.name} · тело ${i + 1}`, nrm);
+  });
+}
+
+/** Повернуть модель на 90° вокруг X (лежащая на боку модель с осью Y вверх встаёт на Z). */
+export function rotateX90(m: StlModel): StlModel {
+  const rot = (a: Float32Array) => {
+    const o = new Float32Array(a.length);
+    for (let i = 0; i < a.length; i += 3) {
+      o[i] = a[i];
+      o[i + 1] = -a[i + 2];
+      o[i + 2] = a[i + 1];
+    }
+    return o;
+  };
+  return buildModel(rot(m.positions), m.name, rot(m.normals));
 }
 
 /** Габарит модели, мм. */

@@ -1189,7 +1189,7 @@ async function openPage(viewport, touch = false) {
       tris.forEach((t, k) => t.forEach((i, j) => v(i).forEach((c, a) => buf.writeFloatLE(c, 84 + k * 50 + 12 + j * 12 + a * 4))));
       return buf;
     };
-    const [fc] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Открыть 3D-модели STL')]);
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Открыть 3D-модели')]);
     await fc.setFiles([
       { name: 'kub.stl', mimeType: 'application/octet-stream', buffer: cube(20) },
       { name: 'detali.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'a/plastina.stl': cube(10, 40), 'b/chitat.txt': strToU8('не модель') })) },
@@ -1252,10 +1252,34 @@ async function openPage(viewport, touch = false) {
     }
     await page.keyboard.press('Escape');
     expect(!(await page.$('.stlv')), 'окно STL не закрылось');
-    await h.menu('Вид', 'Просмотр моделей STL');
+    await h.menu('Вид', 'Просмотр 3D-моделей');
     expect((await page.locator('.stlv-row').count()) === 3, 'модели не сохранились до следующего открытия');
     await h.hit(page.locator('.stlv-panel button', { hasText: 'Убрать все' }));
     expect(await page.locator('.stlv-empty').isVisible(), 'после «Убрать все» нет пустого окна');
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Закрыть' }));
+  });
+
+  await step('просмотр STEP: сборка из 18 деталей группой, сведения о детали, разнос', async () => {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Открыть 3D-модели')]);
+    await fc.setFiles([{ name: 'as1_pe_203.stp', mimeType: 'application/octet-stream', buffer: readFileSync(new URL('../tests/fixtures/step/as1_pe_203.stp', import.meta.url)) }]);
+    await page.waitForFunction(() => document.querySelectorAll('.stlv-row').length > 0 || /Модели не открылись/.test(document.querySelector('.statusbar .msg')?.textContent ?? ''), null, { timeout: 60000 });
+    // Со страницы file:// воркер не загрузит OpenCascade — тогда только понятная ошибка.
+    if (url.startsWith('file:') && !(await page.locator('.stlv-row').count())) {
+      const err = await page.textContent('.stlv');
+      expect(/не загрузился модуль чтения STEP/.test(err), 'нет понятной ошибки: ' + err);
+    } else {
+      expect((await page.locator('.stlv-row').count()) === 18, 'деталей: ' + (await page.locator('.stlv-row').count()));
+      const g = await page.textContent('.stlv-group');
+      expect(/as1_pe_203\.stp/.test(g) && /деталей: 18/.test(g), 'группа: ' + g);
+      await h.hit(page.locator('.stlv-row', { hasText: 'PLATE' }));
+      const info = await page.textContent('.stlv-info');
+      expect(/AS1_PE_ASM/.test(info) && /4572 × 508 × 3810 мм/.test(info) && /замкнута/.test(info), 'сведения о плите: ' + info);
+      await h.hit(page.locator('.stlv-bar button', { hasText: 'Ещё' }));
+      await page.locator('.stlv-more input[aria-label="Разнести детали"]').fill('60');
+      await page.keyboard.press('Escape');
+      expect(!/Всё вместе: 5080 × /.test(await page.textContent('.stlv-panel')), 'разнос не раздвинул детали');
+    }
+    if (await page.locator('.stlv-panel button', { hasText: 'Убрать все' }).count()) await h.hit(page.locator('.stlv-panel button', { hasText: 'Убрать все' }));
     await h.hit(page.locator('.stlv-bar button', { hasText: 'Закрыть' }));
   });
 
