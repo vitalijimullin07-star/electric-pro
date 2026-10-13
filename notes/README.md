@@ -8,3 +8,5 @@
     openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in notes/pylesos-idei.tgz.enc -pass pass:ПАРОЛЬ | tar -xz -C папка
 
 Обновить: распаковать, дополнить `ZAMETKI.md`, упаковать `tar -czf` и зашифровать тем же паролем (`openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt`).
+
+Решения по конструкции за октябрь 2026 отдельно — `konstrukciya-2026-10/` (тот же пароль; те же разделы есть и здесь).
