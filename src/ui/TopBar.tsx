@@ -34,6 +34,7 @@ import { simRuntime } from '@editor/sim-runtime';
 import { findMcu } from '@core/sim/circuit';
 import type { Project } from '@core/model/types';
 import { loadFirmware } from './panels/SimPanel';
+import { openStlFiles, pickStlFiles } from './stl-session';
 
 /* Верхняя строка меню в духе EasyEDA: Файл, Правка, Вид, Плата, Трассировка, Экспорт, Справка. */
 
@@ -123,9 +124,10 @@ export async function downloadProject(): Promise<void> {
 }
 
 export async function openProject(): Promise<void> {
-  const file = await openFileBytes('.json,.kicad_pcb,.kicad_mod,.lay,.lay6,application/json');
+  const file = await openFileBytes('.json,.kicad_pcb,.kicad_mod,.lay,.lay6,.stl,application/json');
   if (!file) return;
   const s = useEditor.getState();
+  if (/\.stl$/i.test(file.name)) return openStlFiles([new File([file.bytes as BlobPart], file.name)]);
   if (/\.lay6?$/i.test(file.name)) return openLayBytes(file.name, file.bytes);
   const f = { name: file.name, text: file.text() };
   if (/\.kicad_pcb$/i.test(f.name)) return openKicadBoardText(f.name, f.text);
@@ -248,6 +250,7 @@ export function TopBar() {
         { label: 'Импорт платы KiCad (.kicad_pcb)…', action: () => void importKicadBoardFile() },
         { label: 'Импорт платы Sprint Layout (.lay)…', action: () => void importLayFile() },
         { label: 'Импорт корпусов KiCad (.kicad_mod)…', action: () => void importFootprintFiles() },
+        { label: 'Открыть 3D-модели STL (и ZIP с ними)…', action: () => void pickStlFiles() },
         { label: 'Сохранить на устройство', kbd: 'Ctrl+S', action: () => void saveProject() },
         { label: 'Сохранить как…', action: saveProjectAs },
         { label: 'Скачать файл проекта (.plata.json)', action: () => void downloadProject() },
@@ -350,6 +353,7 @@ export function TopBar() {
         { label: mark(s.show.fab) + 'Сборочный слой', action: () => toggle('fab') },
         'sep',
         { label: '3D-вид платы', kbd: '3', action: () => s.openDialog('3d') },
+        { label: 'Просмотр моделей STL', action: () => s.openDialog('stl') },
         'sep',
         ...(['auto', 'high', 'balanced', 'eco'] as QualityMode[]).map((q) => ({
           label: mark(s.quality === q) + 'Графика: ' + QUALITY_NAMES[q].toLowerCase() + (q === 'auto' ? ` (сейчас ${QUALITY_NAMES[s.gfxLevel].toLowerCase()})` : ''),

@@ -2,6 +2,7 @@
 // что элемент виден на экране и не перекрыт (document.elementFromPoint), без автопрокрутки.
 // Запуск: npm run build && node tools/qa.mjs [адрес]. По умолчанию открывает index.html с диска.
 import { chromium } from 'playwright';
+import { strToU8, zipSync } from 'fflate';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const url = process.argv[2] ?? process.env.QA_URL ?? 'file://' + new URL('../index.html', import.meta.url).pathname;
@@ -1175,6 +1176,73 @@ async function openPage(viewport, touch = false) {
     await h.menu('Вид', '3D-вид платы');
     expect(await page.locator('.view3d').isVisible(), 'из меню не открылся');
     await h.hit(page.locator('.view3d-bar button', { hasText: 'Закрыть' }));
+  });
+
+  await step('просмотр STL: STL и ZIP из меню, перетаскивание, выбор, разрез, замер, Esc по шагам', async () => {
+    // Куб со стороной s (двоичный STL), сдвинутый по X на x0.
+    const cube = (s, x0 = 0) => {
+      const v = (i) => [x0 + (i & 1 ? s : 0), i & 2 ? s : 0, i & 4 ? s : 0];
+      const quads = [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]];
+      const tris = quads.flatMap(([a, b, c, d]) => [[a, b, c], [a, c, d]]);
+      const buf = Buffer.alloc(84 + tris.length * 50);
+      buf.writeUInt32LE(tris.length, 80);
+      tris.forEach((t, k) => t.forEach((i, j) => v(i).forEach((c, a) => buf.writeFloatLE(c, 84 + k * 50 + 12 + j * 12 + a * 4))));
+      return buf;
+    };
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), h.menu('Файл', 'Открыть 3D-модели STL')]);
+    await fc.setFiles([
+      { name: 'kub.stl', mimeType: 'application/octet-stream', buffer: cube(20) },
+      { name: 'detali.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'a/plastina.stl': cube(10, 40), 'b/chitat.txt': strToU8('не модель') })) },
+    ]);
+    await page.waitForSelector('.stlv-row');
+    expect((await page.locator('.stlv-row').count()) === 2, 'строк моделей: ' + (await page.locator('.stlv-row').count()));
+    await page.waitForTimeout(400);
+    // Без WebGL (бывает в безголовом браузере) — понятное сообщение; рисунок и замер тогда не проверить.
+    const noGl = /3D недоступно/.test(await page.textContent('.stlv-hint'));
+    if (!noGl) {
+      const drawn = await page.evaluate(() => {
+        const c = document.querySelector('.stlv canvas');
+        const gl = c.getContext('webgl', { preserveDrawingBuffer: true });
+        if (!gl) return 'нет webgl';
+        const px = new Uint8Array(4);
+        gl.readPixels(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        return px.join(',');
+      });
+      expect(drawn !== '18,22,27,255' && drawn !== 'нет webgl', 'в центре — фон, модели не нарисованы: ' + drawn);
+    }
+    // Перетаскивание файла в окно добавляет модель.
+    await page.evaluate((b64) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], 'brosil.stl'));
+      window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, cube(5, -30).toString('base64'));
+    await page.waitForFunction(() => document.querySelectorAll('.stlv-row').length === 3);
+    await h.hit(page.locator('.stlv-row', { hasText: 'kub.stl' }));
+    const info = await page.textContent('.stlv-info');
+    expect(/20 × 20 × 20 мм/.test(info) && /Объём8 см³/.test(info) && /замкнута/.test(info), 'сведения о кубе: ' + info);
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Разрез' }));
+    expect(await page.locator('.stlv-clip').isVisible(), 'нет полосы разреза');
+    await h.hit(page.locator('.stlv-clip button', { hasText: 'X' }));
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Разрез' }));
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Вписать' }));
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Замер' }));
+    if (!noGl) {
+      const cv = await page.locator('.stlv canvas').boundingBox();
+      // Точки на кубе: он в середине сцены, чуть левее центра холста.
+      for (const [fx, fy] of [[0.47, 0.5], [0.5, 0.56]]) await page.mouse.click(cv.x + cv.width * fx, cv.y + cv.height * fy);
+      await page.waitForTimeout(200);
+      const m = await page.textContent('.stlv-measure');
+      expect(/Расстояние \d/.test(m), 'замер: ' + m);
+    }
+    await page.keyboard.press('Escape');
+    expect((await page.locator('.stlv').isVisible()) && !(await page.locator('.stlv-measure').count()), 'Esc должен сначала выключить замер');
+    await page.keyboard.press('Escape');
+    expect(!(await page.$('.stlv')), 'окно STL не закрылось');
+    await h.menu('Вид', 'Просмотр моделей STL');
+    expect((await page.locator('.stlv-row').count()) === 3, 'модели не сохранились до следующего открытия');
+    await h.hit(page.locator('.stlv-panel button', { hasText: 'Убрать все' }));
+    expect(await page.locator('.stlv-empty').isVisible(), 'после «Убрать все» нет пустого окна');
+    await h.hit(page.locator('.stlv-bar button', { hasText: 'Закрыть' }));
   });
 
   await step('редактор корпусов: новый корпус из генератора, в «Мои корпуса», поставить на плату', async () => {

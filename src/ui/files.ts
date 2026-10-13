@@ -109,6 +109,21 @@ export function openFileBytes(accept: string): Promise<{ name: string; bytes: Ui
   });
 }
 
+/**
+ * Выбор нескольких файлов как есть (File). На Android фильтр по расширению не ставится:
+ * система не знает тип .stl и делает такие файлы недоступными для выбора.
+ */
+export function openFiles(accept: string): Promise<File[]> {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    if (!/Android/i.test(navigator.userAgent)) inp.accept = accept;
+    inp.multiple = true;
+    inp.onchange = () => resolve([...(inp.files ?? [])]);
+    inp.click();
+  });
+}
+
 /** Выбор нескольких файлов сразу (импорт корпусов). */
 export function openTextFiles(accept: string): Promise<{ name: string; text: string }[]> {
   return new Promise((resolve) => {

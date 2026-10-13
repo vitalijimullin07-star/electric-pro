@@ -2121,3 +2121,340 @@ textarea:focus {
 .simfs-widebtn {
   align-self: flex-end;
 }
+
+/* Просмотр моделей STL: сверху панель кнопок, ниже — холст и (на компьютере справа, на телефоне снизу) список моделей */
+.stlv {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: #12161b;
+  padding-top: env(safe-area-inset-top, 0);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.stlv.with-panel {
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+.stlv .mute {
+  color: var(--mute);
+}
+.stlv .warn {
+  color: var(--warn);
+}
+.stlv .ok {
+  color: var(--ok);
+}
+.stlv .btn.on {
+  border-color: var(--accent);
+  background: rgba(79, 179, 255, 0.18);
+}
+.stlv-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  color: var(--ink);
+  position: relative;
+  z-index: 2;
+}
+.stlv-title {
+  margin-right: 4px;
+}
+.stlv-close {
+  margin-left: auto;
+}
+.stlv-more-wrap {
+  position: relative;
+}
+.stlv-more {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  min-width: 260px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.stlv-more label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.stlv-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.stlv-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  display: block;
+}
+.stlv-clip {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 8px;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(26, 32, 40, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.stlv-clip input[type='range'] {
+  width: min(320px, 40vw);
+}
+.stlv-seg {
+  display: inline-flex;
+  gap: 4px;
+}
+.stlv-num {
+  font-variant-numeric: tabular-nums;
+  min-width: 90px;
+}
+.stlv-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0 8px 8px 0;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.stlv-panel-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.stlv-panel-head .ibtn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  box-shadow: none;
+}
+.stlv-list {
+  overflow-y: auto;
+  min-height: 48px;
+  flex: 0 1 auto;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.stlv-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.stlv-row:hover {
+  background: var(--panel-2);
+}
+.stlv-row.sel {
+  background: rgba(79, 179, 255, 0.16);
+  outline: 1px solid var(--accent);
+}
+.stlv-row.off .stlv-name {
+  opacity: 0.5;
+}
+.stlv-row .ibtn {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  box-shadow: none;
+}
+.stlv-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  flex: none;
+  padding: 0;
+}
+.stlv-name {
+  min-width: 0;
+  flex: 1;
+}
+.stlv-name > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stlv-name small {
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.stlv-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+  padding: 8px;
+  background: var(--panel-2);
+  border-radius: 8px;
+  overflow-y: auto;
+  flex: none;
+  max-height: 45%;
+}
+.stlv-info dt {
+  color: var(--mute);
+}
+.stlv-info dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.stlv-wrap {
+  word-break: break-all;
+}
+.stlv-tip {
+  margin: 0;
+  font-size: 12px;
+}
+.stlv-err {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--err);
+  border-radius: 8px;
+  color: var(--err);
+  font-size: 12px;
+  overflow-y: auto;
+  max-height: 120px;
+  flex: none;
+}
+.stlv-err .btn {
+  justify-self: start;
+}
+.stlv-panel-foot {
+  margin-top: auto;
+  display: grid;
+  gap: 6px;
+  flex: none;
+}
+.stlv-panel-foot .row {
+  margin: 0;
+}
+.stlv-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100% - 32px));
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.stlv-empty p {
+  margin: 0;
+  color: var(--mute);
+}
+.stlv-chip {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 34px;
+  width: fit-content;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 12px;
+  background: rgba(26, 32, 40, 0.95);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.stlv-chip > span {
+  display: grid;
+  min-width: 0;
+}
+.stlv-chip b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stlv-chip small {
+  color: var(--mute);
+}
+.stlv-measure {
+  border-color: #ffd84d;
+}
+.stlv-hint {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  color: var(--mute);
+  font-size: 12px;
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .stlv-title {
+    display: none;
+  }
+  .stlv.with-panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .stlv-panel {
+    max-height: 46vh;
+    margin: 0;
+    border-radius: 14px 14px 0 0;
+    border-bottom: 0;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
+  }
+  .stlv-clip input[type='range'] {
+    flex: 1;
+    width: auto;
+    min-width: 120px;
+  }
+  .stlv-clip {
+    width: auto;
+  }
+  .stlv-chip {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0));
+  }
+  .stlv.with-panel .stlv-chip {
+    bottom: 10px;
+  }
+  .stlv-hint {
+    display: none;
+  }
+  .stlv-more {
+    position: fixed;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    min-width: 0;
+    margin-top: 6px;
+  }
+}

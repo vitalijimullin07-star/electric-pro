@@ -19,6 +19,8 @@ import { DfmDialog } from '@ui/dialogs/DfmDialog';
 import { LayerMoveDialog } from '@ui/dialogs/LayerMoveDialog';
 import { ReplaceDialog, type ReplaceData } from '@ui/dialogs/ReplaceDialog';
 import { View3D } from '@ui/dialogs/View3D';
+import { StlViewer } from '@ui/dialogs/StlViewer';
+import { openStlFiles } from '@ui/stl-session';
 import { SchematicView } from '@ui/SchematicView';
 import { gfxProfile } from '@render/quality';
 import { installBackButton } from '@ui/back-button';
@@ -40,6 +42,27 @@ export function App() {
 
   // Кнопка «Назад» на телефоне закрывает окна и панели, а не приложение.
   useEffect(() => installBackButton(), []);
+
+  // Перетаскивание файлов в окно: модели STL (и ZIP с ними) открываются в просмотре.
+  useEffect(() => {
+    const over = (e: DragEvent) => {
+      if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault();
+    };
+    const drop = (e: DragEvent) => {
+      const files = [...(e.dataTransfer?.files ?? [])];
+      if (!files.length) return;
+      e.preventDefault();
+      const stl = files.filter((f) => /\.(stl|zip)$/i.test(f.name));
+      if (stl.length) void openStlFiles(stl);
+      else useEditor.getState().setMessage('Сюда можно перетащить модели STL (или архив ZIP с ними).');
+    };
+    window.addEventListener('dragover', over);
+    window.addEventListener('drop', drop);
+    return () => {
+      window.removeEventListener('dragover', over);
+      window.removeEventListener('drop', drop);
+    };
+  }, []);
 
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -70,6 +93,7 @@ export function App() {
       {dialog === 'shortcuts' && <ShortcutsDialog />}
       {dialog === 'about' && <AboutDialog />}
       {dialog === '3d' && <View3D />}
+      {dialog === 'stl' && <StlViewer />}
       {dialog === 'dfm' && <DfmDialog />}
       {dialog === 'layers' && <LayerMoveDialog />}
       {dialog === 'replace' && <ReplaceDialog data={(dialogData ?? {}) as ReplaceData} />}
