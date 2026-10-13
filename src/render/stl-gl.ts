@@ -14,6 +14,8 @@ export interface StlItem {
   visible: boolean;
   /** Сдвиг модели в мире, мм (раскладка «рядом»). */
   offset: V3;
+  /** Плоскость разреза действует на эту модель (false — показывать целиком). */
+  clip?: boolean;
 }
 
 export interface StlCam {
@@ -290,7 +292,6 @@ export class StlGl {
     gl.useProgram(m);
     gl.uniformMatrix4fv(U(m, 'uVp'), false, vp);
     gl.uniform3f(U(m, 'uEye'), eye[0], eye[1], eye[2]);
-    gl.uniform1i(U(m, 'uClipOn'), clip ? 1 : 0);
     if (clip) gl.uniform4f(U(m, 'uClip'), ...clip);
     gl.uniform1f(U(m, 'uScale'), o.scale);
     gl.enable(gl.POLYGON_OFFSET_FILL);
@@ -300,6 +301,7 @@ export class StlGl {
     for (const it of this.items) {
       const g = this.gpu.get(it.key);
       if (!g || !it.visible) continue;
+      gl.uniform1i(U(m, 'uClipOn'), clip && it.clip !== false ? 1 : 0);
       gl.uniform3f(U(m, 'uOff'), ...it.offset);
       gl.uniform3f(U(m, 'uColor'), ...it.color);
       gl.bindBuffer(gl.ARRAY_BUFFER, g.pos);
@@ -315,7 +317,6 @@ export class StlGl {
     const l = this.line;
     gl.useProgram(l);
     gl.uniformMatrix4fv(U(l, 'uVp'), false, vp);
-    gl.uniform1i(U(l, 'uClipOn'), clip ? 1 : 0);
     if (clip) gl.uniform4f(U(l, 'uClip'), ...clip);
     gl.uniform1f(U(l, 'uPt'), 1);
     gl.enable(gl.BLEND);
@@ -323,6 +324,7 @@ export class StlGl {
     for (const it of this.items) {
       const g = this.gpu.get(it.key);
       if (!g || !it.visible || !g.lines || (!o.edges && it.key !== o.hi)) continue;
+      gl.uniform1i(U(l, 'uClipOn'), clip && it.clip !== false ? 1 : 0);
       gl.uniform3f(U(l, 'uOff'), ...it.offset);
       gl.uniform1f(U(l, 'uScale'), o.scale);
       const c: [number, number, number, number] = it.key === o.hi ? [0.31, 0.7, 1, 1] : [0, 0, 0, 0.55];

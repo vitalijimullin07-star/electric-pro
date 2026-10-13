@@ -2408,6 +2408,29 @@ textarea:focus {
 .stlv-measure {
   border-color: #ffd84d;
 }
+.stlv-chip-main {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.stlv-row .ibtn.on {
+  border-color: var(--accent);
+  background: rgba(79, 179, 255, 0.18);
+}
+.stlv-cliptarget {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stlv-sel-act {
+  margin: 0;
+  flex: none;
+}
 .stlv-hint {
   position: absolute;
   left: 10px;

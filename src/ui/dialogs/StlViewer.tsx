@@ -111,6 +111,11 @@ function layout(entries: StlEntry[], scale: number, row: boolean): { items: StlI
   return { items, box };
 }
 
+/** Габарит модели в мире с учётом единиц и раскладки. */
+function itemBox(it: StlItem, scale: number): Box {
+  return { min: [0, 1, 2].map((k) => it.model.min[k] * scale + it.offset[k]) as V3, max: [0, 1, 2].map((k) => it.model.max[k] * scale + it.offset[k]) as V3 };
+}
+
 function gridFor(b: Box) {
   const m = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], 1e-3);
   const pad = m * 0.15;
@@ -146,19 +151,31 @@ export function StlViewer() {
   const [panel, setPanel] = useState(() => window.innerWidth >= 760);
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Одна модель «в фокусе»: камера вращается вокруг неё, разрез — только по ней.
+  const [focus, setFocus] = useState<string | null>(null);
+  const [others, setOthers] = useState(false);
+  // Следующее касание задаёт место разреза.
+  const [clipPick, setClipPick] = useState(false);
 
   const cvRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<StlGl | null>(null);
   const cam = useRef<StlCam>({ yaw: VIEWS.iso.yaw, pitch: VIEWS.iso.pitch, dist: 300, target: [0, 0, 0], ortho: prefs.ortho });
   const raf = useRef(0);
 
-  const { items, box } = useMemo(() => layout(entries, prefs.scale, prefs.row), [entries, prefs.scale, prefs.row]);
-  const clipPlane = clip.on && box ? { axis: clip.axis, pos: box.min[clip.axis] + clip.t * (box.max[clip.axis] - box.min[clip.axis]), flip: clip.flip } : null;
+  const { items: laid, box: sceneBox } = useMemo(() => layout(entries, prefs.scale, prefs.row), [entries, prefs.scale, prefs.row]);
+  const focusItem = focus ? (laid.find((i) => i.key === focus && i.visible) ?? null) : null;
+  const items = useMemo(
+    () => (focusItem ? laid.map((it) => ({ ...it, visible: it.visible && (it.key === focusItem.key || others), clip: it.key === focusItem.key })) : laid),
+    [laid, focusItem?.key, others], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  // Габарит, по которому вписывается камера и ходит разрез: модель в фокусе или вся сцена.
+  const box = focusItem ? itemBox(focusItem, prefs.scale) : sceneBox;
+  const clipPlane = clip.on && !clipPick && box ? { axis: clip.axis, pos: box.min[clip.axis] + clip.t * (box.max[clip.axis] - box.min[clip.axis]), flip: clip.flip } : null;
   const diag = box ? len(sub(box.max, box.min)) : 0;
 
   // Всё, что нужно для кадра и для обработчиков касаний, — в одном изменяемом месте.
-  const live = useRef({ items, box, clipPlane, prefs, marks, measure, selected, more, panel, dpr: 1 });
-  live.current = { items, box, clipPlane, prefs, marks, measure, selected, more, panel, dpr: Math.min(gfx.dprCap, window.devicePixelRatio || 1) };
+  const live = useRef({ items, laid, sceneBox, box, clip, clipPlane, clipPick, focus: focusItem?.key ?? null, prefs, marks, measure, selected, more, panel, dpr: 1 });
+  live.current = { items, laid, sceneBox, box, clip, clipPlane, clipPick, focus: focusItem?.key ?? null, prefs, marks, measure, selected, more, panel, dpr: Math.min(gfx.dprCap, window.devicePixelRatio || 1) };
 
   const redraw = () => {
     if (raf.current) return;
@@ -191,6 +208,17 @@ export function StlViewer() {
     c.target = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
     c.dist = Math.max(len(sub(b.max, b.min)) / 2, 0.01) / Math.sin(half);
     redraw();
+  };
+  /** Смотреть одну модель (null — все): камера вписывается в неё, разрез — посередине неё. */
+  const focusOn = (key: string | null) => {
+    const L = live.current;
+    const it = key ? L.laid.find((i) => i.key === key) : null;
+    setFocus(it ? it.key : null);
+    if (it) setSelected(it.key);
+    setClip((c) => ({ ...c, t: 0.5 }));
+    setClipPick(false);
+    setMarks([]);
+    fit(it ? itemBox(it, L.prefs.scale) : L.sceneBox);
   };
   const setView = (v: ViewId) => {
     cam.current.yaw = VIEWS[v].yaw;
@@ -240,6 +268,7 @@ export function StlViewer() {
     shown.current = { keys: new Set(items.map((i) => i.key)), sig };
     if (added || sig !== prev.sig) fit(box);
     if (selected && !items.some((i) => i.key === selected)) setSelected(null);
+    if (focus && !laid.some((i) => i.key === focus && i.visible)) setFocus(null);
     redraw();
   }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -257,7 +286,7 @@ export function StlViewer() {
     for (const it of L.items) {
       if (!it.visible) continue;
       const o = [0, 1, 2].map((i) => (r.o[i] - it.offset[i]) / k) as V3;
-      const cp = L.clipPlane;
+      const cp = it.clip === false ? null : L.clipPlane;
       const keep = cp
         ? (x: number, y: number, z: number) => {
             const w = [x, y, z][cp.axis] * k + it.offset[cp.axis];
@@ -306,6 +335,19 @@ export function StlViewer() {
     };
     const tap = (x: number, y: number) => {
       const L = live.current;
+      if (L.clipPick) {
+        // Место разреза: плоскость пройдёт через точку касания.
+        const h = pick(x, y);
+        const b = L.box;
+        if (!h || !b) return useEditor.getState().setMessage('Мимо модели — коснитесь места, где нужен разрез.');
+        const a = L.clip.axis;
+        const span = b.max[a] - b.min[a] || 1;
+        // Чуть внутрь модели: плоскость точно по грани (верх фланца) рябит.
+        const t = (h.p[a] - b.min[a]) / span;
+        setClip((c) => ({ ...c, on: true, t: Math.max(0, Math.min(1, t + (t > 0.5 ? -0.002 : 0.002))) }));
+        setClipPick(false);
+        return;
+      }
       if (L.measure) {
         const h = pick(x, y);
         if (!h) return useEditor.getState().setMessage('Мимо модели — коснитесь поверхности.');
@@ -317,8 +359,9 @@ export function StlViewer() {
       lastTap = { t: dbl ? 0 : now, x, y };
       const h = pick(x, y);
       if (dbl) {
-        // Двойное касание — вращать вокруг этой точки.
-        if (h) cam.current.target = h.p;
+        // Двойное касание по другой модели — смотреть её отдельно; по той же — вращать вокруг этой точки.
+        if (h && h.key !== L.focus) focusOn(h.key);
+        else if (h) cam.current.target = h.p;
         redraw();
         return;
       }
@@ -404,12 +447,14 @@ export function StlViewer() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // «Назад» и Esc: сначала меню «Ещё», замер, нижняя панель на телефоне, потом окно целиком.
+  // «Назад» и Esc: сначала меню «Ещё», выбор места разреза, замер, модель в фокусе, нижняя панель на телефоне, потом окно целиком.
   useEffect(() => {
     const inner = (): boolean => {
       const L = live.current;
       if (L.more) return setMore(false), true;
+      if (L.clipPick) return setClipPick(false), true;
       if (L.measure) return setMeasure(false), setMarks([]), true;
+      if (L.focus) return focusOn(null), true;
       if (L.panel && window.innerWidth < 760) return setPanel(false), true;
       return false;
     };
@@ -507,6 +552,11 @@ export function StlViewer() {
         <button className="btn" onClick={() => void pickStlFiles()}>
           Открыть…
         </button>
+        {focusItem && (
+          <button className="btn on" onClick={() => focusOn(null)} title="Вернуться ко всем моделям">
+            ← Все модели
+          </button>
+        )}
         <select className="btn" value="" aria-label="Вид" onChange={(e) => setView(e.target.value as ViewId)} disabled={!box}>
           <option value="" disabled>
             Вид
@@ -517,7 +567,7 @@ export function StlViewer() {
             </option>
           ))}
         </select>
-        <button className="btn" onClick={() => fit()} disabled={!box} title="Показать все модели целиком">
+        <button className="btn" onClick={() => fit()} disabled={!box} title={focusItem ? 'Показать модель целиком' : 'Показать все модели целиком'}>
           Вписать
         </button>
         <button className={`btn${clip.on ? ' on' : ''}`} aria-pressed={clip.on} disabled={!box} onClick={() => setClip((c) => ({ ...c, on: !c.on }))}>
@@ -555,6 +605,11 @@ export function StlViewer() {
               <label>
                 <input type="checkbox" checked={prefs.row} onChange={(e) => setPrefs({ row: e.target.checked })} /> Разложить рядом (а не как в файлах)
               </label>
+              {focusItem && (
+                <label>
+                  <input type="checkbox" checked={others} onChange={(e) => setOthers(e.target.checked)} /> Показывать остальные модели (без разреза)
+                </label>
+              )}
               <label>
                 Единицы файла{' '}
                 <select value={prefs.scale} onChange={(e) => setPrefs({ scale: Number(e.target.value) })}>
@@ -578,8 +633,9 @@ export function StlViewer() {
 
       <div className="stlv-stage">
         <canvas ref={cvRef} aria-label="Модели STL" />
-        {clip.on && box && clipPlane && (
+        {clip.on && box && (
           <div className="stlv-clip">
+            {focusItem && <span className="stlv-cliptarget mute">{shortName(focusItem.model.name)}</span>}
             <span className="stlv-seg" role="group" aria-label="Ось разреза">
               {AXES.map((a, i) => (
                 <button key={a} className={`btn sm${clip.axis === i ? ' on' : ''}`} aria-pressed={clip.axis === i} onClick={() => setClip((c) => ({ ...c, axis: i as 0 | 1 | 2, t: 0.5 }))}>
@@ -596,10 +652,13 @@ export function StlViewer() {
               onChange={(e) => setClip((c) => ({ ...c, t: Number(e.target.value) / 1000 }))}
             />
             <span className="stlv-num">
-              {AXES[clip.axis]} = {mm(clipPlane.pos)}
+              {AXES[clip.axis]} = {mm(box.min[clip.axis] + clip.t * (box.max[clip.axis] - box.min[clip.axis]))}
             </span>
             <button className="btn sm" onClick={() => setClip((c) => ({ ...c, flip: !c.flip }))} title="Убрать другую половину">
               ⇄
+            </button>
+            <button className={`btn sm${clipPick ? ' on' : ''}`} aria-pressed={clipPick} onClick={() => setClipPick(!clipPick)} title="Коснуться модели там, где нужен разрез">
+              По точке
             </button>
           </div>
         )}
@@ -615,7 +674,18 @@ export function StlViewer() {
           </div>
         )}
         {snap.busy && <div className="stlv-chip">{snap.busy}</div>}
-        {!snap.busy && measureText && (
+        {!snap.busy && clipPick && (
+          <div className="stlv-chip stlv-measure">
+            <span>
+              <b>Место разреза</b>
+              <small>коснитесь модели там, где нужен разрез по {AXES[clip.axis]}</small>
+            </span>
+            <button className="btn sm" onClick={() => setClipPick(false)}>
+              Отмена
+            </button>
+          </div>
+        )}
+        {!snap.busy && !clipPick && measureText && (
           <div className="stlv-chip stlv-measure">
             <span>
               <b>{measureText.main}</b>
@@ -628,21 +698,30 @@ export function StlViewer() {
             )}
           </div>
         )}
-        {!snap.busy && !measureText && sel && !panel && (
-          <button className="stlv-chip" onClick={() => setPanel(true)} title="Подробнее — в списке моделей">
-            <span>
+        {!snap.busy && !clipPick && !measureText && sel && !panel && (
+          <div className="stlv-chip">
+            <button className="stlv-chip-main" onClick={() => setPanel(true)} title="Подробнее — в списке моделей">
               <b>{shortName(sel.model.name)}</b>
               <small>
                 {sizeText(sizeOf(sel.model))} · {fmt((sel.model.volume * k ** 3) / 1000, 1)} см³
               </small>
-            </span>
-          </button>
+            </button>
+            {focusItem?.key === sel.key ? (
+              <button className="btn sm" onClick={() => focusOn(null)}>
+                Все
+              </button>
+            ) : (
+              <button className="btn sm" onClick={() => focusOn(sel.key)}>
+                Отдельно
+              </button>
+            )}
+          </div>
         )}
         <div className="stlv-hint">
           {error
             ? `3D недоступно: ${error}`
             : entries.length
-              ? `Вращать — мышь или палец; сдвиг — правая кнопка, Shift или два пальца; масштаб — колесо или щипок; двойное касание — вращать вокруг точки.${diag ? ` Всё: ${mm(diag)} мм по диагонали.` : ''}`
+              ? `Вращать — мышь или палец; сдвиг — правая кнопка, Shift или два пальца; масштаб — колесо или щипок; двойное касание по модели — смотреть её отдельно, по ней же ещё раз — вращать вокруг точки.${diag ? ` Всё: ${mm(diag)} мм по диагонали.` : ''}`
               : ''}
         </div>
       </div>
@@ -691,6 +770,19 @@ export function StlViewer() {
                   <small>{sizeText(sizeOf(e.model))}</small>
                 </div>
                 <button
+                  className={`ibtn${focusItem?.key === e.key ? ' on' : ''}`}
+                  aria-label={`Смотреть отдельно: ${shortName(e.model.name)}`}
+                  aria-pressed={focusItem?.key === e.key}
+                  title={focusItem?.key === e.key ? 'Вернуться ко всем моделям' : 'Смотреть отдельно: камера вокруг неё, разрез по ней'}
+                  disabled={!e.visible}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    focusOn(focusItem?.key === e.key ? null : e.key);
+                  }}
+                >
+                  ◎
+                </button>
+                <button
                   className="ibtn"
                   aria-label={`Убрать ${shortName(e.model.name)}`}
                   title="Убрать из просмотра"
@@ -704,7 +796,22 @@ export function StlViewer() {
               </div>
             ))}
           </div>
-          {sel ? info(sel) : entries.length > 0 ? <p className="mute stlv-tip">Коснитесь модели или строки — покажу размеры, объём и массу.</p> : null}
+          {sel ? (
+            <>
+              {info(sel)}
+              <span className="row stlv-sel-act">
+                {focusItem?.key === sel.key ? (
+                  <button className="btn sm" onClick={() => focusOn(null)}>
+                    Ко всем моделям
+                  </button>
+                ) : (
+                  <button className="btn sm" onClick={() => focusOn(sel.key)} disabled={!sel.visible}>
+                    Смотреть отдельно
+                  </button>
+                )}
+              </span>
+            </>
+          ) : entries.length > 0 ? <p className="mute stlv-tip">Коснитесь модели или строки — покажу размеры, объём и массу.</p> : null}
           {tiny && <p className="warn stlv-tip">Модели меньше 2 мм — похоже, файл в метрах: «Ещё» → «Единицы файла» → м.</p>}
           <div className="stlv-panel-foot">
             <label>

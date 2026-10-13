@@ -1178,7 +1178,7 @@ async function openPage(viewport, touch = false) {
     await h.hit(page.locator('.view3d-bar button', { hasText: 'Закрыть' }));
   });
 
-  await step('просмотр STL: STL и ZIP из меню, перетаскивание, выбор, разрез, замер, Esc по шагам', async () => {
+  await step('просмотр STL: STL и ZIP из меню, перетаскивание, выбор, разрез, замер, модель отдельно, Esc по шагам', async () => {
     // Куб со стороной s (двоичный STL), сдвинутый по X на x0.
     const cube = (s, x0 = 0) => {
       const v = (i) => [x0 + (i & 1 ? s : 0), i & 2 ? s : 0, i & 4 ? s : 0];
@@ -1236,6 +1236,20 @@ async function openPage(viewport, touch = false) {
     }
     await page.keyboard.press('Escape');
     expect((await page.locator('.stlv').isVisible()) && !(await page.locator('.stlv-measure').count()), 'Esc должен сначала выключить замер');
+    if (!noGl) {
+      // Двойной щелчок по кубу — смотреть его отдельно: разрез ходит по нему, Esc возвращает ко всем.
+      await h.hit(page.locator('.stlv-bar button', { hasText: 'Вписать' }));
+      const cv = await page.locator('.stlv canvas').boundingBox();
+      await page.mouse.dblclick(cv.x + cv.width * 0.47, cv.y + cv.height * 0.5);
+      await page.waitForTimeout(300);
+      expect(await page.locator('.stlv-bar button', { hasText: 'Все модели' }).isVisible(), 'двойной щелчок не открыл модель отдельно');
+      await h.hit(page.locator('.stlv-bar button', { hasText: 'Разрез' }));
+      const bar = await page.textContent('.stlv-clip');
+      expect(/kub\.stl/.test(bar) && /[XYZ] = 10\b/.test(bar), 'разрез не по модели: ' + bar);
+      await h.hit(page.locator('.stlv-bar button', { hasText: 'Разрез' }));
+      await page.keyboard.press('Escape');
+      expect((await page.locator('.stlv').isVisible()) && !(await page.locator('.stlv-bar button', { hasText: 'Все модели' }).count()), 'Esc должен вернуть ко всем моделям');
+    }
     await page.keyboard.press('Escape');
     expect(!(await page.$('.stlv')), 'окно STL не закрылось');
     await h.menu('Вид', 'Просмотр моделей STL');
