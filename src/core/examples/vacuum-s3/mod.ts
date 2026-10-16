@@ -122,7 +122,7 @@ const MOD_FOOTPRINTS: FootprintDef[] = [
   wired('Display_ILI9488_SPI_Wires', 'Экран 3,5″ ILI9488 SPI с касанием', 'Экран 3,5″ 480×320 ILI9488 по SPI с касанием XPT2046 (MSP3520 или аналог): 14 выводов VCC … T_IRQ', 'Дисплеи', 'HG', [['VCC', 'VCC'], ['GND', 'GND'], ['CS', 'CS'], ['RESET', 'RESET'], ['DC', 'DC'], ['SDI', 'SDI'], ['SCK', 'SCK'], ['LED', 'LED'], ['SDO', 'SDO'], ['T_CLK', 'T_CLK'], ['T_CS', 'T_CS'], ['T_DIN', 'T_DIN'], ['T_DO', 'T_DO'], ['T_IRQ', 'T_IRQ']], ['display', 'ili9488'], [60, 40]),
 ];
 
-function footprintOf(id: string): FootprintDef {
+export function footprintOf(id: string): FootprintDef {
   const f = MOD_FOOTPRINTS.find((x) => x.id === id) ?? S3_FOOTPRINTS.find((x) => x.id === id) ?? S3_DIP_FOOTPRINTS.find((x) => x.id === id) ?? libraryFootprint(id);
   if (!f) throw new Error(`нет корпуса ${id}`);
   return f;
