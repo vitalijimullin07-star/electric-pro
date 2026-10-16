@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { buildVacuumStand, STAND_GROUPS, STAND_PINS, standPinTable } from '../src/core/examples/vacuum-s3/stand';
+import { buildVacuumStand, STAND_GROUPS, STAND_PINS, standEasyedaPart, standPinTable } from '../src/core/examples/vacuum-s3/stand';
 import { MOD_PINS } from '../src/core/examples/vacuum-s3/mod';
 import { exportKicadSch, kicadProjectFile } from '../src/core/io/kicad-sch-export';
 import { exportKicadPcb } from '../src/core/io/kicad-export';
@@ -43,17 +43,21 @@ describe('стенд турбины и ударов', () => {
       writeFileSync('import/vacuum-stand-vyvody.txt', ['Стенд S3: выводы ESP32-S3-DevKitC-1 N16R8', '', ...standPinTable(), ''].join('\n'));
       const pdf = exportSchematicPdf(p);
       if (pdf) writeFileSync('import/vacuum-stand-shema.pdf', pdf.bytes);
-      writeFileSync('import/vacuum-stand.easyeda.json', exportEasyedaSch(p, { offBoard: true, groups: STAND_GROUPS }));
+      writeFileSync('import/vacuum-stand.easyeda.json', exportEasyedaSch(p, { groups: STAND_GROUPS, part: (c) => standEasyedaPart(c, p) }));
     }
   });
 
   it('схема EasyEDA Standard: у каждого подключённого вывода — флаг цепи, имена флагов — цепи', () => {
-    const j = JSON.parse(exportEasyedaSch(p, { offBoard: true, groups: STAND_GROUPS }));
+    const j = JSON.parse(exportEasyedaSch(p, { groups: STAND_GROUPS, part: (c) => standEasyedaPart(c, p) }));
     expect(j.docType).toBe('5');
     const shapes: string[] = j.schematics[0].dataStr.shape;
     const flags = shapes.filter((x) => x.startsWith('F~part_netLabel_Bar'));
-    const connected = Object.values(p.components).reduce((k, c) => k + new Set(Object.keys(c.padNets)).size, 0);
+    const onBoard = Object.values(p.components).filter((c) => !c.offBoard);
+    const connected = onBoard.reduce((k, c) => k + new Set(Object.keys(c.padNets)).size, 0);
     expect(flags.length).toBe(connected);
+    // У каждой детали платы с выводами — корпус из библиотеки EasyEDA (номер LCSC и UUID корпуса).
+    for (const c of onBoard) if (Object.keys(c.padNets).length) expect(standEasyedaPart(c, p), c.ref).toBeTruthy();
+    expect(shapes.filter((x) => x.startsWith('LIB') && /Supplier Part`C\d+/.test(x)).length).toBe(onBoard.filter((c) => Object.keys(c.padNets).length).length);
     const names = new Set(Object.values(p.nets).map((n) => n.name));
     for (const f of flags) expect(names.has(f.split('^^')[2].split('~')[0])).toBe(true);
     // Конец каждого флага совпадает с концом вывода детали.

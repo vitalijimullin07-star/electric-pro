@@ -17,6 +17,40 @@ export interface EasyedaSchOptions {
   groups?: readonly string[];
   /** Ширина листа в единицах EasyEDA (по ней переносятся ряды деталей). */
   width?: number;
+  /** Деталь из библиотеки EasyEDA (LCSC): её корпус подставится сам при «Преобразовать в PCB». */
+  part?: (c: Component) => EasyedaPart | undefined;
+}
+
+/** Деталь из библиотеки EasyEDA: номер LCSC, имя и UUID корпуса, выводы символа (номер, имя). */
+export interface EasyedaPart {
+  lcsc: string;
+  package: string;
+  puuid: string;
+  pins: [string, string][];
+}
+
+const pinKey = (s: string) => s.toUpperCase().replace(/^GPIO/, 'IO').replace(/^(TX|RX)D$/, '$1').replace(/[^A-Z0-9+-]/g, '');
+
+/** Номера выводов корпуса EasyEDA для наших площадок: по имени, иначе по номеру. */
+function mapPins(pads: PadDef[], part: EasyedaPart): Map<string, string> {
+  const free = new Map(part.pins.map(([n, name]) => [n, name]));
+  const out = new Map<string, string>();
+  for (const q of pads) {
+    if (!q.name) continue;
+    const hit = [...free].find(([, name]) => pinKey(name) === pinKey(q.name!));
+    if (hit) {
+      out.set(q.number, hit[0]);
+      free.delete(hit[0]);
+    }
+  }
+  for (const q of pads) {
+    if (out.has(q.number)) continue;
+    if (free.has(q.number)) {
+      out.set(q.number, q.number);
+      free.delete(q.number);
+    } else throw new Error(`EasyEDA ${part.lcsc}: нет вывода для ${q.number} ${q.name ?? ''}`);
+  }
+  return out;
 }
 
 function uniquePads(fp: FootprintDef): PadDef[] {
@@ -64,13 +98,17 @@ export function exportEasyedaSch(p: Project, o: EasyedaSchOptions = {}): string 
   /** Деталь: левый верхний угол клетки (x, y) → высота занятого места. */
   const symbol = (c: Component, x0: number, y0: number, boxW: number, left: PadDef[], right: PadDef[]) => {
     const fp = p.footprints[c.footprint];
+    const lib = o.part?.(c);
+    const num = lib ? mapPins([...left, ...right], lib) : null;
+    const pinNo = (q: PadDef) => clean(num?.get(q.number) ?? q.number);
     const rows = Math.max(left.length, right.length, 1);
     const boxH = rows * 10 + 10;
     const bx = x0;
     const by = y0 + 20;
     const parts: string[] = [];
     const prefix = clean(fp.refPrefix ?? c.ref.replace(/\d+$/, '')) || 'U';
-    parts.push(`LIB~${bx}~${by}~package\`${clean(fp.id)}\`spicePre\`${prefix}\`~~0~${id()}~~~0~~yes~yes~~~`);
+    const attrs = lib ? `package\`${clean(lib.package)}\`Supplier\`LCSC\`Supplier Part\`${clean(lib.lcsc)}\`spicePre\`${prefix}\`` : `package\`${clean(fp.id)}\`spicePre\`${prefix}\``;
+    parts.push(`LIB~${bx}~${by}~${attrs}~~0~${id()}~${lib ? clean(lib.puuid) : ''}~~0~~yes~yes~~~`);
     parts.push(`T~P~${bx}~${by - 11}~0~#000080~Arial~~~~~comment~${clean(c.ref)}~1~start~${id()}~0~pinpart`);
     parts.push(`T~N~${bx}~${by - 3}~0~#000080~Arial~~~~~comment~${clean(c.value || fp.name)}~1~start~${id()}~0~pinpart`);
     parts.push(`R~${bx}~${by}~2~2~${boxW}~${boxH}~#880000~1~0~none~${id()}~0~`);
@@ -79,7 +117,7 @@ export function exportEasyedaSch(p: Project, o: EasyedaSchOptions = {}): string 
       const y = by + 10 + i * 10;
       const name = clean(q.name ?? q.number);
       parts.push(
-        `P~show~0~${clean(q.number)}~${x}~${y}~180~${id()}~0^^${x}~${y}^^M ${x} ${y} h 10~#880000^^1~${r1(x + 13.7)}~${y + 4}~0~${name}~start~~~#0000FF^^1~${r1(x + 9.5)}~${y - 1}~0~${clean(q.number)}~end~~~#0000FF^^0~${x + 7}~${y}^^0~M ${x + 10} ${y + 3} L ${x + 13} ${y} L ${x + 10} ${y - 3}`,
+        `P~show~0~${pinNo(q)}~${x}~${y}~180~${id()}~0^^${x}~${y}^^M ${x} ${y} h 10~#880000^^1~${r1(x + 13.7)}~${y + 4}~0~${name}~start~~~#0000FF^^1~${r1(x + 9.5)}~${y - 1}~0~${pinNo(q)}~end~~~#0000FF^^0~${x + 7}~${y}^^0~M ${x + 10} ${y + 3} L ${x + 13} ${y} L ${x + 10} ${y - 3}`,
       );
       const n = netName(c, q);
       if (n) shapes.push(flag(x, y, n, true));
@@ -89,7 +127,7 @@ export function exportEasyedaSch(p: Project, o: EasyedaSchOptions = {}): string 
       const y = by + 10 + i * 10;
       const name = clean(q.name ?? q.number);
       parts.push(
-        `P~show~0~${clean(q.number)}~${x}~${y}~0~${id()}~0^^${x}~${y}^^M ${x} ${y} h -10~#880000^^1~${r1(x - 13.7)}~${y + 4}~0~${name}~end~~~#0000FF^^1~${r1(x - 9.5)}~${y - 1}~0~${clean(q.number)}~start~~~#0000FF^^0~${x - 7}~${y}^^0~M ${x - 10} ${y - 3} L ${x - 13} ${y} L ${x - 10} ${y + 3}`,
+        `P~show~0~${pinNo(q)}~${x}~${y}~0~${id()}~0^^${x}~${y}^^M ${x} ${y} h -10~#880000^^1~${r1(x - 13.7)}~${y + 4}~0~${name}~end~~~#0000FF^^1~${r1(x - 9.5)}~${y - 1}~0~${pinNo(q)}~start~~~#0000FF^^0~${x - 7}~${y}^^0~M ${x - 10} ${y - 3} L ${x - 13} ${y} L ${x - 10} ${y + 3}`,
       );
       const n = netName(c, q);
       if (n) shapes.push(flag(x, y, n, false));

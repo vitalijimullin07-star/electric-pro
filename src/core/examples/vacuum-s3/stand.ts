@@ -1,6 +1,7 @@
 import { addComponent, addDrawing, connectPad, ensureNet } from '../../model/edit';
 import { createProject } from '../../model/project';
-import type { FootprintDef, Project } from '../../model/types';
+import type { Component, FootprintDef, Project } from '../../model/types';
+import type { EasyedaPart } from '../../io/easyeda-sch-export';
 import { layoutBlocks, type SchBlock } from './build';
 import { footprintOf, MOD_PINS } from './mod';
 import { wired, type VacPart } from './parts';
@@ -277,4 +278,46 @@ export function standPinTable(): string[] {
     const same = MOD_PINS[pin] === net ? '' : MOD_PINS[pin] ? ` (на плате пылесоса — ${MOD_PINS[pin]})` : '';
     return `${(pin === 'TX' ? 'IO43' : pin).padEnd(5)} ${net.padEnd(9)} ${DESCRIPTIONS[net] ?? ''}${same}`.trimEnd();
   });
+}
+
+const num = (n: number): [string, string][] => Array.from({ length: n }, (_, i) => [String(i + 1), String(i + 1)]);
+
+/** Детали из библиотеки EasyEDA (LCSC) для выгрузки схемы: корпус подставится сам. */
+const LCSC: Record<string, EasyedaPart> = {
+  RES: { lcsc: 'C5618323', package: 'RES-TH_BD2.4-L6.3-P10.30-D0.6', puuid: '2915f1f0a54941d7b912decfe617b47f', pins: num(2) },
+  CER: { lcsc: 'C154503', package: 'CAP-TH_L3.0-W2.0-P2.54-D0.7', puuid: '7d441db52cb04c809670ae39aac6b010', pins: num(2) },
+  CER5: { lcsc: 'C94708', package: 'CAP-TH_L8.5-W5.0-P5.00-D1.2', puuid: '22b246ec12564337ab8a39d4c651a291', pins: num(2) },
+  EL470: { lcsc: 'C49304896', package: 'CAP-TH_BD6.3-P2.50-D0.5-FD', puuid: '64a7f92837bb4510988b60872b0cfbf5', pins: num(2) },
+  EL10: { lcsc: 'C49304949', package: 'CAP-TH_BD5.0-P2.00-D0.6-FD', puuid: 'd174dc03399042dd9fe60a9cfe46ef2e', pins: num(2) },
+  DIODE: { lcsc: 'C145202', package: 'DO-41_BD2.4-L4.7-P8.70-D0.9-RD', puuid: 'c2803222ad4b48fb94db0de548a6280a', pins: [["1", "K"], ["2", "A"]] },
+  PNP: { lcsc: 'C438620', package: 'TO-92-3_L4.9-W3.7-P1.27-L', puuid: '6924b36489de4921bb29ca14bf27c33f', pins: [["1", "E"], ["2", "B"], ["3", "C"]] },
+  HDR3: { lcsc: 'C492402', package: 'HDR-TH_3P-P2.54-V-M', puuid: '5c0be672313e4206a41dd5398a02f108', pins: num(3) },
+  HDR4: { lcsc: 'C492403', package: 'HDR-TH_4P-P2.54-V-M', puuid: '89f5280378144b629de4998ef974b6b8', pins: num(4) },
+  HDR5: { lcsc: 'C492404', package: 'HDR-TH_5P-P2.54-V-M', puuid: '97560a62b45c46d5b6e85aaea1cd55a1', pins: num(5) },
+  HDR14: { lcsc: 'C22465874', package: 'CONN-TH_PZ254V-11-14P', puuid: '6e9d594e09a640d99d6ec9996f01e352', pins: num(14) },
+  KF2: { lcsc: 'C474881', package: 'CONN-TH_P5.00_KF301-5.0-2P', puuid: 'c444d117946441c3ab8b7492a6a9cd72', pins: num(2) },
+  KF4: { lcsc: 'C3037697', package: 'CONN-TH_DEGSON_DG301-5.0-04P', puuid: 'ec06fee773004fe8baadf94fc9abbbe0', pins: num(4) },
+  MPX: { lcsc: 'C459977', package: 'SENSOR-TH_MPX5100DP', puuid: '07b4ea30468a4bc5bdc882df749e9552', pins: [["1", "VOUT"], ["2", "GND"], ["3", "VS"], ["4", "DNC"], ["5", "DNC"], ["6", "DNC"]] },
+  DIP8: { lcsc: 'C72124', package: 'DIP-8_L10.2-W10.2-P2.54-LS7.6-BL', puuid: '3f6ef94e1963401e9ceec09213ee59e4', pins: num(8) },
+  DEVKIT: { lcsc: 'C9900309792', package: 'COMM-TH_ESP32-S3-DEVKITC-N16R8', puuid: '653b34eb7957444788845183be34a84f', pins: [["1", "3V3"], ["2", "3V3"], ["3", "RST"], ["4", "GPIO4"], ["5", "GPIO5"], ["6", "GPIO6"], ["7", "GPIO7"], ["8", "GPIO15"], ["9", "GPIO16"], ["10", "GPIO17"], ["11", "GPIO18"], ["12", "GPIO8"], ["13", "GPIO3"], ["14", "GPIO46"], ["15", "GPIO9"], ["16", "GPIO10"], ["17", "GPIO11"], ["18", "GPIO12"], ["19", "GPIO13"], ["20", "GPIO14"], ["21", "5V"], ["22", "GND"], ["23", "GND"], ["24", "GND"], ["25", "GPIO19"], ["26", "GPIO20"], ["27", "GPIO21"], ["28", "GPIO47"], ["29", "GPIO48"], ["30", "GPIO45"], ["31", "GPIO0"], ["32", "GPIO35"], ["33", "GPIO36"], ["34", "GPIO37"], ["35", "GPIO38"], ["36", "GPIO39"], ["37", "GPIO40"], ["38", "GPIO41"], ["39", "GPIO42"], ["40", "GPIO2"], ["41", "GPIO1"], ["42", "RXD"], ["43", "TXD"], ["44", "GND"]] },
+};
+
+/** Деталь EasyEDA для детали стенда (выносные — без корпуса: на плате их нет). */
+export function standEasyedaPart(c: Component, p: Project): EasyedaPart | undefined {
+  if (c.offBoard) return undefined;
+  const id = p.footprints[c.footprint]?.id ?? '';
+  if (id === RES) return LCSC.RES;
+  if (id === CER) return LCSC.CER;
+  if (id === CER5) return LCSC.CER5;
+  if (id === EL) return /470/.test(c.value) ? LCSC.EL470 : LCSC.EL10;
+  if (id.startsWith('D_DO-41')) return LCSC.DIODE;
+  if (id.startsWith('Q_S8050')) return LCSC.PNP;
+  if (id === 'TerminalBlock_1x02_P5mm') return LCSC.KF2;
+  if (id === 'TerminalBlock_1x04_P5mm') return LCSC.KF4;
+  if (id === 'Sensor_MPX5100DP') return LCSC.MPX;
+  if (id.startsWith('DIP-8')) return LCSC.DIP8;
+  if (id === 'Module_ESP32-S3_DevKitC-1') return LCSC.DEVKIT;
+  const h = /^PinHeader_1x(\d+)_P2\.54mm$/.exec(id);
+  if (h) return LCSC[`HDR${Number(h[1])}`];
+  return undefined;
 }
