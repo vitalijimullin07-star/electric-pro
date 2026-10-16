@@ -8,6 +8,7 @@ import { importKicadBoard } from '../src/core/io/kicad';
 import { exportSchematicPdf } from '../src/core/io/sch-pdf';
 import { serializeProject } from '../src/core/io/project-file';
 import { exportBomCsv } from '../src/core/io/bom';
+import { exportEasyedaSch } from '../src/core/io/easyeda-sch-export';
 
 describe('стенд турбины и ударов', () => {
   const p = buildVacuumStand();
@@ -42,6 +43,23 @@ describe('стенд турбины и ударов', () => {
       writeFileSync('import/vacuum-stand-vyvody.txt', ['Стенд S3: выводы ESP32-S3-DevKitC-1 N16R8', '', ...standPinTable(), ''].join('\n'));
       const pdf = exportSchematicPdf(p);
       if (pdf) writeFileSync('import/vacuum-stand-shema.pdf', pdf.bytes);
+      writeFileSync('import/vacuum-stand.easyeda.json', exportEasyedaSch(p, { offBoard: true, groups: STAND_GROUPS }));
     }
+  });
+
+  it('схема EasyEDA Standard: у каждого подключённого вывода — флаг цепи, имена флагов — цепи', () => {
+    const j = JSON.parse(exportEasyedaSch(p, { offBoard: true, groups: STAND_GROUPS }));
+    expect(j.docType).toBe('5');
+    const shapes: string[] = j.schematics[0].dataStr.shape;
+    const flags = shapes.filter((x) => x.startsWith('F~part_netLabel_Bar'));
+    const connected = Object.values(p.components).reduce((k, c) => k + new Set(Object.keys(c.padNets)).size, 0);
+    expect(flags.length).toBe(connected);
+    const names = new Set(Object.values(p.nets).map((n) => n.name));
+    for (const f of flags) expect(names.has(f.split('^^')[2].split('~')[0])).toBe(true);
+    // Конец каждого флага совпадает с концом вывода детали.
+    const ends = new Set(shapes.filter((x) => x.startsWith('LIB')).flatMap((x) => x.split('#@$').filter((q) => q.startsWith('P~')).map((q) => q.split('~').slice(4, 6).join(','))));
+    for (const f of flags) expect(ends.has(f.split('~').slice(2, 4).join(','))).toBe(true);
+    const ids = shapes.join('#@$').match(/~gge[0-9a-z]+~/g)!;
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
