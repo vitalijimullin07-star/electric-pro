@@ -959,6 +959,9 @@ static uint8_t vmode_mask(void) {
   return m;
 }
 
+/* С перегородкой «по очереди» каждый удар чистит половину фильтра: ударов в серии — вдвое. */
+static int wall_pair(void) { return vac_ext.wall && vac_ext.vmode == VM_ALT ? 2 : 1; }
+
 /* Открыть клапаны маски: SSR откроются в ближайшем нуле сети на vac.imp_now (целыми полупериодами). */
 static void fire(uint8_t mask) {
   pulse_mask = mask;
@@ -1034,6 +1037,9 @@ static void pulse_eval(void) {
   int meaningful = pc_before > 3 && !(vac.faults & F_VAC);
   int dp_ok = (vac.faults & F_SDP_F) || pa_before < 40 || pa_min < pa_before * 0.5f;
   ext_osc_end(depth, -pa_min, t_front);
+  /* Перегородка в камере: датчики — на штуцерах половины Т1, удар одним К2 им не виден — не судим. */
+  int blind = vac_ext.wall && !(pulse_mask & 1);
+  if (!pulse_diag && blind) return;
   if (!pulse_diag) {
     /* Удар серии (оба или один по режиму): перепад должен провалиться. */
     /* Самонастройка: сила обратного потока на кПа разрежения — оценка варианта сброса турбин. */
@@ -1065,8 +1071,10 @@ static void pulse_eval(void) {
   }
   /* Проверка по одному: удар только клапаном k — перепад должен провалиться. */
   int k = pulse_mask == 1 ? 0 : 1;
-  diag_depth[k] = meaningful ? depth : -1;
-  if (meaningful && !dp_ok) valve_fault(k, VE_STUCK);
+  diag_depth[k] = meaningful && !blind ? depth : -1;
+  if (blind)
+    ;
+  else if (meaningful && !dp_ok) valve_fault(k, VE_STUCK);
   else if (meaningful && vac.verr[k]) valve_fault(k, VE_OK);
   if (k == 1) {
     diag_req = 0;
@@ -1154,7 +1162,7 @@ static void purge_step(uint32_t ms) {
       ph_t = ms;
       break;
     }
-    int more = pulse_i - diag_n < (pulses_now ? pulses_now : 1) || (diag_req && pulse_i < 2 && vac.purging != PURGE_STRONG);
+    int more = pulse_i - diag_n < (pulses_now ? pulses_now : 1) * wall_pair() || (diag_req && pulse_i < 2 && vac.purging != PURGE_STRONG);
     if (more) {
       uint8_t mask = vmode_mask();
       pulse_diag = 0;
@@ -1167,13 +1175,19 @@ static void purge_step(uint32_t ms) {
     break;
   }
   case PH_MEASURE:
+    /* Перегородка: удар одним К2 датчикам не виден — сразу следующий, R — после удара К1. */
+    if (vac_ext.wall && !(pulse_mask & 1)) {
+      if (pulse_i - diag_n < 8 * wall_pair()) pulse_diag = 0, fire(vmode_mask());
+      else ph = PH_SETTLE, ph_t = ms;
+      break;
+    }
     if (ms - ph_t < 600) break;
     {
       float r = vac.flow_ls > 8 ? 100.0f * vac.filter_pa / (vac.flow_ls * vac.flow_ls) : 0;
       float drop = r_prev_pulse > 0 && r > 0 ? (r_prev_pulse - r) / r_prev_pulse : 0;
       if (r > 0) r_prev_pulse = r;
       /* Бьём, пока удар ещё снижает R (не больше 8 ударов за серию). */
-      if (pulse_i - diag_n < 8 && drop >= 0.02f) pulse_diag = 0, fire(vmode_mask());
+      if (pulse_i - diag_n < 8 * wall_pair() && drop >= 0.02f) pulse_diag = 0, fire(vmode_mask());
       else ph = PH_SETTLE, ph_t = ms;
     }
     break;
@@ -1762,7 +1776,7 @@ static void control(void) {
         }
       } else
         dual_since = 0;
-      int enough = (float)SP < q_single * 0.9f || (u_pid <= 60.5f && e < -2);
+      int enough = !vac_ext.wall && ((float)SP < q_single * 0.9f || (u_pid <= 60.5f && e < -2));
       if (vac.dual && (enough || !pair)) {
         if (!single_since) single_since = ms;
         if (ms - single_since > 5000 || !pair) {
@@ -1774,6 +1788,8 @@ static void control(void) {
         single_since = 0;
     }
     e_prev = e;
+    /* С перегородкой у каждой турбины своя половина фильтра: работают только парой, поровну. */
+    if (vac_ext.wall && pair) vac.dual = 1;
     if (vac.dual) tgt[p] = tgt[s] = u_pid / 2;
     else tgt[p] = u_pid > 100 ? 100 : u_pid;
   } else if (want) {

@@ -88,6 +88,13 @@ const PLATE_SIZE = (54 / 40) ** 2;
 const PLATE_STATES = ['исправен', 'обрыв магнита', 'тарелка заклинила', 'тарелка не садится (грязь в седле)', 'SSR пробит (магнит всегда под током)'];
 /** Импульсный клапан 230 В: якорь втягивается за 8 мс, мембрана открывается за 6 мс, закрывается за 15 мс. */
 const PULSE_PULL_MS = 8;
+/**
+ * Перегородка в камере: сбитая ударом пыль, пока соседняя половина тянет из бака (удар по очереди),
+ * частью садится на её фильтр — до 30 % (оценка: облако мелкой пыли под фильтром в 15 мм от перемычки),
+ * пропорционально потоку соседней половины от рабочего (половина от 43 л/с).
+ */
+const REDEPOSIT = 0.3;
+const HALF_Q = 0.0215;
 const SSR_STATES = ['исправен', 'пробит (всегда включён)', 'обрыв (не включается)'];
 const DIMMER_STATES = ['исправен', 'пробит симистор (всегда полная)', 'не открывается'];
 /** Вид пыли: доля, которая «прилипает» (снимается только мощным ударом или мойкой). */
@@ -248,7 +255,9 @@ export class VacuumPlant {
   private air = { p: 0, tank: 0, qh: 0, filterDp: 0, flowDp: 0, qv: 0 };
   /** Клапаны на магнитах; есть — воздух считается по динамике камеры и бака. */
   private mags: MagValve[] = [];
-  private dyn = { pc: 0, pt: 0, t: 0, loose: 0.05, stuck: 0, bagCake: 0, bagFill: 0 };
+  private dyn = { pc: 0, pt: 0, t: 0, loose: 0.05, stuck: 0, bagCake: 0, bagFill: 0, pc2: 0, loose2: 0.05, stuck2: 0 };
+  /** Камера разделена перегородкой (по половине на турбину и клапан): pc/loose/stuck — половина Т1, *2 — Т2. */
+  private wallOn = false;
   private tankL = 40;
   /** Мусор в баке, кг (растёт с пылью и потоком; «Слить бак» — ноль). */
   private debrisKg = 0;
@@ -457,6 +466,12 @@ export class VacuumPlant {
         param('kind', 'вид пыли', 0, 0, DUST_KINDS.length - 1, 1, '', DUST_KINDS),
         param('intake', 'фильтр клапанов забит', 0, 0, 100, 1, '%'),
         param('bag', 'мешок', 0, 0, 1, 1, '', ['нет', 'стоит']),
+      );
+    // Перегородка в камере (опыт): своя половина фильтра у каждой пары «турбина + клапан», бак общий.
+    if (this.mags.length === 2 && this.motors.length === 2)
+      this.airP.push(
+        param('wall', 'перегородка в камере', 0, 0, 2, 1, '', ['нет', 'есть, датчики у Т1', 'есть, датчики у Т2']),
+        param('check', 'бабочки на входе турбин', 0, 0, 1, 1, '', ['нет', 'есть']),
       );
     // Объёмы: у электрода на дне бака — поле «Объём», у датчика перепада на фильтре — «Камера».
     for (const comp of Object.values(p.components)) {
@@ -840,20 +855,45 @@ export class VacuumPlant {
     return BAG_K * (1 + 6 * d.bagCake + 10 * d.bagFill * d.bagFill);
   }
 
-  private filterKDyn(): number {
-    const d = this.dyn;
-    const k = FILTER_K0 * (1 + 3 * (d.loose + d.stuck) + 8 * (this.airP[3].value / 100));
+  private filterKDyn(loose = this.dyn.loose, stuck = this.dyn.stuck): number {
+    const k = FILTER_K0 * (1 + 3 * (loose + stuck) + 8 * (this.airP[3].value / 100));
     const state = this.airP[5]?.value ?? 0;
     return state === 1 ? k * 0.06 : state === 2 ? k * 0.005 : k;
   }
 
-  /** Удар (от открытия первой тарелки до закрытия последней): наибольший обратный перепад. */
-  private pulse = { active: false, peak: 0, t0: 0 };
+  /** Половина камеры детали по номеру в обозначении (M2, YV2 — половина Т2); без перегородки — 0. */
+  private halfOf(ref: string): number {
+    return this.wallOn && /2$/.test(ref) ? 1 : 0;
+  }
+
+  /** Разрежение в камере у клапана (с перегородкой — в его половине). */
+  private pcOf(v: MagValve): number {
+    return this.halfOf(v.load.comp.ref) ? this.dyn.pc2 : this.dyn.pc;
+  }
+
+  /** Перегородку поставили — половины начинают с общего состояния; сняли — пыль усредняется. */
+  private syncWall(): void {
+    const on = this.dustP('wall') > 0;
+    if (on === this.wallOn) return;
+    const d = this.dyn;
+    if (on) (d.pc2 = d.pc), (d.loose2 = d.loose), (d.stuck2 = d.stuck);
+    else (d.pc = (d.pc + d.pc2) / 2), (d.loose = (d.loose + d.loose2) / 2), (d.stuck = (d.stuck + d.stuck2) / 2);
+    this.wallOn = on;
+  }
+
+  /** Удар (от открытия первой тарелки до закрытия последней): наибольший обратный перепад; с перегородкой — по половинам. */
+  private pulse = { active: false, peak: 0, t0: 0, other: 0 };
+  private pulses = [
+    { active: false, peak: 0, t0: 0, other: 0 },
+    { active: false, peak: 0, t0: 0, other: 0 },
+  ];
+  /** Поток через половины фильтра, м³/с (с перегородкой; вперёд — из бака в камеру). */
+  private qfHalf = [0, 0];
 
   /** Тарелки: магнит держит; без него — вталкивает разрежение (пружина держит до 0,8 кПа). */
   private plates(h: number, us: number): void {
-    const pc = this.dyn.pc;
     for (const v of this.mags) {
+      const pc = this.pcOf(v);
       if (v.plate) {
         this.holdPlate(v, h, us);
         continue;
@@ -878,21 +918,44 @@ export class VacuumPlant {
       }
       v.amps = held && this.volts > 0 ? 11.5 / Math.max(1, v.params[1].value) : 0;
     }
-    const any = this.mags.some((v) => v.x > 0);
-    const p = this.pulse;
-    if (any && !p.active) Object.assign(p, { active: true, peak: 0, t0: us });
-    if (p.active) p.peak = Math.max(p.peak, this.dyn.pt - this.dyn.pc);
-    if (!any && p.active) {
-      // Удар кончился: складки фильтра рывком прогнулись обратно — сбито по силе обратного перепада
-      // (рабочий — десятки паскалей, обратный — сотни, фронт — первые ~20 мс). Прилипшее снимает
-      // только сильный удар (при закрытом шланге бак держит полное разрежение).
-      p.active = false;
-      const d = this.dyn;
-      const k = Math.min(1, p.peak / 800) * Math.min(1, (us - p.t0) / 20_000);
-      d.loose *= 1 - 0.5 * k;
-      if (p.peak > 1500) d.stuck *= 1 - 0.2 * Math.min(1, (p.peak - 1500) / 1500);
-      d.bagCake *= 1 - 0.3 * k;
+    const d = this.dyn;
+    if (!this.wallOn) {
+      this.pulseTrack(this.pulse, this.mags.some((v) => v.x > 0), d.pt - d.pc, h, us, -1);
+      return;
     }
+    for (const hf of [0, 1])
+      this.pulseTrack(this.pulses[hf], this.mags.some((v) => v.x > 0 && this.halfOf(v.load.comp.ref) === hf), d.pt - (hf ? d.pc2 : d.pc), h, us, hf);
+  }
+
+  /**
+   * Удар кончился: складки фильтра рывком прогнулись обратно — сбито по силе обратного перепада
+   * (рабочий — десятки паскалей, обратный — сотни, фронт — первые ~20 мс). Прилипшее снимает
+   * только сильный удар (при закрытом шланге бак держит полное разрежение). С перегородкой (hf ≥ 0)
+   * чистится своя половина, а если соседняя в это время тянула из бака — часть сбитого садится на неё.
+   */
+  private pulseTrack(p: { active: boolean; peak: number; t0: number; other: number }, any: boolean, rev: number, h: number, us: number, hf: number): void {
+    if (any && !p.active) Object.assign(p, { active: true, peak: 0, t0: us, other: 0 });
+    if (p.active) {
+      p.peak = Math.max(p.peak, rev);
+      if (hf >= 0) p.other += Math.max(0, this.qfHalf[1 - hf]) * h;
+    }
+    if (any || !p.active) return;
+    p.active = false;
+    const d = this.dyn;
+    const k = Math.min(1, p.peak / 800) * Math.min(1, (us - p.t0) / 20_000);
+    const two = hf === 1;
+    const loose = two ? d.loose2 : d.loose;
+    let stuck = two ? d.stuck2 : d.stuck;
+    const off = loose * 0.5 * k;
+    if (p.peak > 1500) stuck *= 1 - 0.2 * Math.min(1, (p.peak - 1500) / 1500);
+    if (two) (d.loose2 = loose - off), (d.stuck2 = stuck);
+    else (d.loose = loose - off), (d.stuck = stuck);
+    if (hf >= 0) {
+      const back = off * REDEPOSIT * Math.min(1, p.other / Math.max(1e-3, (us - p.t0) / 1e6) / HALF_Q);
+      if (two) d.loose = Math.min(2, d.loose + back);
+      else d.loose2 = Math.min(2, d.loose2 + back);
+    }
+    d.bagCake *= 1 - 0.3 * k;
   }
 
   /** Катушка импульсного клапана под током в момент us: SSR проводит весь полупериод от включения. */
@@ -932,8 +995,8 @@ export class VacuumPlant {
     pl.field = on ? Math.min(1, pl.field + k) : Math.max(0, pl.field - k);
     // Магнит тянет якорь тем слабее, чем больше зазор (0,5 мм закрытой, +9 мм хода): ~ (0,5/зазор)².
     const force = v.params[0].value * pl.field * (0.5 / (0.5 + 9 * v.x)) ** 2;
-    const spring = PLATE_SPRING_CLOSED + (PLATE_SPRING_OPEN - PLATE_SPRING_CLOSED) * v.x;
-    const push = Math.max(0, this.dyn.pc) * PLATE_AREA;
+    const spring = (PLATE_SPRING_CLOSED + (PLATE_SPRING_OPEN - PLATE_SPRING_CLOSED) * v.x) * (v.params[3]?.value ?? 1);
+    const push = Math.max(0, this.pcOf(v)) * PLATE_AREA;
     let target: number;
     if (f === 2) target = 0;
     // Не садится — грязь в седле: закроется, только когда разрежение почти пропадёт (турбины сброшены).
@@ -967,23 +1030,32 @@ export class VacuumPlant {
     let left = (tUs - d.t) / 1e6;
     if (left <= 0) return;
     d.t = tUs;
+    this.syncWall();
+    const wall = this.wallOn;
     const speeds = this.motors.map((m) => m.s);
     const kh = this.hoseK() + this.bagK();
     const kf = this.filterKDyn();
+    // С перегородкой: у каждой половины своя турбина, клапан и половина фильтра (вчетверо больше k), объём — половина.
+    const kfh = [4 * this.filterKDyn(d.loose, d.stuck), 4 * this.filterKDyn(d.loose2, d.stuck2)];
+    const mh = this.motors.map((m) => this.halfOf(m.load.comp.ref));
     const clog = this.dustP('intake') / 100;
     const ki = INTAKE_K * (1 + 24 * clog * clog);
     const Vc = this.chamberL / 1000;
     const Vt = this.tankL / 1000;
+    // Бабочка (обратный клапан на входе) не пускает воздух назад через стоящую турбину.
+    const check = this.dustP('check') > 0;
     const fanQ = (sp: number, pc: number) => {
-      const back = -FAN_BACK * Math.sqrt(Math.max(0, pc));
+      const back = check ? 0 : -FAN_BACK * Math.sqrt(Math.max(0, pc));
       if (sp < 0.05) return back;
       return Math.max(FAN_QMAX * sp * (1 - pc / (FAN_PREF * sp * sp)), back);
     };
     const fans = (pc: number) => speeds.reduce((a, sp) => a + fanQ(sp, pc), 0);
-    const qf = (pc: number, pt: number) => {
+    const fansH = (hf: number, pc: number) => speeds.reduce((a, sp, i) => (mh[i] === hf ? a + fanQ(sp, pc) : a), 0);
+    const qfK = (k: number, pc: number, pt: number) => {
       const dp = pc - pt;
-      return Math.sign(dp) * Math.sqrt(Math.abs(dp) / kf);
+      return Math.sign(dp) * Math.sqrt(Math.abs(dp) / k);
     };
+    const qf = (pc: number, pt: number) => qfK(kf, pc, pt);
     const qh = (pt: number) => Math.sign(pt) * Math.sqrt(Math.abs(pt) / kh);
     const top = Math.max(1, ...speeds.map((sp) => FAN_PREF * sp * sp)) + 30_000;
     const solve = (fn: (x: number) => number, lo: number, hi: number) => {
@@ -997,27 +1069,52 @@ export class VacuumPlant {
     let us = tUs - left * 1e6;
     let q = { h: 0, f: 0, v: 0 };
     while (left > 1e-9) {
-      const moving = this.mags.some((v) => this.valveBusy(v, d.pc, us));
+      const moving = this.mags.some((v) => this.valveBusy(v, this.pcOf(v), us));
       const h = Math.min(left, moving ? 0.00025 : 0.001);
       left -= h;
       us += h * 1e6;
       this.plates(h, us);
-      const area = this.mags.reduce((a, v) => a + v.x * (v.plate ? PLATE_SIZE : 1), 0);
-      const kv = area > 0 ? MAG_KV / (area * area) + ki : 0;
-      const qv = (pc: number) => (kv > 0 && pc > 0 ? Math.sqrt(pc / kv) : 0);
-      const pc0 = d.pc;
+      const areaOf = (hf: number) => this.mags.reduce((a, v) => a + (hf < 0 || this.halfOf(v.load.comp.ref) === hf ? v.x * (v.plate ? PLATE_SIZE : 1) : 0), 0);
+      // Фильтр клапанов общий: у половины к его сопротивлению — доля потока соседней (поток ~ площади прохода).
+      const kvOf = (hf: number) => {
+        const area = areaOf(hf);
+        const share = hf < 0 ? 1 : 1 + areaOf(1 - hf) / Math.max(area, 1e-9);
+        return area > 0 ? MAG_KV / (area * area) + ki * share * share : 0;
+      };
+      const qvK = (kv: number, pc: number) => (kv > 0 && pc > 0 ? Math.sqrt(pc / kv) : 0);
       const pt0 = d.pt;
-      let pc = pc0;
-      let pt = pt0;
-      for (let it = 0; it < 3; it++) {
-        const ptc = pt;
-        pc = solve((x) => ((x - pc0) * Vc) / (P_ATM * h) - (fans(x) - qf(x, ptc) - qv(x)), -5000, top);
-        const pcc = pc;
-        pt = solve((x) => ((x - pt0) * Vt) / (P_ATM * h) - (qf(pcc, x) - qh(x)), -5000, top);
+      if (wall) {
+        const kvs = [kvOf(0), kvOf(1)];
+        const p0 = [d.pc, d.pc2];
+        const pcs = [d.pc, d.pc2];
+        let pt = pt0;
+        for (let it = 0; it < 3; it++) {
+          const ptc = pt;
+          for (const hf of [0, 1]) pcs[hf] = solve((x) => ((x - p0[hf]) * Vc) / 2 / (P_ATM * h) - (fansH(hf, x) - qfK(kfh[hf], x, ptc) - qvK(kvs[hf], x)), -5000, top);
+          const [a, b] = pcs;
+          pt = solve((x) => ((x - pt0) * Vt) / (P_ATM * h) - (qfK(kfh[0], a, x) + qfK(kfh[1], b, x) - qh(x)), -5000, top);
+        }
+        d.pc = pcs[0];
+        d.pc2 = pcs[1];
+        d.pt = pt;
+        this.qfHalf = [qfK(kfh[0], pcs[0], pt), qfK(kfh[1], pcs[1], pt)];
+        q = { h: qh(pt), f: this.qfHalf[0] + this.qfHalf[1], v: qvK(kvs[0], pcs[0]) + qvK(kvs[1], pcs[1]) };
+      } else {
+        const kv = kvOf(-1);
+        const qv = (pc: number) => qvK(kv, pc);
+        const pc0 = d.pc;
+        let pc = pc0;
+        let pt = pt0;
+        for (let it = 0; it < 3; it++) {
+          const ptc = pt;
+          pc = solve((x) => ((x - pc0) * Vc) / (P_ATM * h) - (fans(x) - qf(x, ptc) - qv(x)), -5000, top);
+          const pcc = pc;
+          pt = solve((x) => ((x - pt0) * Vt) / (P_ATM * h) - (qf(pcc, x) - qh(x)), -5000, top);
+        }
+        d.pc = pc;
+        d.pt = pt;
+        q = { h: qh(pt), f: qf(pc, pt), v: qv(pc) };
       }
-      d.pc = pc;
-      d.pt = pt;
-      q = { h: qh(pt), f: qf(pc, pt), v: qv(pc) };
       // Пыль копится, пока идёт поток (с инструментом — быстрее); с мешком почти вся — в мешок.
       const dust = this.airP[4].value * (this.tool?.amps ? 1 : 0.25);
       const grow = dust * 0.0015 * (Math.max(0, q.h) / 0.043) * h;
@@ -1025,14 +1122,27 @@ export class VacuumPlant {
       const bag = this.dustP('bag') > 0;
       const onFilter = bag ? grow * 0.2 : grow;
       const stick = DUST_STICK[Math.round(this.dustP('kind'))] ?? 0.03;
-      d.stuck = Math.min(2, d.stuck + onFilter * stick);
-      d.loose = Math.min(2, d.loose + onFilter * (1 - stick));
+      if (wall) {
+        // Пыль садится на половины по их потоку.
+        const f0 = Math.max(0, this.qfHalf[0]);
+        const f1 = Math.max(0, this.qfHalf[1]);
+        const s0 = f0 + f1 > 0 ? (2 * f0) / (f0 + f1) : 1;
+        d.stuck = Math.min(2, d.stuck + onFilter * s0 * stick);
+        d.loose = Math.min(2, d.loose + onFilter * s0 * (1 - stick));
+        d.stuck2 = Math.min(2, d.stuck2 + onFilter * (2 - s0) * stick);
+        d.loose2 = Math.min(2, d.loose2 + onFilter * (2 - s0) * (1 - stick));
+      } else {
+        d.stuck = Math.min(2, d.stuck + onFilter * stick);
+        d.loose = Math.min(2, d.loose + onFilter * (1 - stick));
+      }
       if (bag) (d.bagFill = Math.min(1, d.bagFill + grow * 0.02)), (d.bagCake = Math.min(1, d.bagCake + grow * 0.3));
     }
     const qH = Math.max(0, q.h);
-    this.air = { p: Math.max(0, d.pc), tank: Math.max(0, d.pt), qh: qH, filterDp: d.pc - d.pt, flowDp: VENTURI_K * qH * qH, qv: q.v };
+    // Датчики камеры (разрежение и перепад на фильтре) — на штуцерах той половины, что выбрана у перегородки.
+    const ps = wall && this.dustP('wall') === 2 ? d.pc2 : d.pc;
+    this.air = { p: Math.max(0, ps), tank: Math.max(0, d.pt), qh: qH, filterDp: ps - d.pt, flowDp: VENTURI_K * qH * qH, qv: q.v };
     this.motors.forEach((m, i) => {
-      const f = fanQ(speeds[i], Math.max(0, d.pc));
+      const f = fanQ(speeds[i], Math.max(0, mh[i] ? d.pc2 : d.pc));
       m.qm3 = f;
       m.q = speeds[i] > 0.05 ? Math.max(0, Math.min(1.2, f / (FAN_QMAX * speeds[i]))) : 0;
     });
@@ -1126,7 +1236,7 @@ export class VacuumPlant {
     const n = /(\d+)\s*Н/.exec(comp.value);
     const v: MagValve = {
       load: l,
-      params: [param('force', 'сила магнита (зазор 0,5 мм)', n ? +n[1] : 150, 20, 400, 5, 'Н'), param('fault', 'клапан', 0, 0, PLATE_STATES.length - 1, 1, '', PLATE_STATES), param('va', 'мощность магнита', 12, 2, 60, 1, 'ВА')],
+      params: [param('force', 'сила магнита (зазор 0,5 мм)', n ? +n[1] : 150, 20, 400, 5, 'Н'), param('fault', 'клапан', 0, 0, PLATE_STATES.length - 1, 1, '', PLATE_STATES), param('va', 'мощность магнита', 12, 2, 60, 1, 'ВА'), param('spring', 'пружина (к расчётной 1,4 × Ø21,4)', 1, 0.5, 4, 0.1, '×')],
       coil: [],
       held: false,
       x: 0,
@@ -1154,7 +1264,7 @@ export class VacuumPlant {
         params: v.params,
         readings: [
           { label: 'магнит держит', value: Math.round(v.params[0].value * v.plate!.field), unit: 'Н' },
-          { label: 'давит разрежение', value: Math.round(Math.max(0, this.dyn.pc) * PLATE_AREA), unit: 'Н' },
+          { label: 'давит разрежение', value: Math.round(Math.max(0, this.pcOf(v)) * PLATE_AREA), unit: 'Н' },
           { label: 'тарелка', value: Math.round(v.x * 100), unit: '% открыта' },
           { label: 'ток магнита', value: +v.amps.toFixed(3), unit: 'А' },
         ],
@@ -1574,8 +1684,13 @@ export class VacuumPlant {
         if (k === 'clean') this.cake = [0, 0];
         if (k === 'nozzle') this.blockHeld = !this.blockHeld;
         if (k === 'palm') this.palm = !this.palm;
-        if (k === 'dust') (this.dyn.loose = Math.min(2, this.dyn.loose + 0.4)), (this.dyn.stuck = Math.min(2, this.dyn.stuck + 0.4 * (DUST_STICK[Math.round(this.dustP('kind'))] ?? 0)));
-        if (k === 'clean') (this.dyn.loose = 0), (this.dyn.stuck = 0), (this.dyn.bagCake = 0);
+        if (k === 'dust') {
+          const st = 0.4 * (DUST_STICK[Math.round(this.dustP('kind'))] ?? 0);
+          const d = this.dyn;
+          (d.loose = Math.min(2, d.loose + 0.4)), (d.stuck = Math.min(2, d.stuck + st));
+          (d.loose2 = Math.min(2, d.loose2 + 0.4)), (d.stuck2 = Math.min(2, d.stuck2 + st));
+        }
+        if (k === 'clean') Object.assign(this.dyn, { loose: 0, stuck: 0, loose2: 0, stuck2: 0, bagCake: 0 });
         if (k === 'bag') (this.dyn.bagFill = 0), (this.dyn.bagCake = 0);
       },
       view: () => {
@@ -1593,8 +1708,16 @@ export class VacuumPlant {
             { label: 'скорость в шланге', value: +(a.qh / ((Math.PI * d * d) / 4)).toFixed(1), unit: 'м/с' },
             { label: 'разрежение у турбин', value: +(a.p / 1000).toFixed(2), unit: 'кПа' },
             { label: 'перепад на фильтре', value: Math.round(a.filterDp), unit: 'Па' },
-            { label: 'пыль на фильтре', value: Math.round((this.mags.length ? this.dyn.loose + this.dyn.stuck : (this.cake[0] + this.cake[1]) / 2) * 100), unit: '%' },
+            { label: 'пыль на фильтре', value: Math.round((this.mags.length ? (this.wallOn ? (this.dyn.loose + this.dyn.stuck + this.dyn.loose2 + this.dyn.stuck2) / 2 : this.dyn.loose + this.dyn.stuck) : (this.cake[0] + this.cake[1]) / 2) * 100), unit: '%' },
             ...(this.mags.length ? [{ label: 'разрежение в баке', value: +(a.tank / 1000).toFixed(2), unit: 'кПа' }, { label: 'мешок заполнен', value: Math.round(this.dyn.bagFill * 100), unit: '%' }] : []),
+            ...(this.wallOn
+              ? [
+                  { label: 'разрежение: половина Т1', value: +(this.dyn.pc / 1000).toFixed(2), unit: 'кПа' },
+                  { label: 'разрежение: половина Т2', value: +(this.dyn.pc2 / 1000).toFixed(2), unit: 'кПа' },
+                  { label: 'пыль: половина Т1', value: Math.round((this.dyn.loose + this.dyn.stuck) * 100), unit: '%' },
+                  { label: 'пыль: половина Т2', value: Math.round((this.dyn.loose2 + this.dyn.stuck2) * 100), unit: '%' },
+                ]
+              : []),
           ],
           actions: [
             { key: 'dust', label: 'Насыпать пыли на фильтр' },
@@ -1646,7 +1769,7 @@ export class VacuumPlant {
         tank: a.tank / 1000,
         filterDp: a.filterDp,
         flowDp: a.flowDp,
-        cake: this.mags.length ? [this.dyn.loose + this.dyn.stuck, this.dyn.loose + this.dyn.stuck] : [this.cake[0], this.cake[1]],
+        cake: this.mags.length ? [this.dyn.loose + this.dyn.stuck, this.wallOn ? this.dyn.loose2 + this.dyn.stuck2 : this.dyn.loose + this.dyn.stuck] : [this.cake[0], this.cake[1]],
         deep: this.airP[3].value / 100,
         block: this.palm ? 1 : this.blockHeld ? 0.95 : this.airP[2].value / 100,
         hoseMm: d,

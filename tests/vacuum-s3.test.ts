@@ -793,6 +793,34 @@ describe('Пылесос S3 6.0: экран 3,5″, турбины по отде
     expect(len.length).toBe(VOICE_PHRASES.length);
   });
 
+  test('перегородка в камере (опыт): без «set wall 1» — ложный «Фильтр порван», с ней — турбины парой, удары по половинам', () => {
+    const run = (wall: boolean) => {
+      const { sim, sec, set, cmd, click, rpm, plant } = start();
+      let log = '';
+      sim.onSerial = (t: string) => (log += t);
+      set(/Шланг, бак, фильтр/, 'check', 1);
+      set(/Шланг, бак, фильтр/, 'wall', 1);
+      set(/Шланг, бак, фильтр/, 'dust', 8);
+      if (wall) cmd('set wall 1'), cmd('set vmode 1');
+      click(/SB7/);
+      click(/SB8/);
+      sec(200);
+      const air = sim.devices.find((d) => /Шланг, бак, фильтр/.test(d.view().title))!.view().readings!;
+      return { log, rpm, plant, air };
+    };
+    const off = run(false);
+    // «Авто» сначала крутит одну Т1 — вся тяга через половину фильтра; Т2 включилась — R вчетверо ниже.
+    expect(off.log).toContain('Фильтр порван или не стоит');
+    const on = run(true);
+    expect(on.log).toContain('Перегородка в камере');
+    expect(on.log).toContain('Продувка закончена');
+    expect(on.log).not.toContain('Фильтр порван');
+    expect(on.log).not.toContain('не открывается');
+    expect(on.rpm('M1')).toBeGreaterThan(5000);
+    expect(on.rpm('M2')).toBeGreaterThan(5000);
+    expect(on.air.some((r) => r.label === 'пыль: половина Т2')).toBe(true);
+  });
+
   test('осциллограф удара, графики и «чёрный ящик»', () => {
     const { sim, sec, click, cmd } = start();
     let uart = '';

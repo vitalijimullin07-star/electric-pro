@@ -117,6 +117,7 @@ static void ext_load(void) {
   if (vac_ext.boost_ms < 300 || vac_ext.boost_ms > 5000) vac_ext.boost_ms = 1200;
   if (vac_ext.volume > 30) vac_ext.volume = 22;
   if (vac_ext.nsvc > N_FSVC) vac_ext.nsvc = 0;
+  if (vac_ext.wall > 1) vac_ext.wall = 0;
 }
 
 /* ---------------- часы ---------------- */
@@ -649,7 +650,7 @@ void ext_series_done(float r_after) {
 static void send_x(void) {
   char s[400] = "X";
   kvi(s, "pw2", vac_ext.pw2 ? vac_ext.pw2 : vac_cfg.power);
-  kvi(s, "rs", vac_ext.rsel), kvi(s, "vm", vac_ext.vmode), kvi(s, "bo", vac_ext.boost), kvi(s, "bm", vac_ext.boost_ms), kvi(s, "b2", vac_ext.boost2);
+  kvi(s, "rs", vac_ext.rsel), kvi(s, "vm", vac_ext.vmode), kvi(s, "wa", vac_ext.wall), kvi(s, "bo", vac_ext.boost), kvi(s, "bm", vac_ext.boost_ms), kvi(s, "b2", vac_ext.boost2);
   kvi(s, "at", vac_ext.autotune), kvi(s, "dip", vac_cfg.dip), kvi(s, "vk", vac_cfg.vlv_kind);
   static const uint8_t AT_DIP[4] = {0, 40, 70, 90};
   int best = 0;
@@ -815,6 +816,10 @@ int ext_command(const char *c, const char *a) {
     else if (str_starts(a, "boost2 ") && in(str_to_int(a + 7), 0, 2)) vac_ext.boost2 = (uint8_t)str_to_int(a + 7);
     else if (str_starts(a, "autotune ") && in(str_to_int(a + 9), 0, 1)) vac_ext.autotune = (uint8_t)str_to_int(a + 9);
     else if (str_starts(a, "rsel ") && in(str_to_int(a + 5), 0, 2)) vac_ext.rsel = (uint8_t)str_to_int(a + 5);
+    else if (str_starts(a, "wall ") && in(str_to_int(a + 5), 0, 1)) {
+      vac_ext.wall = (uint8_t)str_to_int(a + 5);
+      hal_log(vac_ext.wall ? "Перегородка в камере: турбины — только парой, удар одним К2 датчики не судят" : "Перегородки нет");
+    }
     else if (str_starts(a, "classm ")) vac_ext.classm = str_to_int(a + 7) ? 1 : 0;
     else if (str_starts(a, "clicks ")) vac_ext.clicks = str_to_int(a + 7) ? 1 : 0;
     else if (str_starts(a, "washk ") && in(str_to_int(a + 6), 120, 400)) vac_ext.wash_k = (uint16_t)str_to_int(a + 6);

@@ -404,7 +404,8 @@ typedef struct {
   uint32_t last_svc_work;/* наработка фильтра при последнем обслуживании, с */
   vac_fsvc_t svc[N_FSVC];/* история обслуживания фильтра, старые — первыми */
   uint8_t nsvc;
-  uint8_t pad1[3];
+  uint8_t wall;          /* опыт: перегородка в камере (по половине на Т1+К1 и Т2+К2), датчики — у Т1 */
+  uint8_t pad1[2];
   uint16_t crc;
 } vac_ext_t;
 
