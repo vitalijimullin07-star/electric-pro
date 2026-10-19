@@ -6,6 +6,7 @@
 import { buildVacuumS3Mod } from '../core/examples/vacuum-s3/mod';
 import { Simulation, bytesToBase64 } from '../core/sim';
 import { Esp32 } from '../core/sim/esp32';
+import { PanelS3 } from '../core/sim/panel-s3';
 import type { Device } from '../core/sim/devices';
 import { parseStatus, type VacStatus } from './protocol';
 
@@ -22,7 +23,13 @@ export interface DemoWorld {
 
 export class DemoVacuum {
   onLog: ((line: string) => void) | null = null;
+  /** Строки, которые контроллер шлёт своему экрану (S/F/C/…/O) — для осциллограмм ударов в телефоне. */
+  onPanelLine: ((line: string) => void) | null = null;
+  /** Экран пылесоса (интерфейс 480×320 — тот же код, что в его прошивке), если дали прошивку экрана. */
+  panel: PanelS3 | null = null;
   private tail = '';
+  private ptail = '';
+  private dec = new TextDecoder();
 
   private constructor(readonly sim: Simulation) {
     sim.onSerial = (t) => {
@@ -36,10 +43,32 @@ export class DemoVacuum {
     };
   }
 
-  static async create(wasm: Uint8Array, nvs?: Uint8Array, onNvs?: (d: Uint8Array) => void): Promise<DemoVacuum> {
+  static async create(wasm: Uint8Array, nvs?: Uint8Array, onNvs?: (d: Uint8Array) => void, panelWasm?: Uint8Array): Promise<DemoVacuum> {
     const p = buildVacuumS3Mod({ name: 'vacuum-s3.wasm', wasm: bytesToBase64(wasm) });
     const esp = await Esp32.create(wasm, { s3: true, nvs, onNvs });
-    return new DemoVacuum(new Simulation(p, esp));
+    const panels = new Map<string, PanelS3>();
+    const panel = panelWasm ? await PanelS3.create(panelWasm) : null;
+    if (panel) panels.set('HG1', panel);
+    const d = new DemoVacuum(new Simulation(p, esp, panels));
+    if (panel) d.attachPanel(panel, esp);
+    return d;
+  }
+
+  /** Подслушать строки контроллер → экран (их же увидит экран телефона с прошивкой 6.1). */
+  private attachPanel(panel: PanelS3, esp: Esp32): void {
+    this.panel = panel;
+    const prev = esp.onUart;
+    esp.onUart = (bytes) => {
+      prev?.(bytes);
+      this.ptail += this.dec.decode(bytes, { stream: true });
+      let i: number;
+      while ((i = this.ptail.indexOf('\n')) >= 0) {
+        const line = this.ptail.slice(0, i).replace(/\r$/, '');
+        this.ptail = this.ptail.slice(i + 1);
+        if (line) this.onPanelLine?.(line);
+      }
+      if (this.ptail.length > 20000) this.ptail = '';
+    };
   }
 
   static createSync(wasm: Uint8Array): DemoVacuum {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Pylesos" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@color/ground</item>
+        <item name="android:navigationBarColor">@color/bar</item>
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
+    <color name="ground">#FF0E1317</color>
+    <color name="bar">#FF121A20</color>
+    <color name="accent">#FF3CC8B4</color>
+</resources>
