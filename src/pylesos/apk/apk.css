@@ -165,3 +165,5 @@ button.tile.sensor:active { background: var(--surf2); }
 .flashlog { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surf2); font: 12px/1.45 var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; color: var(--muted); }
 .flashlog.ok { color: var(--accent); }
 .flashlog.bad { color: var(--bad); }
+.codebox { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; padding: 12px; border-radius: 12px; background: var(--surf2); }
+.codebox b { font: 600 34px var(--mono); letter-spacing: 6px; color: var(--accent); }

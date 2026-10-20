@@ -13,10 +13,16 @@
  * без экрана ложных нажатий нет. Калибровка: «lcd cal» в мониторе порта или удержание пальца
  * 8 с — три крестика; хранится во флеше. «lcd flip» — экран на 180°, «lcd rgb» — поменять
  * местами красный и синий, «lcd off|on» — не рисовать (экран не подключён).
+ *
+ * Без экрана: при пуске опрашивается XPT2046 (у экрана 3,5″ с касанием он всегда есть) — не ответил,
+ * значит экрана нет: интерфейс не запускается, контроллер не видит «экран на связи» и кнопки работают
+ * сами (vac_link.c). «lcd none» — считать, что экрана нет, «lcd yes» — что есть (экран без касания),
+ * «lcd auto» — опрашивать (по умолчанию); действует после перезапуска.
  */
 #include <Arduino.h>
 #include <Preferences.h>
 #include <SPI.h>
+#include "driver/gpio.h"
 #include "esp_heap_caps.h"
 #include "vac_core.h"
 #include "src/panel/panel_ui.h"
@@ -59,7 +65,10 @@ static Ring<8192> rx; /* контроллер → интерфейс */
 static Ring<1024> tx; /* интерфейс → контроллер */
 
 static volatile int cmd_flip, cmd_rgb, cmd_cal, cmd_off = -1, cmd_old = -1;
-static uint8_t flags; /* бит 0 — на 180°, бит 1 — RGB вместо BGR, бит 2 — выключен, бит 3 — прежний интерфейс 7″ */
+static volatile int cmd_has = -1;
+/* бит 0 — на 180°, бит 1 — RGB вместо BGR, бит 2 — выключен, бит 3 — прежний интерфейс 7″,
+ * бит 4 — экран есть (без опроса), бит 5 — экрана нет */
+static uint8_t flags;
 static bool started;
 
 extern "C" {
@@ -77,7 +86,20 @@ void hal_lcd(const char *c) {
   else if (!strcmp(c, "lcd on")) cmd_off = 0;
   else if (!strcmp(c, "lcd old")) cmd_old = 1;
   else if (!strcmp(c, "lcd new")) cmd_old = 0;
-  else Serial.println("lcd flip | lcd rgb | lcd cal | lcd off | lcd on | lcd old | lcd new");
+  else if (!strcmp(c, "lcd none")) cmd_has = 0;
+  else if (!strcmp(c, "lcd yes")) cmd_has = 1;
+  else if (!strcmp(c, "lcd auto")) cmd_has = 2;
+  else Serial.println("lcd flip | lcd rgb | lcd cal | lcd off | lcd on | lcd old | lcd new | lcd none | lcd yes | lcd auto");
+  if (cmd_has >= 0) {
+    /* Без задачи экрана (его нет) команду некому принять — пишем здесь же. */
+    uint8_t f = prefs.getUChar("lcdf", 0) & ~(16 | 32);
+    if (cmd_has == 0) f |= 32;
+    if (cmd_has == 1) f |= 16;
+    prefs.putUChar("lcdf", f);
+    flags = (uint8_t)((flags & ~(16 | 32)) | (f & (16 | 32)));
+    Serial.println(cmd_has == 0 ? "Экрана нет — после перезапуска кнопки работают сами" : cmd_has == 1 ? "Экран есть — после перезапуска" : "Экран — по ответу касания, после перезапуска");
+    cmd_has = -1;
+  }
 }
 }
 
@@ -427,7 +449,36 @@ static void lcd_task(void *) {
   }
 }
 
+/* Отвечает ли XPT2046: первый бит после команды у него всегда «0» (занят), а без него линия MISO
+ * с подтяжкой даёт «1». */
+static bool touch_answers() {
+  pinMode(PIN_LCD_CS, OUTPUT);
+  pinMode(PIN_TOUCH_CS, OUTPUT);
+  digitalWrite(PIN_LCD_CS, 1);
+  digitalWrite(PIN_TOUCH_CS, 1);
+  spi.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, -1);
+  gpio_pullup_en((gpio_num_t)PIN_SPI_MISO);
+  int zero = 0;
+  spi.beginTransaction(SPISettings(TOUCH_HZ, MSBFIRST, SPI_MODE0));
+  for (int i = 0; i < 8; i++) {
+    uint8_t d[3] = {0xB0, 0, 0};
+    digitalWrite(PIN_TOUCH_CS, 0);
+    spi.transferBytes(d, d, 3);
+    digitalWrite(PIN_TOUCH_CS, 1);
+    if (!(d[1] & 0x80)) zero++;
+  }
+  spi.endTransaction();
+  return zero >= 6;
+}
+
 void lcd_start() {
+  flags = prefs.getUChar("lcdf", 0);
+  bool has = flags & 32 ? false : flags & 16 ? true : touch_answers();
+  if (!has) {
+    Serial.println(flags & 32 ? "Экран выключен настройкой (lcd none): кнопки работают сами"
+                              : "Экрана нет (касание не ответило): кнопки работают сами; экран без касания — lcd yes");
+    return;
+  }
   fb = (uint16_t *)heap_caps_malloc(GW * GH * 2, MALLOC_CAP_SPIRAM);
   keep = (uint16_t *)heap_caps_malloc(GW * GH * 2, MALLOC_CAP_SPIRAM);
   cur = (uint16_t *)heap_caps_malloc(SW * 320 * 2, MALLOC_CAP_SPIRAM);
@@ -437,7 +488,6 @@ void lcd_start() {
     return;
   }
   memset(fb, 0, GW * GH * 2);
-  flags = prefs.getUChar("lcdf", 0);
   native = !(flags & 8);
   SH = native ? 320 : SH_OLD, SY = native ? 0 : 16;
   if (prefs.isKey("tcal")) prefs.getBytes("tcal", &cal, sizeof cal);

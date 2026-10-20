@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { Ctx } from '../ctx';
 import { native, nativeInfo } from '../native';
-import { flashOverUsb, loadImages, type FwBundle } from '../usb';
+import { flashOverUsb, loadImages, readBleCode, type FwBundle } from '../usb';
 import { Card, Icon, Row, Seg } from '../ui';
 
 const SIZE_KEY = 'pylesos-apk-flash-size';
@@ -55,6 +55,7 @@ function UsbFlash() {
   const [prog, setProg] = useState<[number, string] | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const [result, setResult] = useState<'ok' | 'bad' | null>(null);
+  const [code, setCode] = useState<string | null>(null);
   useEffect(() => {
     fetch('fw/manifest.json')
       .then((r) => (r.ok ? (r.json() as Promise<FwBundle>) : null))
@@ -69,6 +70,19 @@ function UsbFlash() {
       /* не запомнили */
     }
   };
+  const askCode = async () => {
+    if (!native) return;
+    setBusy(true);
+    setCode(null);
+    const log = (l: string) => setLines((x) => [...x.slice(-30), l]);
+    try {
+      setCode(await readBleCode(native, log));
+    } catch (e) {
+      log(`Код не получен: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   const run = async () => {
     if (!native || !fw) return;
     setBusy(true);
@@ -81,6 +95,9 @@ function UsbFlash() {
       await flashOverUsb(native, images, Number(size) << 20, (f, what) => setProg([f, what]), log);
       setResult('ok');
       log('Готово: плата перезапущена с новой прошивкой');
+      // Без экрана код для Bluetooth больше негде увидеть — спросим у платы, пока кабель на месте.
+      await new Promise((r) => setTimeout(r, 4000));
+      setCode(await readBleCode(native, log).catch(() => null));
     } catch (e) {
       setResult('bad');
       log(`Не получилось: ${(e as Error).message}`);
@@ -121,6 +138,16 @@ function UsbFlash() {
               </div>
             </div>
           )}
+          {code && (
+            <div className="codebox">
+              <div className="small muted">Код для Bluetooth (Android спросит при первом подключении)</div>
+              <b>{code}</b>
+              <div className="small muted">Код новый после каждого включения платы: подключайте, не выключая её, или спросите снова.</div>
+            </div>
+          )}
+          <button type="button" className="btn wide" onClick={() => void askCode()} disabled={busy}>
+            Узнать код Bluetooth по кабелю
+          </button>
           {lines.length > 0 && <pre className={`flashlog ${result ?? ''}`}>{lines.join('\n')}</pre>}
           <p className="small muted">Настройки и сопряжения не стираются — пишутся загрузчик, разделы и программа. Около минуты; не отключайте кабель.</p>
         </>
