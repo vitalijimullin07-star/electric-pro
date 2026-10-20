@@ -13,6 +13,15 @@ const WINDOWS: [number, string][] = [
 ];
 const KEY = 'pylesos-apk-series';
 
+/** Открыть графики с этой величиной (с экрана «Датчики»): она первой в списке выбранных. */
+export function pickSeries(key: string): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify([key, ...loadPicked().filter((k) => k !== key)].slice(0, 3)));
+  } catch {
+    /* не запомнили */
+  }
+}
+
 function loadPicked(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '') as string[];

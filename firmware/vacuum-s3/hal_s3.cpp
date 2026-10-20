@@ -134,14 +134,17 @@ void hal_wifi(int on, const char *ssid, const char *pass) {
 /*
  * «Чёрный ящик»: записи по 32 байта в /bb.bin на разделе FAT (9 МБ). Файл до 4 МБ, потом он
  * становится /bb0.bin (старый стирается) — хранится последних 4–8 МБ, это годы работы.
+ * На плате с флешем 8 МБ (N8R8, раздел FAT 1,5 МБ) файл — до 2/5 раздела, около 600 КБ.
  */
 static int bb_ok = -1;
 static uint32_t bb_n0, bb_n1;
-static const uint32_t BB_MAX = 4u << 20;
+static uint32_t BB_MAX = 4u << 20;
 static void bb_open(void) {
   if (bb_ok >= 0) return;
   bb_ok = FFat.begin(true) ? 1 : 0;
   if (!bb_ok) return;
+  uint32_t part = (uint32_t)(FFat.totalBytes() / 5 * 2) & ~31u;
+  if (part < BB_MAX) BB_MAX = part;
   File f = FFat.open("/bb0.bin", "r");
   bb_n0 = f ? (uint32_t)f.size() / 32 : 0;
   if (f) f.close();

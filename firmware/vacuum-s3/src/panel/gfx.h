@@ -15,14 +15,47 @@ extern "C" {
 
 #define GW 800
 #define GH 480
+/* Во сколько раз кадр крупнее точек интерфейса: 1 у пульта и контроллера, 3 — у приложения для
+ * телефона (vacuum-panel-hd.wasm, тот же интерфейс чётко на экране телефона). */
+#ifndef PANEL_SCALE
+#define PANEL_SCALE 1
+#endif
 #define RGB565(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
 #define HEX(h) RGB565(((h) >> 16) & 255, ((h) >> 8) & 255, (h) & 255)
+
+/* Крупные знаки (fonts_hd.c): размеры не помещаются в байт. */
+typedef struct {
+  uint16_t cp;
+  uint16_t w, h;
+  int16_t x, y;
+  uint16_t adv;
+  uint32_t off;
+} phglyph_t;
+
+typedef struct {
+  const phglyph_t *glyphs;
+  uint16_t count;
+  uint16_t size, ascent, descent;
+  const uint8_t *bits;
+} phfont_t;
+
+/* Пара «шрифт → он же крупнее», в конце {0, 0}. */
+typedef struct {
+  const pfont_t *lo;
+  const phfont_t *hi;
+} phpair_t;
+
+#if PANEL_SCALE > 1
+extern const phpair_t G_HD[];
+#endif
 
 void g_init(uint16_t *fb);
 /* Кадр другого размера (экран 3,5″ на контроллере — 480×320). */
 void g_init_size(uint16_t *fb, int w, int h);
 int g_width(void);
 int g_height(void);
+/* Кадр в памяти — g_width()·g_scale() × g_height()·g_scale(). */
+int g_scale(void);
 /* Окно отсечения [x0, x1) × [y0, y1): рисование только внутри (прокрутка списков). */
 void g_clip(int x0, int y0, int x1, int y1);
 void g_noclip(void);

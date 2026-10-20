@@ -54,7 +54,7 @@ extern "C" {
 #define PIN_WL_DRV 46   /* раскачка электродов: меандр → 1 кОм → 1 мкФ → E0 */
 #define PIN_WL2 9       /* электрод перелива E2 */
 #define PIN_VAC 10      /* разрежение MPX5100DP через делитель 6,8к/10к */
-#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), DS3231 (0x68), NAU7802 (0x2A) */
+#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), DS3231 (0x68), NAU7802 (0x2A), BME280 (0x76) */
 #define PIN_SCL 12
 #define PIN_PNL_TX 13   /* UART1 → плата экрана (если экран отдельной платой), без неё — голос DFPlayer 9600 */
 #define PIN_PNL_RX 14   /* UART1 ← плата экрана */
@@ -74,6 +74,7 @@ extern "C" {
 #define SDP_FILTER 0x25 /* SDP810-500Pa: перепад на фильтре */
 #define RTC_ADDR 0x68   /* DS3231: часы с батарейкой (модуль на шине I²C датчиков) */
 #define SCALE_ADDR 0x2A /* NAU7802: весы — тензодатчик под колесом бака (модуль на шине I²C) */
+/* BME280 / BMP280: воздух (температура, влажность, давление) — модуль на шине I²C, 0x76 или 0x77. */
 #define SDP_FLOW 0x26   /* SDP811-125Pa: расходомер (сопло Вентури) */
 #define EXP_ADDR 0x20   /* PCA9555: A0–A2 на земле */
 
@@ -319,6 +320,8 @@ typedef struct {
   uint32_t time_s;        /* часы: секунды от 2000-01-01 (0 — время неизвестно) */
   uint8_t rtc_ok;         /* часы DS3231 найдены */
   uint8_t scale_ok;       /* весы NAU7802 найдены */
+  uint8_t air_ok;         /* датчик воздуха: 0 — нет, 1 — BMP280 (без влажности), 2 — BME280 */
+  float air_t, air_rh, air_hpa; /* воздух: температура, °C; влажность, %; давление, гПа */
   uint8_t test_id;        /* проверка первого пуска: TEST_… */
   uint8_t test_ph;        /* TP_… */
   uint8_t test_left;      /* до конца этапа, с */

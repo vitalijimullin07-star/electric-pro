@@ -137,7 +137,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 .demo-h { display: flex; flex-direction: column; gap: 2px; }
 .demo p { margin: 0; }
 
-.panel { width: 100%; height: auto; aspect-ratio: 3 / 2; background: #000; border-radius: 12px; border: 8px solid var(--surf2); touch-action: none; image-rendering: pixelated; display: block; }
+.panel { width: 100%; height: auto; aspect-ratio: 3 / 2; background: #000; border-radius: 12px; border: 8px solid var(--surf2); touch-action: none; display: block; }
 .panel.full { position: fixed; inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; object-fit: contain; border: 0; border-radius: 0; image-rendering: auto; }
 .panel-note { background: var(--surf); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 14px; line-height: 1.45; aspect-ratio: 3 / 2; justify-content: center; text-align: center; }
 .panel-note b { color: var(--text); font-size: 16px; }
@@ -151,3 +151,17 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 .spin { width: 40px; height: 40px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+/* Датчики: плитка-кнопка с малым графиком и подсказкой */
+.tile.sensor { display: flex; flex-direction: column; gap: 2px; text-align: left; color: var(--text); font: inherit; }
+button.tile.sensor:active { background: var(--surf2); }
+.tile-v.warn { color: var(--warn); }
+.tile-v.bad { color: var(--bad); }
+.tile-h { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spark { display: block; margin-top: 4px; }
+/* Прошивка по кабелю: полоса хода и журнал */
+.flashprog { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.flashbar { height: 10px; border-radius: 5px; background: var(--surf2); overflow: hidden; }
+.flashbar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.flashlog { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surf2); font: 12px/1.45 var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; color: var(--muted); }
+.flashlog.ok { color: var(--accent); }
+.flashlog.bad { color: var(--bad); }

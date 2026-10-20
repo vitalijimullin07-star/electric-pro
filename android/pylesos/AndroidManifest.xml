@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Приложение «Пылесос S3» для Android: оболочка WebView (интерфейс — src/pylesos/apk), связь по Bluetooth
-     в фоновой службе, уведомления с голосом. Сборка без Gradle — build.sh. -->
+     в фоновой службе, уведомления с голосом, прошивка платы по кабелю OTG. Сборка без Gradle — build.sh. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ru.pylesos.app">
 
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application
         android:label="@string/app_name"
@@ -35,6 +36,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Плата по кабелю OTG (прошивка из приложения): «всегда открывать» — и без вопросов о доступе. -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/usb_device" />
         </activity>
 
         <service

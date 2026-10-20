@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Шрифты пульта: DejaVu Sans и Sans Mono → сглаженные глифы 4 бита на точку (C).
-Запуск: python3 tools/make_fonts.py  (нужен Pillow с FreeType) → fonts.c, fonts.h.
+Запуск: python3 tools/make_fonts.py  (нужен Pillow с FreeType) → fonts.c, fonts.h;
+python3 tools/make_fonts.py --hd 3 → fonts_hd.c (экран 3,5″ втрое крупнее, для телефона).
 Размеры — как в макете панели (CSS font-size, px).
 """
 import os
@@ -175,4 +176,81 @@ def main():
     print(f'fonts.c: {total} байт растров')
 
 
-main()
+# Приложение для телефона рисует экран 3,5″ в HD раз крупнее (gfx.c, PANEL_SCALE): те же шрифты
+# и иконки заново, в fonts_hd.c (только для vacuum-panel-hd.wasm, в пульт и контроллер не идёт).
+HD_FONTS = ['N12', 'N14', 'N16', 'D13', 'D15', 'D17', 'D20', 'D24', 'B30', 'B44', 'B60']
+
+
+def pack(px):
+    out = bytearray()
+    px = [v >> 4 for v in px]
+    if len(px) % 2:
+        px.append(0)
+    for i in range(0, len(px), 2):
+        out.append(px[i] << 4 | px[i + 1])
+    return out
+
+
+def hd_main(k):
+    src = [
+        f'/* Создано tools/make_fonts.py --hd {k}: шрифты и иконки экрана 3,5″ в {k} раза крупнее (Roboto,',
+        ' * Apache 2.0). Только для приложения на телефоне (vacuum-panel-hd.wasm, gfx.c с PANEL_SCALE). */',
+        '#include "gfx.h"',
+        '',
+    ]
+    table = []
+    total = 0
+
+    def emit(name, glyphs, bits, size, ascent, descent):
+        src.append(f'static const uint8_t {name}_hd_bits[{len(bits)}] = {{')
+        for i in range(0, len(bits), 32):
+            src.append('  ' + ','.join(str(b) for b in bits[i : i + 32]) + ',')
+        src.append('};')
+        src.append(f'static const phglyph_t {name}_hd_glyphs[{len(glyphs)}] = {{')
+        for g in glyphs:
+            src.append('  {%d,%d,%d,%d,%d,%d,%d},' % g)
+        src.append('};')
+        src.append(f'static const phfont_t F_{name}_HD = {{{name}_hd_glyphs, {len(glyphs)}, {size}, {ascent}, {descent}, {name}_hd_bits}};')
+        src.append('')
+        table.append(f'    {{&F_{name}, &F_{name}_HD}},')
+
+    for name, path, size, chars in FONTS:
+        if name not in HD_FONTS:
+            continue
+        font = ImageFont.truetype(path, size * k)
+        fb = ImageFont.truetype(SANS, size * k)
+        ascent, descent = font.getmetrics()
+        glyphs, bits = [], bytearray()
+        for ch in sorted(set(chars)):
+            x, y, w, h, data, adv = glyph(fb if ch in FALLBACK else font, ch, size * k)
+            off = len(bits)
+            bits += pack(data)
+            glyphs.append((ord(ch), w, h, x, y, adv, off))
+        total += len(bits)
+        emit(name, glyphs, bits, size * k, ascent, descent)
+    for size in ICON_SIZES:
+        name = f'I{size}'
+        glyphs, bits = [], bytearray()
+        for i, (_, fn) in enumerate(ICONS):
+            im = render(fn, size * k)
+            off = len(bits)
+            bits += pack(im.tobytes())
+            glyphs.append((0xE000 + i, size * k, size * k, 0, -size * k, size * k, off))
+        total += len(bits)
+        emit(name, glyphs, bits, size * k, size * k, 0)
+    src.append('const phpair_t G_HD[] = {')
+    src += table
+    src.append('    {0, 0},')
+    src.append('};')
+    src.append('')
+    with open(os.path.join(OUT, 'fonts_hd.c'), 'w') as f:
+        f.write('\n'.join(src))
+    print(f'fonts_hd.c: {total} байт растров')
+
+
+import sys
+
+if len(sys.argv) > 2 and sys.argv[1] == '--hd':
+    hd_main(int(sys.argv[2]))
+else:
+    main()

@@ -3,7 +3,8 @@
 #   ANDROID_HOME — Android SDK (platforms;android-35, build-tools;35.0.0), по умолчанию /root/android-sdk
 #   PYLESOS_KEY_PASS — пароль ключа подписи (release.jks.enc зашифрован им же; тот же, что у архива заметок).
 #                      Без него — подпись временным ключом (поставить можно, обновить поверх подписанного — нет).
-# Интерфейс собирается из src/pylesos/apk (vite.apk.config.ts), голос — firmware/vacuum-s3/voice/mp3.
+# Интерфейс собирается из src/pylesos/apk (vite.apk.config.ts), голос — firmware/vacuum-s3/voice/mp3,
+# прошивка для «Прошить по кабелю» — firmware/vacuum-s3/flash и import/vacuum-s3-app.bin.
 # Готовый файл: android/pylesos/build/pylesos.apk (копию кладите в корень сайта: pylesos.apk).
 set -e
 cd "$(dirname "$0")"
@@ -21,6 +22,15 @@ mkdir -p $B/gen/ru/pylesos/app $B/classes $B/dex $B/assets/voice
 (cd "$ROOT" && npx vite build -c vite.apk.config.ts --logLevel warn)
 cp -r "$ROOT/android/pylesos/build/www" $B/assets/www
 cp "$ROOT"/firmware/vacuum-s3/voice/mp3/*.mp3 $B/assets/voice/
+# Прошивка платы по кабелю OTG: загрузчик и разделы под флеш 8 и 16 МБ (firmware/vacuum-s3/flash),
+# программа — import/vacuum-s3-app.bin (её же грузят с телефона по Wi-Fi), версия — из метки в ней.
+mkdir -p $B/assets/www/fw
+cp "$ROOT"/firmware/vacuum-s3/flash/*.bin $B/assets/www/fw/
+cp "$ROOT"/import/vacuum-s3-app.bin $B/assets/www/fw/vacuum-s3-app.bin
+FWVER=$(grep -ao 'VACFW:S3-CTRL:[0-9.]*' "$ROOT"/import/vacuum-s3-app.bin | head -1 | cut -d: -f3)
+cat > $B/assets/www/fw/manifest.json <<EOF
+{"ver":"$FWVER","app":"vacuum-s3-app.bin","bootApp0":"boot_app0.bin","sizes":{"8":{"title":"8 МБ (N8R8)","bootloader":"bootloader-8m.bin","partitions":"partitions-8m.bin"},"16":{"title":"16 МБ (N16R8)","bootloader":"bootloader-16m.bin","partitions":"partitions-16m.bin"}}}
+EOF
 
 # 2. Ресурсы и манифест
 cat > $B/gen/ru/pylesos/app/BuildInfo.java <<EOF

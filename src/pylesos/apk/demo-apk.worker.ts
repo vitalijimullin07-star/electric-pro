@@ -1,7 +1,7 @@
 /*
  * Демо для приложения: пылесос целиком в телефоне — прошивка контроллера и экран пылесоса (тот же код
- * интерфейса 480×320, что в его прошивке), модель установки. Наружу: состояние, журнал, голос, кадры экрана
- * (RGBA, когда их смотрят) и строки осциллограмм ударов.
+ * интерфейса 480×320, что в его прошивке, нарисованный втрое крупнее), модель установки. Наружу: состояние,
+ * журнал, голос, кадры экрана (RGBA, когда их смотрят, — только изменившиеся строки) и строки осциллограмм ударов.
  */
 import { DemoVacuum, type DemoAction } from '../demo-core';
 import fwB64 from 'virtual:vacuum-fw';
@@ -25,6 +25,7 @@ function handle(m: In): void {
   if ('view' in m) {
     viewing = m.view;
     lastVer = -1;
+    prev = null;
     return;
   }
   if (!demo) return void queue.push(m);
@@ -53,7 +54,10 @@ self.onmessage = async (e: MessageEvent<In>) => {
   handle(m);
 };
 
-/** Кадр экрана RGB565 → RGBA. */
+/* Прошлый кадр: пересылаются только изменившиеся строки (кадр у телефона 1440×960 — втрое крупнее). */
+let prev: Uint16Array | null = null;
+
+/** Кадр экрана RGB565 → RGBA, полосой от первой до последней изменившейся строки. */
 function frame(): void {
   const p = demo?.panel;
   if (!p || !viewing) return;
@@ -63,17 +67,28 @@ function frame(): void {
   lastFrame = now;
   const w = p.width;
   const h = p.height;
-  const src = p.pixels();
-  const out = new Uint8ClampedArray(w * h * 4);
-  const dark = p.sleeping();
-  for (let i = 0, j = 0; i < src.length; i++, j += 4) {
-    const c = dark ? 0 : src[i];
+  const src = p.sleeping() ? new Uint16Array(w * h) : p.pixels();
+  let y0 = 0;
+  let y1 = h;
+  if (prev && prev.length === src.length) {
+    const same = (y: number) => {
+      for (let i = y * w, e = i + w; i < e; i++) if (src[i] !== prev![i]) return false;
+      return true;
+    };
+    while (y0 < h && same(y0)) y0++;
+    if (y0 === h) return;
+    while (y1 > y0 && same(y1 - 1)) y1--;
+    prev.set(src.subarray(y0 * w, y1 * w), y0 * w);
+  } else prev = src.slice();
+  const out = new Uint8ClampedArray(w * (y1 - y0) * 4);
+  for (let i = y0 * w, e = y1 * w, j = 0; i < e; i++, j += 4) {
+    const c = src[i];
     out[j] = ((c >> 11) & 31) * 255 / 31;
     out[j + 1] = ((c >> 5) & 63) * 255 / 63;
     out[j + 2] = (c & 31) * 255 / 31;
     out[j + 3] = 255;
   }
-  post({ frame: out.buffer, w, h }, [out.buffer]);
+  post({ frame: out.buffer, w, h, y0, s: p.scale }, [out.buffer]);
 }
 
 /* Шаг 50 мс; если телефон не успевает — время идёт медленнее, а не рывками. */

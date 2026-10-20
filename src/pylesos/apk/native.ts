@@ -26,9 +26,35 @@ export interface NativeApi {
   keepOn(on: boolean): void;
   openNotifySettings(): void;
   askPermissions(): void;
+  /** Кабель к плате (OTG, прошивка): события — {t:'usb', s} и {t:'usb', rx}. */
+  usbOpen(): void;
+  usbReopen(ms: number): void;
+  usbWrite(b64: string): boolean;
+  usbLines(dtr: boolean, rts: boolean): void;
+  usbClose(): void;
 }
 
 export const native: NativeApi | null = (globalThis as unknown as { PylesosNative?: NativeApi }).PylesosNative ?? null;
+
+/** События от Android (window.__vac): связь, состояние, журнал, кабель. Слушателей — сколько угодно. */
+export type NativeEvent = { t: string } & Record<string, unknown>;
+const listeners = new Set<(e: NativeEvent) => void>();
+
+export function onNative(fn: (e: NativeEvent) => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+if (native)
+  (globalThis as unknown as { __vac: (s: string) => void }).__vac = (s: string) => {
+    let e: NativeEvent;
+    try {
+      e = JSON.parse(s) as NativeEvent;
+    } catch {
+      return;
+    }
+    for (const l of listeners) l(e);
+  };
 
 export interface NativeInfo {
   app: string;
@@ -96,8 +122,10 @@ export class NativeLink implements Link {
   state: LinkState = 'off';
   name = '';
 
+  private off: () => void;
+
   constructor(private api: NativeApi) {
-    (globalThis as unknown as { __vac: (s: string) => void }).__vac = (s: string) => this.event(s);
+    this.off = onNative((e) => this.event(e as unknown as Ev));
   }
 
   /** Подключиться: служба найдёт пылесос (первый раз — любой S3 рядом, потом — только свой). */
@@ -114,13 +142,7 @@ export class NativeLink implements Link {
     this.api.connect();
   }
 
-  private event(raw: string): void {
-    let e: Ev;
-    try {
-      e = JSON.parse(raw) as Ev;
-    } catch {
-      return;
-    }
+  private event(e: Ev): void {
     if (e.t === 'link') this.setLink(e.s, e.name ?? '');
     else if (e.t === 'status') {
       const s = parseStatus(e.j);
@@ -147,6 +169,7 @@ export class NativeLink implements Link {
   }
 
   close(): void {
+    this.off();
     this.api.disconnect();
   }
 }

@@ -1304,6 +1304,11 @@ export class VacuumPlant {
     return m ? () => m.temp : null;
   }
 
+  /** Температура воздуха вокруг установки, °C (датчик BME280). */
+  ambient(): () => number {
+    return () => this.envP[0].value;
+  }
+
   /** Масса на тензодатчике под колесом бака, кг: пустой бак, вода и мусор (весы NAU7802). */
   massOf(): () => number {
     return () => this.tankTareKg + (this.tank ? this.tank.level * this.tankL : 0) + this.debrisKg;

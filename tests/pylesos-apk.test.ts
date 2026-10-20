@@ -5,6 +5,8 @@ import { FIELDS, SampleRing, SeriesTracker, parseOsc, sampleOf } from '../src/py
 import { FAULT_PHRASE } from '../src/pylesos/apk/native';
 import { FAULTS } from '../src/pylesos/protocol';
 import { VOICE_PHRASES } from '../src/core/sim/voice-phrases';
+import { BME_CAL, bme280Compensate } from '../src/core/sim/devices';
+import { airDensity, dewPoint } from '../src/pylesos/apk/screens/Sensors';
 
 /*
  * Приложение для Android (src/pylesos/apk + android/pylesos): демо с экраном пылесоса (тот же код
@@ -13,6 +15,7 @@ import { VOICE_PHRASES } from '../src/core/sim/voice-phrases';
 
 const wasm = readFileSync('firmware/vacuum-s3/vacuum-s3.wasm');
 const panelWasm = readFileSync('firmware/vacuum-panel/vacuum-panel.wasm');
+const panelHd = readFileSync('firmware/vacuum-panel/vacuum-panel-hd.wasm');
 
 describe('Приложение Android: демо с экраном', () => {
   test('экран 480×320 рисуется, удар даёт осциллограмму, серии и выборки пишутся', async () => {
@@ -55,6 +58,33 @@ describe('Приложение Android: демо с экраном', () => {
     expect(ring.size).toBeGreaterThan(10);
   }, 120_000);
 
+  test('экран для телефона — втрое крупнее: та же картинка, касания в точках интерфейса', async () => {
+    const lo = await DemoVacuum.create(wasm, undefined, undefined, panelWasm);
+    const hd = await DemoVacuum.create(wasm, undefined, undefined, panelHd);
+    lo.run(1500);
+    hd.run(1500);
+    expect(hd.panel!.scale).toBe(3);
+    expect([hd.panel!.width, hd.panel!.height]).toEqual([1440, 960]);
+    // Уменьшенный крупный кадр почти совпадает с обычным (разница — только сглаживание краёв и знаков).
+    const a = lo.panel!.pixels();
+    const b = hd.panel!.pixels();
+    const ch = (c: number) => [(c >> 11) & 31, (c >> 5) & 63, c & 31];
+    let diff = 0;
+    for (let y = 0; y < 320; y++)
+      for (let x = 0; x < 480; x++) {
+        const p = ch(a[y * 480 + x]);
+        const q = ch(b[(y * 3 + 1) * 1440 + x * 3 + 1]);
+        if (Math.abs(p[0] - q[0]) > 6 || Math.abs(p[1] - q[1]) > 12 || Math.abs(p[2] - q[2]) > 6) diff++;
+      }
+    expect(diff / (480 * 320)).toBeLessThan(0.05);
+    const v0 = hd.panel!.version;
+    hd.panel!.touch(336, 300, true);
+    hd.run(100);
+    hd.panel!.touch(336, 300, false);
+    hd.run(500);
+    expect(hd.panel!.version).toBeGreaterThan(v0);
+  }, 60_000);
+
   test('касание по экрану доходит до интерфейса пылесоса', async () => {
     const d = await DemoVacuum.create(wasm, undefined, undefined, panelWasm);
     d.run(1000);
@@ -66,6 +96,31 @@ describe('Приложение Android: демо с экраном', () => {
     d.run(500);
     expect(d.panel!.version).toBeGreaterThan(v0);
   }, 60_000);
+});
+
+describe('Приложение Android: датчик воздуха BME280', () => {
+  test('прошивка находит датчик и отдаёт температуру, влажность, давление', async () => {
+    const d = await DemoVacuum.create(wasm);
+    const log: string[] = [];
+    d.onLog = (l) => log.push(l);
+    d.run(2500);
+    const s = d.status()!;
+    expect(log.some((l) => l.includes('воздух BME280'))).toBe(true);
+    expect(s.air).toBe(2);
+    expect(s.ta).toBeCloseTo(25, 0);
+    expect(s.rh).toBeCloseTo(45, 0);
+    expect(s.pa).toBeCloseTo(1005, 0);
+  }, 60_000);
+
+  test('пересчёт BME280 по даташиту и плотность воздуха', () => {
+    // Пример из даташита Bosch (разд. 8.2): adc_T = 519888 → 25,08 °C при этих поправках.
+    const r = bme280Compensate(BME_CAL, 519888, 415148, 30000);
+    expect(r.t).toBeCloseTo(25.08, 1);
+    expect(r.pa / 100).toBeCloseTo(1006.5, 0);
+    expect(airDensity(20, 1013.25, 0)).toBeCloseTo(1.204, 2);
+    expect(airDensity(30, 1013.25, 80)).toBeLessThan(airDensity(30, 1013.25, 0));
+    expect(dewPoint(25, 50)).toBeCloseTo(13.9, 0);
+  });
 });
 
 describe('Приложение Android: данные', () => {

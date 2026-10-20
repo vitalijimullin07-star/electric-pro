@@ -1,8 +1,9 @@
 /* Демо приложения: пылесос в телефоне (воркер), с экраном пылесоса и голосом. */
 import DemoWorker from './demo-apk.worker.ts?worker&inline';
-import panelWasmUrl from '../../../firmware/vacuum-panel/vacuum-panel.wasm?url';
+import panelWasmUrl from '../../../firmware/vacuum-panel/vacuum-panel-hd.wasm?url';
 import type { Link, VacStatus } from '../protocol';
 import type { DemoAction, DemoWorld } from '../demo-core';
+import type { PanelFrame } from './Panel';
 
 const NVS_KEY = 'pylesos-apk-demo-nvs';
 
@@ -15,14 +16,14 @@ export class DemoApkLink implements Link {
   onWorld: ((w: DemoWorld) => void) | null = null;
   onVoice: ((n: number) => void) | null = null;
   onOsc: ((line: string) => void) | null = null;
-  onFrame: ((rgba: Uint8ClampedArray, w: number, h: number) => void) | null = null;
+  onFrame: ((f: PanelFrame) => void) | null = null;
   /** Есть ли экран пылесоса (прошивка экрана загрузилась). */
   hasPanel = false;
   private w: Worker;
 
   constructor() {
     this.w = new DemoWorker();
-    this.w.onmessage = (e: MessageEvent<{ status?: VacStatus; world?: DemoWorld; log?: string; nvs?: Uint8Array; voice?: number; osc?: string; frame?: ArrayBuffer; w?: number; h?: number; panel?: boolean }>) => {
+    this.w.onmessage = (e: MessageEvent<{ status?: VacStatus; world?: DemoWorld; log?: string; nvs?: Uint8Array; voice?: number; osc?: string; frame?: ArrayBuffer; w?: number; h?: number; y0?: number; s?: number; panel?: boolean }>) => {
       const m = e.data;
       if (m.status) this.onStatus?.(m.status);
       if (m.world) this.onWorld?.(m.world);
@@ -31,7 +32,7 @@ export class DemoApkLink implements Link {
       if (m.voice !== undefined) this.onVoice?.(m.voice);
       if (m.osc) this.onOsc?.(m.osc);
       if (m.panel !== undefined) this.hasPanel = m.panel;
-      if (m.frame && m.w && m.h) this.onFrame?.(new Uint8ClampedArray(m.frame), m.w, m.h);
+      if (m.frame && m.w && m.h) this.onFrame?.({ rgba: new Uint8ClampedArray(m.frame), w: m.w, h: m.h, y0: m.y0 ?? 0, scale: m.s ?? 1 });
     };
     this.w.onerror = (e) => this.onClose?.(`Демо остановилось: ${e.message}`);
     void this.init();

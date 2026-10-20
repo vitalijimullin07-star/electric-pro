@@ -239,6 +239,91 @@ static void scale_poll(void) {
 
 float ext_scale_kg(void) { return vac.scale_ok && vac_ext.sc_k > 0 ? vac.kg : -1; }
 
+/* ---------------- воздух: BME280 / BMP280 ---------------- */
+
+/* Поправки из памяти датчика (даташит BME280, разд. 4.2.2) и пересчёт в плавающей точке (8.1). */
+static struct {
+  uint16_t t1, p1;
+  int16_t t2, t3, p2, p3, p4, p5, p6, p7, p8, p9, h2, h4, h5;
+  uint8_t h1, h3;
+  int8_t h6;
+} bc;
+static uint8_t air_addr, air_fail;
+
+static int air_r(uint8_t reg, uint8_t *v, int n) {
+  if (hal_i2c_write(0, air_addr, &reg, 1)) return -1;
+  return hal_i2c_read(0, air_addr, v, n);
+}
+
+static int air_w(uint8_t reg, uint8_t v) {
+  uint8_t d[2] = {reg, v};
+  return hal_i2c_write(0, air_addr, d, 2);
+}
+
+static uint16_t le16(const uint8_t *b) { return (uint16_t)(b[0] | b[1] << 8); }
+
+/* Найти датчик: 2 — BME280, 1 — BMP280, 0 — нет. */
+static int air_init(void) {
+  static const uint8_t addr[2] = {0x76, 0x77};
+  for (int i = 0; i < 2; i++) {
+    uint8_t id, c[26], h[7];
+    air_addr = addr[i];
+    if (air_r(0xD0, &id, 1) || (id != 0x60 && id != 0x58) || air_r(0x88, c, 26)) continue;
+    if (id == 0x60 && air_r(0xE1, h, 7)) continue;
+    bc.t1 = le16(c), bc.t2 = (int16_t)le16(c + 2), bc.t3 = (int16_t)le16(c + 4);
+    bc.p1 = le16(c + 6), bc.p2 = (int16_t)le16(c + 8), bc.p3 = (int16_t)le16(c + 10), bc.p4 = (int16_t)le16(c + 12);
+    bc.p5 = (int16_t)le16(c + 14), bc.p6 = (int16_t)le16(c + 16), bc.p7 = (int16_t)le16(c + 18);
+    bc.p8 = (int16_t)le16(c + 20), bc.p9 = (int16_t)le16(c + 22);
+    if (id == 0x60) {
+      bc.h1 = c[25];
+      bc.h2 = (int16_t)le16(h), bc.h3 = h[2];
+      bc.h4 = (int16_t)((int8_t)h[3] * 16 | (h[4] & 15));
+      bc.h5 = (int16_t)((int8_t)h[5] * 16 | h[4] >> 4);
+      bc.h6 = (int8_t)h[6];
+      air_w(0xF2, 0x01); /* влажность ×1 (до ctrl_meas — так по даташиту) */
+    }
+    air_w(0xF5, 0xA8); /* замер раз в секунду, фильтр 4 */
+    air_w(0xF4, 0x27); /* температура и давление ×1, непрерывно */
+    air_fail = 0;
+    return id == 0x60 ? 2 : 1;
+  }
+  air_addr = 0;
+  return 0;
+}
+
+static void air_poll(void) {
+  uint8_t d[8];
+  if (!vac.air_ok) return;
+  if (air_r(0xF7, d, vac.air_ok == 2 ? 8 : 6)) {
+    if (++air_fail == 5) vac.air_ok = 0, hal_log("Нет связи с датчиком воздуха (BME280)");
+    return;
+  }
+  air_fail = 0;
+  int32_t ap = (int32_t)d[0] << 12 | (int32_t)d[1] << 4 | d[2] >> 4;
+  int32_t at = (int32_t)d[3] << 12 | (int32_t)d[4] << 4 | d[5] >> 4;
+  if (at == 0x80000) return; /* первого замера ещё нет */
+  float a = (float)at / 16384.0f - (float)bc.t1 / 1024.0f, b = (float)at / 131072.0f - (float)bc.t1 / 8192.0f;
+  float tf = a * (float)bc.t2 + b * b * (float)bc.t3;
+  vac.air_t = tf / 5120.0f;
+  float v1 = tf / 2.0f - 64000.0f;
+  float v2 = v1 * v1 * (float)bc.p6 / 32768.0f + v1 * (float)bc.p5 * 2.0f;
+  v2 = v2 / 4.0f + (float)bc.p4 * 65536.0f;
+  v1 = ((float)bc.p3 * v1 * v1 / 524288.0f + (float)bc.p2 * v1) / 524288.0f;
+  v1 = (1.0f + v1 / 32768.0f) * (float)bc.p1;
+  if (v1 > 0 && ap != 0x80000) {
+    float pa = ((1048576.0f - (float)ap) - v2 / 4096.0f) * 6250.0f / v1;
+    pa += ((float)bc.p9 * pa * pa / 2147483648.0f + pa * (float)bc.p8 / 32768.0f + (float)bc.p7) / 16.0f;
+    vac.air_hpa = pa / 100.0f;
+  }
+  if (vac.air_ok == 2) {
+    float x = tf - 76800.0f, ah = (float)(d[6] << 8 | d[7]);
+    float hh = (ah - ((float)bc.h4 * 64.0f + (float)bc.h5 / 16384.0f * x)) *
+               ((float)bc.h2 / 65536.0f * (1.0f + (float)bc.h6 / 67108864.0f * x * (1.0f + (float)bc.h3 / 67108864.0f * x)));
+    hh *= 1.0f - (float)bc.h1 * hh / 524288.0f;
+    vac.air_rh = hh < 0 ? 0 : hh > 100 ? 100 : hh;
+  }
+}
+
 /* ---------------- голос: DFPlayer Mini ---------------- */
 
 /* Уровень сообщения: 1 — тревога, 2 — предупреждение, 3 — событие. */
@@ -978,10 +1063,12 @@ void ext_start(void) {
   vac.rtc_ok = rtc_read(&t) == 0;
   if (vac.rtc_ok) vac.time_s = t;
   vac.scale_ok = scale_init() == 0;
+  vac.air_ok = (uint8_t)air_init();
   report_reset();
   voice_line();
-  char line[120] = "6.0: часы ";
+  char line[200] = "6.0: часы ";
   str_cat(line, vac.rtc_ok ? "есть" : "нет"), str_cat(line, ", весы "), str_cat(line, vac.scale_ok ? "есть" : "нет");
+  str_cat(line, ", воздух "), str_cat(line, vac.air_ok == 2 ? "BME280" : vac.air_ok ? "BMP280 (без влажности)" : "нет");
   str_cat(line, ", голос "), str_cat(line, vac_ext.voice ? "включён (DFPlayer по линии 5 кабеля пульта)" : "выключен");
   hal_log(line);
   ext_event(EV_POWER, 1, 0);
@@ -1007,6 +1094,9 @@ void ext_second(void) {
     if (vac_ext.voice) hal_log("Голос выключен: по линии 5 кабеля пульта говорит пульт отдельной платой");
   }
   ub_last = ub;
+  /* Воздух — раз в секунду; датчика нет — поиск раз в 30 с (подключили на ходу). */
+  if (vac.air_ok) air_poll();
+  else if (vac.uptime_s % 30 == 0 && (vac.air_ok = (uint8_t)air_init()) != 0) hal_log(vac.air_ok == 2 ? "Датчик воздуха BME280 найден" : "Датчик воздуха BMP280 найден");
   /* Часы: секунда к секунде, с модулем — сверка раз в 10 минут. */
   if (vac.time_s) vac.time_s++;
   if (vac.rtc_ok && vac.uptime_s - t_rtc >= 600) {

@@ -7,7 +7,7 @@ import type { VacStatus } from '../protocol';
 /** Поля выборки — те же, что пишет служба Android в CSV (Recorder.FIELDS). */
 export const FIELDS = [
   'state', 'running', 'purging', 'power', 'p1', 'p2', 'i1', 'i2', 'itotal', 'mains', 'vacuum', 'flow', 'speed',
-  'filter', 'r', 't1', 't2', 'intake', 'pulses', 'water', 'load', 'w1', 'w2', 'kg', 'faults',
+  'filter', 'r', 't1', 't2', 'intake', 'pulses', 'water', 'load', 'w1', 'w2', 'kg', 'faults', 'itool', 'ta', 'rh', 'pa',
 ] as const;
 export type Field = (typeof FIELDS)[number];
 
@@ -42,7 +42,20 @@ export const SERIES: Series[] = [
   { key: 't2', label: 'Температура Т2', unit: '°C', color: '#D8A0C8', dec: 0, get: f('t2') },
   { key: 'mains', label: 'Сеть', unit: 'В', color: '#9AA8B4', dec: 0, get: f('mains') },
   { key: 'speed', label: 'Скорость в шланге', unit: 'м/с', color: '#7BD389', dec: 0, get: f('speed') },
+  { key: 'w1', label: 'Мощность Т1', unit: 'Вт', color: '#B48CF0', dec: 0, get: f('w1') },
+  { key: 'w2', label: 'Мощность Т2', unit: 'Вт', color: '#8C9CF0', dec: 0, get: f('w2') },
+  { key: 'i1', label: 'Ток Т1', unit: 'А', color: '#F28B5B', dec: 1, get: f('i1') },
+  { key: 'i2', label: 'Ток Т2', unit: 'А', color: '#F2B05B', dec: 1, get: f('i2') },
+  { key: 'itool', label: 'Ток инструмента', unit: 'А', color: '#E07A9A', dec: 1, get: f('itool') },
+  { key: 'load', label: 'Загрузка фильтра', unit: '%', color: '#C9B458', dec: 0, get: f('load') },
+  { key: 'intake', label: 'Фильтр клапанов', unit: '%', color: '#8FC0A9', dec: 0, get: f('intake') },
+  { key: 'kg', label: 'Масса в баке', unit: 'кг', color: '#A8B87A', dec: 1, get: (v) => v[FIELD_INDEX.kg] / 10 },
+  { key: 'ta', label: 'Воздух', unit: '°C', color: '#F0A05A', dec: 1, get: f('ta') },
+  { key: 'rh', label: 'Влажность', unit: '%', color: '#5AC8F0', dec: 0, get: f('rh') },
+  { key: 'pa', label: 'Давление воздуха', unit: 'гПа', color: '#A0B4C8', dec: 1, get: f('pa') },
 ];
+
+export const SERIES_BY_KEY: Record<string, Series> = Object.fromEntries(SERIES.map((s) => [s.key, s]));
 
 export function sampleOf(s: VacStatus, t = Date.now() / 1000): Sample {
   const v = new Float32Array(FIELDS.length);

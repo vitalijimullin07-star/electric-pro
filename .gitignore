@@ -6,6 +6,7 @@ coverage/
 e2e-out/
 qa-out/
 firmware/*/build/
+firmware/*/build-8m/
 tests/_tmp/
 tools/_shot.mjs
 tools/_fs.mjs
@@ -13,3 +14,4 @@ tools/_crop.mjs
 tools/_ad.mjs
 dist-pylesos/
 dist-pylesos-lite/
+firmware/vacuum-panel/fonts_hd.c

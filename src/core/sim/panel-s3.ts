@@ -15,6 +15,8 @@ interface PanelExports {
   sim_setup_t35?(): void;
   sim_width?(): number;
   sim_height?(): number;
+  /** Во сколько раз кадр крупнее точек интерфейса (сборка для телефона — 3). */
+  sim_scale?(): number;
   sim_frame(): number;
   ui_loop(ms: number): number;
   ui_touch(x: number, y: number, down: number): void;
@@ -48,6 +50,11 @@ export class PanelS3 {
 
   get height(): number {
     return this.started && this.ex?.sim_height ? this.ex.sim_height() : this.small && this.hasSmall ? 320 : PANEL_H;
+  }
+
+  /** Кадр (width × height) в scale раз крупнее точек интерфейса; касания (touch) — в точках интерфейса. */
+  get scale(): number {
+    return this.ex?.sim_scale?.() ?? 1;
   }
 
   static async create(wasm: Uint8Array): Promise<PanelS3> {

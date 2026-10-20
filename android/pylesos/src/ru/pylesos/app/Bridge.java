@@ -195,4 +195,32 @@ final class Bridge {
     public void askPermissions() {
         act.askPermissions();
     }
+
+    /* ---------------- кабель к плате (OTG): прошивка ESP32-S3 из приложения ---------------- */
+
+    @JavascriptInterface
+    public void usbOpen() {
+        act.usb().open();
+    }
+
+    /** После сброса чипа плата переподключается к шине: дождаться и открыть снова. */
+    @JavascriptInterface
+    public void usbReopen(int ms) {
+        act.usb().reopen(ms);
+    }
+
+    @JavascriptInterface
+    public boolean usbWrite(String b64) {
+        return act.usb().write(b64);
+    }
+
+    @JavascriptInterface
+    public void usbLines(boolean dtr, boolean rts) {
+        act.usb().lines(dtr, rts);
+    }
+
+    @JavascriptInterface
+    public void usbClose() {
+        act.usb().close();
+    }
 }

@@ -2898,6 +2898,13 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "hosemm", vac_cfg.hose_mm, 0);
   json_num(out, "phone", vac.phone, 0);
   json_num(out, "wifi", vac.wifi, 0);
+  /* Воздух (BME280): температура, давление, влажность — только если датчик есть. */
+  json_num(out, "air", vac.air_ok, 0);
+  if (vac.air_ok) {
+    json_num(out, "ta", vac.air_t, 1);
+    json_num(out, "pa", vac.air_hpa, 1);
+    if (vac.air_ok == 2) json_num(out, "rh", vac.air_rh, 0);
+  }
   ext_json(out);
   char fa[16];
   str_cat(str_cat(str_cat(out, "\"faults\":"), fmt_int(fa, (long)vac.faults)), ",");

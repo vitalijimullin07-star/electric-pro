@@ -2,7 +2,8 @@
 import { faultList, filterClean, stateText } from '../../protocol';
 import type { Ctx } from '../ctx';
 import { fmt } from '../history';
-import { Param, Seg, Tile } from '../ui';
+import { native } from '../native';
+import { Icon, Param, Seg, Tile } from '../ui';
 
 const WATER = ['сухо', 'вода есть', 'бак полон', 'перелив'];
 
@@ -98,10 +99,27 @@ export function Home(c: Ctx) {
           <span className="muted">Сеть</span>
           <span className={s.mains < 190 || s.mains > 250 ? 'warn' : ''}>{fmt(s.mains)} В</span>
         </div>
+        {s.air ? (
+          <div className="row">
+            <span className="muted">Воздух</span>
+            <span>
+              {fmt(s.ta ?? 0, 1)} °C{s.air === 2 ? ` · ${fmt(s.rh ?? 0)} %` : ''} · {fmt(s.pa ?? 0)} гПа
+            </span>
+          </div>
+        ) : null}
         <div className="row">
           <span className="muted">Запись в телефон</span>
           <span className="ok">{c.ring.size ? `идёт · ${dur(c.ring.size)}` : 'ждёт данных'}</span>
         </div>
+      </section>
+
+      <section className="grid2">
+        <button type="button" className="tilebtn" onClick={() => c.go('sensors')}>
+          {Icon.gauge} Все датчики
+        </button>
+        <button type="button" className="tilebtn" onClick={() => c.open('screen')}>
+          {Icon.screen} Экран пылесоса
+        </button>
       </section>
     </div>
   );
@@ -140,6 +158,11 @@ function DemoCard(c: Ctx) {
       <button type="button" className="btn wide go" onClick={() => c.setMode('device')}>
         Подключить свой пылесос
       </button>
+      {native && (
+        <button type="button" className="btn wide" onClick={() => c.open('update')}>
+          Прошить плату по кабелю
+        </button>
+      )}
     </section>
   );
 }

@@ -19,6 +19,7 @@ export const Icon = {
   link: <svg width="20" height="20" viewBox="0 0 24 24" {...P} strokeWidth={2} aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17" /></svg>,
   search: <svg width="18" height="18" viewBox="0 0 24 24" {...P} strokeWidth={2} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>,
   download: <svg width="18" height="18" viewBox="0 0 24 24" {...P} strokeWidth={2} aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16" /></svg>,
+  gauge: <svg width="22" height="22" viewBox="0 0 24 24" {...P} aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0" /><path d="M12 18l4-6" /><circle cx="12" cy="18" r="1.2" /><path d="M9 9h.01M6.5 13h.01M15 9h.01" /></svg>,
   rotate: <svg width="22" height="22" viewBox="0 0 24 24" {...P} aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M3 9a9 9 0 0 1 4-5M21 15a9 9 0 0 1-4 5" /></svg>,
 };
 

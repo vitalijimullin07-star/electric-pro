@@ -4,8 +4,8 @@ import type { DemoWorld } from '../demo-core';
 import type { DemoApkLink } from './demo-apk';
 import type { Osc, PurgeSeries, SampleRing } from './history';
 
-export type Tab = 'home' | 'screen' | 'charts' | 'log' | 'settings';
-export type Sub = 'strikes' | 'update' | 'all' | null;
+export type Tab = 'home' | 'sensors' | 'charts' | 'log' | 'settings';
+export type Sub = 'strikes' | 'update' | 'all' | 'screen' | null;
 
 export type LogKind = 'fault' | 'series' | 'set' | 'link' | 'log';
 export interface LogItem {

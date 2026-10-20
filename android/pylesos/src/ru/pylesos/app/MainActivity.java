@@ -39,6 +39,13 @@ public final class MainActivity extends Activity implements VacService.Listener 
     private static final String TAG = "Pylesos";
     private WebView web;
     private boolean ready;
+    private UsbLink usb;
+
+    /** Кабель к плате (прошивка по OTG). */
+    synchronized UsbLink usb() {
+        if (usb == null) usb = new UsbLink(this);
+        return usb;
+    }
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -89,6 +96,7 @@ public final class MainActivity extends Activity implements VacService.Listener 
     @Override
     protected void onDestroy() {
         if (VacService.listener == this) VacService.listener = null;
+        if (usb != null) usb.shutdown();
         web.destroy();
         super.onDestroy();
     }

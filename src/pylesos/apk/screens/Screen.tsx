@@ -7,6 +7,9 @@ export function ScreenTab(c: Ctx) {
   return (
     <div className="screen">
       <header className="bar">
+        <button type="button" className="iconbtn" aria-label="Назад" onClick={() => c.open(null)}>
+          {Icon.back}
+        </button>
         <h1 className="grow">Экран пылесоса</h1>
         <span className="muted small">копия 1:1</span>
       </header>

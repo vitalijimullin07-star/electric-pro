@@ -93,6 +93,17 @@ export interface VacStatus {
   phone: number;
   wifi: number;
   faults: number;
+  /** 6.0: мощность турбин по замеру, Вт; масса в баке ×10 (−10 — весов нет); электроды, мВ. */
+  w1?: number;
+  w2?: number;
+  kg?: number;
+  e1?: number;
+  e2?: number;
+  /** Воздух (BME280): 0 — нет датчика, 1 — BMP280 (без влажности), 2 — BME280; °C, гПа, %. */
+  air?: number;
+  ta?: number;
+  pa?: number;
+  rh?: number;
 }
 
 export const PRESETS = ['Авто', 'Бетон, штроба', 'Бурение', 'Гипс, шпаклёвка', 'Уборка', 'Мешок', 'Вода'];

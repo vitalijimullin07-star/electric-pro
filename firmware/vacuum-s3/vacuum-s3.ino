@@ -18,6 +18,8 @@
  * (3MB APP/9.9MB FATFS)», PSRAM «OPI PSRAM» (для экрана), USB CDC On Boot — Enabled (монитор
  * порта и прошивка — через разъём USB платы DevKitC, тот, что подписан USB).
  * arduino-cli: --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi
+ * Плата N8R8 (флеш 8 МБ): sh build-8m.sh — разметка default_ffat_8MB (2 × 3,2 МБ программы,
+ * FAT 1,5 МБ), файлы в build-8m.
  * Первая прошивка: держать BOOT, нажать RST, отпустить BOOT (или просто загрузить — DevKitC
  * обычно входит в загрузчик сам).
  */
@@ -451,6 +453,32 @@ static void wifi_poll() {
   }
 }
 
+/* Монитор порта: «ble code» — код для телефона (без экрана его больше негде увидеть, по Bluetooth
+ * и Wi-Fi он не уходит), остальное — в ядро. Пока строка похожа на «ble code», буквы придерживаются. */
+static void serial_in(int ch) {
+  static const char kw[] = "ble code";
+  static int held; /* сколько букв kw придержано; -1 — строка другая, буквы идут в ядро */
+  if (ch == '\r') return;
+  if (ch == '\n') {
+    if (held == (int)sizeof kw - 1) {
+      Serial.printf("Код для телефона: %06lu (Android спросит его при первом подключении по Bluetooth)\n",
+                    (unsigned long)vac.ble_code);
+    } else {
+      for (int i = 0; i < held; i++) vac_serial(kw[i]);
+      vac_serial('\n');
+    }
+    held = 0;
+    return;
+  }
+  if (held >= 0 && held < (int)sizeof kw - 1 && ch == kw[held]) {
+    held++;
+    return;
+  }
+  for (int i = 0; i < held; i++) vac_serial(kw[i]);
+  held = -1;
+  vac_serial(ch);
+}
+
 void setup() {
   Serial.begin(115200);
   analogReadResolution(12);
@@ -470,7 +498,7 @@ void setup() {
 }
 
 void loop() {
-  while (Serial.available()) vac_serial(Serial.read());
+  while (Serial.available()) serial_in(Serial.read());
   while (Serial1.available()) vac_uart(Serial1.read());
   lcd_poll_tx();
   RemotePkt p;

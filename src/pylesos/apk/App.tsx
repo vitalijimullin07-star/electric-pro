@@ -12,6 +12,7 @@ import { SampleRing, SeriesTracker, parseOsc, sampleOf, type Osc, type PurgeSeri
 import { LINK_TEXT, NativeLink, native, nativeInfo, pushTables } from './native';
 import { Home } from './screens/Home';
 import { ScreenTab, PanelOrNote } from './screens/Screen';
+import { Sensors } from './screens/Sensors';
 import { Charts } from './screens/Charts';
 import { Strikes } from './screens/Strikes';
 import { Log } from './screens/Log';
@@ -22,7 +23,7 @@ import { Icon } from './ui';
 const MODE_KEY = 'pylesos-apk-mode';
 const TABS: [Tab, string, React.ReactNode][] = [
   ['home', 'Главная', Icon.home],
-  ['screen', 'Экран', Icon.screen],
+  ['sensors', 'Датчики', Icon.gauge],
   ['charts', 'Графики', Icon.chart],
   ['log', 'Журнал', Icon.log],
   ['settings', 'Настройки', Icon.gear],
@@ -256,10 +257,12 @@ export function App() {
           <Update {...ctx} />
         ) : sub === 'all' ? (
           <AllParams {...ctx} />
+        ) : sub === 'screen' ? (
+          <ScreenTab {...ctx} />
         ) : tab === 'home' ? (
           <Home {...ctx} />
-        ) : tab === 'screen' ? (
-          <ScreenTab {...ctx} />
+        ) : tab === 'sensors' ? (
+          <Sensors {...ctx} />
         ) : tab === 'charts' ? (
           <Charts {...ctx} />
         ) : tab === 'log' ? (

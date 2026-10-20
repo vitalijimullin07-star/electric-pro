@@ -1043,6 +1043,60 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       });
       continue;
     }
+    // --- воздух: BME280 / BMP280 (I²C 0x76): температура, влажность, давление ---
+    if (/BME280|BMP280/i.test(`${comp.value} ${id}`) || tags.includes('bme280') || tags.includes('bmp280')) {
+      const bme = !/BMP280/i.test(comp.value);
+      const amb = plant?.ambient() ?? null;
+      const params = [...(amb ? [] : [param('t', 'температура', 22, -20, 60, 0.5, '°C')]), param('rh', 'влажность', 45, 0, 100, 1, '%'), param('hpa', 'давление', 1005, 900, 1080, 1, 'гПа')];
+      const get = (k: string) => params.find((x) => x.key === k)!.value;
+      const t = () => (amb ? amb() : get('t'));
+      const raw = bme280Raw(BME_CAL, t, () => get('rh'), () => get('hpa'));
+      const regs = new Uint8Array(256);
+      regs.set(BME_CAL.bytes88, 0x88);
+      regs.set(BME_CAL.bytesE1, 0xe1);
+      regs[0xd0] = bme ? 0x60 : 0x58;
+      let ptr = 0;
+      let wr: number[] = [];
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (write) wr = [];
+          else if (ptr >= 0xf7 && ptr <= 0xfe) regs.set(raw(), 0xf7);
+          return true;
+        },
+        write: (v) => {
+          wr.push(v);
+          return true;
+        },
+        read: () => regs[ptr++ & 255],
+        stop: () => {
+          /* Запись — пары «регистр, значение»; один байт — адрес для чтения. */
+          if (wr.length) ptr = wr[0];
+          for (let i = 0; i + 1 < wr.length; i += 2) if (wr[i] >= 0xf2 && wr[i] <= 0xf5) regs[wr[i]] = wr[i + 1];
+          wr = [];
+        },
+      };
+      if (onI2c()) attachI2c(0x76, dev);
+      use('SDA', 'SCL', 'VCC', 'VIN', 'GND', 'CSB', 'SDO');
+      devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+        },
+        view: () => ({
+          id: comp.id,
+          comp: comp.id,
+          ref: comp.ref,
+          kind: 'sensor',
+          title: `${comp.ref} воздух ${bme ? 'BME280' : 'BMP280'} (I²C 0x76)${amb ? ': температура — как вокруг установки' : ''}`,
+          params,
+          readings: [{ label: 'температура', value: +t().toFixed(1), unit: '°C' }, ...(bme ? [{ label: 'влажность', value: get('rh'), unit: '%' }] : []), { label: 'давление', value: get('hpa'), unit: 'гПа' }],
+          warning: i2cWarn(),
+        }),
+      });
+      continue;
+    }
     if (tags.includes('load-cell')) {
       // Тензодатчик — к модулю NAU7802 (массу показывает он).
       devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} тензодатчик ${comp.value}: ${placeOf(comp) || 'к модулю весов'}` }) });
@@ -1278,4 +1332,61 @@ function lcdGlyphs(lcd: Hd44780): { glyphs?: number[][]; codes?: number[][] } {
   if (!codes.some((row) => row.some((c) => c < 16))) return {};
   const glyphs = Array.from({ length: 8 }, (_, i) => Array.from(lcd.cgram.subarray(i * 8, i * 8 + 8)));
   return { glyphs, codes: lcd.displayOn ? codes : codes.map((r) => r.map(() => 32)) };
+}
+
+/* ---------------- BME280: поправки и отсчёты по заданным величинам ---------------- */
+
+/** Поправки датчика (как у настоящего экземпляра) и они же байтами регистров 0x88… и 0xE1…. */
+export const BME_CAL = (() => {
+  const t = [27504, 26435, -1000];
+  const p = [36477, -10685, 3024, 2855, 140, -7, 15500, -14600, 6000];
+  const h = { h1: 75, h2: 370, h3: 0, h4: 313, h5: 50, h6: 30 };
+  const b88 = new Uint8Array(26);
+  const put = (o: number, v: number) => ((b88[o] = v & 255), (b88[o + 1] = (v >> 8) & 255));
+  t.forEach((v, i) => put(2 * i, v));
+  p.forEach((v, i) => put(6 + 2 * i, v));
+  b88[25] = h.h1;
+  const bE1 = new Uint8Array([h.h2 & 255, (h.h2 >> 8) & 255, h.h3, (h.h4 >> 4) & 255, (h.h4 & 15) | ((h.h5 & 15) << 4), (h.h5 >> 4) & 255, h.h6 & 255]);
+  return { t, p, ...h, bytes88: b88, bytesE1: bE1 };
+})();
+
+type BmeCal = typeof BME_CAL;
+
+/** Пересчёт по даташиту (разд. 8.1): сырые отсчёты → °C, Па, %. */
+export function bme280Compensate(c: BmeCal, at: number, ap: number, ah: number): { t: number; pa: number; rh: number } {
+  const [t1, t2, t3] = c.t;
+  const [p1, p2, p3, p4, p5, p6, p7, p8, p9] = c.p;
+  const a = at / 16384 - t1 / 1024;
+  const b = at / 131072 - t1 / 8192;
+  const tf = a * t2 + b * b * t3;
+  let v1 = tf / 2 - 64000;
+  let v2 = (v1 * v1 * p6) / 32768 + v1 * p5 * 2;
+  v2 = v2 / 4 + p4 * 65536;
+  v1 = ((p3 * v1 * v1) / 524288 + p2 * v1) / 524288;
+  v1 = (1 + v1 / 32768) * p1;
+  let pa = (((1048576 - ap) - v2 / 4096) * 6250) / v1;
+  pa += ((p9 * pa * pa) / 2147483648 + (pa * p8) / 32768 + p7) / 16;
+  const x = tf - 76800;
+  let hh = (ah - (c.h4 * 64 + (c.h5 / 16384) * x)) * ((c.h2 / 65536) * (1 + (c.h6 / 67108864) * x * (1 + (c.h3 / 67108864) * x)));
+  hh *= 1 - (c.h1 * hh) / 524288;
+  return { t: tf / 5120, pa, rh: Math.max(0, Math.min(100, hh)) };
+}
+
+/** Байты регистров 0xF7…0xFE для заданных температуры, влажности и давления (подбор делением пополам). */
+function bme280Raw(c: BmeCal, t: () => number, rh: () => number, hpa: () => number): () => number[] {
+  const solve = (f: (v: number) => number, want: number, hi: number, up: boolean) => {
+    let lo = 0;
+    for (let i = 0; i < 24; i++) {
+      const m = Math.floor((lo + hi) / 2);
+      if (f(m) < want === up) lo = m;
+      else hi = m;
+    }
+    return lo;
+  };
+  return () => {
+    const at = solve((v) => bme280Compensate(c, v, 0, 0).t, t(), 1 << 20, true);
+    const ap = solve((v) => bme280Compensate(c, at, v, 0).pa, hpa() * 100, 1 << 20, false);
+    const ah = solve((v) => bme280Compensate(c, at, 0, v).rh, rh(), 1 << 16, true);
+    return [ap >> 12, (ap >> 4) & 255, (ap & 15) << 4, at >> 12, (at >> 4) & 255, (at & 15) << 4, ah >> 8, ah & 255];
+  };
 }

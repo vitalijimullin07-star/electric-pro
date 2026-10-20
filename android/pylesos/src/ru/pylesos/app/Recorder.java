@@ -24,7 +24,7 @@ final class Recorder {
     /** Поля vac_status_json (src/pylesos/protocol.ts), порядок = столбцы после времени. */
     static final String[] FIELDS = {
         "state", "running", "purging", "power", "p1", "p2", "i1", "i2", "itotal", "mains", "vacuum", "flow", "speed",
-        "filter", "r", "t1", "t2", "intake", "pulses", "water", "load", "w1", "w2", "kg", "faults"
+        "filter", "r", "t1", "t2", "intake", "pulses", "water", "load", "w1", "w2", "kg", "faults", "itool", "ta", "rh", "pa"
     };
     private static Recorder inst;
     private final File dir;
