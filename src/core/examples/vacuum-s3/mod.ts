@@ -120,6 +120,10 @@ const MOD_FOOTPRINTS: FootprintDef[] = [
   wired('LoadCell_Bar_Wires', 'Тензодатчик-балка', 'Тензодатчик-балка 50 кг (мост, 1 мВ/В): красный E+, чёрный E−, зелёный A+, белый A−', 'Датчики', 'B', [['E+', 'E+'], ['E-', 'E-'], ['A+', 'A+'], ['A-', 'A-']], ['load-cell'], [80, 13]),
   wired('Module_DFPlayer_Mini_Wires', 'Плеер DFPlayer Mini', 'MP3-плеер DFPlayer Mini с картой microSD и усилителем 3 Вт: VCC 5 В, GND, RX (команды 9600 бод), SPK1/SPK2 — динамик 4–8 Ом', 'Модули', 'DA', [['VCC', 'VCC'], ['GND', 'GND'], ['RX', 'RX'], ['TX', 'TX'], ['SPK1', 'SPK1'], ['SPK2', 'SPK2']], ['dfplayer', 'voice'], [21, 21]),
   wired('Speaker_Wires', 'Динамик на проводах', 'Динамик 3 Вт 4 Ом (40–50 мм)', 'Звук', 'BA', [['1', '1'], ['2', '2']], ['speaker'], [40, 40]),
+  // Навесной монтаж (6.1): блок питания 5 В вместо трансформатора, ZMPT101B — ноль и напряжение сети, ADS1115 — термисторы.
+  wired('Module_PSU_230V_5V_Wires', 'Блок питания 230 → 5 В', 'Сетевой блок питания 5 В 3 А (открытый, в перфорированном кожухе или HLK): вход L, N (через предохранитель 0,5–1 А), выход +V, −V', 'Питание', 'U', [['L', 'L'], ['N', 'N'], ['+V', '+V'], ['-V', '-V']], ['psu', 'dc-dc'], [70, 40]),
+  wired('Module_ZMPT101B_Wires', 'Датчик напряжения ZMPT101B', 'Модуль ZMPT101B: трансформатор напряжения и усилитель, выход — переменное около VCC/2; сеть — на винтовой клеммник модуля', 'Датчики', 'U', [['VCC', 'VCC'], ['OUT', 'OUT'], ['GND', 'GND']], ['zmpt101b', 'voltage'], [50, 20]),
+  wired('Module_ADS1115_Wires', 'АЦП ADS1115 (модуль)', 'Модуль АЦП ADS1115 16 бит, 4 входа, I²C 0x48 (ADDR на GND): VDD 3,3 В, GND, SCL, SDA, ADDR, ALRT (не нужен), A0–A3', 'Модули', 'DD', [['VDD', 'VDD'], ['GND', 'GND'], ['SCL', 'SCL'], ['SDA', 'SDA'], ['ADDR', 'ADDR'], ['ALRT', 'ALRT'], ['A0', 'A0'], ['A1', 'A1'], ['A2', 'A2'], ['A3', 'A3']], ['ads1115', 'adc'], [28, 18]),
   wired('Display_ILI9488_SPI_Wires', 'Экран 3,5″ ILI9488 SPI с касанием', 'Экран 3,5″ 480×320 ILI9488 по SPI с касанием XPT2046 (MSP3520 или аналог): 14 выводов VCC … T_IRQ', 'Дисплеи', 'HG', [['VCC', 'VCC'], ['GND', 'GND'], ['CS', 'CS'], ['RESET', 'RESET'], ['DC', 'DC'], ['SDI', 'SDI'], ['SCK', 'SCK'], ['LED', 'LED'], ['SDO', 'SDO'], ['T_CLK', 'T_CLK'], ['T_CS', 'T_CS'], ['T_DIN', 'T_DIN'], ['T_DO', 'T_DO'], ['T_IRQ', 'T_IRQ']], ['display', 'ili9488'], [60, 40]),
 ];
 
@@ -162,6 +166,8 @@ function driver(n: number, gpio: string, what: string, y: number): ModPart[] {
 
 /** Клеммники выходов у правого края: [центр по высоте]. */
 const OUT_Y = { X10: 40, X11: 53, X12: 66, X13: 81, X14: 97, X15: 111 };
+
+export type { ModPart };
 
 export function modParts(): ModPart[] {
   const out: ModPart[] = [];

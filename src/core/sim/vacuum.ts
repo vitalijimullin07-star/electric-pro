@@ -217,6 +217,22 @@ interface Ct {
   vPerA?: number;
 }
 
+/**
+ * Модуль напряжения ZMPT101B: на OUT — синус сети около VCC/2 (размах — подстроечником, LM358 на 5 В
+ * не выходит выше VCC − 1,5 В); входы контроллера на его цепи (через делитель): АЦП читает напряжение
+ * сам, цифровой вход переключается по порогу — меандр 50 Гц.
+ */
+interface Zmpt {
+  comp: Component;
+  out: Id;
+  vcc?: Id;
+  params: SimParam[];
+  /** Вход контроллера: напряжение = a + b·OUT (делитель); уровень сейчас. */
+  pins: { pin: McuPin; a: number; b: number; lvl: number }[];
+  /** На время расчёта делителя: OUT = это значение. */
+  fixed?: number;
+}
+
 export interface VacuumView {
   mains: { volts: number; hz: number; dip: boolean };
   motors: { ref: string; rpm: number; speed: number; amps: number; watts: number; temp: number; firing: number; conducting: boolean; fault: string | null; triac: string | null }[];
@@ -236,6 +252,7 @@ export class VacuumPlant {
   private triacs: Triac[] = [];
   private tool: { load: Load; params: SimParam[]; on: boolean; since: number; amps: number } | null = null;
   private cts: Ct[] = [];
+  private zmpts: Zmpt[] = [];
   private mainsP: SimParam[];
   private airP: SimParam[];
   private envP: SimParam[];
@@ -484,6 +501,7 @@ export class VacuumPlant {
     for (const r of this.relays) this.addRelayDevice(r);
     this.findTank();
     this.findZeroCross();
+    this.findZmpt();
     for (const ct of this.cts) this.addCt(ct);
     for (const m of [...this.tagged('mains'), ...this.tagged('mains-switch')]) this.claimed.add(m.comp.id);
     this.addMainsDevice();
@@ -635,6 +653,7 @@ export class VacuumPlant {
     }
     this.halfSign = -this.halfSign;
     this.scheduleZeroCross(now + hu);
+    this.scheduleZmpt(now, hu);
     this.c.mcu.schedule(() => {
       this.halfStart += hu;
       this.startHalf();
@@ -660,6 +679,93 @@ export class VacuumPlant {
     const now = this.us;
     this.c.mcu.schedule(() => this.c.drive(g, 'vacuum-zc', null), this.toCycles(Math.max(1, a - now)));
     this.c.mcu.schedule(() => this.c.drive(g, 'vacuum-zc', this.volts > 0 ? 0 : null), this.toCycles(Math.max(2, b - now)));
+  }
+
+  /** Мгновенное напряжение сети в момент t, В: синус от начала текущего полупериода (в обе стороны). */
+  private vCont(t: number): number {
+    return this.halfSign * this.volts * Math.SQRT2 * Math.sin(((t - this.halfStart) / this.halfUs) * Math.PI);
+  }
+
+  /** Выход ZMPT101B в момент t, В. */
+  private zmptOut(z: Zmpt, t: number, vcc: number): number {
+    if (z.fixed !== undefined) return z.fixed;
+    const k = z.params[0].value / (230 * Math.SQRT2);
+    const v = vcc / 2 + k * this.vCont(t - z.params[1].value);
+    return Math.max(0.05, Math.min(vcc - 1.5, v));
+  }
+
+  private findZmpt(): void {
+    const c = this.c;
+    for (const { comp, fp } of this.tagged('zmpt101b')) {
+      const out = padNet(comp, fp, 'OUT');
+      if (!out) continue;
+      const z: Zmpt = {
+        comp,
+        out,
+        vcc: padNet(comp, fp, 'VCC'),
+        params: [param('span', 'размах выхода (подстроечник)', 0.85, 0.1, 2.5, 0.05, 'В пика при 230 В'), param('shift', 'запаздывание выхода', 0, -2000, 2000, 50, 'мкс')],
+        pins: [],
+      };
+      this.zmpts.push(z);
+      this.claimed.add(comp.id);
+      const vcc = () => (z.vcc ? c.netVolts(z.vcc) : 5) || 5;
+      c.setNetSource(out, (cy) => this.zmptOut(z, (cy / this.freq) * 1e6, vcc()));
+      // Входы контроллера на этой цепи: делитель линеен — две точки дают a и b.
+      const g = c.netGroup.get(out);
+      if (g !== undefined)
+        for (const pin of c.groups[g].pins) {
+          z.fixed = 0;
+          const a = c.pinVolts(pin);
+          z.fixed = 1;
+          const b = c.pinVolts(pin) - a;
+          z.fixed = undefined;
+          z.pins.push({ pin, a, b, lvl: -1 });
+        }
+      this.devices.push({
+        id: comp.id,
+        comp,
+        set: (k, v) => {
+          const pp = z.params.find((x) => x.key === k);
+          if (pp) pp.value = v;
+        },
+        view: () => {
+          const vout = this.zmptOut(z, this.us, vcc());
+          return {
+            id: comp.id,
+            comp: comp.id,
+            ref: comp.ref,
+            kind: 'sensor',
+            title: `${comp.ref} напряжение сети ZMPT101B`,
+            params: z.params,
+            readings: [
+              { label: 'выход сейчас', value: +vout.toFixed(2), unit: 'В' },
+              { label: 'размах', value: +((z.params[0].value * this.volts) / 230).toFixed(2), unit: 'В пика' },
+            ],
+            warning: !z.pins.length ? 'выход не подключён к выводам контроллера' : undefined,
+          };
+        },
+      });
+    }
+  }
+
+  /** Полупериод вперёд: моменты, когда вход контроллера на цепи ZMPT переходит порог (у ESP32 —
+   *  около половины питания, чуть выше вверх и чуть ниже вниз), — переключения цифрового входа. */
+  private scheduleZmpt(t0: number, hu: number): void {
+    for (const z of this.zmpts) {
+      const vcc = (z.vcc ? this.c.netVolts(z.vcc) : 5) || 5;
+      for (const q of z.pins) {
+        const at = (t: number) => q.a + q.b * this.zmptOut(z, t, vcc);
+        if (q.lvl < 0) q.lvl = at(t0) > 1.55 ? 1 : 0;
+        for (let t = t0; t < t0 + hu; t += 20) {
+          const v = at(t);
+          const lvl = q.lvl ? (v < 1.54 ? 0 : 1) : v > 1.56 ? 1 : 0;
+          if (lvl === q.lvl) continue;
+          q.lvl = lvl;
+          const pin = q.pin;
+          this.c.mcu.schedule(() => this.c.mcu.forcePin(pin, lvl === 1), this.toCycles(Math.max(1, t - this.us)));
+        }
+      }
+    }
   }
 
   private findZeroCross(): void {
@@ -1669,7 +1775,7 @@ export class VacuumPlant {
         params: this.mainsP,
         readings: [{ label: 'импульс детектора нуля', value: Math.round(this.zcWidth), unit: 'мкс' }],
         actions: [{ key: 'dip', label: 'Провал сети 0,3 с' }],
-        warning: this.zcGroup === undefined ? 'детектор нуля не найден (трансформатор → мост → транзистор)' : undefined,
+        warning: this.zcGroup === undefined && !this.zmpts.length ? 'нет ни детектора нуля (трансформатор → мост → транзистор), ни ZMPT101B' : undefined,
       }),
     });
   }

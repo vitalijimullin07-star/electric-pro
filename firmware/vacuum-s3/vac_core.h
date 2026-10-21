@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "6.0"
+#define VAC_VERSION "6.1"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*
@@ -50,18 +50,21 @@ extern "C" {
 #define PIN_CT3 6       /* ток инструмента: SCT-013-030 (1 В на 30 А) */
 #define PIN_NTC1 7      /* термистор турбины 1 (10к B3950, верхнее плечо 10к) */
 #define PIN_NTC2 8
+/* Навесной монтаж (6.1): на IO7 — ZMPT101B через делитель 10к/20к (напряжение сети), термисторы — на
+ * АЦП ADS1115. Что на IO7, прошивка видит сама: переменное 50 Гц — ZMPT, постоянное — термистор. */
+#define PIN_UAC 7
 #define PIN_WL1 3       /* электрод уровня E1 (делитель 100к/100к) */
 #define PIN_WL_DRV 46   /* раскачка электродов: меандр → 1 кОм → 1 мкФ → E0 */
 #define PIN_WL2 9       /* электрод перелива E2 */
 #define PIN_VAC 10      /* разрежение MPX5100DP через делитель 6,8к/10к */
-#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), DS3231 (0x68), NAU7802 (0x2A), BME280 (0x76) */
+#define PIN_SDA 11      /* I²C: SDP810 (0x25), SDP811 (0x26), PCA9555 (0x20), DS3231 (0x68), NAU7802 (0x2A), BME280 (0x76), ADS1115 (0x48) */
 #define PIN_SCL 12
 #define PIN_PNL_TX 13   /* UART1 → плата экрана (если экран отдельной платой), без неё — голос DFPlayer 9600 */
 #define PIN_PNL_RX 14   /* UART1 ← плата экрана */
 #define PANEL_BAUD 115200
 #define PIN_ENC_A 21
 #define PIN_ENC_B 47
-#define PIN_ZC 48       /* детектор нуля сети (1 — около нуля) */
+#define PIN_ZC 48       /* ноль сети: детектор на плате (импульс «1» у нуля) или ZMPT101B (меандр) — узнаёт сам */
 #define PIN_BUZZER 45   /* ключ зуммера (база через 1 кОм) */
 /* Экран ILI9488 и касание XPT2046 на общей шине SPI (их ведёт vacuum-s3.ino, не ядро). */
 #define PIN_SPI_SCK 15
@@ -77,6 +80,7 @@ extern "C" {
 /* BME280 / BMP280: воздух (температура, влажность, давление) — модуль на шине I²C, 0x76 или 0x77. */
 #define SDP_FLOW 0x26   /* SDP811-125Pa: расходомер (сопло Вентури) */
 #define EXP_ADDR 0x20   /* PCA9555: A0–A2 на земле */
+#define ADS_ADDR 0x48   /* ADS1115 (ADDR на земле): термисторы на A0 и A1, A2 и A3 — запас */
 
 /* Входы расширителя (биты порта 0 и 1, активный уровень — 0). */
 enum {
@@ -330,6 +334,14 @@ typedef struct {
   float fc_hours;         /* прогноз: часов работы до мойки фильтра (−1 — неизвестно) */
   uint16_t osc_n;         /* номер последнего записанного удара (осциллограф) */
   uint8_t svc_mask;       /* обслуживание фильтра: что сделали (SV_…), пока идёт замер */
+  /* 6.1 */
+  uint8_t zc_kind;        /* ноль сети: 0 — нет, 1 — детектор на плате (импульсы), 2 — ZMPT101B (меандр) */
+  uint8_t uac;            /* на IO7 — ZMPT101B (напряжение сети), а не термистор */
+  uint8_t ads_ok;         /* АЦП ADS1115: 0 — нет, 1 — на связи, 2 — был, но не отвечает */
+  uint8_t mains_src;      /* напряжение сети: 0 — не мерится, 1 — по ширине импульса детектора, 2 — ZMPT101B */
+  float uac_mv;           /* ZMPT101B: действующее (СКЗ) переменного на IO7, мВ */
+  float uac_crest;        /* … пик к СКЗ: у синуса 1,41, меньше 1,25 — синус срезан (размах велик) */
+  float ads_mv[4];        /* ADS1115: напряжения на A0–A3, мВ */
 } vac_state_t;
 
 /* Проверки первого пуска (мастер на экране). */
@@ -408,7 +420,7 @@ typedef struct {
   vac_fsvc_t svc[N_FSVC];/* история обслуживания фильтра, старые — первыми */
   uint8_t nsvc;
   uint8_t wall;          /* опыт: перегородка в камере (по половине на Т1+К1 и Т2+К2), датчики — у Т1 */
-  uint8_t pad1[2];
+  uint16_t u_cal;        /* ZMPT101B: вольт сети на 1 В действующего на IO7, ×10 (0 — не калибровали) */
   uint16_t crc;
 } vac_ext_t;
 
@@ -486,6 +498,8 @@ void ext_json(char *out);
 void ext_svc_done(float r_after);   /* замер после обслуживания фильтра закончен */
 void ext_series_done(float r_after);
 float ext_scale_kg(void);
+/* Термистор k (0, 1) с АЦП ADS1115, мВ; −1 — АЦП нет (или пропал), −2 — ещё не мерил. */
+int ext_ntc_mv(int k);
 enum { EV_SAMPLE = 0, EV_FAULT_ON, EV_FAULT_OFF, EV_SERIES, EV_FILTER, EV_TEST, EV_POWER, EV_TOOL };
 
 /* vac_core.c → vac_ext.c: проверки первого пуска, замер фильтра */

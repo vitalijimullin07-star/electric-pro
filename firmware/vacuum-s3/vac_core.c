@@ -29,9 +29,21 @@ static const int CT_PIN[3] = {PIN_CT1, PIN_CT2, PIN_CT3};
 
 /* ---------------- синхронизация, импульсы, раскачка (прерывания) ---------------- */
 
-static volatile uint32_t zc_rise, zc_count;
-static volatile uint32_t zc_width = 1800;   /* ширина импульса нуля, мкс */
+/*
+ * Ноль сети — на IO48 одно из двух, прошивка узнаёт сама:
+ *  детектор на плате (выпрямитель → транзистор): импульс «1» вокруг каждого нуля, 100 раз в секунду;
+ *    ноль — середина импульса;
+ *  ZMPT101B через делитель: синус около середины питания — на цифровом входе меандр 50 Гц, фронты у
+ *    нулей. Порог входа не точно посередине синуса, поэтому ноль — четверть периода после середины
+ *    полуволны (её вершины): ошибка порога так уходит.
+ * zc_zero — момент нуля (с поправкой zc_shift_us), zc_half — полупериод.
+ */
+static volatile uint32_t zc_zero, zc_count;
+static volatile uint32_t zc_width = 1800;   /* ширина импульса нуля, мкс (детектор) */
 static volatile uint32_t zc_half = 10000;   /* полупериод, мкс */
+static volatile uint32_t zc_up, zc_dn, zc_edge, zc_per;
+static volatile uint8_t zc_lvl, zc_sq;
+static volatile int8_t zc_vote;
 static volatile uint8_t tick_div, wl_div, wl_lvl;
 static volatile uint32_t wl_edge, wl_phase;
 /*
@@ -52,15 +64,53 @@ static volatile uint32_t vlv_off_at;
 
 VAC_ISR void vac_on_pin(int pin, int level, uint32_t us) {
   if (pin != PIN_ZC) return;
+  level = level != 0;
+  if (level == zc_lvl) return;
+  /* Медленный синус ZMPT у порога вход может дёрнуть несколько раз подряд: фронт — не чаще чем
+   * через 1,5 мс (у детектора импульс не короче 1 мс — ему хватает 0,3 мс). */
+  if (us - zc_edge < (zc_sq ? 1500u : 300u)) return;
+  zc_lvl = (uint8_t)level;
+  zc_edge = us;
+  int32_t sh = vac_cfg.zc_shift_us;
+  if (sh < -3000 || sh > 3000) sh = 0;
   if (level) {
-    /* Начало импульса: до перехода через ноль — половина его ширины. */
-    uint32_t per = us - zc_rise;
-    zc_rise = us;
-    if (per > 7000 && per < 12500) zc_half = (zc_half * 7 + per) / 8;
-    zc_count++;
+    uint32_t per = us - zc_up, low = us - zc_dn;
+    zc_up = us;
+    zc_per = per;
+    if (zc_sq) {
+      if (per > 16000 && per < 25000) zc_half = (zc_half * 7 + per / 2) / 8;
+      /* Середина «0» — вершина отрицательной полуволны: ноль — через четверть периода. */
+      if (low > 5000 && low < 15000) {
+        zc_zero = zc_dn + low / 2 + zc_half / 2 + (uint32_t)sh;
+        zc_count++;
+      }
+    } else {
+      /* Начало импульса: до нуля — половина его ширины. */
+      if (per > 7000 && per < 12500) zc_half = (zc_half * 7 + per) / 8;
+      zc_zero = us + zc_width / 2 + (uint32_t)sh;
+      zc_count++;
+    }
   } else {
-    uint32_t w = us - zc_rise;
-    if (w > 100 && w < 5000) zc_width = (zc_width * 3 + w) / 4;
+    uint32_t w = us - zc_up, per = us - zc_dn;
+    zc_dn = us;
+    if (zc_sq) {
+      if (per > 16000 && per < 25000) zc_half = (zc_half * 7 + per / 2) / 8;
+      if (w > 5000 && w < 15000) {
+        zc_zero = zc_up + w / 2 + zc_half / 2 + (uint32_t)sh;
+        zc_count++;
+      }
+    } else if (w > 100 && w < 5000) {
+      zc_width = (zc_width * 3 + w) / 4;
+      zc_zero = zc_up + w / 2 + (uint32_t)sh;
+    }
+    /* Что на входе: «1» по 0,1–5 мс через 10 мс — детектор; по 5–15 мс через 20 мс — меандр ZMPT. */
+    if (w > 5000 && w < 15000 && zc_per > 16000 && zc_per < 25000) {
+      if (zc_vote < 6) zc_vote++;
+    } else if (w > 100 && w < 5000 && zc_per > 7000 && zc_per < 12500) {
+      if (zc_vote > -6) zc_vote--;
+    }
+    if (!zc_sq && zc_vote >= 4) zc_sq = 1;
+    else if (zc_sq && zc_vote <= -4) zc_sq = 0, zc_half = 10000;
   }
 }
 
@@ -68,7 +118,7 @@ VAC_ISR void vac_tick(void) {
   uint32_t now = hal_micros();
   if (vlv_req) {
     /* Ближайший ноль, до которого ещё не меньше 0,3 мс, — с него SSR откроется. */
-    uint32_t half = zc_half, z = zc_rise + zc_width / 2;
+    uint32_t half = zc_half, z = zc_zero;
     for (int i = 0; i < 4 && (int32_t)(z - now) < 300; i++) z += half;
     uint32_t n = (vlv_ms * 1000u + half / 2) / half;
     if (n < 1) n = 1;
@@ -331,31 +381,58 @@ static uint32_t ct_n;
 /* Мощность: |sin| фазы сети (от нуля, по детектору) × |ток| — среднее; ток у коллекторного
  * двигателя с симистором идёт в фазе с напряжением, знак не нужен. */
 static float w_acc[2];
+/* IO7: напряжение сети с ZMPT101B (или постоянное термистора — тогда переменного почти нет). С ZMPT
+ * мощность — среднее мгновенных u·i (знак тока зависит от того, как надет ТТ, — берётся по модулю). */
+static float u_off = 1650, u_sum2, u_hi, u_lo = 5000;
+static float p_acc[2];
+static uint32_t u_n;
+static uint8_t uac_on_n, uac_off_n;
 
 static void sample_currents(uint32_t us) {
   if ((int32_t)(us - next_sample) < 0) return;
   next_sample += 1037;
   if ((int32_t)(us - next_sample) > 5000) next_sample = us + 1037;
   uint32_t half = zc_half ? zc_half : 10000;
-  int32_t since = (int32_t)(us - (zc_rise + zc_width / 2));
+  int32_t since = (int32_t)(us - zc_zero);
   float ph = (float)(since % (int32_t)half) / (float)half;
   if (ph < 0) ph += 1;
   float sv = v_sinf(3.14159265f * ph);
   if (sv < 0) sv = -sv;
+  float di[3];
   for (int i = 0; i < 3; i++) {
     float mv = (float)hal_adc_mv(CT_PIN[i]);
     ct_offset[i] += (mv - ct_offset[i]) * (1.0f / 256);
     float d = mv - ct_offset[i];
+    di[i] = d;
     ct_sum2[i] += d * d;
     float a = d < 0 ? -d : d;
     if (a > ct_peak[i]) ct_peak[i] = a;
     if (i < 2) w_acc[i] += sv * a;
   }
   ct_n++;
+  float mv = (float)hal_adc_mv(PIN_UAC);
+  u_off += (mv - u_off) * (1.0f / 256);
+  float du = mv - u_off;
+  u_sum2 += du * du;
+  if (mv > u_hi) u_hi = mv;
+  if (mv < u_lo) u_lo = mv;
+  p_acc[0] += du * di[0];
+  p_acc[1] += du * di[1];
+  u_n++;
 }
+
+/* Вольт сети на мВ действующего на IO7 (ZMPT101B); 0 — не калибровали. */
+static float uac_k(void) { return vac_ext.u_cal ? (float)vac_ext.u_cal / 10000.0f : 0; }
 
 /* Пик тока с последнего сброса, А (СКЗ синусоиды с таким пиком). */
 static float peak_amps(int i) { return ct_peak[i] > 12 ? ct_peak[i] / CT_MV_PER_A[i] / 1.41421356f : 0; }
+
+/* Термистор k: с ADS1115 — его A0, A1; без него — IO7, IO8 (на IO7 ZMPT — термистора 1 нет). */
+static int ntc_mv(int k) {
+  if (vac.ads_ok) return ext_ntc_mv(k);
+  if (!k && vac.uac) return -1;
+  return hal_adc_mv(k ? PIN_NTC2 : PIN_NTC1);
+}
 
 static float ntc_temp(int mv, int *bad) {
   /* 3,3 В — 10 кОм — вход — NTC 10 кОм (B = 3950) — земля. */
@@ -2080,8 +2157,9 @@ static void sensors(void) {
   /* Температуры — через раз (100 мс); там же — электроды. */
   if (++sens_phase & 1) {
     for (int k = 0; k < 2; k++) {
-      int bad;
-      float t = ntc_temp(hal_adc_mv(k ? PIN_NTC2 : PIN_NTC1), &bad);
+      int bad, mv = ntc_mv(k);
+      if (mv == -2) continue; /* ADS1115 только начал — первого отсчёта ещё нет */
+      float t = ntc_temp(mv, &bad);
       set_fault(k ? F_NTC2 : F_NTC1, bad);
       if (bad) continue;
       vac.temp[k] += (t - vac.temp[k]) * 0.5f;
@@ -2180,14 +2258,47 @@ static void currents(void) {
     amps[i] = mv / CT_MV_PER_A[i];
     ct_sum2[i] = 0;
   }
+  /* IO7: переменное 50 Гц — ZMPT101B (напряжение сети), постоянное — термистор. */
+  if (u_n >= 20) {
+    float r2 = u_sum2 / (float)u_n - 9.0f;
+    vac.uac_mv = r2 > 0 ? v_sqrtf(r2) : 0;
+    vac.uac_crest = vac.uac_mv > 20 ? (u_hi - u_lo) / 2.0f / vac.uac_mv : 0;
+    if (vac.uac_mv > 80) {
+      uac_off_n = 0;
+      if (!vac.uac && ++uac_on_n >= 5) {
+        vac.uac = 1;
+        hal_log(vac_ext.u_cal ? "Напряжение сети: ZMPT101B на IO7" : "Напряжение сети: ZMPT101B на IO7 — откалибруйте по мультиметру: mains cal 230 (своё число)");
+      }
+    } else if (vac.uac_mv < 30) {
+      uac_on_n = 0;
+      if (vac.uac && ++uac_off_n >= 25) vac.uac = 0, hal_log("На IO7 нет напряжения сети (ZMPT101B)");
+    }
+  }
+  float ku = vac.uac ? uac_k() : 0;
+  if (ku > 0 && zc_ok) {
+    float v = vac.uac_mv * ku;
+    vac.mains_v += (v - vac.mains_v) * (vac.mains_v < 1 ? 1.0f : 0.5f);
+  }
   for (int k = 0; k < 2; k++) {
-    /* Шум АЦП даёт ~0,1 А: без тока — ноль. */
-    float w = amps[k] > 0.25f && vac.mains_v > 100 ? vac.mains_v * 1.41421356f * (w_acc[k] / (float)ct_n) / CT_MV_PER_A[k] : 0;
+    /* Шум АЦП даёт ~0,1 А: без тока — ноль. С ZMPT — среднее u·i, иначе — |sin| фазы × |i| при
+     * напряжении по детектору (или 230 В, если его не мерим). */
+    float w = 0;
+    if (amps[k] > 0.25f && zc_ok) {
+      if (ku > 0 && u_n) {
+        w = p_acc[k] / (float)u_n * ku / CT_MV_PER_A[k];
+        if (w < 0) w = -w;
+      } else {
+        float u = vac.mains_src == 1 && vac.mains_v > 100 ? vac.mains_v : 230.0f;
+        w = u * 1.41421356f * (w_acc[k] / (float)ct_n) / CT_MV_PER_A[k];
+      }
+    }
     vac.watts[k] += (w - vac.watts[k]) * 0.5f;
     if (w <= 0) vac.watts[k] = 0;
     w_acc[k] = 0;
+    p_acc[k] = 0;
   }
   ct_n = 0;
+  u_n = 0, u_sum2 = 0, u_hi = 0, u_lo = 5000;
   vac.amps[0] = amps[0];
   vac.amps[1] = amps[1];
   vac.tool_amps = amps[2] > 0.08f ? amps[2] : 0;
@@ -2266,18 +2377,30 @@ static uint32_t last_status_ms;
 
 
 static void mains(void) {
-  /* Напряжение сети по ширине импульса нуля: Uвыпр = Uпорог / sin(π·w/2T). */
+  uint8_t kind = zc_ok ? (zc_sq ? 2 : 1) : 0;
+  if (kind != vac.zc_kind && kind) hal_log(kind == 2 ? "Ноль сети: ZMPT101B (меандр на IO48)" : "Ноль сети: детектор на плате (импульсы на IO48)");
+  vac.zc_kind = kind;
   uint32_t w = zc_width, half = zc_half;
   if (!zc_ok || !half) {
     vac.mains_v = 0;
     vac.mains_hz = 0;
+    vac.mains_src = 0;
     return;
   }
+  vac.mains_hz = 500000.0f / (float)half;
+  if (vac.uac || zc_sq) {
+    /* ZMPT101B: действующее с IO7 считает currents(); без калибровки (или без IO7) напряжения не знаем. */
+    vac.mains_src = vac.uac && vac_ext.u_cal ? 2 : 0;
+    if (!vac.mains_src) vac.mains_v = 0;
+    set_fault(F_MAINS, vac.mains_src && (vac.mains_v < 190 || vac.mains_v > 250));
+    return;
+  }
+  /* Детектор на плате: напряжение по ширине импульса нуля, Uвыпр = Uпорог / sin(π·w/2T). */
   float s = v_sinf(3.14159265f * (float)w / (2.0f * (float)half));
   float vpk = s > 0.05f ? ZC_VTH / s : 0;
   float v = (vpk + 1.4f) * ZC_KTR * (float)vac_cfg.mains_cal / 1000.0f;
   vac.mains_v += (v - vac.mains_v) * (vac.mains_v < 1 ? 1.0f : 0.5f);
-  vac.mains_hz = 500000.0f / (float)half;
+  vac.mains_src = 1;
   set_fault(F_MAINS, vac.mains_v < 190 || vac.mains_v > 250);
 }
 
@@ -2538,6 +2661,72 @@ static void filter_cmd(const char *a) {
   link_send_config();
 }
 
+/* «mains» — что видно о сети; «mains cal 228» — напряжение по мультиметру (ZMPT101B на IO7);
+ * «mains shift 300» — поправка момента нуля, мкс (+ — ноль позже). */
+static void mains_cmd(const char *a) {
+  char line[300], n[16];
+  if (str_starts(a, "cal")) {
+    float u = str_to_float(word(a));
+    if (str_eq(word(a), "0")) {
+      vac_ext.u_cal = 0;
+      hal_log("Калибровка ZMPT101B сброшена");
+    } else if (!vac.uac || vac.uac_mv < 50) {
+      hal_log("Калибровка: на IO7 нет синуса ZMPT101B (нужно СКЗ не меньше 50 мВ — подстроечник модуля, делитель 10к/20к)");
+      return;
+    } else if (u < 150 || u > 270) {
+      hal_log("Калибровка: mains cal 228 — напряжение сети по мультиметру, 150…270 В");
+      return;
+    } else {
+      float k = u / vac.uac_mv * 10000.0f;
+      if (k < 1000 || k > 65000) {
+        hal_log("Калибровка: сигнал ZMPT101B слишком мал или велик — подстроечником в 0,3…0,45 В СКЗ на IO7");
+        return;
+      }
+      vac_ext.u_cal = (uint16_t)(k + 0.5f);
+      vac.mains_v = u;
+      line[0] = 0;
+      str_cat(line, "Напряжение сети откалибровано: "), str_cat(line, fmt_num(n, u, 0)), str_cat(line, " В = ");
+      str_cat(line, fmt_num(n, vac.uac_mv, 0)), str_cat(line, " мВ на IO7");
+      hal_log(line);
+    }
+    vac_save_soon();
+    link_send_config();
+    return;
+  }
+  if (str_starts(a, "shift ")) {
+    long v = str_to_int(word(a));
+    if (in_range(v, -3000, 3000)) {
+      vac_cfg.zc_shift_us = (int16_t)v;
+      vac_save_soon();
+    }
+  }
+  line[0] = 0;
+  str_cat(line, "Сеть: ноль — ");
+  str_cat(line, vac.zc_kind == 2 ? "ZMPT101B (меандр на IO48)" : vac.zc_kind == 1 ? "детектор на плате" : "нет");
+  if (vac.zc_kind) str_cat(line, ", "), str_cat(line, fmt_num(n, vac.mains_hz, 2)), str_cat(line, " Гц");
+  str_cat(line, ", поправка "), str_cat(line, fmt_int(n, vac_cfg.zc_shift_us)), str_cat(line, " мкс; напряжение ");
+  if (vac.mains_src) str_cat(line, fmt_num(n, vac.mains_v, 0)), str_cat(line, vac.mains_src == 2 ? " В (ZMPT101B)" : " В (по детектору)");
+  else str_cat(line, vac.uac ? "не откалибровано (mains cal 230)" : "не мерится");
+  hal_log(line);
+  line[0] = 0;
+  str_cat(line, "  IO7: ");
+  if (vac.uac) {
+    str_cat(line, "ZMPT101B, СКЗ "), str_cat(line, fmt_num(n, vac.uac_mv, 0)), str_cat(line, " мВ, пик/СКЗ "), str_cat(line, fmt_num(n, vac.uac_crest, 2));
+    if (vac.uac_crest > 0 && vac.uac_crest < 1.25f) str_cat(line, " — синус срезан, уменьшите размах подстроечником");
+  } else
+    str_cat(line, "термистор 1 (переменного нет)");
+  str_cat(line, "; ADS1115: ");
+  if (vac.ads_ok == 1) {
+    for (int i = 0; i < 4; i++) {
+      char k[5] = {' ', 'A', (char)('0' + i), '=', 0};
+      str_cat(line, k), str_cat(line, fmt_num(n, vac.ads_mv[i], 0));
+    }
+    str_cat(line, " мВ");
+  } else
+    str_cat(line, vac.ads_ok ? "не отвечает" : "нет");
+  hal_log(line);
+}
+
 void vac_command(const char *c) {
   char line[240];
   const char *a = word(c);
@@ -2556,6 +2745,9 @@ void vac_command(const char *c) {
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
     hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
+    hal_log("  mains (сеть: ноль, напряжение, ADS1115), mains cal 230 (напряжение по мультиметру, ZMPT101B), mains shift мкс (поправка нуля)");
+  } else if (str_eq(c, "mains") || str_starts(c, "mains ")) {
+    mains_cmd(a);
   } else if (str_eq(c, "status")) {
     status_line(line);
     hal_log(line);
@@ -2836,6 +3028,11 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "t1", vac.temp[0], 1);
   json_num(out, "t2", vac.temp[1], 1);
   json_num(out, "mains", vac.mains_v, 0);
+  /* 6.1: ноль сети (1 — детектор, 2 — ZMPT101B), ZMPT на IO7 и его калибровка, АЦП ADS1115. */
+  json_num(out, "zck", vac.zc_kind, 0);
+  json_num(out, "uac", vac.uac ? vac.uac_mv : 0, 0);
+  json_num(out, "ucal", vac_ext.u_cal != 0, 0);
+  json_num(out, "ads", vac.ads_ok, 0);
   json_num(out, "vacuum", vac.vacuum_kpa, 2);
   json_num(out, "flow", vac.flow_ls, 1);
   json_num(out, "speed", vac.speed_ms, 1);

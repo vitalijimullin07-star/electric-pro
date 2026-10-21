@@ -1043,6 +1043,77 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       });
       continue;
     }
+    // --- АЦП ADS1115 (I²C 0x48, ADDR на питании — 0x49): 4 входа, одиночные и непрерывные преобразования ---
+    if (/ADS1[01]15/i.test(`${comp.value} ${id}`) || tags.includes('ads1115')) {
+      const netOf = (name: string) => {
+        const q = fp.pads.find((x) => x.name === name) ?? fp.pads.find((x) => x.number === name);
+        return q ? comp.padNets[q.number] : undefined;
+      };
+      const inV = (name: string | null) => {
+        const n = name ? netOf(name) : undefined;
+        return n ? c.netVolts(n) : 0;
+      };
+      const ag = g('ADDR');
+      const addr = ag !== undefined && c.groups[ag].power === 'vcc' ? 0x49 : 0x48;
+      // Вход по полю MUX: 0–3 — разности, 4–7 — A0–A3 к земле; шкала по PGA.
+      const MUX: [string, string | null][] = [['A0', 'A1'], ['A0', 'A3'], ['A1', 'A3'], ['A2', 'A3'], ['A0', null], ['A1', null], ['A2', null], ['A3', null]];
+      const FS = [6.144, 4.096, 2.048, 1.024, 0.512, 0.256, 0.256, 0.256];
+      let cfg = 0x8583;
+      let conv = 0;
+      let ptr = 0;
+      let rd = 0;
+      let wr: number[] = [];
+      const convert = () => {
+        const [a, b] = MUX[(cfg >> 12) & 7];
+        const v = inV(a) - inV(b);
+        conv = Math.max(-32768, Math.min(32767, Math.round((v / FS[(cfg >> 9) & 7]) * 32768))) & 0xffff;
+      };
+      const dev: I2cDevice = {
+        start: (write) => {
+          if (write) wr = [];
+          else {
+            rd = 0;
+            // Непрерывный режим (MODE = 0): свежий отсчёт на каждое чтение.
+            if (ptr === 0 && !(cfg & 0x100)) convert();
+          }
+          return true;
+        },
+        write: (v) => {
+          wr.push(v);
+          return true;
+        },
+        read: () => {
+          const val = ptr === 0 ? conv : ptr === 1 ? cfg : 0;
+          return rd++ === 0 ? val >> 8 : val & 0xff;
+        },
+        stop: () => {
+          if (wr.length) ptr = wr[0] & 3;
+          if (wr.length >= 3 && ptr === 1) {
+            cfg = ((wr[1] << 8) | wr[2]) & 0xffff;
+            // OS = 1 — пуск одиночного; через 8 мс (128/с) готово — прошивка читает позже, отсчёт сразу.
+            if (cfg & 0x8000 || !(cfg & 0x100)) convert();
+            cfg |= 0x8000;
+          }
+          wr = [];
+        },
+      };
+      if (onI2c()) attachI2c(addr, dev);
+      use('VDD', 'VCC', 'GND', 'SCL', 'SDA', 'ADDR', 'ALRT', 'A0', 'A1', 'A2', 'A3');
+      devices.push({
+        id: comp.id,
+        comp,
+        view: () => ({
+          id: comp.id,
+          comp: comp.id,
+          ref: comp.ref,
+          kind: 'sensor',
+          title: `${comp.ref} АЦП ADS1115 (I²C 0x${addr.toString(16)})`,
+          readings: ['A0', 'A1', 'A2', 'A3'].map((n) => ({ label: n, value: netOf(n) ? +inV(n).toFixed(3) : 0, unit: 'В' })),
+          warning: i2cWarn(),
+        }),
+      });
+      continue;
+    }
     // --- воздух: BME280 / BMP280 (I²C 0x76): температура, влажность, давление ---
     if (/BME280|BMP280/i.test(`${comp.value} ${id}`) || tags.includes('bme280') || tags.includes('bmp280')) {
       const bme = !/BMP280/i.test(comp.value);

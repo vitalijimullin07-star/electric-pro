@@ -324,6 +324,64 @@ static void air_poll(void) {
   }
 }
 
+/* ---------------- АЦП ADS1115: термисторы турбин (A0, A1), A2 и A3 — запас ---------------- */
+
+/* Одиночные преобразования по кругу (±4,096 В, 128 отсчётов/с — 8 мс): за вызов — забрать готовое и
+ * запустить следующий вход. Вызовы раз в 50 мс — каждый вход раз в 200 мс, шину не держим. */
+static uint8_t ads_ch, ads_have, ads_fail;
+static int16_t ads_raw[4];
+
+static int ads_w(uint8_t reg, uint16_t v) {
+  uint8_t d[3] = {reg, (uint8_t)(v >> 8), (uint8_t)v};
+  return hal_i2c_write(0, ADS_ADDR, d, 3);
+}
+
+static int ads_r(uint8_t reg, uint16_t *v) {
+  uint8_t d[2];
+  if (hal_i2c_write(0, ADS_ADDR, &reg, 1) || hal_i2c_read(0, ADS_ADDR, d, 2)) return -1;
+  *v = (uint16_t)(d[0] << 8 | d[1]);
+  return 0;
+}
+
+/* Вход ch к земле: OS = 1 (пуск), MUX = 4 + ch, PGA ±4,096 В, одиночный, 128/с, компаратор выкл. */
+static int ads_start(int ch) { return ads_w(0x01, (uint16_t)(0x8000u | (unsigned)(4 + ch) << 12 | 1u << 9 | 1u << 8 | 4u << 5 | 3u)); }
+
+static int ads_init(void) {
+  uint16_t cfg;
+  /* Регистр настройки: поле компаратора после сброса — 11 (выключен), его же пишем мы. */
+  if (ads_r(0x01, &cfg) || (cfg & 3) != 3) return 0;
+  ads_ch = 0;
+  ads_have = 0;
+  ads_fail = 0;
+  return ads_start(0) == 0;
+}
+
+static void ads_poll(void) {
+  uint16_t v;
+  if (vac.ads_ok != 1) return;
+  if (ads_r(0x00, &v)) {
+    if (++ads_fail >= 5) {
+      vac.ads_ok = 2;
+      ads_have = 0;
+      hal_log("Нет связи с АЦП ADS1115: термисторы турбин не измеряются");
+    }
+    return;
+  }
+  ads_fail = 0;
+  ads_raw[ads_ch] = (int16_t)v;
+  vac.ads_mv[ads_ch] = (float)ads_raw[ads_ch] / 8.0f; /* 4096 мВ на 32768 */
+  ads_have |= (uint8_t)(1 << ads_ch);
+  ads_ch = (uint8_t)((ads_ch + 1) & 3);
+  ads_start(ads_ch);
+}
+
+int ext_ntc_mv(int k) {
+  if (vac.ads_ok != 1) return -1;
+  if (!(ads_have & (1 << k))) return -2;
+  int mv = ads_raw[k] / 8;
+  return mv < 0 ? 0 : mv;
+}
+
 /* ---------------- голос: DFPlayer Mini ---------------- */
 
 /* Уровень сообщения: 1 — тревога, 2 — предупреждение, 3 — событие. */
@@ -1064,12 +1122,14 @@ void ext_start(void) {
   if (vac.rtc_ok) vac.time_s = t;
   vac.scale_ok = scale_init() == 0;
   vac.air_ok = (uint8_t)air_init();
+  vac.ads_ok = (uint8_t)ads_init();
   report_reset();
   voice_line();
-  char line[200] = "6.0: часы ";
+  char line[360] = "6.0: часы ";
   str_cat(line, vac.rtc_ok ? "есть" : "нет"), str_cat(line, ", весы "), str_cat(line, vac.scale_ok ? "есть" : "нет");
   str_cat(line, ", воздух "), str_cat(line, vac.air_ok == 2 ? "BME280" : vac.air_ok ? "BMP280 (без влажности)" : "нет");
   str_cat(line, ", голос "), str_cat(line, vac_ext.voice ? "включён (DFPlayer по линии 5 кабеля пульта)" : "выключен");
+  str_cat(line, ", АЦП ADS1115 "), str_cat(line, vac.ads_ok ? "есть (термисторы на A0, A1)" : "нет");
   hal_log(line);
   ext_event(EV_POWER, 1, 0);
 }
@@ -1080,6 +1140,7 @@ static uint8_t said_brush;
 
 void ext_loop(uint32_t ms) {
   scale_poll();
+  ads_poll();
   voice_poll();
   /* Пока проверка идёт — экрану её строка каждые 200 мс. */
   if (ext_panel && vac.test_id && ms - t_t >= 200) t_t = ms, send_t();
@@ -1097,6 +1158,11 @@ void ext_second(void) {
   /* Воздух — раз в секунду; датчика нет — поиск раз в 30 с (подключили на ходу). */
   if (vac.air_ok) air_poll();
   else if (vac.uptime_s % 30 == 0 && (vac.air_ok = (uint8_t)air_init()) != 0) hal_log(vac.air_ok == 2 ? "Датчик воздуха BME280 найден" : "Датчик воздуха BMP280 найден");
+  /* АЦП ADS1115: нет или пропал — поиск раз в 30 с. */
+  if (vac.ads_ok != 1 && vac.uptime_s % 30 == 15 && ads_init()) {
+    hal_log(vac.ads_ok ? "АЦП ADS1115 снова на связи" : "АЦП ADS1115 найден: термисторы турбин — на A0, A1");
+    vac.ads_ok = 1;
+  }
   /* Часы: секунда к секунде, с модулем — сверка раз в 10 минут. */
   if (vac.time_s) vac.time_s++;
   if (vac.rtc_ok && vac.uptime_s - t_rtc >= 600) {
