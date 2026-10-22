@@ -66,7 +66,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.2 (плата на модулях)');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
     expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;
@@ -424,6 +424,52 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     b.serialWrite('wifi on\n');
     b.run(0.5e6);
     expect(b.serial).toMatch(/сеть Pylesos-S3-[0-9A-F]{4}, пароль [a-z0-9]{8}/);
+  });
+
+  test('код Bluetooth и пароль Wi-Fi хранятся на плате, свои — командами; код в журнал не пишется (6.3)', () => {
+    let nvs: Uint8Array | null = null;
+    const uartOf = (sim: Simulation) => {
+      const esp = sim.mcu as unknown as { onUart: ((d: Uint8Array) => void) | null };
+      const prev = esp.onUart;
+      const out = { text: '' };
+      esp.onUart = (d) => {
+        out.text += new TextDecoder().decode(d);
+        prev?.(d);
+      };
+      return out;
+    };
+    const a = Simulation.createSync(buildVacuumS3Mod(fw), { onNvs: (d: Uint8Array) => (nvs = d) });
+    const ua = uartOf(a);
+    a.run(1e6);
+    a.serialWrite('wifi on\n');
+    a.run(0.5e6);
+    const pass = /пароль ([a-z0-9]{8})/.exec(a.serial)![1];
+    const code = / bk=(\d{6})/.exec(ua.text)![1];
+    const b = Simulation.createSync(buildVacuumS3Mod(fw), { nvs: nvs!, onNvs: (d: Uint8Array) => (nvs = d) });
+    const ub = uartOf(b);
+    b.run(1e6);
+    b.serialWrite('wifi on\n');
+    b.run(0.5e6);
+    expect(b.serial).toContain(`пароль ${pass}`);
+    expect(ub.text).toContain(` bk=${code}`);
+    b.serialWrite('ble code 12345\n');
+    b.serialWrite('wifi pass ab\n');
+    b.run(0.3e6);
+    expect(b.serial).toContain('Код Bluetooth — 6 цифр');
+    expect(b.serial).toContain('Пароль Wi-Fi — 8–11');
+    b.serialWrite('ble code 654321\n');
+    b.serialWrite('wifi pass Shop2026\n');
+    b.run(0.5e6);
+    expect(b.serial).toContain('Код Bluetooth сменён');
+    expect(b.serial).not.toContain('654321');
+    expect(b.serial).toContain('пароль Shop2026');
+    const c = Simulation.createSync(buildVacuumS3Mod(fw), { nvs: nvs! });
+    const uc = uartOf(c);
+    c.run(1e6);
+    c.serialWrite('wifi on\n');
+    c.run(0.5e6);
+    expect(uc.text).toContain(' bk=654321');
+    expect(c.serial).toContain('пароль Shop2026');
   });
 
   test('две турбины с пыльным фильтром: исправные клапаны не считаются неисправными', () => {

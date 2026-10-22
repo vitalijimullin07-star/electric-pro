@@ -64,7 +64,7 @@ describe('Пылесос S3 навесным монтажом: ZMPT101B и ADS11
     const { sim, sec, status, dev } = start();
     sec(2);
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.2');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3');
     expect(sim.serial).toContain('АЦП ADS1115 есть (термисторы на A0, A1)');
     expect(sim.serial).toContain('Ноль сети: ZMPT101B (меандр на IO48)');
     expect(sim.serial).toContain('Напряжение сети: ZMPT101B на IO7 — откалибруйте');
@@ -214,7 +214,7 @@ describe('Стенд на двух турбинах (прошивка 6.2): ра
   test('SDP810-125 (0x25) на IO13/IO14 найден сам; навесной вариант с SDP811 — на общей шине', () => {
     const { sim, status } = stand();
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.2');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3');
     expect(sim.serial).toContain('Расходомер SDP810 — на второй шине I²C');
     expect(status().fbus).toBe(1);
     expect(status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);

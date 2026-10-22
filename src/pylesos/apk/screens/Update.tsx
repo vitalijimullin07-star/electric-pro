@@ -56,6 +56,7 @@ function UsbFlash() {
   const [lines, setLines] = useState<string[]>([]);
   const [result, setResult] = useState<'ok' | 'bad' | null>(null);
   const [code, setCode] = useState<string | null>(null);
+  const [own, setOwn] = useState('');
   useEffect(() => {
     fetch('fw/manifest.json')
       .then((r) => (r.ok ? (r.json() as Promise<FwBundle>) : null))
@@ -70,13 +71,14 @@ function UsbFlash() {
       /* не запомнили */
     }
   };
-  const askCode = async () => {
+  const askCode = async (set?: string) => {
     if (!native) return;
     setBusy(true);
     setCode(null);
     const log = (l: string) => setLines((x) => [...x.slice(-30), l]);
     try {
-      setCode(await readBleCode(native, log));
+      setCode(await readBleCode(native, log, set));
+      if (set) log('Код на плате сменён: его спросит новый телефон, сопряжённые подключаются как прежде');
     } catch (e) {
       log(`Код не получен: ${(e as Error).message}`);
     } finally {
@@ -142,12 +144,30 @@ function UsbFlash() {
             <div className="codebox">
               <div className="small muted">Код для Bluetooth (Android спросит при первом подключении)</div>
               <b>{code}</b>
-              <div className="small muted">Код новый после каждого включения платы: подключайте, не выключая её, или спросите снова.</div>
+              <div className="small muted">Код хранится на плате и не меняется при выключении (прошивка 6.3 и новее).</div>
             </div>
           )}
           <button type="button" className="btn wide" onClick={() => void askCode()} disabled={busy}>
             Узнать код Bluetooth по кабелю
           </button>
+          <form
+            className="cmd"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (/^\d{6}$/.test(own)) void askCode(own);
+            }}
+          >
+            <input
+              value={own}
+              onChange={(e) => setOwn(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Свой код: 6 цифр"
+              inputMode="numeric"
+              aria-label="Свой код Bluetooth"
+            />
+            <button type="submit" className="btn" disabled={busy || !/^\d{6}$/.test(own)}>
+              Задать
+            </button>
+          </form>
           {lines.length > 0 && <pre className={`flashlog ${result ?? ''}`}>{lines.join('\n')}</pre>}
           <p className="small muted">Настройки и сопряжения не стираются — пишутся загрузчик, разделы и программа. Около минуты; не отключайте кабель.</p>
         </>

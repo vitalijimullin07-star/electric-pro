@@ -504,6 +504,12 @@ void loop() {
   RemotePkt p;
   while (xQueueReceive(remote_q, &p, 0) == pdTRUE) vac_remote(p.data, p.len, p.rssi);
   vac_loop();
+  /* «ble code N» сменил код — новый действует сразу, без перезапуска. */
+  static uint32_t passkey = vac.ble_code;
+  if (passkey != vac.ble_code) {
+    passkey = vac.ble_code;
+    BLESecurity::setPassKey(true, passkey);
+  }
   phone_poll();
   wifi_poll();
   if (wifi_on) server.handleClient();

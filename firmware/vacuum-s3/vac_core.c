@@ -2435,11 +2435,50 @@ static void status_line(char *out) {
   str_cat(out, " E2="), str_cat(out, fmt_int(n, (long)vac.wl_mv[1]));
 }
 
+/* Код Bluetooth (при первом пуске) и пароль Wi-Fi (при первом «wifi on») придумываются и хранятся (слот 4): телефон, однажды
+ * узнавший их, подключается и после выключения платы. Свои — «ble code N», «wifi pass …». */
+typedef struct {
+  uint32_t magic;
+  uint32_t code;   /* код сопряжения Bluetooth, 0…999999 */
+  char pass[12];   /* пароль Wi-Fi, 8–11 латинских букв и цифр (пусто — ещё не придуман) */
+} vac_keys_t;
+#define KEYS_MAGIC 0x4B455931u
+static vac_keys_t keys;
+
+static int pass_ok(const char *p) {
+  int n = 0;
+  for (; p[n]; n++)
+    if (n > 11 || !((p[n] >= 'a' && p[n] <= 'z') || (p[n] >= 'A' && p[n] <= 'Z') || (p[n] >= '0' && p[n] <= '9'))) return 0;
+  return n >= 8 && n <= 11;
+}
+
+static void keys_new_code(void) { keys.code = 100000 + hal_rand32() % 900000; }
+
+static void keys_new_pass(void) {
+  static const char A[] = "abcdefghjkmnpqrstuvwxyz23456789";
+  for (int i = 0; i < 8; i++) keys.pass[i] = A[hal_rand32() % (sizeof A - 1)];
+  keys.pass[8] = 0;
+}
+
+static void keys_save(void) {
+  keys.magic = KEYS_MAGIC;
+  hal_settings_save2(4, &keys, sizeof keys);
+}
+
+static void keys_load(void) {
+  int ok = hal_settings_load2(4, &keys, sizeof keys) == (int)sizeof keys && keys.magic == KEYS_MAGIC;
+  int fix = 0;
+  if (!ok || keys.code > 999999) keys_new_code(), fix = 1;
+  keys.pass[sizeof keys.pass - 1] = 0;
+  if (!ok || !pass_ok(keys.pass)) keys.pass[0] = 0, fix = 1; /* придумается при первом «wifi on» */
+  if (fix) keys_save();
+}
+
 static void wifi_set(int on) {
   if (on) {
-    static const char A[] = "abcdefghjkmnpqrstuvwxyz23456789";
-    for (int i = 0; i < 8; i++) vac.pass[i] = A[hal_rand32() % (sizeof A - 1)];
-    vac.pass[8] = 0;
+    if (!keys.pass[0]) keys_new_pass(), keys_save();
+    vac.pass[0] = 0;
+    str_cat(vac.pass, keys.pass);
     static const char H[] = "0123456789ABCDEF";
     vac.ssid[0] = 0;
     str_cat(vac.ssid, "Pylesos-S3-");
@@ -2528,7 +2567,8 @@ void vac_setup(void) {
   next_sample = hal_micros();
   hal_log("Контроллер пылесоса S3 " VAC_VERSION " (плата на модулях), ESP32-S3. Команды: help");
   /* Код для телефона: Android спросит его при первом подключении по Bluetooth (виден на экране «Телефон»). */
-  vac.ble_code = 100000 + hal_rand32() % 900000;
+  keys_load();
+  vac.ble_code = keys.code;
   hal_log(vlv_plate ? "Клапаны тарельчатые: магниты держат тарелки, удар — снять ток" : "Клапаны импульсные: удар — подать ток");
   char line[160] = "Настройки: режим ", n2[12];
   str_cat(line, mode_name(vac.mode));
@@ -2755,7 +2795,7 @@ void vac_command(const char *c) {
     hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|dp|strong|wl|stag|dip N (dp — порог перепада, Па, 0 — авто; dip — сброс турбин на удар, %),");
     hal_log("  set valves plate|pulse (тарельчатые на магнитах / импульсные), clean a|o, coff 0|1, hauto 0|1,");
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
-    hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
+    hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, ble code N|new, wifi on|off, wifi pass …|new, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
     hal_log("  mains (сеть: ноль, напряжение, ADS1115), mains cal 230 (напряжение по мультиметру, ZMPT101B), mains shift мкс (поправка нуля)");
     hal_log("  set buzz 0|1 (зуммер: 0 — без генератора, тон из прошивки; 1 — со своим генератором, только вкл/выкл)");
@@ -2962,6 +3002,35 @@ void vac_command(const char *c) {
     hal_log("Беспроводной пульт отвязан");
     vac_save_settings();
     link_send_config();
+  } else if (str_starts(c, "ble code ")) {
+    /* Сам код в журнал не пишется: журнал уходит и по Bluetooth, и по Wi-Fi. Узнать — «ble code» в порт USB или экран. */
+    const char *a = c + 9;
+    int n = 0;
+    while (a[n] >= '0' && a[n] <= '9') n++;
+    if (str_eq(a, "new")) keys_new_code();
+    else if (n == 6 && !a[n]) {
+      keys.code = 0;
+      for (int i = 0; i < 6; i++) keys.code = keys.code * 10 + (uint32_t)(a[i] - '0');
+    }
+    else {
+      hal_log("Код Bluetooth — 6 цифр: ble code 123456 (или ble code new — придумать)");
+      return;
+    }
+    keys_save();
+    vac.ble_code = keys.code;
+    hal_log("Код Bluetooth сменён: его спросит новый телефон, сопряжённые подключаются как прежде");
+    link_send_config();
+  } else if (str_starts(c, "wifi pass ")) {
+    const char *a = c + 10;
+    if (str_eq(a, "new")) keys_new_pass();
+    else if (pass_ok(a)) keys.pass[0] = 0, str_cat(keys.pass, a);
+    else {
+      hal_log("Пароль Wi-Fi — 8–11 латинских букв и цифр: wifi pass abcd1234 (или wifi pass new)");
+      return;
+    }
+    keys_save();
+    hal_log("Пароль Wi-Fi сменён");
+    if (vac.wifi) wifi_set(1);
   } else if (str_eq(c, "wifi on")) {
     wifi_set(1);
   } else if (str_eq(c, "wifi off")) {

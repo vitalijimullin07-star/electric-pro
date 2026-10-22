@@ -143,20 +143,25 @@ export async function flashOverUsb(api: NativeApi, images: FlashImage[], flashSi
 
 /**
  * Код для Bluetooth по кабелю (плата без экрана): «ble code» в порт, ответ «Код для телефона: NNNNNN».
- * Код новый после каждого включения платы — спрашивать после последнего включения.
+ * С 6.3 код хранится на плате; `set` — сначала задать свой (6 цифр, «ble code N»).
  */
-export async function readBleCode(api: NativeApi, log: (l: string) => void = () => {}): Promise<string> {
+export async function readBleCode(api: NativeApi, log: (l: string) => void = () => {}, set?: string): Promise<string> {
   const port = new UsbPort(api);
   try {
     await port.open();
     const dec = new TextDecoder();
     let text = '';
+    if (set) {
+      await port.write(new TextEncoder().encode(`ble code ${set}\n`));
+      await new Promise((r) => setTimeout(r, 300));
+    }
     for (let i = 0; i < 4; i++) {
       await port.write(new TextEncoder().encode('ble code\n'));
       const until = Date.now() + 1500;
       while (Date.now() < until) {
         text += dec.decode(await port.read(200), { stream: true });
         const m = /Код для телефона: (\d{6})/.exec(text);
+        if (m && set && m[1] !== set) throw new Error('Плата не приняла код: прошивка старше 6.3');
         if (m) return m[1];
       }
       log('Плата ещё не ответила — спрашиваю снова');
