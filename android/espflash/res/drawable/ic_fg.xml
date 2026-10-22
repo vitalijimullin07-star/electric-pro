@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Значок: микросхема с выводами и стрелка записи (108×108, видимая зона — центральные 66). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M38,36h32a4,4 0 0,1 4,4v28a4,4 0 0,1 -4,4h-32a4,4 0 0,1 -4,-4v-28a4,4 0 0,1 4,-4z" android:strokeColor="#FF8A98A6" android:strokeWidth="4" android:fillColor="#FF1C252D" />
+    <path android:pathData="M42,30v6M50,30v6M58,30v6M66,30v6M42,72v6M50,72v6M58,72v6M66,72v6M28,44h6M28,54h6M28,64h6M74,44h6M74,54h6M74,64h6" android:strokeColor="#FF8A98A6" android:strokeWidth="3" android:strokeLineCap="round" />
+    <path android:pathData="M54,42v17M46,52l8,9l8,-9" android:strokeColor="#FFF2A93B" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+</vector>

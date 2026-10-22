@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Платы ESP32: родной USB Espressif (303A), переходники WCH CH340/CH343 (1A86), Silicon Labs CP210x (10C4), FTDI (0403). -->
+<resources>
+    <usb-device vendor-id="12346" />
+    <usb-device vendor-id="6790" />
+    <usb-device vendor-id="4292" />
+    <usb-device vendor-id="1027" />
+</resources>
