@@ -168,9 +168,26 @@ class PhoneServer : public BLEServerCallbacks {
   void onDisconnect(BLEServer *) override { phone_on = false; }
 };
 
+/* Экран пылесоса в телефоне (APK): пока его копия в телефоне шлёт «hi2» (как экран, раз в 0,5 с), строки
+ * экрана — те же, что идут пульту по UART и экрану на контроллере, — уходят телефону уведомлениями журнала
+ * с «#» впереди. Касания копии приходят обычными командами (как строки пульта). */
+static volatile uint32_t scr_until;
+static char scr_buf[6144];
+static int scr_len;
+
+extern "C" void phone_scr_put(const char *data, int len) {
+  if (!phone_on || (int32_t)(millis() - scr_until) > 0) return;
+  /* Не успели отправить — старое выбросить: строки состояния через полсекунды придут снова. */
+  if (scr_len + len > (int)sizeof scr_buf) scr_len = 0;
+  if (len > (int)sizeof scr_buf) return;
+  memcpy(scr_buf + scr_len, data, len);
+  scr_len += len;
+}
+
 class PhoneCmdCb : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
     String v = c->getValue();
+    if (v.startsWith("hi2")) scr_until = millis() + 3000;
     PhoneCmd m;
     int n = 0;
     for (unsigned i = 0; i < v.length() && n < (int)sizeof m.s - 1; i++)
@@ -252,6 +269,27 @@ static void phone_poll() {
     portEXIT_CRITICAL(&log_mux);
     ble_log_sent++;
     ble_send_line(ch_log, line, strlen(line));
+  }
+  /* Строки экрана — до восьми раз в 20 мс (буферы уведомлений NimBLE не бесконечны). */
+  static uint32_t scr_t;
+  if (!scr_len || millis() - scr_t < 20) return;
+  scr_t = millis();
+  for (int k = 0; k < 8 && scr_len; k++) {
+    char *nl = (char *)memchr(scr_buf, '\n', scr_len);
+    if (!nl) {
+      if (scr_len > 600) scr_len = 0; /* строка без конца — испорчена */
+      break;
+    }
+    int n = nl - scr_buf;
+    static char line[620];
+    line[0] = '#';
+    int m = n < (int)sizeof line - 2 ? n : (int)sizeof line - 2;
+    memcpy(line + 1, scr_buf, m);
+    line[m + 1] = 0;
+    if (m && line[m] == '\r') line[m--] = 0;
+    ble_send_line(ch_log, line, m + 1);
+    scr_len -= n + 1;
+    memmove(scr_buf, nl + 1, scr_len);
   }
 }
 

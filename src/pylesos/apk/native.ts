@@ -5,6 +5,7 @@
  */
 import { FAULTS, SEVERE, parseStatus, type Link, type VacStatus } from '../protocol';
 import { VOICE_PHRASES } from '../../core/sim/voice-phrases';
+import { PanelMirror } from './panel-mirror';
 
 export interface NativeApi {
   info(): string;
@@ -119,8 +120,8 @@ export class NativeLink implements Link {
   onLog: ((line: string) => void) | null = null;
   onClose: ((why: string) => void) | null = null;
   onLink: ((state: LinkState, name: string) => void) | null = null;
-  /** Строки для экрана пылесоса (поток экрана — с прошивкой 6.1). */
-  onPanelLine: ((line: string) => void) | null = null;
+  /** Копия экрана пылесоса: строки «#…» из журнала — ей, её строки — пылесосу командами (не в журнал). */
+  readonly panel = new PanelMirror((line) => this.api.send(line));
   state: LinkState = 'off';
   name = '';
 
@@ -153,8 +154,8 @@ export class NativeLink implements Link {
   }
 
   private line(l: string): void {
-    // Строки экрана (с прошивкой 6.1): «#» + строка, как у экрана по UART.
-    if (l.startsWith('#')) return void this.onPanelLine?.(l.slice(1));
+    // Строки экрана: «#» + строка, как у экрана по UART (пока копия экрана в телефоне шлёт «hi2»).
+    if (l.startsWith('#')) return void this.panel.rx(l.slice(1));
     if (l.startsWith('@V ')) return;
     this.onLog?.(l);
   }
@@ -172,6 +173,7 @@ export class NativeLink implements Link {
 
   close(): void {
     this.off();
+    this.panel.close();
     this.api.disconnect();
   }
 }

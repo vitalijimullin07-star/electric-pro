@@ -5,6 +5,7 @@
  */
 import { DemoVacuum, type DemoAction } from '../demo-core';
 import fwB64 from 'virtual:vacuum-fw';
+import { FrameDiff } from './panel-frames';
 
 const post = (m: unknown, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(m, transfer);
 
@@ -18,14 +19,12 @@ type In =
 let demo: DemoVacuum | null = null;
 const queue: In[] = [];
 let viewing = false;
-let lastVer = -1;
-let lastFrame = 0;
+const frames = new FrameDiff();
 
 function handle(m: In): void {
   if ('view' in m) {
     viewing = m.view;
-    lastVer = -1;
-    prev = null;
+    frames.reset();
     return;
   }
   if (!demo) return void queue.push(m);
@@ -54,41 +53,11 @@ self.onmessage = async (e: MessageEvent<In>) => {
   handle(m);
 };
 
-/* Прошлый кадр: пересылаются только изменившиеся строки (кадр у телефона 1440×960 — втрое крупнее). */
-let prev: Uint16Array | null = null;
-
-/** Кадр экрана RGB565 → RGBA, полосой от первой до последней изменившейся строки. */
 function frame(): void {
   const p = demo?.panel;
   if (!p || !viewing) return;
-  const now = performance.now();
-  if (p.version === lastVer || now - lastFrame < 60) return;
-  lastVer = p.version;
-  lastFrame = now;
-  const w = p.width;
-  const h = p.height;
-  const src = p.sleeping() ? new Uint16Array(w * h) : p.pixels();
-  let y0 = 0;
-  let y1 = h;
-  if (prev && prev.length === src.length) {
-    const same = (y: number) => {
-      for (let i = y * w, e = i + w; i < e; i++) if (src[i] !== prev![i]) return false;
-      return true;
-    };
-    while (y0 < h && same(y0)) y0++;
-    if (y0 === h) return;
-    while (y1 > y0 && same(y1 - 1)) y1--;
-    prev.set(src.subarray(y0 * w, y1 * w), y0 * w);
-  } else prev = src.slice();
-  const out = new Uint8ClampedArray(w * (y1 - y0) * 4);
-  for (let i = y0 * w, e = y1 * w, j = 0; i < e; i++, j += 4) {
-    const c = src[i];
-    out[j] = ((c >> 11) & 31) * 255 / 31;
-    out[j + 1] = ((c >> 5) & 63) * 255 / 63;
-    out[j + 2] = (c & 31) * 255 / 31;
-    out[j + 3] = 255;
-  }
-  post({ frame: out.buffer, w, h, y0, s: p.scale }, [out.buffer]);
+  const f = frames.next(p);
+  if (f) post(f, [f.frame]);
 }
 
 /* Шаг 50 мс; если телефон не успевает — время идёт медленнее, а не рывками. */

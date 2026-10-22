@@ -8,6 +8,7 @@ import type { DemoWorld } from '../demo-core';
 import { VOICE_PHRASES } from '../../core/sim/voice-phrases';
 import type { Ctx, LogItem, LogKind, Sub, Tab } from './ctx';
 import { DemoApkLink } from './demo-apk';
+import type { PanelMirror } from './panel-mirror';
 import { SampleRing, SeriesTracker, parseOsc, sampleOf, type Osc, type PurgeSeries } from './history';
 import { LINK_TEXT, NativeLink, native, nativeInfo, pushTables } from './native';
 import { Home } from './screens/Home';
@@ -69,6 +70,7 @@ export function App() {
   const [tick, setTick] = useState(0);
   const [landscape, setLandscape] = useState(() => matchMedia('(orientation: landscape)').matches);
   const [demo, setDemo] = useState<DemoApkLink | null>(null);
+  const [mirror, setMirror] = useState<PanelMirror | null>(null);
   const ring = useRef(new SampleRing()).current;
   const tracker = useRef(new SeriesTracker()).current;
   const linkRef = useRef<Link | null>(null);
@@ -103,6 +105,7 @@ export function App() {
       linkRef.current = n;
       n.start();
       setDemo(null);
+      setMirror(n.panel);
     } else {
       const d = new DemoApkLink();
       d.onWorld = setWorld;
@@ -119,6 +122,7 @@ export function App() {
       d.onLog = (line) => addLog(line);
       linkRef.current = d;
       setDemo(d);
+      setMirror(null);
       setLinkState('on');
     }
     return () => {
@@ -217,6 +221,7 @@ export function App() {
             linkState,
             linkName,
             demo,
+            mirror,
             world,
             ring,
             series,
@@ -230,7 +235,7 @@ export function App() {
           }
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [s, mode, linkState, linkName, demo, world, series, oscs, log, tick],
+    [s, mode, linkState, linkName, demo, mirror, world, series, oscs, log, tick],
   );
 
   if (landscape && ctx) return <PanelOrNote {...ctx} full />;

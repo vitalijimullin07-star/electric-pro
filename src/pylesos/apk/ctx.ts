@@ -2,6 +2,7 @@
 import type { VacStatus } from '../protocol';
 import type { DemoWorld } from '../demo-core';
 import type { DemoApkLink } from './demo-apk';
+import type { PanelMirror } from './panel-mirror';
 import type { Osc, PurgeSeries, SampleRing } from './history';
 
 export type Tab = 'home' | 'sensors' | 'charts' | 'log' | 'settings';
@@ -21,6 +22,8 @@ export interface Ctx {
   linkState: string;
   linkName: string;
   demo: DemoApkLink | null;
+  /** Копия экрана настоящего пылесоса (по Bluetooth). */
+  mirror: PanelMirror | null;
   world: DemoWorld | null;
   ring: SampleRing;
   series: PurgeSeries[];

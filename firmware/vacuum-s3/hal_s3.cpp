@@ -102,10 +102,13 @@ void hal_voice_write(const uint8_t *data, int len) {
   if (voice_on) Serial1.write(data, (size_t)len);
 }
 
+void phone_scr_put(const char *data, int len);
+
 void hal_uart_write(const char *data, int len) {
   if (!uart_mute && !voice_on && uart_baud_set) Serial1.write((const uint8_t *)data, (size_t)len);
-  /* Те же строки — интерфейсу пульта на экране контроллера (lcd_s3.cpp). */
+  /* Те же строки — интерфейсу пульта на экране контроллера (lcd_s3.cpp) и его копии в телефоне. */
   lcd_rx_put(data, len);
+  phone_scr_put(data, len);
 }
 
 /* Журнал: в порт и телефону (Wi-Fi /l и Bluetooth) — см. phone_log в vacuum-s3.ino. */

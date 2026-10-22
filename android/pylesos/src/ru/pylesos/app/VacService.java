@@ -558,6 +558,15 @@ public final class VacService extends Service {
     }
 
     private void onLogLine(String line) {
+        // «#…» — строки экрана пылесоса (его копия в приложении): в журнал и снимок не идут.
+        if (line.startsWith("#")) {
+            try {
+                emit(new JSONObject().put("t", "log").put("l", line).toString());
+            } catch (Exception ignored) {
+                /* пропускаем */
+            }
+            return;
+        }
         synchronized (histLock) {
             lastLog.add(line);
             while (lastLog.size() > 400) lastLog.poll();

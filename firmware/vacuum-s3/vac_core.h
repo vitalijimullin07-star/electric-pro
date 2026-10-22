@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "6.3.1"
+#define VAC_VERSION "6.3.2"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*

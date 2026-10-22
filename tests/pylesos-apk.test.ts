@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DemoVacuum } from '../src/pylesos/demo-core';
+import { Esp32 } from '../src/core/sim/esp32';
+import { PanelS3 } from '../src/core/sim/panel-s3';
 import { FIELDS, SampleRing, SeriesTracker, parseOsc, sampleOf } from '../src/pylesos/apk/history';
 import { FAULT_PHRASE } from '../src/pylesos/apk/native';
 import { FAULTS } from '../src/pylesos/protocol';
@@ -159,4 +161,47 @@ describe('Приложение Android: данные', () => {
     const list = m[1].split(',').map((s) => s.trim().replace(/"/g, '')).filter(Boolean);
     expect(list).toEqual([...FIELDS]);
   });
+});
+
+describe('Экран настоящего пылесоса в телефоне (копия по Bluetooth)', () => {
+  test('копия получает только строки контроллера, её строки уходят командами — картинка как у экрана на плате', async () => {
+    const d = await DemoVacuum.create(wasm, undefined, undefined, panelWasm);
+    const esp = d.sim.mcu as Esp32;
+    const mirror = await PanelS3.create(panelWasm);
+    mirror.small = true;
+    // Как в телефоне: строки «#…» из журнала Bluetooth — копии, её строки (hi2, касания) — пылесосу командами.
+    d.onPanelLine = (line) => mirror.rx(new TextEncoder().encode(line + '\n'));
+    let tail = '';
+    const sent: string[] = [];
+    mirror.onTx = (b) => {
+      tail += new TextDecoder().decode(b);
+      let i: number;
+      while ((i = tail.indexOf('\n')) >= 0) {
+        const line = tail.slice(0, i).trim();
+        tail = tail.slice(i + 1);
+        if (line) sent.push(line), d.command(line);
+      }
+    };
+    for (let i = 0; i < 300; i++) {
+      d.run(10);
+      mirror.loop(esp.cycles / 1000);
+    }
+    expect(sent).toContain('hi2');
+    const a = d.panel!.pixels();
+    const b = mirror.pixels();
+    expect(b.length).toBe(a.length);
+    let same = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] === b[i]) same++;
+    expect(same / a.length).toBeGreaterThan(0.97);
+    // Нажатие на копии доходит до пылесоса так же, как с экрана на плате.
+    const before = mirror.version;
+    mirror.touch(240, 300, true);
+    mirror.loop(esp.cycles / 1000);
+    mirror.touch(240, 300, false);
+    for (let i = 0; i < 50; i++) {
+      d.run(10);
+      mirror.loop(esp.cycles / 1000);
+    }
+    expect(mirror.version).toBeGreaterThan(before);
+  }, 60000);
 });
