@@ -1165,7 +1165,7 @@
     (property "Footprint" "Plata:Sensor_MPX5100DP" (id 2) (at 379.73 40.64 0) (effects (font (size 1.27 1.27)) hide))
     (property "Datasheet" "" (id 3) (at 379.73 40.64 0) (effects (font (size 1.27 1.27)) hide))
     (property "Раздел" "Давление" (id 4) (at 379.73 40.64 0) (effects (font (size 1.27 1.27)) hide))
-    (property "Описание" "Разрежение в баке 0–100 кПа: P1 — трубка к баку, P2 — открыт в атмосферу (через ватку от пыли). Выход 0,2–4,7 В" (id 5) (at 379.73 40.64 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Описание" "Разрежение в баке 0–100 кПа: датчик меряет P1 − P2 (P1 > P2), поэтому P2 (штуцер на стороне без надписи) — трубка к баку, P1 (сторона с надписью) — открыт в атмосферу (через ватку от пыли). Выход 0,2–4,7 В" (id 5) (at 379.73 40.64 0) (effects (font (size 1.27 1.27)) hide))
     (pin "1" (uuid d1e106b6-46fd-4937-a3e8-b9a056a12489))
     (pin "2" (uuid d0e10523-47fd-4aca-a6e8-be5953a11fd0))
     (pin "3" (uuid cfe10390-48fd-4c5d-a5e8-bcc654a12163))
