@@ -641,15 +641,21 @@ void vac_beep(int kind) {
   beep_next = now_ms;
 }
 
+/* Зуммер без генератора — тон частоты hz; со своим генератором — только вкл/выкл (тон у него свой). */
+static void buzz(uint16_t hz) {
+  if (vac_ext.buzz) hal_tone(PIN_BUZZER, 0), hal_pin_write(PIN_BUZZER, hz ? 1 : 0);
+  else hal_tone(PIN_BUZZER, hz);
+}
+
 static void beep_poll(void) {
   if (!beep_seq || (int32_t)(now_ms - beep_next) < 0) return;
   uint16_t hz = beep_seq[beep_i];
   if (hz == BEEP_END) {
-    hal_tone(PIN_BUZZER, 0);
+    buzz(0);
     beep_seq = 0;
     return;
   }
-  hal_tone(PIN_BUZZER, hz);
+  buzz(hz);
   beep_next = now_ms + beep_seq[beep_i + 1];
   beep_i += 2;
 }
@@ -1073,7 +1079,7 @@ static void fire(uint8_t mask) {
 static void fast_sample(void) {
   static float pa_last;
   float pa;
-  if (sdp_read(SDP_FILTER, &pa) == 0) {
+  if (sdp_read(0, SDP_FILTER, &pa) == 0) {
     pa_last = pa;
     if (pa < pa_min) {
       /* Обратный перепад: самый глубокий момент — «фронт» удара. */
@@ -2118,11 +2124,11 @@ static void sensors(void) {
   set_fault(F_VAC, vbad && ms > 2000);
   vac.vacuum_kpa += (kpa - vac.vacuum_kpa) * 0.3f;
 
-  /* SDP810 (перепад на фильтре) и SDP811 (расходомер) на одной шине. */
+  /* SDP810 (перепад на фильтре) и SDP811 (расходомер) на одной шине; SDP810-125 расходомером — на второй. */
   for (int b = 0; b < 2; b++) {
     float pa;
-    int addr = b ? SDP_FLOW : SDP_FILTER;
-    if (sdp_read(addr, &pa) == 0) {
+    int bus = b ? vac.flow_bus : 0, addr = b && !vac.flow_bus ? SDP_FLOW : SDP_FILTER;
+    if (sdp_read(bus, addr, &pa) == 0) {
       sdp_err[b] = 0;
       if (b == 0) vac.filter_pa += (pa - vac.filter_pa) * 0.4f;
       else {
@@ -2134,7 +2140,7 @@ static void sensors(void) {
         vac.speed_ms = vac.flow_m3h / 3600.0f / (3.14159265f * d * d / 4.0f);
       }
     } else if (++sdp_err[b] == 20) {
-      sdp_start(addr);
+      sdp_start(bus, addr);
     }
     set_fault(b ? F_SDP_Q : F_SDP_F, sdp_err[b] >= 20);
   }
@@ -2508,9 +2514,15 @@ void vac_setup(void) {
 
   hal_i2c_begin(0, PIN_SDA, PIN_SCL, 400000);
   if (exp_init(exp_out) == 0) exp_sent = exp_out;
-  sdp_start(SDP_FILTER);
-  sdp_start(SDP_FLOW);
+  sdp_start(0, SDP_FILTER);
+  /* Расходомера SDP811 нет — ищем SDP810 на второй шине (IO13/IO14); нет и там — выводы снова UART1. */
+  if (sdp_start(0, SDP_FLOW) != 0) {
+    hal_i2c_begin(1, PIN_SDA2, PIN_SCL2, 100000);
+    if (sdp_start(1, SDP_FILTER) == 0) vac.flow_bus = 1;
+    else hal_i2c_begin(1, PIN_SDA2, PIN_SCL2, 0);
+  }
   link_init();
+  if (vac.flow_bus) hal_log("Расходомер SDP810 — на второй шине I²C (IO13 SDA, IO14 SCL): пульта отдельной платой и голоса нет");
 
   now_ms = hal_millis();
   next_sample = hal_micros();
@@ -2746,6 +2758,7 @@ void vac_command(const char *c) {
     hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, wifi on|off, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
     hal_log("  mains (сеть: ноль, напряжение, ADS1115), mains cal 230 (напряжение по мультиметру, ZMPT101B), mains shift мкс (поправка нуля)");
+    hal_log("  set buzz 0|1 (зуммер: 0 — без генератора, тон из прошивки; 1 — со своим генератором, только вкл/выкл)");
   } else if (str_eq(c, "mains") || str_starts(c, "mains ")) {
     mains_cmd(a);
   } else if (str_eq(c, "status")) {
@@ -3033,6 +3046,9 @@ int vac_status_json(char *buf, int len) {
   json_num(out, "uac", vac.uac ? vac.uac_mv : 0, 0);
   json_num(out, "ucal", vac_ext.u_cal != 0, 0);
   json_num(out, "ads", vac.ads_ok, 0);
+  /* 6.2: расходомер на второй шине I²C, зуммер со своим генератором. */
+  json_num(out, "fbus", vac.flow_bus, 0);
+  json_num(out, "bz", vac_ext.buzz, 0);
   json_num(out, "vacuum", vac.vacuum_kpa, 2);
   json_num(out, "flow", vac.flow_ls, 1);
   json_num(out, "speed", vac.speed_ms, 1);

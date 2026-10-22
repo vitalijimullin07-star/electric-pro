@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "6.1"
+#define VAC_VERSION "6.2"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*
@@ -61,6 +61,10 @@ extern "C" {
 #define PIN_SCL 12
 #define PIN_PNL_TX 13   /* UART1 → плата экрана (если экран отдельной платой), без неё — голос DFPlayer 9600 */
 #define PIN_PNL_RX 14   /* UART1 ← плата экрана */
+/* 6.2: расходомер SDP810-125Pa (тот же адрес 0x25, что у датчика фильтра) — на второй шине I²C на этих
+ * же выводах; тогда пульта отдельной платой и голоса нет. Прошивка находит его сама при пуске. */
+#define PIN_SDA2 13
+#define PIN_SCL2 14
 #define PANEL_BAUD 115200
 #define PIN_ENC_A 21
 #define PIN_ENC_B 47
@@ -342,6 +346,8 @@ typedef struct {
   float uac_mv;           /* ZMPT101B: действующее (СКЗ) переменного на IO7, мВ */
   float uac_crest;        /* … пик к СКЗ: у синуса 1,41, меньше 1,25 — синус срезан (размах велик) */
   float ads_mv[4];        /* ADS1115: напряжения на A0–A3, мВ */
+  /* 6.2 */
+  uint8_t flow_bus;       /* расходомер: 0 — SDP811 (0x26) на общей шине, 1 — SDP810 (0x25) на второй (IO13/IO14) */
 } vac_state_t;
 
 /* Проверки первого пуска (мастер на экране). */
@@ -375,7 +381,8 @@ typedef struct {
 
 typedef struct {
   uint16_t magic;
-  uint8_t version, pad0;
+  uint8_t version;
+  uint8_t buzz;          /* зуммер: 0 — без генератора (тон из прошивки), 1 — со своим генератором (вкл/выкл) */
   uint32_t seq;
   /* турбины и удары */
   uint8_t pw2;           /* ручная мощность турбины 2, % */
@@ -526,12 +533,12 @@ void link_pair(int seconds);
 int link_ble_count(int kind);
 
 /* vac_drv.c: датчики, расширитель, подпись посылок, вспомогательное */
-int sdp_start(int addr);
+int sdp_start(int bus, int addr);
 /* Расширитель: выходы P12, P13 (остальное — входы); 0 — успешно. */
 int exp_init(uint16_t out);
 int exp_write(uint16_t out);
 /* Перепад, Па; 0 — успешно. */
-int sdp_read(int addr, float *pa);
+int sdp_read(int bus, int addr, float *pa);
 /* Входы PCA9555 (16 бит, как есть); 0 — успешно. */
 int exp_read(uint16_t *in);
 /* SipHash-2-4: подпись посылок пульта и меток. */

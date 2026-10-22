@@ -503,7 +503,7 @@ void link_init(void) {
   hal_pin_mode(PIN_ENC_A, HAL_IN_PULLUP);
   hal_pin_mode(PIN_ENC_B, HAL_IN_PULLUP);
   enc_prev = (uint8_t)((hal_pin_read(PIN_ENC_A) << 1) | hal_pin_read(PIN_ENC_B));
-  hal_uart_begin(PIN_PNL_TX, PIN_PNL_RX, PANEL_BAUD);
+  if (!vac.flow_bus) hal_uart_begin(PIN_PNL_TX, PIN_PNL_RX, PANEL_BAUD);
   vac.remote = link_ble_count(BLE_REMOTE) ? 1 : 0;
 }
 

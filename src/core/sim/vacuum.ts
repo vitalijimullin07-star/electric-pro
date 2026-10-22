@@ -147,6 +147,8 @@ interface Triac {
   firedAt: number | null;
   /** Канал твердотельного реле: группы входа (питание модуля и вход канала, включается «0»). */
   ssr?: number[];
+  /** Модуль SSR с управлением высоким уровнем (High Level Trigger): «1» на CHn включает. */
+  ssrHigh?: boolean;
   /** Регулятор мощности МР248: вход «управление» (группа и вывод контроллера), питание модуля. */
   dimmer?: { ctrl?: number; pin?: McuPin; vcc?: number; power: number };
   /** Доля полупериода, когда был открыт в прошлом полупериоде, и квадрат действующего напряжения. */
@@ -459,13 +461,16 @@ export class VacuumPlant {
       attach({ comp, mt1: padNet(comp, fp, 'L'), mt2: padNet(comp, fp, 'OUT'), state: 0, firedAt: null, lastCond: 0, lastU2: 0, dimmer: { ctrl, pin, vcc: groupOf(padNet(comp, fp, 'VCC')), power: 0 } });
     }
     // Твердотельные реле (каналы CHn → выходы SWnA/SWnB): сеть на них — напрямую, без реле.
-    for (const { comp, fp } of this.tagged('ssr-module'))
+    for (const { comp, fp } of this.tagged('ssr-module')) {
+      // Управление низким уровнем — «0» на CHn относительно DC+; высоким (метка ssr-high) — «1» относительно DC−.
+      const high = !!fp.tags?.includes('ssr-high');
       for (let ch = 1; ch <= 8; ch++) {
         const inp = padNet(comp, fp, `CH${ch}`);
         if (!inp) break;
-        const coil = [groupOf(padNet(comp, fp, 'DC+')), groupOf(inp)].filter((g): g is number => g !== undefined);
-        attach({ comp, mt1: padNet(comp, fp, `SW${ch}A`), mt2: padNet(comp, fp, `SW${ch}B`), state: 0, firedAt: null, lastCond: 0, lastU2: 0, ssr: coil }, false);
+        const coil = [groupOf(padNet(comp, fp, high ? 'DC-' : 'DC+')), groupOf(inp)].filter((g): g is number => g !== undefined);
+        attach({ comp, mt1: padNet(comp, fp, `SW${ch}A`), mt2: padNet(comp, fp, `SW${ch}B`), state: 0, firedAt: null, lastCond: 0, lastU2: 0, ssr: coil, ssrHigh: high }, false);
       }
+    }
     // Варисторы на катушках и в сети — часть установки (в логической схеме им делать нечего).
     for (const { comp } of this.tagged('varistor')) this.claimed.add(comp.id);
     // Без симистора — через контакт реле (розетка инструмента за реле 30 А).
@@ -516,7 +521,7 @@ export class VacuumPlant {
       }
       // Катушка: ключ меняет «висит» на «0» без смены уровня — проверяем при любом изменении.
       for (const r of this.relays) this.relayUpdate(r);
-      // Вход SSR — «0» включает: у нуля сети откроется сразу, иначе — в следующем полупериоде.
+      // Вход SSR («0», у модуля High Level — «1»): у нуля сети откроется сразу, иначе — в следующем полупериоде.
       for (const t of this.triacs) if (t.ssr?.includes(g)) this.gateOn(t, (cycle / this.freq) * 1e6);
       if (lvl !== 1) return;
       for (const t of this.triacs) if (t.moc && t.moc.led === g) this.gateOn(t, (cycle / this.freq) * 1e6);
@@ -542,6 +547,15 @@ export class VacuumPlant {
     return vcc && low;
   }
 
+  /** Вход с управлением высоким уровнем: одна группа — земля, на другой «1». */
+  private inputHigh(coil: number[]): boolean {
+    const c = this.c;
+    if (coil.length < 2) return false;
+    const gnd = coil.some((g) => c.groups[g].power === 'gnd');
+    const high = coil.some((g) => !c.groups[g].power && !c.isFloating(g) && c.levelOf(g) === 1);
+    return gnd && high;
+  }
+
   /** Контакт догоняет катушку: срабатывание 8 мс, отпускание 4 мс. */
   private relayUpdate(r: Relay): void {
     const cmd = this.relayEnergized(r);
@@ -564,7 +578,7 @@ export class VacuumPlant {
   }
 
   private ledOn(t: Triac): boolean {
-    if (t.ssr) return t.state !== 2 && this.coilEnergized(t.ssr);
+    if (t.ssr) return t.state !== 2 && (t.ssrHigh ? this.inputHigh(t.ssr) : this.coilEnergized(t.ssr));
     const m = t.moc;
     if (!m || m.led === undefined || !m.ledGnd) return false;
     return this.c.levelOf(m.led) === 1 && !this.c.isFloating(m.led) && m.ma >= m.needMa;

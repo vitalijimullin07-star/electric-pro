@@ -64,7 +64,7 @@ describe('Пылесос S3 навесным монтажом: ZMPT101B и ADS11
     const { sim, sec, status, dev } = start();
     sec(2);
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.1');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.2');
     expect(sim.serial).toContain('АЦП ADS1115 есть (термисторы на A0, A1)');
     expect(sim.serial).toContain('Ноль сети: ZMPT101B (меандр на IO48)');
     expect(sim.serial).toContain('Напряжение сети: ZMPT101B на IO7 — откалибруйте');
@@ -167,5 +167,87 @@ describe('Пылесос S3 навесным монтажом: ZMPT101B и ADS11
     expect(sim.serial).toContain('АЦП ADS1115 нет');
     expect(status().zck).toBe(2);
     expect(status().faults & F_NTC1).toBe(F_NTC1);
+  });
+});
+
+const F_SDP_F = 1 << 17;
+const F_SDP_Q = 1 << 18;
+
+describe('Стенд на двух турбинах (прошивка 6.2): расходомер на второй шине I²C, SSR High Level, зуммер', () => {
+  function stand() {
+    const p = buildVacuumS3Wired(fw, panelFw, { stand: true });
+    const sim = Simulation.createSync(p);
+    const sec = (s: number) => sim.run(Math.round(s * 1e6));
+    const status = () => JSON.parse((sim.mcu as Esp32).statusJson()!) as Record<string, number>;
+    const dev = (re: RegExp): Device => {
+      const d = sim.devices.find((x) => re.test(x.view().title));
+      if (!d) throw new Error(`нет устройства ${re}`);
+      return d;
+    };
+    const cmd = (line: string) => {
+      sim.serialWrite(line + '\n');
+      sec(0.3);
+    };
+    sec(1);
+    return { p, sim, sec, status, dev, cmd };
+  }
+
+  test('выводы: IO13/IO14 — вторая шина I²C, розетки нет, SSR — прямо от IO40/IO41', () => {
+    const p = buildVacuumS3Wired(undefined, undefined, { stand: true });
+    const by = (ref: string) => Object.values(p.components).find((c) => c.ref === ref)!;
+    const netOf = (ref: string, pin: string) => {
+      const c = by(ref);
+      const pad = p.footprints[c.footprint].pads.find((q) => q.name === pin)!;
+      return p.nets[c.padNets[pad.number]]?.name;
+    };
+    expect(netOf('A1', 'IO13')).toBe('SDA2');
+    expect(netOf('A1', 'IO14')).toBe('SCL2');
+    expect(netOf('B3', 'SDA')).toBe('SDA2');
+    expect(netOf('U3', 'CH1')).toBe('VLV1');
+    expect(netOf('A1', 'IO40')).toBe('VLV1');
+    expect(netOf('HL1', 'A')).toBe('5V');
+    const refs = Object.values(p.components).map((c) => c.ref);
+    for (const r of ['K3', 'XS1', 'TA3', 'DD3', 'DA2', 'VT5', 'VT6']) expect(refs).not.toContain(r);
+    for (const r of ['R72', 'R73', 'K1', 'K2', 'U3', 'B2', 'B3', 'DD2', 'DD4', 'U5']) expect(refs).toContain(r);
+  });
+
+  test('SDP810-125 (0x25) на IO13/IO14 найден сам; навесной вариант с SDP811 — на общей шине', () => {
+    const { sim, status } = stand();
+    expect(sim.unknown).toEqual([]);
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.2');
+    expect(sim.serial).toContain('Расходомер SDP810 — на второй шине I²C');
+    expect(status().fbus).toBe(1);
+    expect(status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);
+    const w = start();
+    expect(w.status().fbus).toBe(0);
+    expect(w.status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);
+  });
+
+  test('турбина на стенде: расход с SDP810-125, магниты клапанов держат через SSR High Level, удары идут', () => {
+    const { sec, status, dev, cmd } = stand();
+    cmd('mode m');
+    cmd('pw 100');
+    const t1 = dev(/SB7/);
+    t1.press!(true);
+    sec(0.1);
+    t1.press!(false);
+    sec(6);
+    expect(status().flow).toBeGreaterThan(5);
+    const ssr = dev(/U3 .*канал 1/);
+    expect(ssr.view().readings!.find((x) => x.label === 'открыт')!.value).toBeGreaterThan(90);
+    cmd('purge');
+    let imp = 0;
+    for (let i = 0; i < 20; i++) sec(0.2), (imp = Math.max(imp, status().imp));
+    expect(imp).toBeGreaterThan(0);
+    expect(status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);
+  });
+
+  test('зуммер со своим генератором: set buzz 1 — вывод IO45 просто «1» на время сигнала', () => {
+    const { sim, status, cmd } = stand();
+    cmd('set buzz 1');
+    expect(sim.serial).toContain('Зуммер со своим генератором');
+    expect(status().bz).toBe(1);
+    cmd('set buzz 0');
+    expect(status().bz).toBe(0);
   });
 });

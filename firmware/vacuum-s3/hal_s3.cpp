@@ -36,17 +36,25 @@ void hal_pin_irq(int pin) {
 
 int hal_adc_mv(int pin) { return analogReadMilliVolts(pin); }
 
-int hal_i2c_begin(int bus, int sda, int scl, uint32_t hz) { return Wire.begin(sda, scl, hz) ? 0 : 1; }
+/* Шина 0 — датчики (IO11/IO12), шина 1 — расходомер SDP810 на IO13/IO14 (6.2). hz = 0 — освободить выводы. */
+static TwoWire &i2c(int bus) { return bus ? Wire1 : Wire; }
+
+int hal_i2c_begin(int bus, int sda, int scl, uint32_t hz) {
+  if (!hz) return i2c(bus).end() ? 0 : 1;
+  return i2c(bus).begin(sda, scl, hz) ? 0 : 1;
+}
 
 int hal_i2c_write(int bus, int addr, const uint8_t *data, int len) {
-  Wire.beginTransmission((uint8_t)addr);
-  Wire.write(data, (size_t)len);
-  return Wire.endTransmission();
+  TwoWire &w = i2c(bus);
+  w.beginTransmission((uint8_t)addr);
+  w.write(data, (size_t)len);
+  return w.endTransmission();
 }
 
 int hal_i2c_read(int bus, int addr, uint8_t *data, int len) {
-  if (Wire.requestFrom((uint8_t)addr, (size_t)len) != (size_t)len) return 1;
-  for (int i = 0; i < len; i++) data[i] = (uint8_t)Wire.read();
+  TwoWire &w = i2c(bus);
+  if (w.requestFrom((uint8_t)addr, (size_t)len) != (size_t)len) return 1;
+  for (int i = 0; i < len; i++) data[i] = (uint8_t)w.read();
   return 0;
 }
 
@@ -61,7 +69,12 @@ void hal_pwm(int pin, uint32_t hz, int permille) {
   ledcWrite(pin, (uint32_t)(permille < 0 ? 0 : permille > 1000 ? 1023 : permille * 1023 / 1000));
 }
 
+/* Тон зуммера без генератора; 0 — тишина и вывод снова обычный (зуммеру со своим генератором — hal_pin_write). */
 void hal_tone(int pin, uint32_t hz) {
+  if (!hz) {
+    if (tone_attached) ledcDetach(pin), tone_attached = 0, pinMode(pin, OUTPUT), digitalWrite(pin, LOW);
+    return;
+  }
   if (!tone_attached) {
     ledcAttach(pin, 2000, 8);
     tone_attached = 1;
@@ -90,7 +103,7 @@ void hal_voice_write(const uint8_t *data, int len) {
 }
 
 void hal_uart_write(const char *data, int len) {
-  if (!uart_mute && !voice_on) Serial1.write((const uint8_t *)data, (size_t)len);
+  if (!uart_mute && !voice_on && uart_baud_set) Serial1.write((const uint8_t *)data, (size_t)len);
   /* Те же строки — интерфейсу пульта на экране контроллера (lcd_s3.cpp). */
   lcd_rx_put(data, len);
 }

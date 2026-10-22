@@ -118,6 +118,7 @@ static void ext_load(void) {
   if (vac_ext.volume > 30) vac_ext.volume = 22;
   if (vac_ext.nsvc > N_FSVC) vac_ext.nsvc = 0;
   if (vac_ext.wall > 1) vac_ext.wall = 0;
+  if (vac_ext.buzz > 1) vac_ext.buzz = 0;
 }
 
 /* ---------------- часы ---------------- */
@@ -417,7 +418,7 @@ static uint32_t ub_last;
 static uint8_t v_blocked;
 
 static void voice_line(void) {
-  int on = vac_ext.voice > 0 && !v_blocked && vac.uptime_s >= 3;
+  int on = vac_ext.voice > 0 && !v_blocked && !vac.flow_bus && vac.uptime_s >= 3;
   if (on != v_line) {
     hal_voice_begin(on);
     v_line = (uint8_t)on;
@@ -965,6 +966,10 @@ int ext_command(const char *c, const char *a) {
     }
     else if (str_starts(a, "classm ")) vac_ext.classm = str_to_int(a + 7) ? 1 : 0;
     else if (str_starts(a, "clicks ")) vac_ext.clicks = str_to_int(a + 7) ? 1 : 0;
+    else if (str_starts(a, "buzz ") && in(str_to_int(a + 5), 0, 1)) {
+      vac_ext.buzz = (uint8_t)str_to_int(a + 5);
+      hal_log(vac_ext.buzz ? "Зуммер со своим генератором: только вкл/выкл" : "Зуммер без генератора: тон из прошивки");
+    }
     else if (str_starts(a, "washk ") && in(str_to_int(a + 6), 120, 400)) vac_ext.wash_k = (uint16_t)str_to_int(a + 6);
     else if (str_starts(a, "intakelim ") && in(str_to_int(a + 10), 1000, 200000)) vac_ext.intake_lim = (uint32_t)str_to_int(a + 10);
     else if (str_starts(a, "seallim ") && in(str_to_int(a + 8), 1000, 500000)) vac_ext.seal_lim = (uint32_t)str_to_int(a + 8);

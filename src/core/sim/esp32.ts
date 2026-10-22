@@ -199,8 +199,10 @@ export class Esp32 implements SimMcu {
         hal_micros: () => this.now >>> 0,
         hal_millis: () => Math.floor(this.now / 1000) >>> 0,
         hal_adc_mv: (n: number) => this.adc(pin(n)),
-        hal_i2c_begin: (bus: number, sda: number, scl: number) => {
-          this.buses[bus] = { sda: pin(sda), scl: pin(scl) };
+        hal_i2c_begin: (bus: number, sda: number, scl: number, hz: number) => {
+          // hz = 0 — шину освободить (выводы снова свободны, например под UART1).
+          if (!hz) delete this.buses[bus];
+          else this.buses[bus] = { sda: pin(sda), scl: pin(scl) };
           return 0;
         },
         hal_i2c_write: (bus: number, addr: number, ptr: number, len: number) => {

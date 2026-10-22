@@ -146,14 +146,14 @@ static uint8_t crc8(const uint8_t *d, int n) {
 }
 
 /* Непрерывное измерение перепада с усреднением до чтения (команда 0x3615). */
-int sdp_start(int addr) {
+int sdp_start(int bus, int addr) {
   const uint8_t cmd[2] = {0x36, 0x15};
-  return hal_i2c_write(0, addr, cmd, 2);
+  return hal_i2c_write(bus, addr, cmd, 2);
 }
 
-int sdp_read(int addr, float *pa) {
+int sdp_read(int bus, int addr, float *pa) {
   uint8_t d[9];
-  if (hal_i2c_read(0, addr, d, 9)) return 1;
+  if (hal_i2c_read(bus, addr, d, 9)) return 1;
   if (crc8(d, 2) != d[2] || crc8(d + 6, 2) != d[8]) return 2;
   int16_t raw = (int16_t)((d[0] << 8) | d[1]);
   int16_t scale = (int16_t)((d[6] << 8) | d[7]);

@@ -52,17 +52,77 @@ export function wiredParts(): ModPart[] {
   return out;
 }
 
+/** Выводы ESP32-S3 стенда на двух турбинах: розетки нет (IO6, IO42 свободны), расходомер SDP810-125 — на второй шине I²C. */
+export const STAND2_PINS: Record<string, string> = (() => {
+  const m: Record<string, string> = { ...WIRED_PINS, IO13: 'SDA2', IO14: 'SCL2' };
+  delete m.IO6;
+  delete m.IO42;
+  return m;
+})();
+
+/** Стенду не нужны: розетка инструмента (реле, автомат, ТТ), весы, голос, пульт и метка Bluetooth; ключи SSR — у модуля High Level свои. */
+const STAND2_DROP = new Set(['K3', 'QF1', 'TA3', 'XS1', 'R22', 'C22', 'R54', 'R55', 'VT4', 'R56', 'VT5', 'R58', 'VT6', 'DD3', 'B4', 'DA2', 'BA2', 'HG2', 'HG3', 'R37']);
+
+/**
+ * Стенд на двух турбинах (6.2) — то, что куплено: ESP32-S3 N8R8, модуль SSR G3MB-202P с управлением высоким уровнем
+ * (CH1, CH2 — прямо от IO40, IO41), расходомер SDP810-125Pa (адрес тот же, что у SDP810-500 фильтра) — на второй
+ * шине I²C IO13/IO14, светодиод 5 В со встроенным резистором, кнопки DS-316, часы DS3231, термисторы через ADS1115.
+ */
+export function stand2Parts(): ModPart[] {
+  const out: ModPart[] = [];
+  for (const p0 of wiredParts()) {
+    if (STAND2_DROP.has(p0.ref)) continue;
+    const p: ModPart = { ...p0, pins: { ...p0.pins } };
+    if (p.ref === 'A1') {
+      p.value = 'ESP32-S3 N8R8';
+      p.pins = { GND: 'GND', '3V3': '3V3', '5V': '5V', ...STAND2_PINS };
+      p.description = 'Плата ESP32-S3 N8R8 с двумя USB-C (клон DevKitC-1): 5 В от блока питания — на вывод 5Vin, 3,3 В для датчиков — с её вывода 3V3. IO35–IO37 заняты памятью. Перемычку «RGB» разомкнуть: светодиод платы сидит на IO48 (ноль сети)';
+    }
+    if (p.ref === 'U3') {
+      p.value = 'G3MB-202P ×2 (High Level)';
+      p.fp = 'Module_SSR_G3MB_2ch_HL_Wires';
+      p.pins = { ...p.pins, CH1: 'VLV1', CH2: 'VLV2' };
+      p.description = 'Модуль твердотельных реле G3MB-202P на 2 канала, управление высоким уровнем: DC+ — 5 В, DC− — земля, CH1 — IO40, CH2 — IO41 (без транзисторов); выходы — фаза на магниты клапанов';
+    }
+    if (p.ref === 'R57' || p.ref === 'R59') p.description = `Стяжка входа CH${p.ref === 'R57' ? 1 : 2} реле клапана к земле: пока контроллер стартует, магнит обесточен`;
+    if (p.ref === 'B3') {
+      p.value = 'SDP810-125Pa';
+      p.pins = { VDD: '3V3', GND: 'GND', SCL: 'SCL2', SDA: 'SDA2' };
+      p.description = 'Расходомер SDP810-125Pa (сопло Вентури): адрес 0x25, как у датчика фильтра, поэтому — на второй шине I²C: SDA — IO13, SCL — IO14';
+    }
+    if (p.ref === 'HL1') {
+      p.value = '5 В (резистор внутри)';
+      p.pins = { A: '5V', K: 'LED_K' };
+      p.description = 'Светодиод «состояние» на 5 В со встроенным резистором: анод — 5 В, катод — P13 расширителя (горит при «0»)';
+    }
+    if (p.ref === 'BA1') {
+      p.value = 'Зуммер активный 5 В';
+      p.description = 'Зуммер со своим генератором 1–12 В: «+» — 5 В, «−» — коллектор ключа; в прошивке — set buzz 1 (без генератора — set buzz 0)';
+    }
+    if (/^SB\d$/.test(p.ref)) p.value = `DS-316: ${p.value}`;
+    if (p.ref === 'DD2') p.value = 'DS3231 (for Pi)';
+    out.push(p);
+  }
+  out.push(
+    R('R72', '4,7k', 'Подтяжка SDA второй шины I²C (IO13) к 3,3 В', 'SDA2', '3V3'),
+    R('R73', '4,7k', 'Подтяжка SCL второй шины I²C (IO14) к 3,3 В', 'SCL2', '3V3'),
+  );
+  return out;
+}
+
 /**
  * Навесной вариант: детали и цепи без платы и дорожек. firmware — ядро прошивки в
  * WebAssembly (firmware/vacuum-s3), panel — интерфейс экрана (firmware/vacuum-panel).
+ * stand — стенд на двух турбинах из того, что куплено (stand2Parts).
  */
-export function buildVacuumS3Wired(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }): Project {
-  const p = createProject({ name: 'Пылесос S3 навесным монтажом', width: 100, height: 60, copperLayers: 2 });
+export function buildVacuumS3Wired(firmware?: { name: string; wasm: string }, panel?: { name: string; wasm: string }, opts: { stand?: boolean } = {}): Project {
+  const p = createProject({ name: opts.stand ? 'Пылесос S3 — стенд на двух турбинах' : 'Пылесос S3 навесным монтажом', width: 100, height: 60, copperLayers: 2 });
   p.meta.author = 'Plata';
-  p.meta.description =
-    'Контроллер пылесоса S3 без платы, навесным монтажом: ESP32-S3-DevKitC-1, блок питания 5 В 3 А, ZMPT101B (ноль и напряжение сети на IO48 и IO7), ADS1115 (термисторы), PCA9555, модули реле 30 А, МР248, SSR G3MB, SCT-013 (1 В), датчики и экран ILI9488.';
+  p.meta.description = opts.stand
+    ? 'Стенд на двух турбинах навесным монтажом (прошивка 6.2): ESP32-S3 N8R8, блок питания 5 В 3 А, ZMPT101B, ADS1115, TCA9555, реле 30 А, МР248, SSR G3MB-202P High Level, SCT-013-020, SDP810-500 и SDP810-125 (вторая шина I²C), MPX5100DP, DS3231, BME280, экран ILI9488.'
+    : 'Контроллер пылесоса S3 без платы, навесным монтажом: ESP32-S3-DevKitC-1, блок питания 5 В 3 А, ZMPT101B (ноль и напряжение сети на IO48 и IO7), ADS1115 (термисторы), PCA9555, модули реле 30 А, МР248, SSR G3MB, SCT-013 (1 В), датчики и экран ILI9488.';
   let x = 0;
-  for (const part of wiredParts()) {
+  for (const part of opts.stand ? stand2Parts() : wiredParts()) {
     const c = addComponent(p, footprintOf(part.fp), { x, y: -30 }, { ref: part.ref, value: part.value, description: part.description });
     x += 12;
     if (part.offBoard) c.offBoard = true;
