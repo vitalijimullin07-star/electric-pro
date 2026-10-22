@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createHash } from 'node:crypto';
 import { unzlibSync } from 'fflate';
-import { OP, SlipReader, checksum, flashEsp32s3, md5hex, slipEncode, type FlashPort } from '../src/pylesos/apk/esp-flash';
+import { EspLoader, OP, SlipReader, checksum, flashEsp32s3, md5hex, slipEncode, type FlashPort } from '../src/pylesos/apk/esp-flash';
 
 /*
  * Прошивка ESP32-S3 из приложения по кабелю (src/pylesos/apk/esp-flash.ts): против имитации загрузчика
@@ -22,8 +22,30 @@ class FakeRom implements FlashPort {
   /** Порча: первый блок данных с неверной суммой — загрузчик сообщит об ошибке. */
   corrupt = false;
   flashSize = 0;
+  /** Обычный ESP32 за переходником USB-UART: другой код чипа, 4 слова в начале записи, своя скорость. */
+  classic = false;
+  baud = 115200;
+  portBaud = 115200;
+  private enLow = false;
+
+  async setBaud(b: number): Promise<void> {
+    this.portBaud = b;
+  }
 
   async lines(dtr: boolean, rts: boolean): Promise<void> {
+    if (this.classic) {
+      // Два транзистора платы: EN = !(RTS && !DTR), IO0 = !(DTR && !RTS).
+      const en = !(rts && !dtr);
+      const io0 = !(dtr && !rts);
+      if (!en) this.enLow = true;
+      else if (this.enLow) {
+        this.enLow = false;
+        this.mode = io0 ? 'app' : 'download';
+        this.boots.push(this.mode);
+        this.baud = 115200;
+      }
+      return;
+    }
     if (dtr && !rts) this.dl = true;
     if (this.rts && !rts) {
       this.mode = this.dl ? 'download' : 'app';
@@ -37,6 +59,7 @@ class FakeRom implements FlashPort {
 
   async write(data: Uint8Array): Promise<void> {
     if (this.mode !== 'download') return;
+    if (this.classic && this.portBaud !== this.baud) return; // на чужой скорости — мусор
     this.rx.push(data);
     while (this.rx.frames.length) this.handle(this.rx.frames.shift()!);
   }
@@ -63,14 +86,14 @@ class FakeRom implements FlashPort {
         for (let i = 0; i < 8; i++) this.reply(op, 0x20120707);
         return;
       case OP.READ_REG:
-        return this.reply(op, w(0) === 0x40001000 ? 9 : 0);
+        return this.reply(op, w(0) === 0x40001000 ? (this.classic ? 0x00f01d83 : 9) : w(0) === 0x3ff5a004 ? 0xa1b2c3d4 : w(0) === 0x3ff5a008 ? 0x0000e5f6 : 0);
       case OP.SPI_ATTACH:
         return this.reply(op);
       case OP.SPI_SET_PARAMS:
         this.flashSize = w(1);
         return this.reply(op);
       case OP.DEFL_BEGIN: {
-        expect(len).toBe(20); // у ESP32-S3 в ПЗУ — пятое слово «шифровать»
+        expect(len).toBe(this.classic ? 16 : 20); // у ESP32-S3 в ПЗУ — пятое слово «шифровать», у ESP32 его нет
         const addr = w(3);
         const erase = w(0);
         expect(erase % 0x400).toBe(0);
@@ -98,6 +121,10 @@ class FakeRom implements FlashPort {
         const hex = createHash('md5').update(this.flash.subarray(w(0), w(0) + w(1))).digest('hex');
         return this.reply(op, 0, [...new TextEncoder().encode(hex)]);
       }
+      case OP.CHANGE_BAUD:
+        this.reply(op);
+        this.baud = w(0);
+        return;
       default:
         return this.reply(op, 0, [], 1, 0x05);
     }
@@ -144,5 +171,40 @@ describe('Прошивка ESP32-S3 по кабелю из приложения'
     const rom = new FakeRom();
     rom.corrupt = true;
     await expect(flashEsp32s3(rom, [{ addr: 0x10000, data: rnd(5000, 9), name: 'программа' }], 8 << 20)).rejects.toThrow('неверная контрольная сумма');
+  });
+});
+
+describe('Прошивальщик ESP32: обычный ESP32 за переходником (CH340)', () => {
+  test('сброс через RTS/DTR, чип и MAC, скорость 460800, запись с 0x1000 (четыре слова), проверка', async () => {
+    const rom = new FakeRom();
+    rom.classic = true;
+    const ld = new EspLoader(rom);
+    await ld.classicReset();
+    expect(rom.boots).toEqual(['download']);
+    await ld.sync();
+    const chip = await ld.detect();
+    expect(chip.name).toBe('ESP32');
+    expect(chip.bootAddr).toBe(0x1000);
+    expect(await ld.readMac()).toBe('e5:f6:a1:b2:c3:d4');
+    await ld.changeBaud(460800);
+    expect(rom.baud).toBe(460800);
+    expect(rom.portBaud).toBe(460800);
+    const images = [
+      { addr: 0x1000, data: rnd(24000, 5), name: 'загрузчик' },
+      { addr: 0x10000, data: rnd(200_000, 6), name: 'программа' },
+    ];
+    await ld.flash(images, 4 << 20, undefined, '');
+    for (const im of images) expect(rom.flash.subarray(im.addr, im.addr + im.data.length)).toEqual(im.data);
+    await ld.hardReset();
+    expect(rom.boots).toEqual(['download', 'app']);
+  });
+
+  test('ждали ESP32-S3, а это ESP32 — отказ до записи', async () => {
+    const rom = new FakeRom();
+    rom.classic = true;
+    const ld = new EspLoader(rom);
+    await ld.classicReset();
+    await ld.sync();
+    await expect(ld.flash([{ addr: 0x10000, data: rnd(100, 1), name: 'x' }], 4 << 20)).rejects.toThrow('Это не ESP32-S3, а ESP32');
   });
 });

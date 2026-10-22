@@ -93,6 +93,12 @@ final class Bridge {
         act.pickFile();
     }
 
+    /** Открыт экран пылесоса — связь быстрее (интервал и 2M PHY), закрыт — как обычно. */
+    @JavascriptInterface
+    public void fast(boolean on) {
+        VacService.command(act, VacService.ACT_FAST, on ? "1" : "0");
+    }
+
     @JavascriptInterface
     public void send(String line) {
         VacService.command(act, VacService.ACT_SEND, line);

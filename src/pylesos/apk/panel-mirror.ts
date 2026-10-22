@@ -9,8 +9,11 @@ export class PanelMirror implements PanelSource {
   lastRx = 0;
   private w: Worker | null = null;
 
-  /** send — команда пылесосу (строки копии экрана: касания, «hi2»). */
-  constructor(private send: (line: string) => void) {}
+  /** send — команда пылесосу (строки копии экрана: касания, «hi2»), fast — быстрая связь, пока экран открыт. */
+  constructor(
+    private send: (line: string) => void,
+    private fast: (on: boolean) => void = () => {},
+  ) {}
 
   private start(): Worker {
     if (this.w) return this.w;
@@ -37,6 +40,7 @@ export class PanelMirror implements PanelSource {
   }
 
   view(on: boolean): void {
+    this.fast(on);
     this.start().postMessage({ view: on });
   }
 

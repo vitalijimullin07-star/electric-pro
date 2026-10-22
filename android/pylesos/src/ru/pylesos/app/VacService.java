@@ -51,7 +51,7 @@ public final class VacService extends Service {
 
     static volatile Listener listener;
 
-    static final String ACT_CONNECT = "connect", ACT_HURRY = "hurry", ACT_STOP = "stop", ACT_FORGET = "forget", ACT_SEND = "send";
+    static final String ACT_CONNECT = "connect", ACT_HURRY = "hurry", ACT_STOP = "stop", ACT_FORGET = "forget", ACT_SEND = "send", ACT_FAST = "fast";
     static final UUID SVC = UUID.fromString("5a3c0001-8d2e-4f1b-9a37-6b0e4c2d7f10");
     static final UUID CMD = UUID.fromString("5a3c0002-8d2e-4f1b-9a37-6b0e4c2d7f10");
     static final UUID STATUS = UUID.fromString("5a3c0003-8d2e-4f1b-9a37-6b0e4c2d7f10");
@@ -81,7 +81,7 @@ public final class VacService extends Service {
     static void command(Context c, String action, String arg) {
         Intent i = new Intent(c, VacService.class).setAction(action);
         if (arg != null) i.putExtra("arg", arg);
-        if (ACT_SEND.equals(action) || ACT_STOP.equals(action) || ACT_FORGET.equals(action)) {
+        if (ACT_SEND.equals(action) || ACT_STOP.equals(action) || ACT_FORGET.equals(action) || ACT_FAST.equals(action)) {
             // Команды — только работающей службе (не поднимаем её ради них).
             VacService s = inst;
             if (s != null) s.h.post(() -> s.handle(action, arg));
@@ -168,6 +168,10 @@ public final class VacService extends Service {
             case ACT_SEND:
                 if (arg != null) send(arg);
                 break;
+            case ACT_FAST:
+                fast = "1".equals(arg);
+                applyFast();
+                break;
             case ACT_STOP:
                 stopping = true;
                 closeGatt();
@@ -188,6 +192,22 @@ public final class VacService extends Service {
             default:
                 stopping = false;
                 if (gatt == null) begin(true);
+        }
+    }
+
+    /** Открыт экран пылесоса: строки экрана идут потоком (~3 КБ/с) — короткий интервал связи и 2M PHY. */
+    private boolean fast;
+
+    @SuppressWarnings("MissingPermission")
+    private void applyFast() {
+        BluetoothGatt g = gatt;
+        if (g == null || !"on".equals(state)) return;
+        try {
+            g.requestConnectionPriority(fast ? BluetoothGatt.CONNECTION_PRIORITY_HIGH : BluetoothGatt.CONNECTION_PRIORITY_BALANCED);
+            if (fast && Build.VERSION.SDK_INT >= 26)
+                g.setPreferredPhy(BluetoothDevice.PHY_LE_2M_MASK, BluetoothDevice.PHY_LE_2M_MASK, BluetoothDevice.PHY_OPTION_NO_PREFERRED);
+        } catch (SecurityException ignored) {
+            /* нет разрешения — работаем как есть */
         }
     }
 
@@ -379,6 +399,7 @@ public final class VacService extends Service {
                     BluetoothDevice d = gatt.getDevice();
                     Bridge.prefs(VacService.this).edit().putString("addr", d.getAddress()).putString("name", devName).putBoolean("link", true).apply();
                     setState("on");
+                    applyFast();
                     Alerts.get(VacService.this).linkBack();
                     opDone();
                 });

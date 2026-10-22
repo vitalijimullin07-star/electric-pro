@@ -33,6 +33,8 @@ export interface NativeApi {
   usbWrite(b64: string): boolean;
   usbLines(dtr: boolean, rts: boolean): void;
   usbClose(): void;
+  /** Быстрая связь, пока открыт экран пылесоса. */
+  fast?(on: boolean): void;
   /** Выбрать файл (прошивку): ответ — событие {t:'file', name, len} или {t:'file', err}, данные — запросом /__picked. */
   pickFile(): void;
 }
@@ -121,7 +123,7 @@ export class NativeLink implements Link {
   onClose: ((why: string) => void) | null = null;
   onLink: ((state: LinkState, name: string) => void) | null = null;
   /** Копия экрана пылесоса: строки «#…» из журнала — ей, её строки — пылесосу командами (не в журнал). */
-  readonly panel = new PanelMirror((line) => this.api.send(line));
+  readonly panel = new PanelMirror((line) => this.api.send(line), (on) => this.api.fast?.(on));
   state: LinkState = 'off';
   name = '';
 

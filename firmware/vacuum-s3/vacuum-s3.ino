@@ -29,6 +29,9 @@
 #include <BLEServer.h>
 #include <BLESecurity.h>
 #include <BLEUtils.h>
+#include "host/ble_gap.h"
+#include "host/ble_gatt.h"
+#include "host/ble_hs_mbuf.h"
 #include <Preferences.h>
 #include <Update.h>
 #include <WebServer.h>
@@ -234,63 +237,88 @@ static void phone_setup() {
   BLEDevice::getScan()->start(0, nullptr, false);
 }
 
-/* Строка кусками по MTU, в конце «\n». */
-static void ble_send_line(BLECharacteristic *c, const char *s, int n) {
-  uint16_t mtu = ble_srv->getPeerMTU(ble_srv->getConnId());
-  int part = mtu > 23 ? mtu - 3 : 20;
-  if (part > 240) part = 240;
-  static uint8_t buf[244];
-  for (int i = 0; i < n + 1; i += part) {
-    int k = n + 1 - i < part ? n + 1 - i : part;
-    for (int j = 0; j < k; j++) buf[j] = i + j < n ? (uint8_t)s[i + j] : '\n';
-    c->setValue(buf, k);
-    c->notify();
+/* Очередь уведомлений: строки (с «\n») кусками по MTU. Кусок, не влезший в буферы NimBLE, не теряется — он
+ * уходит в следующий проход (у BLECharacteristic::notify() такой кусок пропадал, и строки склеивались). */
+struct NotifyQ {
+  BLECharacteristic *ch;
+  uint8_t *buf;
+  int size, len;
+  /* Строку целиком или ничего (если места нет). */
+  bool push(const char *pre, const char *s, int n) {
+    int p = pre ? strlen(pre) : 0;
+    if (len + p + n + 1 > size) return false;
+    memcpy(buf + len, pre, p);
+    memcpy(buf + len + p, s, n);
+    buf[len + p + n] = '\n';
+    len += p + n + 1;
+    return true;
   }
-}
+  /* Сколько можно — по куску на уведомление. */
+  void pump(uint16_t conn) {
+    if (!len) return;
+    struct ble_gap_conn_desc desc;
+    /* Журнал и состояние — только сопряжённому телефону (связь зашифрована). */
+    if (ble_gap_conn_find(conn, &desc) != 0 || !desc.sec_state.encrypted) return;
+    uint16_t mtu = ble_srv->getPeerMTU(conn);
+    int part = mtu > 23 ? mtu - 3 : 20;
+    if (part > 240) part = 240;
+    int sent = 0;
+    for (int k = 0; k < 6 && sent < len; k++) {
+      int n = len - sent < part ? len - sent : part;
+      os_mbuf *om = ble_hs_mbuf_from_flat(buf + sent, n);
+      if (!om) break;
+      if (ble_gatts_notify_custom(conn, ch->getHandle(), om) != 0) break; /* буферы заняты — потом */
+      sent += n;
+    }
+    if (sent) memmove(buf, buf + sent, len - sent), len -= sent;
+  }
+};
+static uint8_t q_stat_buf[2048], q_log_buf[8192];
+static NotifyQ q_stat = {nullptr, q_stat_buf, sizeof q_stat_buf, 0}, q_log = {nullptr, q_log_buf, sizeof q_log_buf, 0};
 
 static void phone_poll() {
   PhoneCmd m;
   while (xQueueReceive(phone_q, &m, 0) == pdTRUE) vac_command(m.s);
   vac.phone = phone_on;
-  if (!phone_on) return;
+  if (!phone_on) {
+    q_stat.len = q_log.len = 0;
+    return;
+  }
+  q_stat.ch = ch_stat, q_log.ch = ch_log;
   static uint32_t last;
-  if (millis() - last >= 500) {
+  /* Состояние — раз в 0,5 с, если прошлое уже ушло (иначе ждём: телефону нужно свежее, а не очередь). */
+  if (millis() - last >= 500 && !q_stat.len) {
     last = millis();
     static char buf[1800];
     int n = vac_status_json(buf, sizeof buf);
-    if (n > 0) ble_send_line(ch_stat, buf, n);
+    if (n > 0) q_stat.push(nullptr, buf, n);
   }
-  /* Журнал — по строке за проход. */
-  if (ble_log_sent < log_seq) {
+  /* Журнал — по строке, пока есть место (строки не теряются). */
+  while (ble_log_sent < log_seq) {
     if (ble_log_sent < log_seq - LOG_N) ble_log_sent = log_seq - LOG_N;
     char line[LOG_LEN];
     portENTER_CRITICAL(&log_mux);
     memcpy(line, log_ring[ble_log_sent % LOG_N], LOG_LEN);
     portEXIT_CRITICAL(&log_mux);
+    if (!q_log.push(nullptr, line, strlen(line))) break;
     ble_log_sent++;
-    ble_send_line(ch_log, line, strlen(line));
   }
-  /* Строки экрана — до восьми раз в 20 мс (буферы уведомлений NimBLE не бесконечны). */
-  static uint32_t scr_t;
-  if (!scr_len || millis() - scr_t < 20) return;
-  scr_t = millis();
-  for (int k = 0; k < 8 && scr_len; k++) {
+  /* Строки экрана: места нет — строка выбрасывается целиком (следующая строка состояния придёт через 0,1 с). */
+  while (scr_len) {
     char *nl = (char *)memchr(scr_buf, '\n', scr_len);
     if (!nl) {
-      if (scr_len > 600) scr_len = 0; /* строка без конца — испорчена */
+      if (scr_len > 1000) scr_len = 0; /* строка без конца — испорчена */
       break;
     }
     int n = nl - scr_buf;
-    static char line[620];
-    line[0] = '#';
-    int m = n < (int)sizeof line - 2 ? n : (int)sizeof line - 2;
-    memcpy(line + 1, scr_buf, m);
-    line[m + 1] = 0;
-    if (m && line[m] == '\r') line[m--] = 0;
-    ble_send_line(ch_log, line, m + 1);
+    int k = n && scr_buf[n - 1] == '\r' ? n - 1 : n;
+    if (k) q_log.push("#", scr_buf, k);
     scr_len -= n + 1;
     memmove(scr_buf, nl + 1, scr_len);
   }
+  uint16_t conn = ble_srv->getConnId();
+  q_stat.pump(conn);
+  q_log.pump(conn);
 }
 
 /* ---------------- проверка файла прошивки по метке ---------------- */
