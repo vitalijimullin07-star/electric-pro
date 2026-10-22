@@ -52,10 +52,11 @@ export function wiredParts(): ModPart[] {
   return out;
 }
 
-/** Выводы ESP32-S3 стенда на двух турбинах: розетки нет (IO6, IO42 свободны), расходомер SDP810-125 — на второй шине I²C. */
+/** Выводы ESP32-S3 стенда на двух турбинах: розетки нет (IO6, IO42 свободны), термисторы — на ADS1115 (IO8 свободен), расходомер SDP810-125 — на второй шине I²C. */
 export const STAND2_PINS: Record<string, string> = (() => {
   const m: Record<string, string> = { ...WIRED_PINS, IO13: 'SDA2', IO14: 'SCL2' };
   delete m.IO6;
+  delete m.IO8;
   delete m.IO42;
   return m;
 })();
@@ -101,6 +102,7 @@ export function stand2Parts(): ModPart[] {
     }
     if (/^SB\d$/.test(p.ref)) p.value = `DS-316: ${p.value}`;
     if (p.ref === 'DD2') p.value = 'DS3231 (for Pi)';
+    if (p.ref === 'FU1') p.value = 'T0,5A';
     out.push(p);
   }
   out.push(
