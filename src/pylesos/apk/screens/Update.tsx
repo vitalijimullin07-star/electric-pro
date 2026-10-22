@@ -1,8 +1,10 @@
 /* Прошивка: по кабелю OTG прямо с телефона (файлы — в приложении), по Wi-Fi пылесоса через его страницу. */
 import { useEffect, useState } from 'react';
 import type { Ctx } from '../ctx';
-import { native, nativeInfo } from '../native';
-import { flashOverUsb, loadImages, readBleCode, type FwBundle } from '../usb';
+import { native, nativeInfo, onNative } from '../native';
+import { checkFirmware, type FwCheck } from '../fw-check';
+import type { FlashImage } from '../esp-flash';
+import { bootLog, flashOverUsb, loadImages, readBleCode, type FwBundle } from '../usb';
 import { Card, Icon, Row, Seg } from '../ui';
 
 const SIZE_KEY = 'pylesos-apk-flash-size';
@@ -23,7 +25,7 @@ export function Update(c: Ctx) {
         <Row k="Экран пылесоса" v="в прошивке контроллера" />
         <Row k="Приложение" v={info?.app ?? 'в браузере'} />
       </Card>
-      <UsbFlash />
+      <UsbFlash boardVer={c.mode === 'device' ? s.ver : undefined} />
       <Card title="По Wi-Fi пылесоса">
         <ol className="steps small">
           <li>Включите Wi-Fi пылесоса — кнопка ниже (или на его экране «Ещё → Телефон»).</li>
@@ -41,8 +43,10 @@ export function Update(c: Ctx) {
   );
 }
 
-/** Прошить плату по кабелю OTG: телефон → разъём USB платы (родной USB чипа). */
-function UsbFlash() {
+const MARK: Record<string, string> = { ok: '✓', warn: '⚠', bad: '✗' };
+
+/** Прошить плату по кабелю OTG: телефон → разъём USB платы (родной USB чипа). Перед записью — проверка файла. */
+function UsbFlash({ boardVer }: { boardVer?: string }) {
   const [fw, setFw] = useState<FwBundle | null>(null);
   const [size, setSize] = useState<string>(() => {
     try {
@@ -57,12 +61,56 @@ function UsbFlash() {
   const [result, setResult] = useState<'ok' | 'bad' | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [own, setOwn] = useState('');
+  const [src, setSrc] = useState<'app' | 'file'>('app');
+  const [file, setFile] = useState<{ name: string; data: Uint8Array } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [imgs, setImgs] = useState<FlashImage[] | null>(null);
+  const [check, setCheck] = useState<FwCheck | null>(null);
+  const [agree, setAgree] = useState(false);
   useEffect(() => {
     fetch('fw/manifest.json')
       .then((r) => (r.ok ? (r.json() as Promise<FwBundle>) : null))
       .then(setFw)
       .catch(() => setFw(null));
   }, []);
+  useEffect(() => {
+    if (!fw) return;
+    let live = true;
+    loadImages(fw, size)
+      .then((x) => live && setImgs(x))
+      .catch(() => live && setImgs(null));
+    return () => {
+      live = false;
+    };
+  }, [fw, size]);
+  // Свой файл: Android выбирает его системным окном, данные отдаёт запросом /__picked.
+  useEffect(
+    () =>
+      onNative((e) => {
+        if (e.t !== 'file') return;
+        setPicking(false);
+        if (e.err) {
+          setLines((x) => [...x.slice(-30), `Файл не прочитан: ${String(e.err)}`]);
+          return;
+        }
+        if (!e.len) return;
+        fetch(`/__picked?${Date.now()}`)
+          .then((r) => r.arrayBuffer())
+          .then((b) => setFile({ name: String(e.name ?? 'файл'), data: new Uint8Array(b) }))
+          .catch((err: Error) => setLines((x) => [...x.slice(-30), `Файл не прочитан: ${err.message}`]));
+      }),
+    [],
+  );
+  // Проверка — заново при каждой смене файла, флеша или версии на плате.
+  useEffect(() => {
+    setAgree(false);
+    if (!imgs) return setCheck(null);
+    const data = src === 'app' ? imgs[3].data : file?.data;
+    if (!data) return setCheck(null);
+    setCheck(checkFirmware(data, { flashMb: Number(size), partitions: imgs[1].data, boardVer, allowForeign: src === 'file' }));
+  }, [imgs, src, file, size, boardVer]);
+  const warned = !!check?.items.some((i) => i.level === 'warn');
+  const canFlash = !!check?.ok && (!warned || agree);
   const pick = (v: string) => {
     setSize(v);
     try {
@@ -85,15 +133,31 @@ function UsbFlash() {
       setBusy(false);
     }
   };
+  const monitor = async () => {
+    if (!native) return;
+    setBusy(true);
+    setResult(null);
+    setLines([]);
+    const log = (l: string) => setLines((x) => [...x.slice(-60), l]);
+    try {
+      log(`Итог: ${await bootLog(native, log)}`);
+    } catch (e) {
+      log(`Не получилось: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   const run = async () => {
-    if (!native || !fw) return;
+    if (!native || !fw || !imgs || !check?.ok || !check.app || !canFlash) return;
     setBusy(true);
     setResult(null);
     setLines([]);
     setProg([0, 'подготовка']);
     const log = (l: string) => setLines((x) => [...x.slice(-30), l]);
     try {
-      const images = await loadImages(fw, size);
+      const name = src === 'app' ? `программа ${fw.ver}` : `программа ${check.ver ?? ''} (${file?.name ?? 'файл'})`;
+      const images = [...imgs.slice(0, 3), { addr: 0x10000, data: check.app, name }];
+      log(`Проверка пройдена: ${name}`);
       await flashOverUsb(native, images, Number(size) << 20, (f, what) => setProg([f, what]), log);
       setResult('ok');
       log('Готово: плата перезапущена с новой прошивкой');
@@ -127,7 +191,52 @@ function UsbFlash() {
           </ol>
           <div className="small muted">Флеш на плате (надпись на модуле: N8R8 — 8 МБ, N16R8 — 16 МБ)</div>
           <Seg items={Object.entries(fw.sizes).map(([k, v]) => [k, v.title] as [string, string])} value={size} onPick={pick} small />
-          <button type="button" className="btn wide go" onClick={() => void run()} disabled={busy}>
+          <div className="small muted">Что прошить</div>
+          <Seg
+            items={[
+              ['app', `Из приложения ${fw.ver}`],
+              ['file', 'Свой файл .bin'],
+            ]}
+            value={src}
+            onPick={(v) => setSrc(v as 'app' | 'file')}
+            small
+          />
+          {src === 'file' && (
+            <>
+              <button
+                type="button"
+                className="btn wide"
+                disabled={busy || picking}
+                onClick={() => {
+                  setPicking(true);
+                  native!.pickFile();
+                }}
+              >
+                {picking ? 'Выбираю файл…' : file ? `Файл: ${file.name} — выбрать другой` : 'Выбрать файл прошивки'}
+              </button>
+              <p className="small muted">
+                Подходят <b>vacuum-s3-app.bin</b> (программа) и <b>…-celikom.bin</b> / <b>…-proshivka.bin</b> (целиком): из файла «целиком» пишется только программа, настройки на плате остаются.
+              </p>
+            </>
+          )}
+          {check && (
+            <div className={`fwcheck ${check.ok ? (warned ? 'warn' : 'ok') : 'bad'}`}>
+              <div className="small">
+                <b>{check.ok ? (warned ? 'Проверка: есть предупреждения' : 'Проверка пройдена') : 'Проверка не пройдена — прошивать нельзя'}</b>
+              </div>
+              {check.items.map((i, k) => (
+                <div key={k} className={`small fwi ${i.level}`}>
+                  {MARK[i.level]} {i.text}
+                </div>
+              ))}
+              {check.ok && warned && (
+                <label className="small fwagree">
+                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> Предупреждения прочитал — прошить всё равно
+                </label>
+              )}
+            </div>
+          )}
+          <button type="button" className="btn wide go" onClick={() => void run()} disabled={busy || !canFlash}>
             {busy ? 'Прошиваю…' : 'Прошить плату'}
           </button>
           {prog && (
@@ -149,6 +258,9 @@ function UsbFlash() {
           )}
           <button type="button" className="btn wide" onClick={() => void askCode()} disabled={busy}>
             Узнать код Bluetooth по кабелю
+          </button>
+          <button type="button" className="btn wide" onClick={() => void monitor()} disabled={busy}>
+            Что пишет плата (перезапуск)
           </button>
           <form
             className="cmd"

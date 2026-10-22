@@ -32,6 +32,8 @@ export interface NativeApi {
   usbWrite(b64: string): boolean;
   usbLines(dtr: boolean, rts: boolean): void;
   usbClose(): void;
+  /** Выбрать файл (прошивку): ответ — событие {t:'file', name, len} или {t:'file', err}, данные — запросом /__picked. */
+  pickFile(): void;
 }
 
 export const native: NativeApi | null = (globalThis as unknown as { PylesosNative?: NativeApi }).PylesosNative ?? null;

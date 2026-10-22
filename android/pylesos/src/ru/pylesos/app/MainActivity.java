@@ -4,9 +4,11 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowInsets;
@@ -23,6 +25,7 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -121,6 +124,70 @@ public final class MainActivity extends Activity implements VacService.Listener 
         runOnUiThread(() -> ready = true);
     }
 
+    /* ---------------- свой файл прошивки ---------------- */
+
+    static final int REQ_FILE = 8;
+    /** Самый большой файл: флеш 16 МБ целиком. */
+    static final int FILE_MAX = 16 << 20;
+    /** Выбранный файл — страница берёт его запросом /__picked (без base64 через мост). */
+    private volatile byte[] picked;
+
+    void pickFile() {
+        runOnUiThread(() -> {
+            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("*/*");
+            try {
+                startActivityForResult(Intent.createChooser(i, "Файл прошивки (.bin)"), REQ_FILE);
+            } catch (Exception e) {
+                fileEvent(null, 0, "нет приложения для выбора файлов");
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code != REQ_FILE) return;
+        Uri u = data != null && result == RESULT_OK ? data.getData() : null;
+        if (u == null) {
+            fileEvent(null, 0, "");
+            return;
+        }
+        new Thread(() -> {
+            String name = "файл";
+            try (Cursor c = getContentResolver().query(u, new String[] {OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst() && !c.isNull(0)) name = c.getString(0);
+            } catch (Exception ignored) {
+                /* имя не узнали — не беда */
+            }
+            try (InputStream in = getContentResolver().openInputStream(u)) {
+                if (in == null) throw new IOException("файл не открылся");
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[65536];
+                for (int n; (n = in.read(buf)) > 0; ) {
+                    out.write(buf, 0, n);
+                    if (out.size() > FILE_MAX) throw new IOException("файл больше 16 МБ — это не прошивка");
+                }
+                picked = out.toByteArray();
+                fileEvent(name, picked.length, null);
+            } catch (Exception e) {
+                fileEvent(name, 0, String.valueOf(e.getMessage()));
+            }
+        }, "pick").start();
+    }
+
+    private void fileEvent(String name, int len, String err) {
+        try {
+            JSONObject o = new JSONObject().put("t", "file").put("len", len);
+            if (name != null) o.put("name", name);
+            if (err != null) o.put("err", err);
+            onVac(o.toString());
+        } catch (Exception ignored) {
+            /* JSON из строк и чисел не падает */
+        }
+    }
+
     /* ---------------- разрешения ---------------- */
 
     static final int REQ_PERMS = 7;
@@ -191,6 +258,13 @@ public final class MainActivity extends Activity implements VacService.Listener 
             String path = u.getPath();
             if (path == null || path.equals("/") || path.isEmpty()) path = "/index.html";
             if (path.contains("..")) return notFound();
+            if (path.equals("/__picked")) {
+                byte[] b = picked;
+                if (b == null) return notFound();
+                Map<String, String> h = new HashMap<>();
+                h.put("Cache-Control", "no-store");
+                return new WebResourceResponse("application/octet-stream", null, 200, "OK", h, new ByteArrayInputStream(b));
+            }
             try {
                 InputStream in = getAssets().open("www" + path);
                 Map<String, String> h = new HashMap<>();

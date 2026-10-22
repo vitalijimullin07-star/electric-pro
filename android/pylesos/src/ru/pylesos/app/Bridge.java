@@ -87,6 +87,12 @@ final class Bridge {
         VacService.command(act, VacService.ACT_FORGET, null);
     }
 
+    /** Выбрать свой файл прошивки: ответ — событие {t:'file', name, len} или {t:'file', err}, данные — /__picked. */
+    @JavascriptInterface
+    public void pickFile() {
+        act.pickFile();
+    }
+
     @JavascriptInterface
     public void send(String line) {
         VacService.command(act, VacService.ACT_SEND, line);
