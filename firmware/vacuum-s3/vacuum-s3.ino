@@ -94,7 +94,8 @@ static void ble_setup() {
   scan->setActiveScan(false);
   scan->setInterval(160);
   scan->setWindow(80); /* половина эфира — Wi-Fi тоже бывает нужен */
-  scan->start(0, nullptr, false);
+  /* Поиск запускает phone_setup — после службы для телефона: при идущем поиске NimBLE не даёт
+   * менять службы (ble_gatts_reset → EBUSY), и BLEServer::start() падал в abort(). */
 }
 
 /* ---------------- журнал для телефона ---------------- */
@@ -213,6 +214,7 @@ static void phone_setup() {
   adv->addServiceUUID(BLE_SVC);
   adv->setScanResponse(true);
   BLEDevice::startAdvertising();
+  BLEDevice::getScan()->start(0, nullptr, false);
 }
 
 /* Строка кусками по MTU, в конце «\n». */
@@ -479,8 +481,22 @@ static void serial_in(int ch) {
   vac_serial(ch);
 }
 
+/* Этап запуска — в памяти, которая переживает перезапуск: после сбоя видно, где он был. */
+RTC_NOINIT_ATTR static uint32_t boot_stage;
+static const char *const STAGE_NAME[] = {"", "ядро", "таймер", "веб", "Bluetooth: поиск", "Bluetooth: телефон", "экран", "работа"};
+static void stage(uint32_t n) { boot_stage = 0x5A000000u | n; }
+
 void setup() {
   Serial.begin(115200);
+  uint32_t was = boot_stage;
+  esp_reset_reason_t why = esp_reset_reason();
+  if ((why == ESP_RST_PANIC || why == ESP_RST_INT_WDT || why == ESP_RST_TASK_WDT || why == ESP_RST_WDT) && (was >> 24) == 0x5A &&
+      (was & 0xFF) < sizeof STAGE_NAME / sizeof STAGE_NAME[0]) {
+    delay(1500); /* монитору порта — время подключиться */
+    Serial.printf("Прошлый запуск закончился сбоем (%s) на этапе «%s»\n", why == ESP_RST_PANIC ? "ошибка программы" : "сторожевой таймер",
+                  STAGE_NAME[was & 0xFF]);
+  }
+  stage(1);
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
   prefs.begin("vac", false);
@@ -488,13 +504,19 @@ void setup() {
   strcat(panel_mark, "PANEL:");
   vac_setup();
   Serial.println(VAC_MARK);
+  stage(2);
   tick_timer = timerBegin(1000000);
   timerAttachInterrupt(tick_timer, &on_tick);
   timerAlarm(tick_timer, 100, true, 0);
+  stage(3);
   web_setup();
+  stage(4);
   ble_setup();
+  stage(5);
   phone_setup();
+  stage(6);
   lcd_start();
+  stage(7);
 }
 
 void loop() {
