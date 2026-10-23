@@ -269,6 +269,10 @@ export class Esp32 implements SimMcu {
           }
         },
         hal_bb_count: () => this.blackBox.length,
+        hal_bb_format: () => {
+          this.blackBox.length = 0;
+          return 0;
+        },
         hal_bb_read: (index: number, ptr: number, len: number) => {
           const r = this.blackBox[index];
           if (!r || r.length !== len) return 1;

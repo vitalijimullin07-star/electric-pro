@@ -2934,6 +2934,7 @@ void vac_command(const char *c) {
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
     hal_log("  mains (сеть: ноль, напряжение, ADS1115), mains cal 230 (напряжение по мультиметру, ZMPT101B), mains shift мкс (поправка нуля)");
     hal_log("  set buzz 0|1 (зуммер: 0 — без генератора, тон из прошивки; 1 — со своим генератором, только вкл/выкл)");
+    hal_log("  bb (записей в «чёрном ящике»), bb format (разметить его раздел заново — записи пропадут)");
   } else if (str_eq(c, "mains") || str_starts(c, "mains ")) {
     mains_cmd(a);
   } else if (str_eq(c, "status")) {

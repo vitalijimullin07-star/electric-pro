@@ -488,6 +488,10 @@ static void web_setup() {
             fw_msg = "Готово: перезагрузка. Если новая прошивка не запустится — вернётся старая";
           } else
             fw_ok = false, fw_msg = "Ошибка обновления";
+        } else if (up.status == UPLOAD_FILE_ABORTED) {
+          /* Связь оборвалась посреди файла: без abort() следующая попытка получила бы «already running». */
+          if (fw_ok) Update.abort();
+          fw_ok = false, fw_msg = "Загрузка оборвалась — ничего не записано, попробуйте снова";
         }
       });
   /* Экран: пересылаем по проводу пульта; метку проверяет и экран, и мы. */
@@ -521,6 +525,12 @@ static void web_setup() {
             fwp_ok = panel_reply("U done", 10000);
             fw_msg = fwp_ok ? "Экран обновлён и перезапускается" : "Экран не принял файл";
           }
+        } else if (up.status == UPLOAD_FILE_ABORTED) {
+          /* Связь оборвалась: экрану — отмена, ядро снова говорит с ним (ответа на запрос может уже не быть). */
+          if (fwp_started) Serial1.print("U x\n");
+          fwp_ok = fwp_started = false;
+          uart_mute = 0;
+          fw_msg = "Загрузка оборвалась — экран остался со своей прошивкой";
         }
       });
 }
@@ -542,10 +552,10 @@ static void wifi_poll() {
 }
 
 /* Монитор порта: «ble code» и «wifi pass» — код Bluetooth и пароль Wi-Fi для телефона (без экрана их больше негде
- * увидеть, по Bluetooth и Wi-Fi они не уходят), остальное — в ядро. Пока строка похожа на одно из этих слов, буквы
- * придерживаются. */
+ * увидеть, по Bluetooth и Wi-Fi они не уходят), «test wdt» — проверка сторожевого таймера (только отсюда: нужен кабель),
+ * остальное — в ядро. Пока строка похожа на одно из этих слов, буквы придерживаются. */
 static void serial_in(int ch) {
-  static const char *const KW[2] = {"ble code", "wifi pass"};
+  static const char *const KW[3] = {"ble code", "wifi pass", "test wdt"};
   static char held[12];
   static int n; /* сколько букв придержано; -1 — строка другая, буквы идут в ядро */
   if (ch == '\r') return;
@@ -555,7 +565,14 @@ static void serial_in(int ch) {
       Serial.printf("Код для телефона: %06lu (Android спросит его при первом подключении по Bluetooth)\n", (unsigned long)vac.ble_code);
     else if (n > 0 && !strcmp(held, KW[1]))
       Serial.printf("Пароль Wi-Fi: %s (сеть «Pylesos-S3-%04X», включить — wifi on)\n", vac_wifi_pass(), (unsigned)vac_cfg.dev_id);
-    else {
+    else if (n > 0 && !strcmp(held, KW[2])) {
+      if (vac.running || vac.relay[0] || vac.relay[1]) Serial.println("Проверка сторожевого таймера — только при стоящих турбинах (реле разомкнуты)");
+      else if (!loop_wdt) Serial.println("Сторожевой таймер ещё не включён");
+      else {
+        Serial.println("Проверка сторожевого таймера: цикл управления встал — через 10 с плата перезапустится сама");
+        for (;;) delay(50); /* таймер больше не кормится */
+      }
+    } else {
       for (int i = 0; i < n; i++) vac_serial(held[i]);
       vac_serial('\n');
     }

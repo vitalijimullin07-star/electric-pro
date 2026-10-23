@@ -70,6 +70,7 @@ int hal_bb_read(uint32_t index, void *rec, int len) {
   return 0;
 }
 uint32_t hal_bb_count(void) { return bb_n < 4096 ? bb_n : 4096; }
+int hal_bb_format(void) { bb_n = 0; return 0; }
 static uint32_t rnd = 12345;
 uint32_t hal_rand32(void) { return rnd = rnd * 1103515245u + 12345u; }
 void hal_wifi(int on, const char *ssid, const char *pass) { (void)on, (void)ssid, (void)pass; }
@@ -145,7 +146,7 @@ static void cfg_extremes(void) {
 static const char *const CMDS[] = {
     "help", "status", "export", "get", "get ext", "mains", "mains cal 0", "mains shift 300", "bb", "osc", "report reset", "scale",
     "time 2099-12-31 23:59:59", "time", "voice test 1", "fsvc begin", "ack", "cfg export", "ble code", "wifi on", "wifi off", "sock none",
-    "sock auto", "sock yes", "set dp 20", "set dp 0", "lcd", "hi", "hi2", "pass done", "maint seals",
+    "sock auto", "sock yes", "bb format", "set dp 20", "set dp 0", "lcd", "hi", "hi2", "pass done", "maint seals",
 };
 
 int main(void) {

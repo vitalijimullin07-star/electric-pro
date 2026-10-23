@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <Wire.h>
 #include "driver/gpio.h"
+#include "esp_partition.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "soc/gpio_reg.h"
@@ -185,13 +186,33 @@ void hal_wifi(int on, const char *ssid, const char *pass) {
 static int bb_ok = -1;
 static uint32_t bb_n0, bb_n1;
 static uint32_t BB_MAX = 4u << 20;
+/* Раздел FAT ни разу не размечали: последний сектор (настройки слоя износа) — чистый, 0xFF. */
+static bool ffat_blank(const esp_partition_t *p) {
+  static uint32_t buf[256];
+  for (uint32_t off = p->size - 4096; off < p->size; off += sizeof buf) {
+    if (esp_partition_read(p, off, buf, sizeof buf) != ESP_OK) return false;
+    for (uint32_t w : buf)
+      if (w != 0xFFFFFFFFu) return false;
+  }
+  return true;
+}
 static void bb_open(void) {
   if (bb_ok >= 0) return;
-  /* Раздел не читается (сбой питания посреди записи, другая разметка) — форматируем, но говорим об этом. */
   bb_ok = FFat.begin(false) ? 1 : 0;
   if (!bb_ok) {
+    /* Пустой раздел (прошили целиком) — размечаем. Не читается раздел с записями (сбой питания посреди записи,
+     * другая разметка) — не трогаем: стереть можно только командой «bb format». */
+    const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, NULL);
+    if (!p || p->size < 3 * 4096) {
+      hal_log("Чёрный ящик: нет раздела FAT — записи не хранятся");
+      return;
+    }
+    if (!ffat_blank(p)) {
+      hal_log("! Чёрный ящик: раздел FAT не читается — записи не ведутся, прежние не тронуты. Начать заново (прежние пропадут) — bb format");
+      return;
+    }
     bb_ok = FFat.begin(true) ? 1 : 0;
-    hal_log(bb_ok ? "Чёрный ящик: раздел FAT не читался — отформатирован, прежние записи потеряны" : "Чёрный ящик: нет раздела FAT — записи не хранятся");
+    hal_log(bb_ok ? "Чёрный ящик: раздел FAT был пуст — размечен" : "! Чёрный ящик: раздел FAT не размечается — записи не хранятся");
   }
   if (!bb_ok) return;
   uint32_t part = (uint32_t)(FFat.totalBytes() / 5 * 2) & ~31u;
@@ -221,6 +242,20 @@ void hal_bb_append(const void *rec, int len) {
 uint32_t hal_bb_count(void) {
   bb_open();
   return bb_n0 + bb_n1;
+}
+int hal_bb_format(void) {
+  if (bb_ok == 1) FFat.end();
+  bb_ok = -1, bb_n0 = bb_n1 = 0, BB_MAX = 4u << 20;
+  if (!FFat.format()) {
+    /* Не поднимается и слой износа — стереть его настройки (конец раздела) и начало, потом снова. */
+    const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, NULL);
+    if (!p) return bb_ok = 0, 1;
+    uint32_t tail = p->size < (128u << 10) ? p->size : (128u << 10);
+    esp_partition_erase_range(p, p->size - tail, tail);
+    esp_partition_erase_range(p, 0, p->size - tail < (64u << 10) ? p->size - tail : (64u << 10));
+  }
+  bb_open();
+  return bb_ok == 1 ? 0 : 1;
 }
 int hal_bb_read(uint32_t index, void *rec, int len) {
   bb_open();

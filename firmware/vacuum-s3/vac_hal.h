@@ -74,6 +74,8 @@ void hal_bb_append(const void *rec, int len);
 /* Прочитать len байт с записи номер index (0 — самая старая из хранимых); число прочитанных. */
 int hal_bb_read(uint32_t index, void *rec, int len);
 uint32_t hal_bb_count(void);
+/* Разметить раздел заново (прежние записи пропадут): 0 — готово. Сам раздел размечается только пустой. */
+int hal_bb_format(void);
 
 /* Случайное число (аппаратный генератор): пароль сети Wi-Fi. */
 uint32_t hal_rand32(void);

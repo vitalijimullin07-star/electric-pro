@@ -1130,6 +1130,11 @@ int ext_command(const char *c, const char *a) {
     hal_log(str_cat(m, fmt_int(n, (long)hal_bb_count())));
     return 1;
   }
+  if (str_eq(c, "bb format")) {
+    bbq_n = 0;
+    hal_log(hal_bb_format() ? "! Чёрный ящик: раздел не размечен — записи не хранятся" : "Чёрный ящик: раздел размечен заново, записей нет");
+    return 1;
+  }
   return 0;
 }
 

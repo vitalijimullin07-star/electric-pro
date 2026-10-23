@@ -954,6 +954,10 @@ describe('Пылесос S3 6.0: экран 3,5″, турбины по отде
     expect(rows.some((r) => r.includes(';серия;'))).toBe(true);
     // Состояние для телефона помещается в буфер страницы /s (1800 байт в vacuum-s3.ino).
     expect(new TextEncoder().encode(esp.statusJson()!).length).toBeLessThan(1700);
+    // 6.4: раздел «чёрного ящика» размечается заново только по команде.
+    cmd('bb format');
+    expect(sim.serial).toContain('Чёрный ящик: раздел размечен заново');
+    expect(esp.blackBox.length).toBe(0);
   });
 });
 
