@@ -3,6 +3,7 @@
 #include <FFat.h>
 #include <Preferences.h>
 #include <Wire.h>
+#include "driver/gpio.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "soc/gpio_reg.h"
@@ -29,9 +30,23 @@ uint32_t IRAM_ATTR hal_micros(void) { return (uint32_t)esp_timer_get_time(); }
 uint32_t hal_millis(void) { return millis(); }
 
 static void IRAM_ATTR on_zc(void) { vac_on_pin(PIN_ZC, hal_pin_read(PIN_ZC), hal_micros()); }
+static void IRAM_ATTR on_zc_iram(void *) { vac_on_pin(PIN_ZC, hal_pin_read(PIN_ZC), hal_micros()); }
 
+/*
+ * Ноль сети — прерыванием из IRAM: обычное (attachInterrupt) на время записи во флеш (настройки,
+ * «чёрный ящик», обновление) откладывается, и ноль терялся бы на десятки миллисекунд. Служба
+ * прерываний GPIO ставится с флагом IRAM, поэтому других обработчиков из флеша на ней быть не должно.
+ */
 void hal_pin_irq(int pin) {
-  if (pin == PIN_ZC) attachInterrupt(pin, on_zc, CHANGE);
+  if (pin != PIN_ZC) return;
+  esp_err_t e = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+  if (e != ESP_OK && e != ESP_ERR_INVALID_STATE) {
+    attachInterrupt(pin, on_zc, CHANGE);
+    return;
+  }
+  gpio_set_intr_type((gpio_num_t)pin, GPIO_INTR_ANYEDGE);
+  gpio_isr_handler_add((gpio_num_t)pin, on_zc_iram, nullptr);
+  gpio_intr_enable((gpio_num_t)pin);
 }
 
 int hal_adc_mv(int pin) { return analogReadMilliVolts(pin); }
@@ -41,7 +56,10 @@ static TwoWire &i2c(int bus) { return bus ? Wire1 : Wire; }
 
 int hal_i2c_begin(int bus, int sda, int scl, uint32_t hz) {
   if (!hz) return i2c(bus).end() ? 0 : 1;
-  return i2c(bus).begin(sda, scl, hz) ? 0 : 1;
+  if (!i2c(bus).begin(sda, scl, hz)) return 1;
+  /* Шина залипла (замкнут провод датчика) — каждая посылка ждёт не 50 мс, а 10: цикл управления не встаёт. */
+  i2c(bus).setTimeOut(10);
+  return 0;
 }
 
 int hal_i2c_write(int bus, int addr, const uint8_t *data, int len) {
@@ -84,9 +102,16 @@ void hal_tone(int pin, uint32_t hz) {
 
 /* К экрану — UART1 (Serial — это USB-C: монитор порта и прошивка). */
 static uint32_t uart_baud_set;
+/* Буфер передачи: без него строка состояния (~400 байт на 115200) держала бы цикл управления ~25 мс. */
+static int uart_tx = PIN_PNL_TX, uart_rx = PIN_PNL_RX;
+static void uart1_begin(uint32_t baud) {
+  Serial1.setTxBufferSize(2048);
+  Serial1.begin(baud, SERIAL_8N1, uart_rx, uart_tx);
+}
 void hal_uart_begin(int tx, int rx, uint32_t baud) {
+  uart_tx = tx, uart_rx = rx;
   uart_baud_set = baud;
-  Serial1.begin(baud, SERIAL_8N1, rx, tx);
+  uart1_begin(baud);
 }
 /* Пока идёт прошивка экрана, строки ядра в UART не идут (там — куски файла). */
 volatile int uart_mute;
@@ -96,7 +121,8 @@ static int voice_on;
 void hal_voice_begin(int on) {
   voice_on = on;
   Serial1.end();
-  Serial1.begin(on ? 9600 : uart_baud_set, SERIAL_8N1, PIN_PNL_RX, PIN_PNL_TX);
+  /* Голос выключили, а пульта по UART1 не было (выводы под второй шиной I²C) — линию не занимаем. */
+  if (on || uart_baud_set) uart1_begin(on ? 9600 : uart_baud_set);
 }
 void hal_voice_write(const uint8_t *data, int len) {
   if (voice_on) Serial1.write(data, (size_t)len);
@@ -125,11 +151,15 @@ int hal_settings_load2(int slot, void *buf, int len) {
   k[3] = (char)('0' + (slot & 7));
   return prefs.isKey(k) ? (int)prefs.getBytes(k, buf, (size_t)len) : 0;
 }
-/* Слоты 0, 1 — настройки 5.x, 2, 3 — настройки 6.0 (vac_ext). */
+/* Слоты 0, 1 — настройки 5.x, 2, 3 — настройки 6.0 (vac_ext), 4 — код Bluetooth и пароль Wi-Fi. */
+void hal_log(const char *line);
 void hal_settings_save2(int slot, const void *buf, int len) {
   char k[8] = "cfg0";
   k[3] = (char)('0' + (slot & 7));
-  prefs.putBytes(k, buf, (size_t)len);
+  if (prefs.putBytes(k, buf, (size_t)len) != (size_t)len) {
+    static uint32_t said;
+    if (!said || millis() - said > 60000) said = millis() | 1, hal_log("! Настройки не записались во флеш (NVS): после выключения будут прежние");
+  }
 }
 
 uint32_t hal_rand32(void) { return esp_random(); }
@@ -157,7 +187,12 @@ static uint32_t bb_n0, bb_n1;
 static uint32_t BB_MAX = 4u << 20;
 static void bb_open(void) {
   if (bb_ok >= 0) return;
-  bb_ok = FFat.begin(true) ? 1 : 0;
+  /* Раздел не читается (сбой питания посреди записи, другая разметка) — форматируем, но говорим об этом. */
+  bb_ok = FFat.begin(false) ? 1 : 0;
+  if (!bb_ok) {
+    bb_ok = FFat.begin(true) ? 1 : 0;
+    hal_log(bb_ok ? "Чёрный ящик: раздел FAT не читался — отформатирован, прежние записи потеряны" : "Чёрный ящик: нет раздела FAT — записи не хранятся");
+  }
   if (!bb_ok) return;
   uint32_t part = (uint32_t)(FFat.totalBytes() / 5 * 2) & ~31u;
   if (part < BB_MAX) BB_MAX = part;
@@ -168,9 +203,10 @@ static void bb_open(void) {
   bb_n1 = f ? (uint32_t)f.size() / 32 : 0;
   if (f) f.close();
 }
+/* Записи по 32 байта, можно пачкой (len — кратно 32): одна пачка — одно открытие файла. */
 void hal_bb_append(const void *rec, int len) {
   bb_open();
-  if (!bb_ok || len != 32) return;
+  if (!bb_ok || len <= 0 || len % 32) return;
   if (bb_n1 * 32 >= BB_MAX) {
     FFat.remove("/bb0.bin");
     FFat.rename("/bb.bin", "/bb0.bin");
@@ -178,9 +214,9 @@ void hal_bb_append(const void *rec, int len) {
   }
   File f = FFat.open("/bb.bin", "a");
   if (!f) return;
-  f.write((const uint8_t *)rec, 32);
+  size_t w = f.write((const uint8_t *)rec, (size_t)len);
   f.close();
-  bb_n1++;
+  bb_n1 += (uint32_t)(w / 32);
 }
 uint32_t hal_bb_count(void) {
   bb_open();

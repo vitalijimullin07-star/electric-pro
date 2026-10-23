@@ -66,7 +66,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sim } = start();
     expect(sim.mcuTitle).toContain('ESP32-S3');
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3.3 (плата на модулях)');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.4 (плата на модулях)');
     expect(sim.serial).toContain('Экран на связи');
     expect(sim.devices.map((d) => d.view()).filter((v) => v.warning).map((v) => `${v.title}: ${v.warning}`)).toEqual([]);
     const panel = sim.view().devices.find((d) => d.kind === 'panel')!;
@@ -91,8 +91,12 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     expect(rpm('M1')).toBeGreaterThan(15000);
     expect(rpm('M2')).toBeGreaterThan(15000);
     click(/SB7/);
-    sec(2);
+    // Вход МР248 сглажен (τ = 1 с): мощность спадает за секунды, реле размыкается, когда ток спал.
+    sec(1);
+    expect(relay('K1')).toBe(true);
+    sec(5);
     expect(relay('K1')).toBe(false);
+    expect(sim.serial).not.toContain('Пробит симистор');
     expect(rpm('M2')).toBeGreaterThan(15000);
     expect(sim.serial).toContain('Турбина 1: стоп');
   });
@@ -131,7 +135,11 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     set(/K1 реле/, 'fault', 1);
     set(/U1 регулятор/, 'state', 1);
     click(/SB7/);
-    sec(1);
+    // Ток после остановки не спадает 8 с (у исправного МР248 — около 4 с): пробит симистор, реле — прочь.
+    sec(5);
+    expect(sim.serial).not.toContain('Пробит симистор');
+    sec(4.5);
+    expect(sim.serial).toContain('Пробит симистор 1');
     expect(sim.serial).toContain('Реле 1 сварилось');
   });
 
@@ -194,7 +202,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     const { sec, click, cmd, set, sim } = start();
     set(/YV2 тарельчатый/, 'fault', 2);
     click(/SB7/);
-    sec(6);
+    sec(10);
     cmd('purge');
     sec(6);
     expect(sim.serial).toContain('клапан 2: не открывается');
@@ -288,7 +296,8 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     click(/SB7/);
     sec(8);
     act(/Шланг, бак, фильтр/, 'palm');
-    sec(12);
+    // Разгон второй турбины и инерция МР248 (τ = 1 с): тарелки после ударов при закрытом шланге садятся после сброса турбин.
+    sec(18);
     expect(sim.serial).toContain('Шланг закрыт 2 с — мощная очистка');
     expect(sim.serial).toContain('Мощная очистка закончена');
   });
@@ -305,6 +314,8 @@ describe('Пылесос S3 на модулях: прошивки в симул�
 
   test('розетка: автозапуск от инструмента, выбег, удары и стоп', () => {
     const { sec, act, relay, sim } = start();
+    // Первые 2 с после включения розетка выключена (видно, подключён ли ТТ инструмента).
+    sec(1.5);
     act(/розетка: инструмент/, 'switch');
     sec(3);
     expect(sim.serial).toContain('Инструмент включён — пуск турбин');
@@ -423,7 +434,10 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     expect(b.serial).toContain('очистка «гипс»');
     b.serialWrite('wifi on\n');
     b.run(0.5e6);
-    expect(b.serial).toMatch(/сеть Pylesos-S3-[0-9A-F]{4}, пароль [a-z0-9]{8}/);
+    // Пароль — не в журнал (он уходит и по Bluetooth, и по Wi-Fi): только в сеть и на экран (строка W).
+    expect(b.serial).toMatch(/сеть Pylesos-S3-[0-9A-F]{4}, страница/);
+    expect((b.mcu as Esp32).wifi!.pass).toMatch(/^[a-z0-9]{8}$/);
+    expect(b.serial).not.toContain((b.mcu as Esp32).wifi!.pass);
   });
 
   test('код Bluetooth и пароль Wi-Fi хранятся на плате, свои — командами; код в журнал не пишется (6.3)', () => {
@@ -443,14 +457,14 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     a.run(1e6);
     a.serialWrite('wifi on\n');
     a.run(0.5e6);
-    const pass = /пароль ([a-z0-9]{8})/.exec(a.serial)![1];
+    const pass = (a.mcu as Esp32).wifi!.pass;
     const code = / bk=(\d{6})/.exec(ua.text)![1];
     const b = Simulation.createSync(buildVacuumS3Mod(fw), { nvs: nvs!, onNvs: (d: Uint8Array) => (nvs = d) });
     const ub = uartOf(b);
     b.run(1e6);
     b.serialWrite('wifi on\n');
     b.run(0.5e6);
-    expect(b.serial).toContain(`пароль ${pass}`);
+    expect((b.mcu as Esp32).wifi!.pass).toBe(pass);
     expect(ub.text).toContain(` bk=${code}`);
     b.serialWrite('ble code 12345\n');
     b.serialWrite('wifi pass ab\n');
@@ -462,14 +476,59 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     b.run(0.5e6);
     expect(b.serial).toContain('Код Bluetooth сменён');
     expect(b.serial).not.toContain('654321');
-    expect(b.serial).toContain('пароль Shop2026');
+    expect((b.mcu as Esp32).wifi!.pass).toBe('Shop2026');
+    expect(b.serial).not.toContain('Shop2026');
     const c = Simulation.createSync(buildVacuumS3Mod(fw), { nvs: nvs! });
     const uc = uartOf(c);
     c.run(1e6);
     c.serialWrite('wifi on\n');
     c.run(0.5e6);
     expect(uc.text).toContain(' bk=654321');
-    expect(c.serial).toContain('пароль Shop2026');
+    expect((c.mcu as Esp32).wifi!.pass).toBe('Shop2026');
+  });
+
+  test('6.4: резервная копия настроек — чужие значения к безопасным, вид клапанов — сразу, без перезапуска', () => {
+    const { sim, sec, click, cmd } = start();
+    const esp = sim.mcu as Esp32;
+    const status = () => JSON.parse(esp.statusJson()!) as Record<string, number>;
+    const backup = () => {
+      const from = sim.serial.length;
+      cmd('cfg export');
+      return /\n([0-9a-f]{200,})\n/.exec(sim.serial.slice(from - 1))![1];
+    };
+    // Копия с импульсными клапанами (соленоиды: ток — только на удар).
+    cmd('set valves pulse');
+    const pulse = backup();
+    cmd('set valves plate');
+    click(/SB7/);
+    sec(4);
+    // Тарельчатые: магниты под током, пока есть разрежение.
+    expect(esp.pinMode('IO40')).not.toBe('low');
+    cmd(`cfg import ${pulse}`);
+    expect(sim.serial).toContain('Настройки восстановлены из резервной копии');
+    expect(status().vk).toBe(1);
+    sec(0.2);
+    // Сразу импульсные: соленоиды без тока между ударами (с прежней логикой они грелись бы под током).
+    expect(esp.pinMode('IO40')).toBe('low');
+    expect(esp.pinMode('IO41')).toBe('low');
+    // Номер режима очистки за пределами (испорченная копия с верной суммой) — «авто».
+    const b = Uint8Array.from(pulse.match(/../g)!.map((h) => parseInt(h, 16)));
+    const crc = (n: number) => {
+      let c = 0xffff;
+      for (let i = 0; i < n; i++) {
+        c ^= b[i] << 8;
+        for (let k = 0; k < 8; k++) c = c & 0x8000 ? ((c << 1) ^ 0x1021) & 0xffff : (c << 1) & 0xffff;
+      }
+      return c;
+    };
+    const at = [b.length - 2, b.length - 4].find((n) => (b[n] | (b[n + 1] << 8)) === crc(n))!;
+    b[12] = 200; // vac_settings_t.preset
+    const c = crc(at);
+    b[at] = c & 0xff;
+    b[at + 1] = c >> 8;
+    cmd(`cfg import ${Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')}`);
+    expect(status().preset).toBe(0);
+    expect(status().sp).toBeGreaterThanOrEqual(10);
   });
 
   test('две турбины с пыльным фильтром: исправные клапаны не считаются неисправными', () => {
@@ -636,7 +695,7 @@ describe('Пылесос S3 на модулях: прошивки в симул�
     sec(2);
     expect(relay('K1')).toBe(true);
     act(/беспроводной пульт/, 'b1');
-    sec(2);
+    sec(6);
     expect(relay('K1')).toBe(false);
     // Перехваченную посылку «пуск» повторили — контроллер её уже видел.
     act(/беспроводной пульт/, 'replay');

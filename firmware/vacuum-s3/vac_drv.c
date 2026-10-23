@@ -103,10 +103,13 @@ long str_to_int(const char *s) {
   return neg ? -v : v;
 }
 
+/* Число с плавающей точкой — в целое без неопределённого поведения: NaN — 0, за пределами — край. */
+long f2l(float v) { return v != v ? 0 : v > 2.0e9f ? 2000000000L : v < -2.0e9f ? -2000000000L : (long)v; }
+
 char *fmt_int(char *out, long v) {
-  char tmp[16];
+  char tmp[24];
   int n = 0, neg = v < 0;
-  unsigned long u = neg ? (unsigned long)(-v) : (unsigned long)v;
+  unsigned long u = neg ? 0UL - (unsigned long)v : (unsigned long)v;
   do tmp[n++] = (char)('0' + u % 10), u /= 10;
   while (u);
   char *p = out;
@@ -118,8 +121,12 @@ char *fmt_int(char *out, long v) {
 
 char *fmt_num(char *out, float v, int decimals) {
   long mul = decimals == 0 ? 1 : decimals == 1 ? 10 : decimals == 2 ? 100 : 1000;
+  if (v != v) v = 0; /* NaN */
   int neg = v < 0;
   if (neg) v = -v;
+  /* Не больше 9·10⁸ в отсчётах: перевод большего числа в long не определён, а строка — до 12 байт с нулём. */
+  float lim = 9.0e8f / (float)mul;
+  if (v > lim) v = lim;
   long x = (long)(v * mul + 0.5f);
   char *p = out;
   if (neg && x) *p++ = '-';

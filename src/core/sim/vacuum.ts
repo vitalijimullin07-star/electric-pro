@@ -134,6 +134,9 @@ interface Relay {
   params: SimParam[];
 }
 
+/** Постоянная времени входа МР248 (R10 10 кОм · C5 100 мкФ), с. */
+const MP248_TAU = 1.0;
+
 interface Triac {
   comp: Component;
   mt1?: Id;
@@ -149,8 +152,12 @@ interface Triac {
   ssr?: number[];
   /** Модуль SSR с управлением высоким уровнем (High Level Trigger): «1» на CHn включает. */
   ssrHigh?: boolean;
-  /** Регулятор мощности МР248: вход «управление» (группа и вывод контроллера), питание модуля. */
-  dimmer?: { ctrl?: number; pin?: McuPin; vcc?: number; power: number };
+  /**
+   * Регулятор мощности МР248: вход «управление» (группа и вывод контроллера), питание модуля. Вход
+   * сглажен R10 10 кОм · C5 100 мкФ (по ответам производителя без них модуль не слушает вход): vin —
+   * напряжение на C5, at — когда считали (мкс).
+   */
+  dimmer?: { ctrl?: number; pin?: McuPin; vcc?: number; power: number; vin: number; at: number };
   /** Доля полупериода, когда был открыт в прошлом полупериоде, и квадрат действующего напряжения. */
   lastCond: number;
   lastU2: number;
@@ -458,7 +465,7 @@ export class VacuumPlant {
     for (const { comp, fp } of this.tagged('triac-dimmer')) {
       const ctrl = groupOf(padNet(comp, fp, 'CTRL'));
       const pin = ctrl !== undefined ? c.groups[ctrl].pins[0] : undefined;
-      attach({ comp, mt1: padNet(comp, fp, 'L'), mt2: padNet(comp, fp, 'OUT'), state: 0, firedAt: null, lastCond: 0, lastU2: 0, dimmer: { ctrl, pin, vcc: groupOf(padNet(comp, fp, 'VCC')), power: 0 } });
+      attach({ comp, mt1: padNet(comp, fp, 'L'), mt2: padNet(comp, fp, 'OUT'), state: 0, firedAt: null, lastCond: 0, lastU2: 0, dimmer: { ctrl, pin, vcc: groupOf(padNet(comp, fp, 'VCC')), power: 0, vin: 0, at: this.us } });
     }
     // Твердотельные реле (каналы CHn → выходы SWnA/SWnB): сеть на них — напрямую, без реле.
     for (const { comp, fp } of this.tagged('ssr-module')) {
@@ -617,8 +624,9 @@ export class VacuumPlant {
 
   /**
    * Регулятор МР248: доля мощности — напряжение на входе «управление» к питанию модуля (ШИМ
-   * сглаживается внутри), угол открытия — такой, чтобы среднеквадратичное напряжение на
-   * нагрузке дало эту долю. null — закрыт (вход у нуля или модуль без питания).
+   * сглаживается R10·C5, τ = 1 с: мощность идёт за скважностью с задержкой), угол открытия — такой,
+   * чтобы среднеквадратичное напряжение на нагрузке дало эту долю. null — закрыт (вход у нуля или
+   * модуль без питания).
    */
   private dimmerAngle(t: Triac): number | null {
     const d = t.dimmer!;
@@ -626,7 +634,10 @@ export class VacuumPlant {
     const vcc = d.vcc !== undefined && c.groups[d.vcc].power === 'vcc' ? c.powerOf(d.vcc) : 0;
     let duty = 0;
     if (d.pin) duty = c.mcu.pwmDuty?.(d.pin) ?? (c.mcu.pinMode(d.pin) === 'high' ? 1 : 0);
-    const frac = vcc > 0 ? Math.min(1, (duty * c.mcu.vdd) / vcc) : 0;
+    const dt = Math.max(0, this.us - d.at) / 1e6;
+    d.at = this.us;
+    d.vin += (duty * c.mcu.vdd - d.vin) * (1 - Math.exp(-dt / MP248_TAU));
+    const frac = vcc > 0 ? Math.min(1, d.vin / vcc) : 0;
     d.power = frac;
     if (frac < 0.02) return null;
     // u²(a) = 1 − a/π + sin 2a / 2π убывает от 1 до 0: деление пополам.

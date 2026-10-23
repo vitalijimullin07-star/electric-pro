@@ -28,14 +28,15 @@
 extern "C" {
 #endif
 
-#define VAC_VERSION "6.3.3"
+#define VAC_VERSION "6.4"
 
 /* ---- выводы ESP32-S3-DevKitC-1 N16R8 (как на плате src/core/examples/vacuum-s3/mod.ts) ---- */
 /*
  * IO35–IO37 у N16R8 заняты памятью PSRAM, IO19/IO20 — USB, IO44 — приём загрузчика: не трогаем.
  * IO45 и IO46 (выводы режима загрузки) нагружены без подтяжки вверх: зуммер и раскачка электродов.
- * АЦП — только АЦП1 (IO1–IO10): АЦП2 занят радио. Выходы к модулям — через ключи SS8050:
- * «1» на выводе — вход модуля замкнут на землю (модули реле — перемычкой в L, SSR — низким уровнем).
+ * АЦП — только АЦП1 (IO1–IO10): АЦП2 занят радио. Выходы к модулям — «1» на выводе включает:
+ * модули реле — через ключи SS8050 (вход модуля замкнут на землю, перемычка в L), SSR — на плате через
+ * ключи (модуль «низкого уровня»), на стенде — прямо с вывода (модуль High Level).
  */
 #define PIN_RL1 1       /* модуль реле турбины 1 (K1) */
 #define PIN_RL2 2       /* модуль реле турбины 2 (K2) */
@@ -188,7 +189,7 @@ typedef struct {
   uint8_t vlv_kind;      /* клапаны: VK_PLATE — тарельчатые на удерживающих магнитах, VK_PULSE — импульсные */
   uint16_t tool_delay;   /* пуск турбин после инструмента, мс */
   uint8_t dip;           /* сброс турбин на время удара, % мощности (0 — не сбрасывать) */
-  uint8_t pad3;
+  uint8_t hw;            /* 6.4: железо — HW_NO_SOCK, HW_SOCK (0 — розетку узнавать по ТТ инструмента) */
   vac_ble_t ble[N_BLE];
   uint16_t crc;
 } vac_settings_t;
@@ -208,6 +209,8 @@ enum { WL_DRY = 0, WL_LEVEL = 1, WL_OVERFLOW = 2 };
 enum { VE_OK = 0, VE_OPEN_COIL, VE_SHORT, VE_STUCK, VE_KEY, VE_NOCLOSE, VE_HOLD };
 /* Клапаны: тарельчатые на удерживающих магнитах (удар — снять ток) или импульсные (удар — подать ток). */
 enum { VK_PLATE = 0, VK_PULSE = 1 };
+/* Железо (vac_cfg.hw): розетки и ТТ инструмента нет (стенд) / есть — без проверки по ТТ. */
+enum { HW_NO_SOCK = 1, HW_SOCK = 2 };
 /* Перегрузка по току: розетка отключена и ждёт решения; инструмент был включён при подаче. */
 enum { OV_NONE = 0, OV_TRIP = 1, OV_TOOL_ON = 2 };
 /* Замер фильтра. */
@@ -463,6 +466,8 @@ int vac_bb_csv(uint32_t index, char *buf, int len);
 /* Настройки для резервной копии: шестнадцатеричная строка; обратно — 0, если подошли. */
 int vac_cfg_export(char *out, int len);
 int vac_cfg_import(const char *hex);
+/* Пароль сети Wi-Fi для телефона (придумывается при первом запросе): только в порт USB и на экран. */
+const char *vac_wifi_pass(void);
 /* Перепад чистого фильтра при расходе уставки, Па (0 — не мерили). */
 float vac_dp_clean(void);
 
@@ -550,6 +555,7 @@ float v_sqrtf(float x);
 /* Число с запятой: fmt_num(buf, 12.34, 1) → "12,3". */
 char *fmt_num(char *out, float v, int decimals);
 char *fmt_int(char *out, long v);
+long f2l(float v);
 char *str_cat(char *dst, const char *src);
 int str_len(const char *s);
 int str_eq(const char *a, const char *b);

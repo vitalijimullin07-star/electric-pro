@@ -261,9 +261,12 @@ export class Esp32 implements SimMcu {
           if (f[3] === 0x06) this.voiceVolume = arg;
           else if (f[3] === 0x12) this.onVoice?.(arg, this.voiceVolume);
         },
+        // Записи по 32 байта, с 6.4 — и пачкой (len кратно 32).
         hal_bb_append: (ptr: number, len: number) => {
-          if (this.blackBox.length >= 20000) this.blackBox.splice(0, 1000);
-          this.blackBox.push(this.mem().slice(ptr, ptr + len));
+          for (let o = 0; o + 32 <= len; o += 32) {
+            if (this.blackBox.length >= 20000) this.blackBox.splice(0, 1000);
+            this.blackBox.push(this.mem().slice(ptr + o, ptr + o + 32));
+          }
         },
         hal_bb_count: () => this.blackBox.length,
         hal_bb_read: (index: number, ptr: number, len: number) => {

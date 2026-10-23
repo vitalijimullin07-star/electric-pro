@@ -25,6 +25,11 @@ static const int CT_PIN[3] = {PIN_CT1, PIN_CT2, PIN_CT3};
 #define WL_HALF 6
 /* Электроника, модули и клапаны в общем токе, А. */
 #define SELF_AMPS 0.4f
+/* Регулятор МР248: вход сглажен R10 10 кОм · C5 100 мкФ (τ ≈ 1 с) — мощность идёт за ШИМ с задержкой. */
+#define MP_SETTLE_MS 3000  /* вход успокоился после снятия ШИМ: реле можно замыкать снова */
+#define MP_LAG_MS 1500     /* мощность догнала команду «полная» (разгон к ударам) */
+#define STOP_WAIT_MS 8000  /* ток после остановки спадает за это время (τ ≈ 1 с — около 4 с; дольше — пробит симистор) */
+#define RESEAT_MS 1800     /* сброс турбин, пока пружины закроют тарелку: мощность упала до ~1/5 */
 
 
 /* ---------------- синхронизация, импульсы, раскачка (прерывания) ---------------- */
@@ -117,9 +122,11 @@ VAC_ISR void vac_on_pin(int pin, int level, uint32_t us) {
 VAC_ISR void vac_tick(void) {
   uint32_t now = hal_micros();
   if (vlv_req) {
-    /* Ближайший ноль, до которого ещё не меньше 0,3 мс, — с него SSR откроется. */
-    uint32_t half = zc_half, z = zc_zero;
-    for (int i = 0; i < 4 && (int32_t)(z - now) < 300; i++) z += half;
+    /* Ближайший ноль, до которого ещё не меньше 0,3 мс, — с него SSR откроется. Ноль мог быть
+     * давно (прерывание стояло, пока шла запись во флеш): шагаем сразу на нужное число полупериодов. */
+    uint32_t half = zc_half ? zc_half : 10000, z = zc_zero;
+    int32_t late = (int32_t)(now + 300 - z);
+    if (late > 0) z += ((uint32_t)late / half + 1) * half;
     uint32_t n = (vlv_ms * 1000u + half / 2) / half;
     if (n < 1) n = 1;
     vlv_off_at = z + n * half - 1000;
@@ -294,10 +301,30 @@ static int cfg_valid(vac_settings_t *s) {
     s->version = CFG_VERSION;
     s->vlv_kind = VK_PULSE;
     s->dip = 0;
-    s->pad3 = 0;
+    s->hw = 0;
     s->crc = cfg_crc(s);
   }
   return s->version == CFG_VERSION;
+}
+
+/* Поля, которые служат индексами и режимами: вне пределов — к безопасным (копия могла прийти извне). */
+static void cfg_sanitize(void) {
+  if (vac_cfg.preset >= N_PRESETS) vac_cfg.preset = PR_AUTO;
+  if (vac_cfg.filt >= N_FILTERS) vac_cfg.filt = 0;
+  if (vac_cfg.vlv_kind > VK_PULSE) vac_cfg.vlv_kind = VK_PLATE;
+  if (vac_cfg.dip > 90) vac_cfg.dip = 0;
+  if (vac_cfg.nrh > N_RHIST) vac_cfg.nrh = 0;
+  if (vac_cfg.hw > (HW_NO_SOCK | HW_SOCK) || vac_cfg.hw == (HW_NO_SOCK | HW_SOCK)) vac_cfg.hw = 0;
+  for (int i = 0; i < N_PRESETS; i++) {
+    vac_preset_t *r = &vac_cfg.pr[i];
+    if (r->sp < 10 || r->sp > 60) r->sp = 32;
+    if (r->n > 10) r->n = 0;
+    if (r->imp > 300) r->imp = 0;
+    if (r->pause > 3000) r->pause = 0;
+  }
+  for (int i = 0; i < N_BLE; i++)
+    if (vac_cfg.ble[i].kind > BLE_TAG) vac_cfg.ble[i].kind = BLE_NONE;
+  vlv_plate = vac_cfg.vlv_kind == VK_PLATE;
 }
 
 /* Из двух копий — целая и более новая; нет ни одной — перенос с 3.x или заводские. */
@@ -309,11 +336,7 @@ static void cfg_load(void) {
   else if (rb) vac_cfg = b;
   else if (migrate_v3()) hal_log("Настройки перенесены с прошивки 3.x");
   else cfg_defaults();
-  if (vac_cfg.preset >= N_PRESETS) vac_cfg.preset = PR_AUTO;
-  if (vac_cfg.filt >= N_FILTERS) vac_cfg.filt = 0;
-  if (vac_cfg.vlv_kind > VK_PULSE) vac_cfg.vlv_kind = VK_PLATE;
-  if (vac_cfg.dip > 90) vac_cfg.dip = 0;
-  vlv_plate = vac_cfg.vlv_kind == VK_PLATE;
+  cfg_sanitize();
 }
 
 static const vac_preset_t *preset_def(void) { return vac_cfg.vlv_kind == VK_PLATE ? PRESET_PLATE : PRESET_DEF; }
@@ -352,6 +375,8 @@ int vac_cfg_export(char *out, int len) {
   return 2 * n;
 }
 
+static void vac_cfg_applied(void);
+
 static int hexv(char c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 
 int vac_cfg_import(const char *hex) {
@@ -366,6 +391,9 @@ int vac_cfg_import(const char *hex) {
   uint32_t seq = vac_cfg.seq;
   vac_cfg = s;
   vac_cfg.seq = seq;
+  /* Те же проверки, что при чтении из памяти, и клапаны — сразу в режиме из копии (без перезапуска). */
+  cfg_sanitize();
+  vac_cfg_applied();
   vac_save_settings();
   hal_log("Настройки восстановлены из резервной копии");
   return 0;
@@ -427,10 +455,11 @@ static float uac_k(void) { return vac_ext.u_cal ? (float)vac_ext.u_cal / 10000.0
 /* Пик тока с последнего сброса, А (СКЗ синусоиды с таким пиком). */
 static float peak_amps(int i) { return ct_peak[i] > 12 ? ct_peak[i] / CT_MV_PER_A[i] / 1.41421356f : 0; }
 
-/* Термистор k: с ADS1115 — его A0, A1; без него — IO7, IO8 (на IO7 ZMPT — термистора 1 нет). */
+/* Термистор k: с ADS1115 — его A0, A1; без него — IO7, IO8. На IO7 ZMPT101B — это навесной монтаж или стенд:
+ * там оба термистора на ADS1115, а IO8 свободен (висящий вход показал бы случайную температуру). */
 static int ntc_mv(int k) {
   if (vac.ads_ok) return ext_ntc_mv(k);
-  if (!k && vac.uac) return -1;
+  if (vac.uac) return -1;
   return hal_adc_mv(k ? PIN_NTC2 : PIN_NTC1);
 }
 
@@ -462,7 +491,8 @@ static int zc_ok;
 static uint32_t ts_t[2];         /* время входа в состояние реле/симистора */
 static uint32_t on_since[2];     /* когда турбина пошла в работу (для поочерёдного пуска) */
 static uint32_t lock_until[2];
-static uint8_t cnt_over[2], cnt_nocur[2];
+static uint8_t cnt_over[2], cnt_nocur[2], over_n[2];
+static uint32_t over_t0[2];
 static uint32_t lowair_since, blocked_since, run_since, torn_since, stop_ms;
 static uint32_t hours_dirty_ms;
 static int sdp_err[2];
@@ -532,6 +562,9 @@ static float depth_ema;          /* провал разрежения при у�
 /* Розетка и инструмент. */
 static uint32_t tool_on_since, tool_low_since, tool_start_at, runon_until, sock_check_until;
 static uint8_t sock_lock;
+/* ТТ инструмента не подключён (стенд, навесной монтаж без розетки): вход IO6 висит и «показывает» ток. */
+static uint8_t ct3_absent;
+static uint32_t sock_off_at, ct3_bad_since;
 static float ov_tot[15], ov_tl[15];
 static int ov_n, ov_i;
 /* Замер фильтра. */
@@ -1193,7 +1226,8 @@ static void purge_step(uint32_t ms) {
         if ((spin_mask >> k) & 1 && vac.pcmd[k] < 95 && !(vac.faults & (k ? F_HOT2 : F_HOT1))) spun = 0;
       if (spun && !spun_at) spun_at = ms;
       /* Разгон: все нужные турбины на полной и ещё 0,3 с; без разгона — 3 с после пуска. */
-      int ready = vac_ext.boost || spin_mask == 3 ? spun_at && ms - spun_at >= 300 && vac.running : vac.running && ms - run_since >= 3000;
+      /* Мощность МР248 догоняет ШИМ с задержкой (вход сглажен) — после команды «полная» ждём MP_LAG_MS. */
+      int ready = vac_ext.boost || spin_mask == 3 ? spun_at && ms - spun_at >= MP_LAG_MS && vac.running : vac.running && ms - run_since >= 3000;
       if (ready || (vac.running && ms - ph_t > 7000)) {
         vac.r_before = r_prev_pulse = vac.r_now;
         ph = PH_PAUSE;
@@ -1229,7 +1263,14 @@ static void purge_step(uint32_t ms) {
       int spun = 1;
       for (int k = 0; k < 2; k++)
         if ((spin_mask >> k) & 1 && vac.pcmd[k] < 95 && !(vac.faults & (k ? F_HOT2 : F_HOT1))) spun = 0;
-      if (pulse_i == 0 && (vac_ext.boost || spin_mask == 3) && !spun && dt < 5000) break;
+      if (pulse_i == 0 && (vac_ext.boost || spin_mask == 3) && dt < 5000) {
+        if (!spun) {
+          spun_at = 0;
+          break;
+        }
+        if (!spun_at) spun_at = ms;
+        if (ms - spun_at < MP_LAG_MS) break;
+      }
       ready = pulse_i == 0 ? dt >= 300 : dt >= 300 && (vac.vacuum_kpa >= strong_peak * 0.9f || dt >= 1500);
     } else if (pulse_i == 0)
       ready = 1;
@@ -1293,15 +1334,45 @@ static void purge_step(uint32_t ms) {
  * После замыкания 60 мс меряем ток при закрытом симисторе: есть — симистор пробит, реле
  * размыкаем. После остановки — то же перед размыканием и после: ток есть и после размыкания —
  * реле сварилось и симистор пробит, остановить может только выключатель сети.
+ * У МР248 вход сглажен (R10 10 кОм, C5 100 мкФ — τ около 1 с): после снятия ШИМ мощность спадает
+ * 1–3 с. Поэтому при остановке реле ждёт, пока ток спадёт (не дольше 8 с — дольше идёт только
+ * через пробитый симистор), а замыкается снова, когда вход регулятора успокоился (3 с без ШИМ).
+ * Авария воды (уровень, перелив) — реле размыкается сразу: турбины не должны тянуть воду.
  * hold — держать реле замкнутым при закрытом симисторе (сейчас не нужно: клапаны питаются
  * от сети до реле турбин).
  */
+static uint32_t pwm_zero_at[2];  /* когда ШИМ турбины стал нулём (0 — с пуска не включали) */
+static uint8_t pwm_live[2];
+static uint32_t quiet_at[2];     /* остановка: проверка «тока нет» началась */
+
+static void relay_open(int k, int pin, uint32_t ms) {
+  vac.relay[k] = 0;
+  hal_pin_write(pin, 0);
+  vac.ts[k] = TS_OPEN;
+  ts_t[k] = ms;
+  quiet_at[k] = 0;
+}
+
+/* Пробит симистор: реле — прочь, турбину — выключить (сама не пустится: каждый пуск рвал бы ток реле). */
+static void triac_leak(int k, int pin, uint32_t ms) {
+  set_fault(k ? F_LEAK2 : F_LEAK1, 1);
+  lock_until[k] = ms + 60000;
+  relay_open(k, pin, ms);
+  if (vac.en[k]) {
+    vac.en[k] = 0;
+    vac.auto_started = 0;
+    sync_state();
+    hal_log(k ? "Турбина 2 выключена: пробит симистор — пуск только вручную, после проверки регулятора" : "Турбина 1 выключена: пробит симистор — пуск только вручную, после проверки регулятора");
+  }
+}
+
 static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
   int pin = k ? PIN_RL2 : PIN_RL1;
   uint32_t dt = ms - ts_t[k];
+  int settled = !pwm_zero_at[k] || ms - pwm_zero_at[k] >= MP_SETTLE_MS;
   switch (vac.ts[k]) {
   case TS_OFF:
-    if ((want || hold) && !(vac.faults & (k ? F_WELD2 : F_WELD1)) && !(lock_until[k] && (int32_t)(lock_until[k] - ms) > 0 && (vac.faults & (k ? F_LEAK2 : F_LEAK1)))) {
+    if ((want || hold) && settled && !(vac.faults & (k ? F_WELD2 : F_WELD1)) && !(lock_until[k] && (int32_t)(lock_until[k] - ms) > 0 && (vac.faults & (k ? F_LEAK2 : F_LEAK1)))) {
       vac.relay[k] = 1;
       hal_pin_write(pin, 1);
       vac.ts[k] = TS_CLOSE;
@@ -1322,12 +1393,7 @@ static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
   case TS_CHECK:
     if (dt < 60 && (want || hold)) break;
     if (peak_amps(k) > 1.5f) {
-      set_fault(k ? F_LEAK2 : F_LEAK1, 1);
-      lock_until[k] = ms + 60000;
-      vac.relay[k] = 0;
-      hal_pin_write(pin, 0);
-      vac.ts[k] = TS_OPEN;
-      ts_t[k] = ms;
+      triac_leak(k, pin, ms);
     } else if (!want && !hold) {
       vac.relay[k] = 0;
       hal_pin_write(pin, 0);
@@ -1346,30 +1412,46 @@ static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
     } else if (!hold) {
       vac.ts[k] = TS_STOP;
       ts_t[k] = ms;
+      quiet_at[k] = 0;
     }
     break;
   case TS_RUN:
     if (!want) {
       vac.ts[k] = TS_STOP;
       ts_t[k] = ms;
+      quiet_at[k] = 0;
     }
     break;
   case TS_STOP:
-    /* 40 мс — симистор закрылся на нуле тока; дальше 60 мс ток должен быть нулевым. */
-    if (dt == 40 || (dt > 40 && dt < 50)) ct_peak[k] = 0;
-    if (dt < 100) break;
+    /* Пуск снова, пока реле замкнуто, — сразу в работу (симистор проверен при пуске). */
+    if (want && !(vac.faults & (F_OVERFLOW | F_WATER))) {
+      vac.ts[k] = TS_RUN;
+      ts_t[k] = on_since[k] = ms;
+      quiet_at[k] = 0;
+      break;
+    }
+    if (vac.faults & (F_OVERFLOW | F_WATER)) {
+      relay_open(k, pin, ms);
+      break;
+    }
+    if (!quiet_at[k]) {
+      /* Ток (СКЗ за 200 мс) спал — дальше 60 мс пиками проверяем, что его нет совсем. */
+      if (dt >= 400 && vac.amps[k] < 0.5f) quiet_at[k] = ms, ct_peak[k] = 0;
+      else if (dt >= STOP_WAIT_MS) triac_leak(k, pin, ms);
+      break;
+    }
+    if (ms - quiet_at[k] < 60) break;
+    quiet_at[k] = 0;
     if (peak_amps(k) > 1.5f) {
-      set_fault(k ? F_LEAK2 : F_LEAK1, 1);
-      lock_until[k] = ms + 60000;
-    } else if (hold) {
+      if (dt >= STOP_WAIT_MS) triac_leak(k, pin, ms);
+      break;
+    }
+    if (hold) {
       vac.ts[k] = TS_HOLD;
       ts_t[k] = ms;
       break;
     }
-    vac.relay[k] = 0;
-    hal_pin_write(pin, 0);
-    vac.ts[k] = TS_OPEN;
-    ts_t[k] = ms;
+    relay_open(k, pin, ms);
     break;
   case TS_OPEN:
     if (dt >= 20 && dt < 30) ct_peak[k] = 0;
@@ -1388,8 +1470,12 @@ static void turbine_fsm(int k, int want, int hold, uint32_t ms) {
  * (или турбины работают, или разрешено «без пылесоса»). Каждый раз при подаче 0,5 с смотрим
  * ток: есть — инструмент оставили включённым, розетку снимаем (иначе он раскрутится в руках).
  */
+/* Розетка есть: не сказано «sock none» и ТТ инструмента виден. */
+static int sock_present(void) { return !(vac_cfg.hw & HW_NO_SOCK) && !ct3_absent; }
+
 static int sock_should(void) {
-  if (vac.sleep || sock_lock || vac.ov || !zc_ok) return 0;
+  /* Первые 2 с после включения розетка выключена: в это время видно, не висит ли вход ТТ (ток без розетки). */
+  if (vac.sleep || sock_lock || vac.ov || !zc_ok || now_ms < 2000 || !sock_present()) return 0;
   return vac_cfg.tool_auto || vac.state == VAC_ACTIVE || vac.running || vac_cfg.sock_free;
 }
 
@@ -1435,6 +1521,7 @@ void vac_tag_tool(int n, int on) {
 static void tool_control(uint32_t ms) {
   int s = sock_should();
   if (s && !vac.sock) sock_check_until = ms + 500;
+  if (!s && vac.sock) sock_off_at = ms;
   vac.sock = (uint8_t)s;
   hal_pin_write(PIN_RL3, s);
   /* Автозапуск: инструмент включился — через задержку пускаем турбины. */
@@ -1497,6 +1584,7 @@ static void overload_trip(float tl, float turb) {
  * подряд — неисправность клапанов (какой из двух — не видно, обе тарелки на одной камере).
  */
 static uint32_t hold_since, hold_off_at, reseat_until, last_reseat, collapse_since, last_pulse_end, plate_ok_since;
+static uint32_t reseat_end = 0xC0000000u; /* когда кончился сброс турбин (давно — до пуска) */
 static float vac_ema, fpa_ema;
 static int reseat_n, chat_n;
 static uint32_t chat_t0;
@@ -1523,11 +1611,15 @@ static void plate_watch(uint32_t ms, int spin) {
   int pulsing = vlv_req || vlv_on || (vac.purging && ph == PH_OPEN);
   if (pulsing) last_pulse_end = ms;
   if (reseat_until) {
-    if ((int32_t)(ms - reseat_until) < 0) return;
+    /* Пружины закроют тарелку, когда поток через неё ослабнет. Мощность МР248 после снятия ШИМ спадает
+     * не сразу (вход сглажен, τ ≈ 1 с): сброс — RESEAT_MS, а не 0,6 с, как с мгновенным регулятором. */
+    if (ms - last_reseat < RESEAT_MS) return;
     reseat_until = 0;
     vac.reseat = 0;
+    reseat_end = ms;
     collapse_since = 0;
     last_pulse_end = ms;  /* турбины разгоняются — как после удара */
+    pulse_quiet_until = ms + 1500;
   }
   float pc = vac.vacuum_kpa, fp = vac.filter_pa;
   if (!vac.running || ms - run_since <= 3000 || (boost_end && ms - boost_end < 4000)) {
@@ -1586,7 +1678,7 @@ static void plate_watch(uint32_t ms, int spin) {
     valve_fault(1, after ? VE_NOCLOSE : VE_HOLD);
     reseat_n = 0;
   }
-  reseat_until = ms + 600;
+  reseat_until = ms + RESEAT_MS;
   last_reseat = ms;
   vac.reseat = 1;
   reseat_events++;
@@ -1727,7 +1819,7 @@ static void test_step(uint32_t ms) {
           vac_ext.t_seal[k] = (uint16_t)(t_acc[2] * 10);
         if (test_worn) {
           char line[160] = "! Турбина ", n[12];
-          str_cat(line, k ? "2" : "1"), str_cat(line, " ослабла: "), str_cat(line, fmt_int(n, (long)vac.test_val[1]));
+          str_cat(line, k ? "2" : "1"), str_cat(line, " ослабла: "), str_cat(line, fmt_int(n, f2l(vac.test_val[1])));
           str_cat(line, " Вт, "), str_cat(line, fmt_num(n, vac.test_val[0], 1)), str_cat(line, " л/с, "), str_cat(line, fmt_num(n, t_acc[2], 1));
           str_cat(line, " кПа — в паспорте "), str_cat(line, fmt_int(n, vac_ext.t_open_w[k])), str_cat(line, " Вт, ");
           str_cat(line, fmt_num(n, vac_ext.t_open_q[k] / 10.0f, 1)), str_cat(line, " л/с, "), str_cat(line, fmt_num(n, vac_ext.t_seal[k] / 10.0f, 1));
@@ -1804,7 +1896,8 @@ static void control(void) {
     seen_zc = zc_count;
     last_zc_ms = ms;
   }
-  zc_ok = ms - last_zc_ms < 60;
+  /* 150 мс: с запасом на любую задержку цикла (прерывание нуля работает и во время записи во флеш). */
+  zc_ok = ms - last_zc_ms < 150;
   set_fault(F_NO_ZC, !zc_ok && ms > 500);
 
   /* Авария, при которой турбины должны стоять: кнопки турбин гасим — пуск только заново. */
@@ -1923,6 +2016,8 @@ static void control(void) {
     if (vac.reseat) duty = 0;
     else if (dip_until && (int32_t)(dip_until - ms) > 0) duty = duty * (100 - dip_now) / 100;
     if (duty != pwm_sent[k]) hal_pwm(k ? PIN_T2 : PIN_T1, PWM_HZ, duty), pwm_sent[k] = duty;
+    if (duty > 0) pwm_live[k] = 1;
+    else if (pwm_live[k]) pwm_live[k] = 0, pwm_zero_at[k] = ms ? ms : 1;
     if (pw > 0) any = 1;
   }
   if (any && !vac.running) run_since = ms;
@@ -2160,9 +2255,10 @@ static void sensors(void) {
   } else
     torn_since = 0;
 
-  /* Температуры — через раз (100 мс); там же — электроды. */
+  /* Температуры — через раз (100 мс); там же — электроды. Первые 2 с не судим: что на IO7 (ZMPT101B
+   * или термистор), прошивка узнаёт за секунду, а висящий вход показал бы случайную температуру. */
   if (++sens_phase & 1) {
-    for (int k = 0; k < 2; k++) {
+    for (int k = 0; k < 2 && ms > 2000; k++) {
       int bad, mv = ntc_mv(k);
       if (mv == -2) continue; /* ADS1115 только начал — первого отсчёта ещё нет */
       float t = ntc_temp(mv, &bad);
@@ -2307,18 +2403,41 @@ static void currents(void) {
   u_n = 0, u_sum2 = 0, u_hi = 0, u_lo = 5000;
   vac.amps[0] = amps[0];
   vac.amps[1] = amps[1];
-  vac.tool_amps = amps[2] > 0.08f ? amps[2] : 0;
+  /*
+   * ТТ инструмента: у подключённого на IO6 — середина 1,65 В (VMID), а без розетки тока нет. Иначе вход
+   * висит (стенд без розетки) — розетку и автозапуск от инструмента выключаем до перезапуска
+   * («sock yes» — ТТ есть, не проверять; «sock none» — розетки нет совсем).
+   */
+  if (!(vac_cfg.hw & (HW_NO_SOCK | HW_SOCK)) && !ct3_absent && ms > 500) {
+    int bad = ct_offset[2] < 1300 || ct_offset[2] > 2000 || (!vac.sock && amps[2] > 0.3f && ms - sock_off_at > 400);
+    if (!bad) ct3_bad_since = 0;
+    else if (!ct3_bad_since) ct3_bad_since = ms;
+    else if (ms - ct3_bad_since >= 1000) {
+      ct3_absent = 1;
+      hal_log("Розетка выключена: ТТ инструмента на IO6 не подключён (нет 1,65 В или ток без розетки). Есть розетка — sock yes, нет — sock none");
+    }
+  }
+  vac.tool_amps = sock_present() && amps[2] > 0.08f ? amps[2] : 0;
   vac.total_amps = amps[0] + amps[1] + vac.tool_amps + SELF_AMPS;
 
   /* Защиты по току (только в работе: при разомкнутом реле ток — это авария реле, её ловит turbine_fsm). */
   for (int k = 0; k < 2; k++) {
     float a = amps[k];
     uint32_t over = k ? F_OVER2 : F_OVER1, nocur = k ? F_NOCUR2 : F_NOCUR1;
-    int settled = vac.ts[k] == TS_RUN && vac.pcmd[k] > 0 && ms - on_since[k] > (uint32_t)vac_cfg.softstart * 100 + 1500;
+    /* Сброс турбин (тарелка садится) и удар со сбросом — ШИМ снят нарочно: ток по нему не судим. */
+    int settled = vac.ts[k] == TS_RUN && vac.pcmd[k] > 0 && ms - on_since[k] > (uint32_t)vac_cfg.softstart * 100 + 1500 && !vac.reseat && ms - reseat_end > 3000;
     if (settled && a > 9.0f) {
       if (++cnt_over[k] >= 5) {
         set_fault(over, 1);
         lock_until[k] = ms + 30000;
+        /* Пауза 30 с и пуск снова; третья перегрузка за 10 минут — турбина выключена (заклинила, щётки). */
+        if (!over_t0[k] || ms - over_t0[k] > 600000) over_t0[k] = ms ? ms : 1, over_n[k] = 0;
+        if (++over_n[k] >= 3 && vac.en[k]) {
+          vac.en[k] = 0;
+          vac.auto_started = 0;
+          sync_state();
+          hal_log(k ? "Турбина 2 выключена: перегрузка третий раз за 10 минут — проверьте турбину" : "Турбина 1 выключена: перегрузка третий раз за 10 минут — проверьте турбину");
+        }
       }
     } else
       cnt_over[k] = 0;
@@ -2415,8 +2534,8 @@ static void status_line(char *out) {
   out[0] = 0;
   str_cat(out, vac.sleep ? "ВЫКЛ" : vac.state == VAC_ACTIVE ? (vac.mode == VAC_AUTO ? "АВТО" : "РУЧН") : "СТОП");
   str_cat(out, vac.purging ? " очистка" : vac.running ? " работа" : " стоит");
-  str_cat(out, " P1="), str_cat(out, fmt_int(n, (long)vac.pcmd[0])), str_cat(out, "%");
-  str_cat(out, " P2="), str_cat(out, fmt_int(n, (long)vac.pcmd[1])), str_cat(out, "%");
+  str_cat(out, " P1="), str_cat(out, fmt_int(n, f2l(vac.pcmd[0]))), str_cat(out, "%");
+  str_cat(out, " P2="), str_cat(out, fmt_int(n, f2l(vac.pcmd[1]))), str_cat(out, "%");
   str_cat(out, " K="), str_cat(out, vac.relay[0] ? "1" : "0"), str_cat(out, vac.relay[1] ? "1" : "0"), str_cat(out, vac.sock ? "1" : "0");
   str_cat(out, " I1="), str_cat(out, fmt_num(n, vac.amps[0], 2));
   str_cat(out, " I2="), str_cat(out, fmt_num(n, vac.amps[1], 2));
@@ -2431,8 +2550,8 @@ static void status_line(char *out) {
   str_cat(out, " v="), str_cat(out, fmt_num(n, vac.speed_ms, 1));
   str_cat(out, " фильтр="), str_cat(out, fmt_num(n, vac.filter_pa, 0));
   str_cat(out, " R="), str_cat(out, fmt_num(n, vac.r_now, 1));
-  str_cat(out, " E1="), str_cat(out, fmt_int(n, (long)vac.wl_mv[0]));
-  str_cat(out, " E2="), str_cat(out, fmt_int(n, (long)vac.wl_mv[1]));
+  str_cat(out, " E1="), str_cat(out, fmt_int(n, f2l(vac.wl_mv[0])));
+  str_cat(out, " E2="), str_cat(out, fmt_int(n, f2l(vac.wl_mv[1])));
 }
 
 /* Код Bluetooth (при первом пуске) и пароль Wi-Fi (при первом «wifi on») придумываются и хранятся (слот 4): телефон, однажды
@@ -2474,6 +2593,11 @@ static void keys_load(void) {
   if (fix) keys_save();
 }
 
+const char *vac_wifi_pass(void) {
+  if (!keys.pass[0]) keys_new_pass(), keys_save();
+  return keys.pass;
+}
+
 static void wifi_set(int on) {
   if (on) {
     if (!keys.pass[0]) keys_new_pass(), keys_save();
@@ -2487,9 +2611,10 @@ static void wifi_set(int on) {
     hal_wifi(1, vac.ssid, vac.pass);
     vac.wifi = 1;
     wifi_until = now_ms + 30u * 60 * 1000;
-    char line[96] = "Wi-Fi для телефона: сеть ";
-    str_cat(str_cat(str_cat(line, vac.ssid), ", пароль "), vac.pass);
-    hal_log(str_cat(line, ", страница http://192.168.4.1 (30 мин)"));
+    /* Пароль — на экране «Телефон» (QR-код) и «wifi pass» в порт USB: журнал уходит и по Bluetooth, и по Wi-Fi. */
+    char line[200] = "Wi-Fi для телефона: сеть ";
+    str_cat(line, vac.ssid);
+    hal_log(str_cat(line, ", страница http://192.168.4.1 (30 мин); пароль — на экране «Телефон» или «wifi pass» в порт USB"));
   } else if (vac.wifi) {
     hal_wifi(0, "", "");
     vac.wifi = 0;
@@ -2516,13 +2641,14 @@ static void each_second(void) {
   if (vac.running) FILT.work_s++;
   if (vac.running && !vac.purging) series_s++;
   /* Наработку — в память раз в 10 минут или после остановки. */
-  if (hours_dirty_ms && ((!vac.running && now_ms - hours_dirty_ms > 5000) || now_ms - hours_dirty_ms > 600000)) {
+  /* Во время очистки флеш не пишем: запись останавливает прерывание таймера, а с ним — точные удары. */
+  if (hours_dirty_ms && !vac.purging && ((!vac.running && now_ms - hours_dirty_ms > 5000) || now_ms - hours_dirty_ms > 600000)) {
     vac_save_settings();
     hours_dirty_ms = 0;
   }
   if (vac.wifi && (int32_t)(now_ms - wifi_until) >= 0) wifi_set(0);
   if (vac.running || vac.state == VAC_ACTIVE || now_ms - last_status_ms > 10000) {
-    char line[360];
+    char line[400];
     status_line(line);
     hal_log(line);
     last_status_ms = now_ms;
@@ -2611,7 +2737,7 @@ void vac_loop(void) {
     if (now_ms - t1000 > 1000) t1000 = now_ms;
     each_second();
   }
-  if (save_at && (int32_t)(now_ms - save_at) >= 0) {
+  if (save_at && !vac.purging && (int32_t)(now_ms - save_at) >= 0) {
     save_at = 0;
     vac_save_settings();
   }
@@ -2657,7 +2783,7 @@ static void cfg_changed(void) {
 }
 
 static void export_journal(void) {
-  char line[200], n[16];
+  char line[280], n[16];
   hal_log("Журнал пылесоса:");
   for (int k = 0; k < 2; k++) {
     line[0] = 0;
@@ -2682,9 +2808,18 @@ static void export_journal(void) {
     hal_log(line);
   }
   line[0] = 0;
+  /* 30 значений до «6553,5» — 232 байта: строка 280. */
   str_cat(line, "  R по сменам:");
-  for (int i = 0; i < vac_cfg.nrh; i++) str_cat(line, " "), str_cat(line, fmt_num(n, vac_cfg.rhist[i] / 10.0f, 1));
+  for (int i = 0; i < vac_cfg.nrh && i < N_RHIST; i++) str_cat(line, " "), str_cat(line, fmt_num(n, vac_cfg.rhist[i] / 10.0f, 1));
   hal_log(line);
+}
+
+/* Настройки заменены целиком (резервная копия): режим, длина удара под вид клапанов, «Авто», экран. */
+static void vac_cfg_applied(void) {
+  vac.mode = vac_cfg.mode == VAC_MANUAL ? VAC_MANUAL : VAC_AUTO;
+  imp_auto = vlv_plate ? 100 : 40;
+  auto_plan();
+  link_send_config();
 }
 
 static void apply_preset(int i) {
@@ -2795,15 +2930,16 @@ void vac_command(const char *c) {
     hal_log("  preset 0…6, pset I SP N EVERY IMP PAUSE FLAGS, set n|every|imp|pause|thr|dp|strong|wl|stag|dip N (dp — порог перепада, Па, 0 — авто; dip — сброс турбин на удар, %),");
     hal_log("  set valves plate|pulse (тарельчатые на магнитах / импульсные), clean a|o, coff 0|1, hauto 0|1,");
     hal_log("  purge, purge strong, filter а|б new|washed|blown|use, filter swap, bag 0|1|new, intake new, pulses reset,");
-    hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, ble pair, ble forget N, ble code N|new, wifi on|off, wifi pass …|new, cfg export|import, ack, export");
+    hal_log("  tool auto|thr|runon|end|limit|delay|free N, sock cap|off|on, sock none|yes|auto (розетки нет / есть / по ТТ), ble pair, ble forget N, ble code N|new, wifi on|off, wifi pass …|new, cfg export|import, ack, export");
     hal_log("  lcd flip (экран на 180°), lcd cal (калибровка касания), lcd off|on (экран на контроллере)");
     hal_log("  mains (сеть: ноль, напряжение, ADS1115), mains cal 230 (напряжение по мультиметру, ZMPT101B), mains shift мкс (поправка нуля)");
     hal_log("  set buzz 0|1 (зуммер: 0 — без генератора, тон из прошивки; 1 — со своим генератором, только вкл/выкл)");
   } else if (str_eq(c, "mains") || str_starts(c, "mains ")) {
     mains_cmd(a);
   } else if (str_eq(c, "status")) {
-    status_line(line);
-    hal_log(line);
+    char st[400]; /* строка состояния — до ~330 байт при любых числах (буфер команды — 240) */
+    status_line(st);
+    hal_log(st);
     for (uint32_t b = 1; b && b <= (uint32_t)F_LAST; b <<= 1)
       if (vac.faults & b) {
         line[0] = 0;
@@ -2874,8 +3010,8 @@ void vac_command(const char *c) {
       char line[160] = "Очистка ", n[12];
       if (!x) str_cat(line, "по росту сопротивления фильтра («авто»)");
       else {
-        str_cat(line, "по перепаду: "), str_cat(line, fmt_int(n, x)), str_cat(line, " Па при "), str_cat(line, fmt_int(n, (long)sp_ls())), str_cat(line, " л/с");
-        if (vac_dp_clean() > 0) str_cat(line, ", чистый фильтр — "), str_cat(line, fmt_int(n, (long)(vac_dp_clean() + 0.5f))), str_cat(line, " Па");
+        str_cat(line, "по перепаду: "), str_cat(line, fmt_int(n, x)), str_cat(line, " Па при "), str_cat(line, fmt_int(n, f2l(sp_ls()))), str_cat(line, " л/с");
+        if (vac_dp_clean() > 0) str_cat(line, ", чистый фильтр — "), str_cat(line, fmt_int(n, f2l(vac_dp_clean() + 0.5f))), str_cat(line, " Па");
       }
       hal_log(line);
     }
@@ -2977,6 +3113,11 @@ void vac_command(const char *c) {
       if (vac.ov_one) str_cat(s, ", работает одна");
       hal_log(str_cat(s, " — розетка включена"));
     }
+  } else if (str_eq(c, "sock none") || str_eq(c, "sock yes") || str_eq(c, "sock auto")) {
+    vac_cfg.hw = (uint8_t)(c[5] == 'n' ? HW_NO_SOCK : c[5] == 'y' ? HW_SOCK : 0);
+    ct3_absent = 0, ct3_bad_since = 0;
+    hal_log(c[5] == 'n' ? "Розетки нет: розетка и ТТ инструмента не используются" : c[5] == 'y' ? "Розетка есть: ТТ инструмента не проверяется" : "Розетка — если виден ТТ инструмента на IO6");
+    cfg_changed();
   } else if (str_eq(c, "sock off")) {
     vac.ov = OV_NONE;
     sock_lock = 1;
@@ -3043,7 +3184,6 @@ void vac_command(const char *c) {
   } else if (str_starts(c, "cfg import ")) {
     int r = vac_cfg_import(a + 7);
     if (r) hal_log(r == 1 ? "Резервная копия не прочитана" : "Резервная копия от другой версии или испорчена");
-    else vac.mode = vac_cfg.mode == VAC_MANUAL ? VAC_MANUAL : VAC_AUTO, auto_plan(), link_send_config();
   } else if (str_eq(c, "ack")) {
     /* Сброс защёлкнутых аварий: перегрузка и пробой (блокировка), «пора мыть», порванный фильтр, клапаны. */
     lock_until[0] = lock_until[1] = 0;
@@ -3062,9 +3202,12 @@ void vac_command(const char *c) {
   } else if (str_eq(c, "export")) {
     export_journal();
   } else {
+    /* Команда приходит из порта (до 1100 знаков), по Wi-Fi и Bluetooth — в строку журнала только начало. */
     line[0] = 0;
     str_cat(line, "Не понял: ");
-    str_cat(line, c);
+    int n = str_len(line);
+    for (int i = 0; c[i] && (n < 160 || ((uint8_t)c[i] & 0xC0) == 0x80); i++) line[n++] = c[i]; /* букву не режем */
+    line[n] = 0;
     str_cat(line, " (help — список команд)");
     hal_log(line);
   }

@@ -64,7 +64,7 @@ describe('Пылесос S3 навесным монтажом: ZMPT101B и ADS11
     const { sim, sec, status, dev } = start();
     sec(2);
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.4');
     expect(sim.serial).toContain('АЦП ADS1115 есть (термисторы на A0, A1)');
     expect(sim.serial).toContain('Ноль сети: ZMPT101B (меандр на IO48)');
     expect(sim.serial).toContain('Напряжение сети: ZMPT101B на IO7 — откалибруйте');
@@ -172,6 +172,8 @@ describe('Пылесос S3 навесным монтажом: ZMPT101B и ADS11
 
 const F_SDP_F = 1 << 17;
 const F_SDP_Q = 1 << 18;
+const F_LEAK1 = 1 << 11;
+const F_WELD1 = 1 << 22;
 
 describe('Стенд на двух турбинах (прошивка 6.2): расходомер на второй шине I²C, SSR High Level, зуммер', () => {
   function stand() {
@@ -214,7 +216,7 @@ describe('Стенд на двух турбинах (прошивка 6.2): ра
   test('SDP810-125 (0x25) на IO13/IO14 найден сам; навесной вариант с SDP811 — на общей шине', () => {
     const { sim, status } = stand();
     expect(sim.unknown).toEqual([]);
-    expect(sim.serial).toContain('Контроллер пылесоса S3 6.3');
+    expect(sim.serial).toContain('Контроллер пылесоса S3 6.4');
     expect(sim.serial).toContain('Расходомер SDP810 — на второй шине I²C');
     expect(status().fbus).toBe(1);
     expect(status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);
@@ -240,6 +242,52 @@ describe('Стенд на двух турбинах (прошивка 6.2): ра
     for (let i = 0; i < 20; i++) sec(0.2), (imp = Math.max(imp, status().imp));
     expect(imp).toBeGreaterThan(0);
     expect(status().faults & (F_SDP_F | F_SDP_Q)).toBe(0);
+  });
+
+  test('6.4: розетки нет — вход ТТ инструмента (IO6) висит: розетка и автозапуск от «инструмента» выключены', () => {
+    const { sim, sec, status, cmd } = stand();
+    sec(2);
+    expect(sim.serial).toContain('ТТ инструмента на IO6 не подключён');
+    expect(status().sock).toBe(0);
+    expect(status().tool).toBe(0);
+    cmd('sock none');
+    expect(sim.serial).toContain('Розетки нет');
+    expect(status().sock).toBe(0);
+  });
+
+  test('6.4: остановка турбины — мощность МР248 спадает секунды (вход сглажен), реле размыкается без тока', () => {
+    const { sim, sec, status, dev, cmd } = stand();
+    cmd('mode m');
+    cmd('pw 100');
+    const t1 = dev(/SB7/);
+    const press = () => {
+      t1.press!(true);
+      sec(0.1);
+      t1.press!(false);
+      sec(0.2);
+    };
+    press();
+    sec(8);
+    expect(status().k1).toBe(1);
+    expect(status().i1).toBeGreaterThan(3);
+    press();
+    sec(1);
+    // Ток ещё идёт (C5 регулятора разряжается) — реле держит, «пробит симистор» не ставится.
+    expect(status().k1).toBe(1);
+    expect(status().i1).toBeGreaterThan(0.5);
+    sec(6);
+    expect(status().k1).toBe(0);
+    expect(status().faults & (F_LEAK1 | F_WELD1)).toBe(0);
+    expect(sim.serial).not.toContain('Пробит симистор');
+  });
+
+  test('6.4: длинная непонятная команда — в журнал только начало, прошивка работает дальше', () => {
+    const { sim, cmd, status } = stand();
+    cmd('ы'.repeat(500));
+    const line = sim.serial.split('\n').find((l) => l.startsWith('Не понял: '))!;
+    expect(new TextEncoder().encode(line).length).toBeLessThan(240);
+    expect(line).toContain('(help — список команд)');
+    expect(String(status().ver)).toBe('6.4');
   });
 
   test('зуммер со своим генератором: set buzz 1 — вывод IO45 просто «1» на время сигнала', () => {

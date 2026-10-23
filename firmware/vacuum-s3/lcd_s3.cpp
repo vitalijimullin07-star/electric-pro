@@ -46,17 +46,21 @@ static uint16_t *fb, *cur, *prev, *keep;
 template <int N> struct Ring {
   volatile uint32_t w = 0, r = 0;
   uint8_t b[N];
+  /* Барьеры: байт должен лечь в память раньше, чем другое ядро увидит новый индекс (и наоборот). */
   void put(const uint8_t *d, int n) {
     for (int i = 0; i < n; i++) {
       uint32_t nw = (w + 1) % N;
       if (nw == r) return; /* переполнено — остаток теряем (строки повторяются каждые 100 мс) */
       b[w] = d[i];
+      __sync_synchronize();
       w = nw;
     }
   }
   int get() {
     if (r == w) return -1;
+    __sync_synchronize();
     int c = b[r];
+    __sync_synchronize();
     r = (r + 1) % N;
     return c;
   }

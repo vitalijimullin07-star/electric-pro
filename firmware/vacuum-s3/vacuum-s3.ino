@@ -37,6 +37,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include "esp_ota_ops.h"
+#include "esp_task_wdt.h"
 #include "vac_core.h"
 #include "app_page.h"
 
@@ -56,6 +57,17 @@ static hw_timer_t *tick_timer;
 static bool wifi_on, app_valid;
 
 static void IRAM_ATTR on_tick(void) { vac_tick(); }
+
+/*
+ * Долгие обработчики (обновление прошивки, выгрузка «чёрного ящика», прошивка экрана) идут внутри одного
+ * прохода loop(): пока они работают, ядро должно жить — турбины останавливаться по команде, защиты (вода,
+ * перегрев, ток) работать, — а сторожевой таймер цикла — не сработать.
+ */
+static bool loop_wdt;
+static void keep_alive() {
+  vac_loop();
+  if (loop_wdt) feedLoopWDT();
+}
 
 /* Новая прошивка подтверждает себя сама после 30 с работы (иначе загрузчик откатит её при сбросе). */
 bool verifyRollbackLater() { return true; }
@@ -371,6 +383,7 @@ static bool panel_reply(const char *want, uint32_t ms) {
       } else if (c != '\r' && n < (int)sizeof line - 1)
         line[n++] = (char)c;
     }
+    keep_alive();
     delay(1);
   }
   return false;
@@ -413,7 +426,9 @@ static void web_setup() {
     server.send(200, "application/json", buf);
   });
   server.on("/c", []() {
-    vac_command(server.arg("q").c_str());
+    String q = server.arg("q");
+    if (q.length() > 200) q.remove(200);
+    vac_command(q.c_str());
     server.send(200, "text/plain", "ok");
   });
   /* «Чёрный ящик» — таблицей для Excel: последние n записей (по умолчанию 2000, ~1,5 суток работы). */
@@ -426,8 +441,10 @@ static void web_setup() {
     server.send(200, "text/csv; charset=utf-8", "\xEF\xBB\xBF"); /* BOM: Excel узнаёт UTF-8 */
     vac_bb_csv(0xFFFFFFFFu, row, sizeof row);
     server.sendContent(row);
-    for (uint32_t i = total - n; i < total; i++)
+    for (uint32_t i = total - n; i < total; i++) {
       if (vac_bb_csv(i, row, sizeof row)) server.sendContent(row);
+      if ((i & 7) == 0) keep_alive();
+    }
     server.sendContent("");
   });
   server.on("/cfg", HTTP_GET, []() {
@@ -453,13 +470,15 @@ static void web_setup() {
       []() {
         HTTPUpload &up = server.upload();
         if (up.status == UPLOAD_FILE_START) {
-          vac_power_off(1); /* турбины стоп, реле разомкнуты */
+          vac_power_off(1); /* турбины стоп, реле разомкнутся — ядро крутится и во время записи (keep_alive) */
+          keep_alive();
           fw_scan = {VAC_MARK, 0, false};
           fw_ok = Update.begin(UPDATE_SIZE_UNKNOWN);
           fw_msg = fw_ok ? "" : "Нет места для обновления: схема разделов без второго приложения";
         } else if (up.status == UPLOAD_FILE_WRITE && fw_ok) {
           fw_scan.feed(up.buf, up.currentSize);
           if (Update.write(up.buf, up.currentSize) != up.currentSize) fw_ok = false, fw_msg = "Ошибка записи";
+          keep_alive();
         } else if (up.status == UPLOAD_FILE_END && fw_ok) {
           if (!fw_scan.found) {
             Update.abort();
@@ -482,6 +501,7 @@ static void web_setup() {
         HTTPUpload &up = server.upload();
         if (up.status == UPLOAD_FILE_START) {
           vac_power_off(1);
+          keep_alive();
           fwp_scan = {panel_mark, 0, false};
           uart_mute = 1; /* ядро молчит в UART, пока идёт прошивка экрана */
           delay(50);
@@ -521,29 +541,38 @@ static void wifi_poll() {
   }
 }
 
-/* Монитор порта: «ble code» — код для телефона (без экрана его больше негде увидеть, по Bluetooth
- * и Wi-Fi он не уходит), остальное — в ядро. Пока строка похожа на «ble code», буквы придерживаются. */
+/* Монитор порта: «ble code» и «wifi pass» — код Bluetooth и пароль Wi-Fi для телефона (без экрана их больше негде
+ * увидеть, по Bluetooth и Wi-Fi они не уходят), остальное — в ядро. Пока строка похожа на одно из этих слов, буквы
+ * придерживаются. */
 static void serial_in(int ch) {
-  static const char kw[] = "ble code";
-  static int held; /* сколько букв kw придержано; -1 — строка другая, буквы идут в ядро */
+  static const char *const KW[2] = {"ble code", "wifi pass"};
+  static char held[12];
+  static int n; /* сколько букв придержано; -1 — строка другая, буквы идут в ядро */
   if (ch == '\r') return;
   if (ch == '\n') {
-    if (held == (int)sizeof kw - 1) {
-      Serial.printf("Код для телефона: %06lu (Android спросит его при первом подключении по Bluetooth)\n",
-                    (unsigned long)vac.ble_code);
-    } else {
-      for (int i = 0; i < held; i++) vac_serial(kw[i]);
+    held[n > 0 ? n : 0] = 0;
+    if (n > 0 && !strcmp(held, KW[0]))
+      Serial.printf("Код для телефона: %06lu (Android спросит его при первом подключении по Bluetooth)\n", (unsigned long)vac.ble_code);
+    else if (n > 0 && !strcmp(held, KW[1]))
+      Serial.printf("Пароль Wi-Fi: %s (сеть «Pylesos-S3-%04X», включить — wifi on)\n", vac_wifi_pass(), (unsigned)vac_cfg.dev_id);
+    else {
+      for (int i = 0; i < n; i++) vac_serial(held[i]);
       vac_serial('\n');
     }
-    held = 0;
+    n = 0;
     return;
   }
-  if (held >= 0 && held < (int)sizeof kw - 1 && ch == kw[held]) {
-    held++;
-    return;
+  if (n >= 0 && n < (int)sizeof held - 1) {
+    held[n] = (char)ch;
+    held[n + 1] = 0;
+    for (const char *kw : KW)
+      if (!strncmp(kw, held, n + 1)) {
+        n++;
+        return;
+      }
   }
-  for (int i = 0; i < held; i++) vac_serial(kw[i]);
-  held = -1;
+  for (int i = 0; i < n; i++) vac_serial(held[i]);
+  n = -1;
   vac_serial(ch);
 }
 
@@ -554,6 +583,8 @@ static void stage(uint32_t n) { boot_stage = 0x5A000000u | n; }
 
 void setup() {
   Serial.begin(115200);
+  /* USB-порт открыт, а монитор не читает — запись не ждёт (иначе каждая строка журнала держала бы цикл до 100 мс). */
+  Serial.setTxTimeoutMs(0);
   uint32_t was = boot_stage;
   esp_reset_reason_t why = esp_reset_reason();
   if ((why == ESP_RST_PANIC || why == ESP_RST_INT_WDT || why == ESP_RST_TASK_WDT || why == ESP_RST_WDT) && (was >> 24) == 0x5A &&
@@ -565,7 +596,7 @@ void setup() {
   stage(1);
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
-  prefs.begin("vac", false);
+  if (!prefs.begin("vac", false)) Serial.println("! Флеш настроек (NVS) не открылся: настройки — заводские и не сохранятся");
   strcpy(panel_mark, "VACFW:");
   strcat(panel_mark, "PANEL:");
   vac_setup();
@@ -583,6 +614,11 @@ void setup() {
   stage(6);
   lcd_start();
   stage(7);
+  /* Сторожевой таймер цикла: ядро зависло — перезапуск (выводы сбросятся: реле разомкнуты, ШИМ — ноль). */
+  esp_task_wdt_config_t wdt = {.timeout_ms = 10000, .idle_core_mask = 1, .trigger_panic = true};
+  esp_task_wdt_reconfigure(&wdt);
+  enableLoopWDT();
+  loop_wdt = true;
 }
 
 void loop() {

@@ -510,25 +510,45 @@ typedef struct {
 
 typedef char bb_size_check[sizeof(bb_rec_t) == 32 ? 1 : -1];
 
+/* В целое поле записи — с пределами (NaN — 0). */
+static uint16_t u16f(float v) { return !(v > 0) ? 0 : v >= 65535 ? 65535 : (uint16_t)v; }
+static int16_t i16f(float v) { return v != v ? 0 : v > 32767 ? 32767 : v < -32767 ? -32767 : (int16_t)v; }
+
+/*
+ * Записи копятся в памяти и уходят на флеш, когда клапаны не бьют: запись во флеш на десятки
+ * миллисекунд останавливает прерывание таймера, а с ним — удары по нулю сети.
+ */
+#define BBQ_N 16
+static bb_rec_t bbq[BBQ_N];
+static uint8_t bbq_n;
+
+static void bb_flush(void) {
+  if (!bbq_n) return;
+  hal_bb_append(bbq, bbq_n * (int)sizeof(bb_rec_t));
+  bbq_n = 0;
+}
+
 void ext_event(int kind, int a, float b) {
   bb_rec_t r;
   uint8_t *p = (uint8_t *)&r;
   for (unsigned i = 0; i < sizeof r; i++) p[i] = 0;
   r.t = vac.time_s;
-  r.type = (uint8_t)kind, r.a = (uint8_t)a, r.b = (uint16_t)(b < 0 ? 0 : b > 65535 ? 65535 : b);
-  r.flow10 = (uint16_t)(vac.flow_ls * 10), r.vac10 = (uint16_t)(vac.vacuum_kpa * 10), r.r10 = (uint16_t)(vac.r_now * 10);
-  r.watts = (uint16_t)(vac.watts[0] + vac.watts[1]);
-  r.dp = (uint16_t)(vac.filter_pa < 0 ? 0 : vac.filter_pa), r.amps10 = (uint16_t)(vac.total_amps * 10);
+  r.type = (uint8_t)kind, r.a = (uint8_t)a, r.b = u16f(b);
+  r.flow10 = u16f(vac.flow_ls * 10), r.vac10 = u16f(vac.vacuum_kpa * 10), r.r10 = u16f(vac.r_now * 10);
+  r.watts = u16f(vac.watts[0] + vac.watts[1]);
+  r.dp = u16f(vac.filter_pa), r.amps10 = u16f(vac.total_amps * 10);
   float kg = ext_scale_kg();
-  r.kg10 = (uint16_t)(kg > 0 ? kg * 10 : 0);
-  r.t1 = (int8_t)vac.temp[0], r.t2 = (int8_t)vac.temp[1];
+  r.kg10 = u16f(kg * 10);
+  r.t1 = (int8_t)(i16f(vac.temp[0]) < -127 ? -127 : i16f(vac.temp[0]) > 127 ? 127 : i16f(vac.temp[0]));
+  r.t2 = (int8_t)(i16f(vac.temp[1]) < -127 ? -127 : i16f(vac.temp[1]) > 127 ? 127 : i16f(vac.temp[1]));
   r.pulses = (uint16_t)vac_cfg.pulse_count;
   r.state = (uint8_t)(vac.running | vac.purging << 1 | vac.tool << 4 | vac.sleep << 6);
   int fn = 0;
   for (uint32_t f = vac.faults; f; f &= f - 1) fn++;
   r.faults_n = (uint8_t)fn;
   r.up = vac.uptime_s;
-  hal_bb_append(&r, sizeof r);
+  if (bbq_n == BBQ_N) bb_flush();
+  bbq[bbq_n++] = r;
 }
 
 /* Строка CSV «чёрного ящика» (Excel по-русски: «;» и запятая): index = 0xFFFFFFFF — заголовок.
@@ -607,16 +627,14 @@ static float hist_now(int m) {
 static void hist_tick(void) {
   /* Каждые 5 с. */
   for (int m = 0; m < HN; m++) {
-    float v = hist_now(m) * HK[m];
-    hf[m][hf_i] = (int16_t)(v > 32767 ? 32767 : v < -32767 ? -32767 : v);
+    hf[m][hf_i] = i16f(hist_now(m) * HK[m]);
     hacc[m] += hist_now(m);
   }
   hf_i = (uint16_t)((hf_i + 1) % HF);
   if (hf_cnt < HF) hf_cnt++;
   if (++hacc_n >= 12) {
     for (int m = 0; m < HN; m++) {
-      float v = hacc[m] / (float)hacc_n * HK[m];
-      hs[m][hs_i] = (int16_t)(v > 32767 ? 32767 : v < -32767 ? -32767 : v);
+      hs[m][hs_i] = i16f(hacc[m] / (float)hacc_n * HK[m]);
       hacc[m] = 0;
     }
     hacc_n = 0;
@@ -627,7 +645,8 @@ static void hist_tick(void) {
 
 static void send_hist(int m, int range) {
   if (m < 0 || m >= HN) return;
-  static char s[2200];
+  /* 240 точек до «-3276,7/» (1920) + 64 удара до «14400/» (384) + заголовок — 2400 с запасом. */
+  static char s[2400];
   char n[16];
   s[0] = 0;
   str_cat(s, "H");
@@ -677,8 +696,8 @@ void ext_osc_begin(uint8_t mask, uint16_t imp) {
 
 void ext_osc_sample(float kpa, float pa) {
   if (!osc_on || osc_len >= OSC_N) return;
-  osc_a[osc_len] = (int16_t)(kpa * 10);
-  osc_b[osc_len] = (int16_t)(pa < -32000 ? -32000 : pa > 32000 ? 32000 : pa);
+  osc_a[osc_len] = i16f(kpa * 10);
+  osc_b[osc_len] = i16f(pa);
   osc_len++;
 }
 
@@ -686,7 +705,8 @@ static float osc_depth, osc_rev;
 static int osc_front;
 
 static void send_osc(void) {
-  static char s[2200];
+  /* 2 × 160 отсчётов до «-32767/» (2240) + заголовок — 2400. */
+  static char s[2400];
   char n[12];
   s[0] = 0;
   str_cat(s, "O");
@@ -911,8 +931,8 @@ void ext_json(char *out) {
   /* json_num в vac_core — свой; здесь проще целыми строками. */
   float kg = ext_scale_kg();
   char b[220] = "\"w1\":";
-  str_cat(b, fmt_int(n, (long)vac.watts[0])), str_cat(b, ",\"w2\":"), str_cat(b, fmt_int(n, (long)vac.watts[1]));
-  str_cat(b, ",\"kg\":"), str_cat(b, fmt_int(n, (long)(kg * 10))), str_cat(b, ",\"time\":"), str_cat(b, fmt_int(n, (long)vac.time_s));
+  str_cat(b, fmt_int(n, f2l(vac.watts[0]))), str_cat(b, ",\"w2\":"), str_cat(b, fmt_int(n, f2l(vac.watts[1])));
+  str_cat(b, ",\"kg\":"), str_cat(b, fmt_int(n, f2l(kg * 10))), str_cat(b, ",\"time\":"), str_cat(b, fmt_int(n, (long)vac.time_s));
   str_cat(b, ",\"vmode\":"), str_cat(b, fmt_int(n, vac_ext.vmode)), str_cat(b, ",\"boost\":"), str_cat(b, fmt_int(n, vac_ext.boost));
   str_cat(b, ",\"voice\":"), str_cat(b, fmt_int(n, vac_ext.voice)), str_cat(b, ",\"test\":"), str_cat(b, fmt_int(n, vac.test_id));
   str_cat(b, ",\"pass\":"), str_cat(b, vac_ext.pass_t ? "1" : "0"), str_cat(b, ",");
@@ -1144,6 +1164,7 @@ static uint8_t was_sleep;
 static uint8_t said_brush;
 
 void ext_loop(uint32_t ms) {
+  if (bbq_n && !vac.purging && !vac.valve[0] && !vac.valve[1]) bb_flush();
   scale_poll();
   ads_poll();
   voice_poll();
