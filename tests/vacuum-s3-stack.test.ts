@@ -142,7 +142,15 @@ function dump(p: Project) {
   const keepouts = Object.values(p.ruleAreas)
     .filter((a) => a.keepoutTracks && !a.name.startsWith('Надпись'))
     .map((a) => ({ name: a.name, layers: a.layers ?? null, pts: a.outline.map(xy) }));
-  const comps = w.components.map((wc) => ({ ref: wc.component.ref, value: wc.component.value, description: wc.component.description ?? '', fp: p.footprints[wc.component.footprint]?.name ?? '' }));
+  // Детали с выводами (для монтажки на макетке, tools/maketka): вывод — место в корпусе и логическая цепь.
+  const comps = w.components.map((wc) => {
+    const c = wc.component;
+    const fp = p.footprints[c.footprint];
+    const pins = (fp?.pads ?? [])
+      .filter((q) => q.type !== 'npth')
+      .map((q) => ({ n: q.number, name: q.name ?? '', x: r4(q.at.x), y: r4(q.at.y), net: c.padNets[q.number] ? logicalNet(p.nets[c.padNets[q.number]].name) : null }));
+    return { ref: c.ref, value: c.value, description: c.description ?? '', fp: fp?.name ?? '', fid: c.footprint, at: xy(c.at), rot: c.rotation, pins, crt: fp?.courtyard ? [xy(fp.courtyard.min), xy(fp.courtyard.max)] : null, h: fp?.height ?? null };
+  });
   const drills: Record<string, number> = {};
   for (const wp of w.pads) if (wp.drill) drills[wp.drill.toFixed(2)] = (drills[wp.drill.toFixed(2)] ?? 0) + 1;
   for (const v of w.vias) drills[`${v.via.drill.toFixed(2)} (переходные)`] = (drills[`${v.via.drill.toFixed(2)} (переходные)`] ?? 0) + 1;

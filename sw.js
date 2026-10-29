@@ -3,7 +3,7 @@
 // остальное (воркер, иконки) — из кеша с фоновым обновлением.
 const VERSION = '8db28626ee08';
 const CACHE = 'plata-' + VERSION;
-const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","pylesos.html","pylesos.webmanifest","router.worker-CTTOIZca.js"];
+const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","pylesos.html","pylesos.webmanifest","maketka.html","router.worker-CTTOIZca.js"];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -22,8 +22,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
-    // Две страницы: редактор (index.html) и приложение пылесоса (pylesos.html).
-    const page = /pylesos\.html$/.test(new URL(req.url).pathname) ? 'pylesos.html' : 'index.html';
+    // Страницы: редактор (index.html), приложение пылесоса (pylesos.html) и монтажка на макетке (maketka.html).
+    const m = /(pylesos|maketka)\.html$/.exec(new URL(req.url).pathname);
+    const page = m ? m[1] + '.html' : 'index.html';
     e.respondWith(
       fetch(req)
         .then((res) => {

@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Монтажка пылесоса S3</title>
+<style>
+:root { --bg: #f6f5f1; --card: #fff; --ink: #1d1d1b; --mut: #6b6a64; --line: #dedbd2; --acc: #1f6f43; --acc2: #e8f3ec; --warn: #b4421d; --sel: #ffcc00; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); }
+.top { display: flex; align-items: baseline; gap: 10px; padding: 10px 16px 4px; flex-wrap: wrap; }
+.top h1 { font-size: 17px; margin: 0; }
+.top .prog { color: var(--mut); font-size: 13px; }
+nav { display: flex; gap: 2px; overflow-x: auto; padding: 0 10px; }
+nav button { border: 0; background: none; padding: 9px 12px; font: inherit; color: var(--mut); border-bottom: 3px solid transparent; white-space: nowrap; cursor: pointer; }
+nav button.on { color: var(--acc); border-bottom-color: var(--acc); font-weight: 600; }
+main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 80px; }
+section { display: none; }
+section.on { display: block; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+h2 { font-size: 17px; margin: 14px 0 6px; }
+h3 { font-size: 15px; margin: 12px 0 4px; }
+p { margin: 6px 0; }
+.mut { color: var(--mut); font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 7px 11px; font: inherit; cursor: pointer; }
+.btn.on { background: var(--acc); color: #fff; border-color: var(--acc); }
+.btn.sm { padding: 4px 8px; font-size: 13px; }
+label.chk { display: flex; gap: 10px; align-items: flex-start; padding: 8px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+label.chk:last-child { border-bottom: 0; }
+label.chk input { width: 20px; height: 20px; margin-top: 1px; flex: none; accent-color: var(--acc); }
+label.chk.done .t { color: var(--mut); text-decoration: line-through; }
+.links a { font-size: 13px; margin-right: 10px; color: var(--acc); }
+.qty { font-weight: 600; white-space: nowrap; }
+.cat { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin: 14px 0 0; }
+.bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+.bar i { display: block; height: 100%; background: var(--acc); width: 0; }
+.sw { display: inline-block; width: 22px; height: 12px; border-radius: 3px; border: 1px solid #0006; vertical-align: middle; position: relative; flex: none; }
+.mark { font-size: 12px; color: var(--mut); }
+.wire { display: flex; gap: 8px; align-items: flex-start; padding: 7px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.wire input { width: 20px; height: 20px; flex: none; accent-color: var(--acc); }
+.wire.sel { background: #fff7cc; }
+.wire.done .t { color: var(--mut); text-decoration: line-through; }
+.wire .t { flex: 1; }
+.wire .len { font-variant-numeric: tabular-nums; color: var(--mut); white-space: nowrap; }
+.svgwrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fbfaf6; touch-action: pan-x pan-y pinch-zoom; }
+.svgwrap svg { display: block; }
+#info { min-height: 48px; }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 10px; background: var(--acc2); color: var(--acc); font-size: 12px; margin-left: 4px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid var(--line); padding: 6px 4px; text-align: left; vertical-align: top; font-size: 14px; }
+input[type=text] { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; width: 140px; }
+input[type=color] { width: 36px; height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 1px; background: none; }
+select { font: inherit; padding: 5px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); }
+.warn { border-left: 4px solid var(--warn); }
+.note { border-left: 4px solid #e0a800; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.legend span { font-size: 13px; }
+@media (max-width: 600px) { main { padding: 8px 10px 80px; } nav button { padding: 9px 9px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>Пылесос S3 на макетке</h1><span class="prog" id="hprog"></span></div>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <section id="s-order"></section>
+  <section id="s-colors"></section>
+  <section id="s-mount"></section>
+  <section id="s-steps"></section>
+  <section id="s-test"></section>
+  <section id="s-set"></section>
+</main>
+<script>
+const DATA = /*DATA*/null;
+const KEY = 'pylesos-maketka-1';
+const DEF_COLORS = [
+  ['чёрный', '#151515'], ['красный', '#d62828'], ['оранжевый', '#f08c00'], ['жёлтый', '#f2d000'], ['зелёный', '#2f9e44'],
+  ['синий', '#1c64f2'], ['фиолетовый', '#8e44ad'], ['серый', '#8a8a8a'], ['белый', '#f7f7f7'], ['коричневый', '#8b5a2b'],
+];
+const TABS = [['order', 'Заказ'], ['colors', 'Цвета'], ['mount', 'Монтаж'], ['steps', 'Шаги'], ['test', 'Прозвонка'], ['set', 'Настройки']];
+const FLOOR_NAME = { 1: 'Этаж 1 — лицевой', 2: 'Этаж 2 — контроллер' };
+
+let S = load();
+function load() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
+  const d = { v: 1, tab: 'order', floor: 2, view: 'top', devkit: '22.86', pca: '20.32', zoom: 1, left: false,
+    colors: DEF_COLORS.map(([name, hex]) => ({ name, hex })), groupColor: {}, done: {}, bought: {}, steps: {}, checks: {} };
+  return Object.assign(d, s || {});
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* без памяти браузера — работает до закрытия */ } }
+const V = () => DATA.variants[`${S.devkit}/${S.pca}`];
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hole = (c, r) => `${DATA.rows[r - 1]}${c}`;
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- цвета ---------------- */
+function netGroup(net) { return DATA.groups.find((g) => g.nets.includes(net)); }
+function assign() {
+  const used = new Map();
+  const groupColor = {};
+  const left = S.colors.map((_, i) => i);
+  for (const g of DATA.groups) {
+    let ci = S.groupColor[g.id];
+    if (ci == null || ci >= S.colors.length) {
+      const re = new RegExp(g.pref, 'i');
+      ci = left.find((i) => re.test(S.colors[i].name) && !used.has(i));
+      if (ci == null) ci = left.find((i) => !used.has(i));
+      if (ci == null) {
+        // Цветов меньше, чем групп: берём наименее занятый — провода различаются метками.
+        ci = [...used.entries()].sort((a, b) => a[1] - b[1])[0]?.[0] ?? 0;
+      }
+    }
+    groupColor[g.id] = ci;
+    used.set(ci, (used.get(ci) ?? 0) + g.nets.length);
+  }
+  const counter = new Map();
+  const net = {};
+  for (const g of DATA.groups) {
+    const ci = groupColor[g.id];
+    for (const n of g.nets) {
+      const m = counter.get(ci) ?? 0;
+      net[n] = { ci, mark: m };
+      counter.set(ci, m + 1);
+    }
+  }
+  return { groupColor, net };
+}
+let COL = assign();
+function markText(m) {
+  if (!m) return 'без метки';
+  if (m <= 3) return `${m} ${m === 1 ? 'полоска' : 'полоски'}`;
+  return `бирка ${m}`;
+}
+function swatch(net) {
+  const a = COL.net[net];
+  const c = S.colors[a.ci] || { hex: '#999', name: '?' };
+  return `<span class="sw" style="background:${c.hex}" title="${esc(c.name)}"></span>`;
+}
+function colorName(net) {
+  const a = COL.net[net];
+  const c = S.colors[a.ci] || { name: '?' };
+  return `${c.name}${a.mark ? ', ' + markText(a.mark) : ''}`;
+}
+
+/* ---------------- выводы ---------------- */
+function pinOf(v, ref, n) { return v.placed[ref]?.pins.find((q) => q.n === n); }
+function pinName(ref, n, name) {
+  if (ref === 'П') return `переход П, ${name.startsWith('штырь') ? 'штырь' : 'гнездо'} ${n}`;
+  const p = DATA.parts[ref] || {};
+  if (ref === 'A1') return `ESP32 ${name}`;
+  if (/^X/.test(ref) && name) return `${ref} «${name}»`;
+  if (name === '+' || name === '-') return `${ref} «${name === '+' ? '+' : '−'}»`;
+  if (name && (name !== n || isNaN(+n))) return `${ref} ${name}`;
+  return `${ref} в.${n}`;
+}
+function endText(e) {
+  const where = e.ref === 'П' && e.name.startsWith('гнездо') ? `${hole(e.c, e.r)} (рядом с гнездом)` : hole(e.c, e.r);
+  return `${pinName(e.ref, e.pin, e.name)} <b>${where}</b>`;
+}
+
+/* ---------------- вкладки ---------------- */
+function tabs() {
+  $('tabs').innerHTML = TABS.map(([id, t]) => `<button data-t="${id}" class="${S.tab === id ? 'on' : ''}">${t}</button>`).join('');
+  for (const b of $('tabs').querySelectorAll('button')) b.onclick = () => { S.tab = b.dataset.t; save(); render(); };
+  for (const [id] of TABS) $('s-' + id).classList.toggle('on', S.tab === id);
+}
+function headProg() {
+  const w = V().wires;
+  const done = w.filter((x) => S.done[x.id]).length;
+  const b = DATA.bom.filter((x) => S.bought[x.id]).length;
+  $('hprog').textContent = `куплено ${b}/${DATA.bom.length} · провода ${done}/${w.length}`;
+}
+
+/* ---------------- заказ ---------------- */
+const CATS = { mod: 'Модули и датчики', ic: 'Микросхемы и полупроводники', ui: 'Кнопки, энкодер, звук', conn: 'Разъёмы и переходы', pass: 'Резисторы и конденсаторы', mech: 'Крепёж', wire: 'Провода и расходники', ext: 'К клеммникам: сетевой отсек и датчики (что уже есть — отметьте)' };
+function renderOrder() {
+  const n = DATA.bom.filter((x) => S.bought[x.id]).length;
+  let h = `<div class="card note"><b>Контрольный заказ.</b> Отмечайте, что уже есть или куплено — отметки сохраняются в этом браузере. Ссылки ведут на поиск в Озоне и Яндекс Маркете: конкретный товар выберите по отзывам и сверьте размеры.
+  <div class="bar"><i style="width:${(100 * n / DATA.bom.length).toFixed(0)}%"></i></div><span class="mut">отмечено ${n} из ${DATA.bom.length}</span></div>`;
+  for (const [cat, title] of Object.entries(CATS)) {
+    const items = DATA.bom.filter((x) => x.cat === cat);
+    if (!items.length) continue;
+    h += `<div class="cat">${title}</div><div class="card">`;
+    for (const it of items) {
+      h += `<label class="chk ${S.bought[it.id] ? 'done' : ''}"><input type="checkbox" data-b="${it.id}" ${S.bought[it.id] ? 'checked' : ''}><span><span class="t">${esc(it.name)}</span> <span class="qty">× ${it.qty}</span>
+      ${it.note ? `<br><span class="mut">${esc(it.note)}</span>` : ''}<br><span class="links"><a href="${it.ozon}" target="_blank" rel="noopener">Озон</a><a href="${it.ym}" target="_blank" rel="noopener">Яндекс Маркет</a></span></span></label>`;
+    }
+    h += '</div>';
+  }
+  h += `<p class="mut">Уже есть у вас: макетная плата (нужно 2 куска по 55×35 отверстий), МГТФ 1 мм², флюс ЛТИ-120, припой ПОС-61, паяльник TS101.</p>`;
+  $('s-order').innerHTML = h;
+  for (const i of $('s-order').querySelectorAll('input[data-b]')) i.onchange = () => { S.bought[i.dataset.b] = i.checked; save(); renderOrder(); headProg(); };
+}
+
+/* ---------------- цвета ---------------- */
+function renderColors() {
+  let h = `<div class="card"><b>Ваши цвета провода.</b> Впишите названия (как называете сами) и подберите оттенок — по названию группы получат «свои» цвета: земля — чёрный, 5 В — красный, 3,3 В — оранжевый и так далее. Не хватает цветов — провода одного цвета различаются метками: 1–3 полоски маркером или кольца термоусадки, дальше — бирка с номером. На коротких проводах (до 5 см) метку можно не ставить.</div><div class="card">`;
+  S.colors.forEach((c, i) => {
+    h += `<div class="row" style="margin:4px 0"><input type="color" value="${c.hex}" data-ch="${i}"><input type="text" value="${esc(c.name)}" data-cn="${i}"><button class="btn sm" data-cd="${i}">убрать</button></div>`;
+  });
+  h += `<div class="row" style="margin-top:8px"><button class="btn" id="cadd">+ цвет</button><button class="btn" id="cdef">10 цветов по умолчанию</button></div></div>`;
+  h += `<h2>Группы цепей</h2><div class="card"><table><tr><th>Группа</th><th>Цвет</th><th>Цепи и метки</th></tr>`;
+  for (const g of DATA.groups) {
+    const ci = COL.groupColor[g.id];
+    const opts = [`<option value="">авто</option>`].concat(S.colors.map((c, i) => `<option value="${i}" ${S.groupColor[g.id] == i ? 'selected' : ''}>${esc(c.name)}</option>`)).join('');
+    const nets = g.nets.map((n) => `<span style="white-space:nowrap">${swatch(n)} ${esc(n)} <span class="mark">${markText(COL.net[n].mark)}</span></span>`).join('<br>');
+    h += `<tr><td><b>${esc(g.name)}</b></td><td><select data-g="${g.id}">${opts}</select><br><span class="mut">${esc(S.colors[ci]?.name ?? '')}</span></td><td>${nets}</td></tr>`;
+  }
+  h += `</table></div>`;
+  $('s-colors').innerHTML = h;
+  const s = $('s-colors');
+  for (const i of s.querySelectorAll('[data-ch]')) i.onchange = () => { S.colors[+i.dataset.ch].hex = i.value; recolor(); };
+  for (const i of s.querySelectorAll('[data-cn]')) i.onchange = () => { S.colors[+i.dataset.cn].name = i.value; recolor(); };
+  for (const b of s.querySelectorAll('[data-cd]')) b.onclick = () => { if (S.colors.length > 1) { S.colors.splice(+b.dataset.cd, 1); S.groupColor = {}; recolor(); } };
+  for (const sel of s.querySelectorAll('[data-g]')) sel.onchange = () => { S.groupColor[sel.dataset.g] = sel.value === '' ? null : +sel.value; recolor(); };
+  $('cadd').onclick = () => { S.colors.push({ name: 'новый', hex: '#3aa0a0' }); recolor(); };
+  $('cdef').onclick = () => { S.colors = DEF_COLORS.map(([name, hex]) => ({ name, hex })); S.groupColor = {}; recolor(); };
+}
+function recolor() { COL = assign(); save(); renderColors(); }
+
+/* ---------------- монтаж ---------------- */
+let SEL = null; // { net, ref, pin, wire }
+const K = 14;
+function svgFloor() {
+  const v = V();
+  const f = S.floor;
+  const W = (DATA.cols + 1) * K;
+  const H = (DATA.nrows + 1) * K;
+  const bottom = S.view === 'bottom';
+  const X = (c) => (bottom ? W - c * K : c * K);
+  const Y = (r) => r * K;
+  const o = [];
+  // Масштаб 1 — плата во всю ширину экрана, кнопками ± — крупнее.
+  const fit = (Math.min(1100, document.documentElement.clientWidth) - 34) / W;
+  o.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H + 6}" width="${(W * fit * S.zoom).toFixed(0)}" height="${((H + 6) * fit * S.zoom).toFixed(0)}" font-family="system-ui,sans-serif">`);
+  o.push(`<rect x="${K * 0.45}" y="${K * 0.45}" width="${W - K * 0.9}" height="${H - K * 0.9}" rx="6" fill="${bottom ? '#e9e2c9' : '#e4ecd9'}" stroke="#8a8670"/>`);
+  for (let c = 1; c <= DATA.cols; c++) for (let r = 1; r <= DATA.nrows; r++) o.push(`<circle cx="${X(c)}" cy="${Y(r)}" r="2.6" fill="#c9a64a" opacity=".55"/>`);
+  for (let c = 5; c <= DATA.cols; c += 5) o.push(`<text x="${X(c)}" y="${K * 0.42}" font-size="7" text-anchor="middle" fill="#666">${c}</text>`);
+  for (let r = 1; r <= DATA.nrows; r++) o.push(`<text x="${bottom ? W - 3 : 3}" y="${Y(r) + 2.5}" font-size="6.5" text-anchor="${bottom ? 'end' : 'start'}" fill="#666">${DATA.rows[r - 1]}</text>`);
+  // Сверловка: стойки, экран, лапки энкодера.
+  for (const [c, r] of DATA.standoffs) o.push(`<circle cx="${X(c)}" cy="${Y(r)}" r="${3.2 / 2.54 * K / 2}" fill="#fff" stroke="#b4421d" stroke-width="1.2"/><text x="${X(c)}" y="${Y(r) + K * 1.2}" font-size="6" text-anchor="middle" fill="#b4421d">M3</text>`);
+  if (f === 1) {
+    for (const [c, r] of v.displayHoles) o.push(`<circle cx="${X(c)}" cy="${Y(r)}" r="${3.2 / 2.54 * K / 2}" fill="#fff" stroke="#b4421d" stroke-width="1.2"/>`);
+    for (const [c, r] of v.encoderTabs) o.push(`<rect x="${X(c) - 3}" y="${Y(r) - 6}" width="6" height="12" rx="2" fill="#fff" stroke="#b4421d" stroke-width="1.2"/>`);
+  }
+  const selNet = SEL?.net;
+  // Детали.
+  const fill = { module: '#9ec5ef', conn: '#a7d7a1', ic: '#bdbdbd', key: '#d9d2c3', passive: '#f0d9a8' };
+  const labels = [];
+  const parts = Object.entries(v.placed).filter(([, p]) => p.floor === f).sort((a, b) => (b[1].body[2] - b[1].body[0]) * (b[1].body[3] - b[1].body[1]) - (a[1].body[2] - a[1].body[0]) * (a[1].body[3] - a[1].body[1]));
+  for (const [ref, p] of parts) {
+    const [c0, r0, c1, r1] = p.body;
+    const xa = Math.min(X(c0), X(c1));
+    const info = DATA.parts[ref];
+    const big = (c1 - c0) * (r1 - r0) > 6;
+    o.push(`<rect x="${xa}" y="${Y(r0)}" width="${Math.abs(X(c1) - X(c0))}" height="${(r1 - r0) * K}" rx="3" fill="${fill[info.cls]}" fill-opacity="${bottom ? 0.12 : big ? 0.35 : 0.85}" stroke="#555" stroke-width="${bottom ? 0.6 : 0.8}" ${bottom ? 'stroke-dasharray="3 2"' : ''}/>`);
+    const tx = (X(c0) + X(c1)) / 2;
+    // Экран: подпись вверху (посередине — то, что под ним).
+    const ty = ref === 'HG1' ? Y(r0) + 10 : big ? (Y(r0) + Y(r1)) / 2 - (info.value && !bottom ? 2 : -3) : (Y(r0) + Y(r1)) / 2 + 2.2;
+    labels.push(`<text x="${tx}" y="${ty}" font-size="${big ? 8 : 5.6}" text-anchor="middle" fill="#111" font-weight="700" stroke="#fff" stroke-width="2" paint-order="stroke">${esc(ref)}</text>`);
+    if (big && info.value && !bottom) labels.push(`<text x="${tx}" y="${ty + 8}" font-size="6.5" text-anchor="middle" fill="#333" stroke="#fff" stroke-width="2" paint-order="stroke">${esc(info.value)}</text>`);
+  }
+  // Провода — на виде снизу.
+  if (bottom) {
+    for (const w of v.wires.filter((x) => x.floor === f)) {
+      const a = COL.net[w.net];
+      const col = S.colors[a.ci]?.hex ?? '#888';
+      const dim = selNet && selNet !== w.net;
+      const sel = SEL?.wire === w.id || (selNet === w.net);
+      const x1 = X(w.a.c), y1 = Y(w.a.r), x2 = X(w.b.c), y2 = Y(w.b.r);
+      const op = dim ? 0.12 : S.done[w.id] ? 0.45 : 0.95;
+      o.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#333" stroke-width="${sel ? 4.6 : 3}" opacity="${op}" stroke-linecap="round"/>`);
+      o.push(`<line data-w="${w.id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${sel ? 3.4 : 2}" opacity="${op}" stroke-linecap="round" style="cursor:pointer"/>`);
+      if (a.mark && !dim) {
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, len = Math.hypot(x2 - x1, y2 - y1) || 1;
+        const nx = -(y2 - y1) / len * 4, ny = (x2 - x1) / len * 4, tx = (x2 - x1) / len * 3, ty = (y2 - y1) / len * 3;
+        if (a.mark <= 3) for (let k = 0; k < a.mark; k++) { const ox = mx + tx * (k - (a.mark - 1) / 2), oy = my + ty * (k - (a.mark - 1) / 2); o.push(`<line x1="${ox - nx}" y1="${oy - ny}" x2="${ox + nx}" y2="${oy + ny}" stroke="#000" stroke-width="1" opacity="${op}"/>`); }
+        else o.push(`<text x="${mx}" y="${my - 3}" font-size="7" text-anchor="middle" fill="#000" opacity="${op}">${a.mark}</text>`);
+      }
+      if (S.done[w.id] && !dim) o.push(`<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 + 3}" font-size="9" text-anchor="middle" fill="${'#1f6f43'}">✓</text>`);
+    }
+  }
+  // Переходы.
+  for (const t of v.trans) {
+    if (t.low === f) o.push(`<rect x="${X(t.c) - 4}" y="${Y(t.r) - 4}" width="8" height="8" fill="${selNet === t.net ? '#ffcc00' : '#e8a33a'}" stroke="#7a4a00" stroke-width="${selNet === t.net ? 2 : 1}"/>`);
+    if (t.up === f) {
+      o.push(`<rect x="${X(t.c) - 4.5}" y="${Y(t.r) - 4.5}" width="9" height="9" fill="#fff" stroke="#e8a33a" stroke-width="2" ${selNet === t.net ? 'stroke="#d00"' : ''}/>`);
+      o.push(`<line x1="${X(t.c)}" y1="${Y(t.r)}" x2="${X(t.hc)}" y2="${Y(t.hr)}" stroke="#7a7a7a" stroke-width="3" stroke-linecap="round"/>`);
+    }
+  }
+  // Выводы деталей.
+  for (const [ref, p] of parts) {
+    for (const q of p.pins) {
+      const on = selNet && q.net === selNet;
+      const me = SEL?.ref === ref && SEL?.pin === q.n;
+      o.push(`<circle data-p="${ref}|${q.n}" cx="${X(q.c)}" cy="${Y(q.r)}" r="${me ? 5.6 : 4.4}" fill="${q.net ? (on ? '#ffcc00' : '#b3261e') : '#9a9a9a'}" stroke="${on || me ? '#000' : '#fff'}" stroke-width="${me ? 2 : 1}" style="cursor:pointer"/>`);
+    }
+  }
+  // Отверстия «провод» у гнёзд и штыри — тоже нажимаются.
+  for (const t of v.trans) {
+    if (t.up === f) o.push(`<circle data-h="${t.c}" cx="${X(t.hc)}" cy="${Y(t.hr)}" r="3.6" fill="${selNet === t.net ? '#ffcc00' : '#e8a33a'}" stroke="#000" stroke-width=".8" style="cursor:pointer"/>`);
+  }
+  o.push(...labels);
+  o.push(`<text x="${W / 2}" y="${H + 4}" font-size="8" text-anchor="middle" fill="#555">${bottom ? 'вид снизу (сторона пайки, зеркально): провода' : 'вид сверху (сторона деталей)'} · ${FLOOR_NAME[f]}</text>`);
+  o.push('</svg>');
+  return o.join('');
+}
+function wireRows() {
+  const v = V();
+  const order = Object.fromEntries(DATA.groups.map((g, i) => [g.id, i]));
+  let list = v.wires.filter((w) => w.floor === S.floor);
+  list.sort((a, b) => order[netGroup(a.net).id] - order[netGroup(b.net).id] || a.net.localeCompare(b.net) || a.len - b.len);
+  if (S.left) list = list.filter((w) => !S.done[w.id]);
+  let h = '';
+  let last = '';
+  for (const w of list) {
+    if (w.net !== last) {
+      h += `<div class="cat">${swatch(w.net)} ${esc(w.net)} — ${esc(DATA.netText[w.net] ?? '')} <span class="mark">· ${esc(colorName(w.net))}</span></div>`;
+      last = w.net;
+    }
+    h += `<div class="wire ${S.done[w.id] ? 'done' : ''} ${SEL?.wire === w.id ? 'sel' : ''}" data-row="${w.id}"><input type="checkbox" data-wd="${w.id}" ${S.done[w.id] ? 'checked' : ''}><span class="t">${endText(w.a)} → ${endText(w.b)}</span><span class="len">${w.len} мм</span></div>`;
+  }
+  return h || '<p class="mut">Всё припаяно.</p>';
+}
+function infoText() {
+  if (!SEL) return '<span class="mut">Нажмите на вывод, провод или строку списка — подсветится вся цепь: что с чем соединить и каким проводом.</span>';
+  const v = V();
+  const f = S.floor;
+  const net = SEL.net;
+  let h = `<b>${esc(net)}</b> — ${esc(DATA.netText[net] ?? '')} <span class="pill">${esc(colorName(net))}</span><br>`;
+  if (SEL.ref) {
+    const q = pinOf(v, SEL.ref, SEL.pin);
+    const p = DATA.parts[SEL.ref] || {};
+    h += `<span class="mut">${esc(SEL.ref)} ${esc(p.value || '')} · ${esc(p.kind || '')}</span><br>`;
+    h += `Вывод: ${pinName(SEL.ref, SEL.pin, q?.name ?? '')} <b>${q ? hole(q.c, q.r) : ''}</b><br>`;
+    const mine = v.wires.filter((w) => w.floor === f && ((w.a.ref === SEL.ref && w.a.pin === SEL.pin) || (w.b.ref === SEL.ref && w.b.pin === SEL.pin)));
+    if (mine.length) h += 'Отсюда провода: ' + mine.map((w) => { const o = w.a.ref === SEL.ref && w.a.pin === SEL.pin ? w.b : w.a; return `→ ${endText(o)} (${w.len} мм${S.done[w.id] ? ', ✓' : ''})`; }).join('; ') + '<br>';
+  }
+  const pads = [];
+  for (const [ref, p] of Object.entries(v.placed)) if (p.floor === f) for (const q of p.pins) if (q.net === net) pads.push(`${pinName(ref, q.n, q.name)} ${hole(q.c, q.r)}`);
+  h += `<span class="mut">На этом этаже в цепи: ${esc(pads.join(', '))}.</span>`;
+  const tr = v.trans.filter((t) => t.net === net);
+  if (tr.length) h += `<br><span class="mut">Переход между этажами: ${tr.map((t) => `П.${t.c - DATA.headers[0].col + 1} — штырь ${hole(t.c, t.r)} на этаже 2, гнездо там же на этаже 1, провод — в ${hole(t.hc, t.hr)}`).join('; ')}.</span>`;
+  return h;
+}
+function renderMount() {
+  const v = V();
+  const w = v.wires.filter((x) => x.floor === S.floor);
+  const d = w.filter((x) => S.done[x.id]).length;
+  let h = `<div class="row">${[2, 1].map((f) => `<button class="btn ${S.floor === f ? 'on' : ''}" data-f="${f}">${FLOOR_NAME[f]}</button>`).join('')}</div>
+  <div class="row" style="margin-top:6px"><button class="btn ${S.view === 'top' ? 'on' : ''}" data-v="top">Сверху: детали</button><button class="btn ${S.view === 'bottom' ? 'on' : ''}" data-v="bottom">Снизу: провода</button>
+  <span style="flex:1"></span><button class="btn sm" data-z="-">−</button><button class="btn sm" data-z="+">+</button></div>
+  <div class="legend mut" style="margin:6px 0"><span>● вывод</span><span style="color:#e8a33a">■ штырь перехода</span><span style="color:#e8a33a">□ гнездо</span><span style="color:#e8a33a">● отверстие под провод (капля припоя к хвосту гнезда)</span><span style="color:#b4421d">○ сверлить 3,2 мм</span></div>
+  <div class="svgwrap" id="svgw">${svgFloor()}</div>
+  <div class="card" id="info">${infoText()}</div>
+  <div class="row"><b>Провода этажа</b><span class="mut">${d} из ${w.length}</span><span style="flex:1"></span><label class="mut"><input type="checkbox" id="onlyleft" ${S.left ? 'checked' : ''}> только неприпаянные</label></div>
+  <div class="bar"><i style="width:${w.length ? (100 * d / w.length).toFixed(0) : 0}%"></i></div>
+  <div class="card" id="wires">${wireRows()}</div>`;
+  $('s-mount').innerHTML = h;
+  const s = $('s-mount');
+  for (const b of s.querySelectorAll('[data-f]')) b.onclick = () => { S.floor = +b.dataset.f; SEL = null; save(); renderMount(); };
+  for (const b of s.querySelectorAll('[data-v]')) b.onclick = () => { S.view = b.dataset.v; save(); renderMount(); };
+  for (const b of s.querySelectorAll('[data-z]')) b.onclick = () => { S.zoom = Math.max(0.6, Math.min(4, S.zoom * (b.dataset.z === '+' ? 1.25 : 0.8))); save(); $('svgw').innerHTML = svgFloor(); bindSvg(); };
+  $('onlyleft').onchange = (e) => { S.left = e.target.checked; save(); renderMount(); };
+  bindSvg();
+  for (const r of s.querySelectorAll('[data-row]')) r.onclick = (e) => {
+    if (e.target.matches('input')) return;
+    const wr = V().wires.find((x) => x.id === r.dataset.row);
+    SEL = { net: wr.net, wire: wr.id };
+    S.view = 'bottom';
+    save();
+    renderMount();
+    $('svgw').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  for (const i of s.querySelectorAll('[data-wd]')) i.onchange = () => { S.done[i.dataset.wd] = i.checked; save(); headProg(); renderMount(); };
+}
+function bindSvg() {
+  const s = $('svgw');
+  for (const c of s.querySelectorAll('[data-p]')) c.onclick = () => {
+    const [ref, pin] = c.dataset.p.split('|');
+    const q = pinOf(V(), ref, pin);
+    if (!q?.net) return;
+    SEL = { net: q.net, ref, pin };
+    refreshSel();
+  };
+  for (const c of s.querySelectorAll('[data-w]')) c.onclick = () => { const w = V().wires.find((x) => x.id === c.dataset.w); SEL = { net: w.net, wire: w.id }; refreshSel(); };
+  for (const c of s.querySelectorAll('[data-h]')) c.onclick = () => { const t = V().trans.find((x) => String(x.c) === c.dataset.h); SEL = { net: t.net }; refreshSel(); };
+}
+function refreshSel() { $('svgw').innerHTML = svgFloor(); bindSvg(); $('info').innerHTML = infoText(); $('wires').innerHTML = wireRows(); for (const i of $('wires').querySelectorAll('[data-wd]')) i.onchange = () => { S.done[i.dataset.wd] = i.checked; save(); headProg(); renderMount(); }; for (const r of $('wires').querySelectorAll('[data-row]')) r.onclick = (e) => { if (e.target.matches('input')) return; const wr = V().wires.find((x) => x.id === r.dataset.row); SEL = { net: wr.net, wire: wr.id }; S.view = 'bottom'; save(); renderMount(); $('svgw').scrollIntoView({ behavior: 'smooth', block: 'start' }); }; }
+
+/* ---------------- шаги ---------------- */
+function partsOn(f, re) { return Object.keys(V().placed).filter((r) => V().placed[r].floor === f && re.test(r)).sort((a, b) => a.localeCompare(b, 'ru', { numeric: true })); }
+function stepsList() {
+  const v = V();
+  const P = DATA.headers[0];
+  const hdr = `ряд ${DATA.rows[P.row - 1]}, столбцы ${P.col}–${P.col + P.n - 1}`;
+  const hrow = DATA.rows[P.row + P.hdir - 1];
+  const dh = v.displayHoles.map(([c, r]) => `${((c - 1) * 2.54).toFixed(1)}×${((r - 1) * 2.54).toFixed(1)}`).join(', ');
+  const small2 = partsOn(2, /^(R|C|VD)\d/).join(', ');
+  const small1 = partsOn(1, /^(R|C|VD)\d/).join(', ');
+  return [
+    ['Подготовка', [
+      ['p1', 'Заказ — по вкладке «Заказ». Пока едет, можно резать и сверлить платы.'],
+      ['p2', 'Измерьте ESP32-S3-DevKitC-1 (ряды 22,86 или 25,4 мм) и переходник PCA9555 (600 или 800 mil) — выберите в «Настройках»: от этого зависят места и провода.'],
+      ['p3', 'Отрежьте 2 куска макетки по 55×35 отверстий (около 140×90 мм). На стороне деталей пометьте маркером угол A1 (левый верхний), столбцы через 5 и ряды буквами — так проще находить отверстия.'],
+      ['p4', 'Сложите куски вместе и просверлите разом 4 отверстия 3,2 мм под стойки: B2, B54, AH2, AH54 — совпадут на обоих этажах.'],
+      ['p5', `Этаж 1: ещё 4 отверстия 3,2 мм под стойки экрана — от отверстия A1, мм (вправо × вниз): ${dh}. И 2 отверстия 1,5–2 мм под лапки энкодера (на сетке отмечены).`],
+    ]],
+    ['Этаж 2 — контроллер', [
+      ['a1', `Резисторы и конденсаторы, стоя: ${small2}. У электролитов «+» — как на сетке (подсказка при нажатии на вывод).`],
+      ['a2', 'Панелька DIP-16 под ULN2003 (ключ — по сетке, вывод 1 внизу слева), гнёзда 1×22 под ESP32 (антенной к левому краю), штыри 1×5 под часы DS3231, JP1 и XA1 (1×2).'],
+      ['a3', 'Модули: ADS1115 на своих штырях, DFPlayer — прямо штырями, MPX5100DP стоя (штуцер P2 — для трубки), электролиты.'],
+      ['a4', 'Разъёмные клеммники по краям — вилкой наружу, к краю платы.'],
+      ['a5', `Переход П: 17 длинных штырей, ${hdr}. Пластик — сверху (сторона деталей), паять снизу, как обычную деталь. Штыри смотрят вверх, к лицевому этажу.`],
+      ['a6', 'Провода (вкладка «Монтаж», этаж 2, вид снизу): сначала земля и питание — голым лужёным проводом, как шины, потом сигналы по списку. Каждый провод отмечайте галочкой.'],
+      ['a7', 'Отмойте ЛТИ-120: изопропиловый спирт и щётка, вторая порция чистого спирта, просушка 15–20 минут. Белый налёт — повторить.'],
+      ['a8', 'Прозвонка этажа 2 (вкладка «Прозвонка») и проверка: нет замыкания 5V–GND и 3V3–GND.'],
+      ['a9', 'Проба без ESP32: 5 В на XP1 — на гнезде ESP32 вывод 5V (J1, 21-й) — 5 В. Потом вставить ESP32: светится, по USB видна в мониторе порта.'],
+    ]],
+    ['Этаж 1 — лицевой', [
+      ['b1', `Под экраном только низкие детали (до 8 мм): ${small1}. И PCA9555 на переходнике — прямо штырями.`],
+      ['b2', 'Гнездо 1×14 экрана — сверху. Гнездо 1×17 перехода — СНИЗУ платы: хвосты паять сверху.'],
+      ['b3', `На каждом хвосте гнезда перехода — капля припоя к соседнему отверстию (ряд ${hrow}): туда снизу приходит провод этой цепи.`],
+      ['b4', 'Кнопки 12×12 (выводы по диагонали 1 и 4), энкодер (лапки — в рассверленные отверстия), зуммер, светодиод (длинные ноги — до панели), транзистор, диод.'],
+      ['b5', 'Провода этажа 1 по списку: земля и питание, потом сигналы.'],
+      ['b6', 'Отмыть, прозвонить этаж 1.'],
+    ]],
+    ['Сборка и пуск', [
+      ['c1', 'Стойки 20 мм на этаж 2 (винты снизу). Надеть этаж 1 гнездом перехода на штыри — если упираются, подрезать штыри; прикрутить.'],
+      ['c2', 'ESP32 — в гнёзда, удлинитель USB — к разъёму «USB». Экран — на гнездо и стойки 11 мм. Карта microSD с голосом — в плеер.'],
+      ['c3', 'Прозвонка между этажами (вкладка «Прозвонка», раздел «через переход»).'],
+      ['c4', 'Прошивка 6.4 по USB или из приложения. В мониторе порта: «lcd cal» — калибровка касания, «set buzz 0|1», «set valves plate|pulse», «mains cal 230», «test zero», «test t1», «test t2», «test v1», «test v2».'],
+    ]],
+  ];
+}
+function renderSteps() {
+  let h = `<div class="card note"><b>Пайка.</b> ПОС-61, флюс ЛТИ-120 (после каждого этажа — отмыть спиртом). TS101: выводы и тонкие провода — жало TS-BC2, 300–320 °C; шины, толстый провод, штыри и клеммники — TS-K или D24, 340–350 °C, выше не надо (отслоятся площадки). Питание паяльника лучше 20 В (USB-C PD). Концы проводов облудить заранее. Хорошая пайка — блестящая, с вогнутой галтелью.</div>`;
+  for (const [title, items] of stepsList()) {
+    const d = items.filter(([id]) => S.steps[id]).length;
+    h += `<h2>${title} <span class="mut">${d}/${items.length}</span></h2><div class="card">`;
+    for (const [id, t] of items) h += `<label class="chk ${S.steps[id] ? 'done' : ''}"><input type="checkbox" data-s="${id}" ${S.steps[id] ? 'checked' : ''}><span class="t">${esc(t)}</span></label>`;
+    h += '</div>';
+  }
+  $('s-steps').innerHTML = h;
+  for (const i of $('s-steps').querySelectorAll('[data-s]')) i.onchange = () => { S.steps[i.dataset.s] = i.checked; save(); renderSteps(); };
+}
+
+/* ---------------- прозвонка ---------------- */
+function renderTest() {
+  const v = V();
+  let h = `<div class="card warn"><b>Сначала — нет замыканий.</b> Мультиметр в режиме прозвонки: 5V–GND, 3V3–GND, 5V–3V3 — не должно звонить (на этаже 2 при вставленной ESP32 между 3V3 и GND бывает несколько сотен ом — это нормально, проверяйте без неё).</div>`;
+  const nets = [...new Set(v.wires.map((w) => w.net))].sort((a, b) => a.localeCompare(b));
+  for (const f of [2, 1]) {
+    h += `<h2>${FLOOR_NAME[f]}</h2><div class="card">`;
+    for (const net of nets) {
+      const pts = [];
+      for (const [ref, p] of Object.entries(v.placed)) if (p.floor === f) for (const q of p.pins) if (q.net === net) pts.push(`${pinName(ref, q.n, q.name)} ${hole(q.c, q.r)}`);
+      for (const t of v.trans) if (t.net === net && (t.low === f || t.up === f)) pts.push(t.low === f ? `штырь П ${hole(t.c, t.r)}` : `гнездо П ${hole(t.c, t.r)}`);
+      if (pts.length < 2) continue;
+      const id = `${f}:${net}`;
+      h += `<label class="chk ${S.checks[id] ? 'done' : ''}"><input type="checkbox" data-c="${id}" ${S.checks[id] ? 'checked' : ''}><span class="t">${swatch(net)} <b>${esc(net)}</b> — ${esc(pts.join(' · '))}</span></label>`;
+    }
+    h += '</div>';
+  }
+  h += `<h2>Через переход (после сборки)</h2><div class="card">`;
+  for (const t of v.trans) {
+    const id = `x:${t.c}`;
+    const a = Object.entries(v.placed).filter(([, p]) => p.floor === 2).flatMap(([ref, p]) => p.pins.filter((q) => q.net === t.net).map((q) => `${pinName(ref, q.n, q.name)} ${hole(q.c, q.r)}`))[0];
+    const b = Object.entries(v.placed).filter(([, p]) => p.floor === 1).flatMap(([ref, p]) => p.pins.filter((q) => q.net === t.net).map((q) => `${pinName(ref, q.n, q.name)} ${hole(q.c, q.r)}`))[0];
+    h += `<label class="chk ${S.checks[id] ? 'done' : ''}"><input type="checkbox" data-c="${id}" ${S.checks[id] ? 'checked' : ''}><span class="t">${swatch(t.net)} <b>${esc(t.net)}</b> (П.${t.c - DATA.headers[0].col + 1}): этаж 2 ${esc(a ?? '')} ↔ этаж 1 ${esc(b ?? '')}</span></label>`;
+  }
+  h += '</div>';
+  $('s-test').innerHTML = h;
+  for (const i of $('s-test').querySelectorAll('[data-c]')) i.onchange = () => { S.checks[i.dataset.c] = i.checked; save(); renderTest(); };
+}
+
+/* ---------------- настройки ---------------- */
+function renderSet() {
+  $('s-set').innerHTML = `<div class="card"><h3>ESP32-S3-DevKitC-1: расстояние между рядами выводов</h3>
+  <div class="row"><button class="btn ${S.devkit === '22.86' ? 'on' : ''}" data-dk="22.86">22,86 мм (Espressif)</button><button class="btn ${S.devkit === '25.4' ? 'on' : ''}" data-dk="25.4">25,4 мм (клоны)</button></div>
+  <h3>Переходник PCA9555 (DIP-24): расстояние между рядами</h3>
+  <div class="row"><button class="btn ${S.pca === '15.24' ? 'on' : ''}" data-pc="15.24">600 mil (15,24 мм)</button><button class="btn ${S.pca === '20.32' ? 'on' : ''}" data-pc="20.32">800 mil (20,32 мм)</button></div>
+  <p class="mut">Смена размеров меняет места и часть проводов — отметки «припаян» у изменившихся проводов пропадут. Выберите до начала пайки.</p></div>
+  <div class="card"><h3>Сохранение</h3><p class="mut">Всё (отметки, цвета, настройки) хранится в этом браузере на этом устройстве. Чтобы не потерять при очистке браузера или перенести на другой телефон — сохраните в файл.</p>
+  <div class="row"><button class="btn" id="exp">Сохранить в файл</button><label class="btn">Загрузить из файла<input type="file" id="imp" accept=".json,application/json" hidden></label><button class="btn" id="rst">Сбросить всё</button></div></div>
+  <div class="card mut">Схема — пылесос S3, прошивка 6.4, выводы как у навесного монтажа 6.1. Два этажа на макетке 2,54: лицевой (экран, 9 кнопок, энкодер, PCA9555, зуммер, светодиод) и контроллер (ESP32, ADS1115, MPX5100DP, DFPlayer, DS3231, ULN2003, разъёмные клеммники). Все соединения проверены по схеме этажерки при создании страницы.</div>`;
+  const s = $('s-set');
+  for (const b of s.querySelectorAll('[data-dk]')) b.onclick = () => { S.devkit = b.dataset.dk; SEL = null; save(); render(); };
+  for (const b of s.querySelectorAll('[data-pc]')) b.onclick = () => { S.pca = b.dataset.pc; SEL = null; save(); render(); };
+  $('exp').onclick = () => {
+    const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `montazhka-pylesos-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  $('imp').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try { S = Object.assign(load(), JSON.parse(await f.text())); COL = assign(); save(); render(); alert('Загружено.'); } catch (err) { alert('Не получилось прочитать файл.'); }
+  };
+  $('rst').onclick = () => { if (confirm('Сбросить все отметки, цвета и настройки?')) { try { localStorage.removeItem(KEY); } catch (e) { /* нет памяти */ } S = load(); COL = assign(); render(); } };
+}
+
+function render() {
+  tabs();
+  headProg();
+  ({ order: renderOrder, colors: renderColors, mount: renderMount, steps: renderSteps, test: renderTest, set: renderSet })[S.tab]();
+}
+render();
+</script>
+</body>
+</html>
