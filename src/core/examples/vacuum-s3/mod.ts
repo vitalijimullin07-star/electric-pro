@@ -406,7 +406,7 @@ const BLOCKS: SchBlock[] = [
 ];
 
 /** Подписи контактов клеммника на шёлке: со стороны винтов, поперёк ряда выводов. */
-function terminalLabels(p: Project, ref: string, labels: string[]): void {
+export function terminalLabels(p: Project, ref: string, labels: string[]): void {
   const c = Object.values(p.components).find((x) => x.ref === ref)!;
   const w = getWorld(p);
   const pads = w.pads.filter((q) => q.component.id === c.id).sort((a, b) => Number(a.pad.number) - Number(b.pad.number));

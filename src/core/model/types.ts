@@ -83,6 +83,8 @@ export type Graphic =
       thickness?: number;
       rotation?: number;
       align?: 'left' | 'center' | 'right';
+      /** Зеркально: надпись платы на нижней меди или шёлке читается снизу (у надписей деталей — по стороне детали). */
+      mirror?: boolean;
     };
 
 export interface FootprintDef {

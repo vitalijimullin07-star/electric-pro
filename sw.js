@@ -1,9 +1,9 @@
 // Service worker Plata: редактор открывается и работает без интернета.
 // Страница — сначала из сети (чтобы получать обновления), при отсутствии сети — из кеша;
 // остальное (воркер, иконки) — из кеша с фоновым обновлением.
-const VERSION = '134202a73d93';
+const VERSION = '8db28626ee08';
 const CACHE = 'plata-' + VERSION;
-const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","pylesos.html","pylesos.webmanifest","router.worker-irRsoobK.js"];
+const PRECACHE = ["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","pylesos.html","pylesos.webmanifest","router.worker-CTTOIZca.js"];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

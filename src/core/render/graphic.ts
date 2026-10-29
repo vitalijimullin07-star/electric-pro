@@ -102,7 +102,7 @@ export function graphicPrims(g: Graphic, pl: Placement | null, comp: Component |
       if (!text.trim()) return;
       const at = T(g.at);
       let rotation = g.rotation ?? 0;
-      let mirror = false;
+      let mirror = g.mirror ?? false;
       if (pl) {
         const d = dirToWorld(pl, rotate({ x: 1, y: 0 }, rotation));
         rotation = (Math.atan2(-d.y, d.x) * 180) / Math.PI;
