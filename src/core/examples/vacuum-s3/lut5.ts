@@ -154,7 +154,13 @@ function pcaFan(): FootprintDef {
   const pads = [...base.pads];
   for (const side of [-1, 1]) {
     const col = base.pads.filter((q) => Math.sign(q.at.x) === side).sort((a, b) => a.at.y - b.at.y);
-    col.forEach((q, i) => pads.push({ number: `F${q.number}`, name: q.name, type: 'smd', shape: 'circle', at: { x: side * FAN_X, y: +((i - (col.length - 1) / 2) * 2.54 + 0.635).toFixed(3) }, size: { x: 1.3, y: 1.3 }, layer: 'F.Cu' }));
+    // Концы — в два столбика через один (к каждому можно подойти с трёх сторон); у крайних уход по
+    // высоте больше 3,9 мм — им только дальний столбик (иначе их дорожка задевает ближний конец).
+    col.forEach((q, i) => {
+      const y = (i - (col.length - 1) / 2) * 2.54 + 0.635;
+      const near = i % 2 === 1 && Math.abs(y - q.at.y) <= FAN_X - 2.54 - 6.25 - 1.3 + 1e-6;
+      pads.push({ number: `F${q.number}`, name: q.name, type: 'smd', shape: 'circle', at: { x: side * (near ? FAN_X - 2.54 : FAN_X), y: +y.toFixed(3) }, size: { x: 1.3, y: 1.3 }, layer: 'F.Cu' });
+    });
   }
   // Ограждение — с веером: мелочь на нём не встанет.
   return { ...base, id: PCA_FAN, name: 'PCA9555 (SOIC-24) с веером', pads, courtyard: { min: { x: -FAN_X - 0.8, y: -14.2 }, max: { x: FAN_X + 0.8, y: 15.4 } } };
