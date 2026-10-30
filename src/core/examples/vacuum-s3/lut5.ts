@@ -201,11 +201,11 @@ export function floor1Parts(): ModPart[] {
     {
       ref: 'DD1',
       value: 'PCA9555D',
-      description: 'Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется сверху под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок',
+      description: 'Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется снизу платы (со стороны этажа 2), под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок',
       fp: 'IC_PCA9555_SOIC-24W',
       pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL', A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
-      // Выводы — на сетке 1,27 по вертикали (шаг выводов 1,27, середина — между ними).
-      at: [101.6, 31.115],
+      // Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними), левый ряд — и по горизонтали.
+      at: [101.17, 31.115],
     },
     C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [93.98, 45.72, 90]),
     R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [95.25, 49.53, 90]),
@@ -477,7 +477,9 @@ export function buildLutFloor(f: LutFloor): Project {
     // Без металлизации: у сквозных выводов медь только снизу (паяются снизу).
     const fp = { ...fp0, pads: fp0.pads.map((q) => (q.type === 'tht' ? { ...q, layer: 'B.Cu' as const } : q)) };
     const at = part.at ?? [0, 0, 0];
-    const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0 });
+    // PCA9555 (SOIC) — снизу: там вся разводка и пайка, сверху к мелким площадкам не подойти.
+    const side = part.fp === 'IC_PCA9555_SOIC-24W' ? ('bottom' as const) : ('top' as const);
+    const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0, side });
     if (part.fields) c.fields = { ...part.fields };
     // Мелочь (резисторы, конденсаторы, ключ зуммера, перемычка) расставит autoplace, остальное — на своих местах.
     if (!/^(R\d+|C\d+|VT\d+|VD\d+|JP\d+)$/.test(part.ref)) c.locked = true;

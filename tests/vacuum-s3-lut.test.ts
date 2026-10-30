@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { strToU8, zipSync } from 'fflate';
 import { BUS, BUS_DOORS, buildLutFloor, busTaps, FLOOR_PARTS, LUT_BOARD, routeLutFloor, type LutFloor } from '../src/core/examples/vacuum-s3/lut5';
 import { buildStackBoard, logicalNet } from '../src/core/examples/vacuum-s3/stack';
-import { exportExcellon, exportGerbers, safeName } from '../src/core/io/gerber';
+import { exportGerbers, safeName } from '../src/core/io/gerber';
 import { exportLutPdf } from '../src/core/io/lut-pdf';
 import { parseProjectFile, serializeProject } from '../src/core/io/project-file';
 import { exportAssemblySvg } from '../src/core/io/svg-export';
@@ -109,7 +109,7 @@ describe('пылесос S3 этажеркой под ЛУТ (4 платы)', ()
       const p = load(f);
       const dir = `etazh-${f}`;
       const base = safeName(p.meta.name);
-      for (const g of [...exportGerbers(p), ...exportExcellon(p)]) files[`${dir}/gerber/${g.name}`] = strToU8(g.content);
+      for (const g of exportGerbers(p)) files[`${dir}/gerber/${g.name}`] = strToU8(g.content);
       // ЛУТ: верх зеркально (рисунок кладут лицом к меди), низ — как есть; маски — так же.
       const sheets = (mirror: boolean) => (['B.Cu', 'F.Cu', 'B.Mask', 'F.Mask', 'F.Silk'] as LayerId[]).map((layer) => ({ layer, mirror: mirror && layer.startsWith('F.') }));
       files[`${dir}/${base}-LUT-zerkalno.pdf`] = exportLutPdf(p, { sheets: sheets(true) }).bytes;
