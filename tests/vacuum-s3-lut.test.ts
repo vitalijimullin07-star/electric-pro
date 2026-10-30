@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { strToU8, zipSync } from 'fflate';
-import { BUS, BUS_DOORS, buildLutFloor, busTaps, FLOOR_PARTS, LUT_BOARD, placeLutFloor, type LutFloor } from '../src/core/examples/vacuum-s3/lut5';
-import { buildStackBoard, logicalNet, routeStackBoard } from '../src/core/examples/vacuum-s3/stack';
+import { BUS, BUS_DOORS, buildLutFloor, busTaps, FLOOR_PARTS, LUT_BOARD, routeLutFloor, type LutFloor } from '../src/core/examples/vacuum-s3/lut5';
+import { buildStackBoard, logicalNet } from '../src/core/examples/vacuum-s3/stack';
 import { exportExcellon, exportGerbers, safeName } from '../src/core/io/gerber';
 import { exportLutPdf } from '../src/core/io/lut-pdf';
 import { parseProjectFile, serializeProject } from '../src/core/io/project-file';
@@ -85,9 +85,9 @@ describe('пылесос S3 этажеркой под ЛУТ (4 платы)', ()
   it.runIf(WRITE)(
     'развести и записать платы',
     async () => {
-      for (const f of FLOORS) {
-        const p = await placeLutFloor(buildLutFloor(f), 1);
-        const r = await routeStackBoard(p);
+      // LUT_FLOORS=24 — развести только эти этажи (остальные — из записанных файлов).
+      for (const f of FLOORS.filter((x) => (process.env.LUT_FLOORS ?? '1234').includes(String(x)))) {
+        const r = await routeLutFloor(f);
         expect(r.failed, `этаж ${f}: ${r.report.join('; ')}`).toBe(0);
         writeFileSync(file(f), serializeProject(r.project, true));
       }

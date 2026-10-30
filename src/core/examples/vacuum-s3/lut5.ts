@@ -5,7 +5,7 @@ import { createProject } from '../../model/project';
 import type { Component, FootprintDef, Graphic, PadDef, Project } from '../../model/types';
 import type { Vec2 } from '../../math/vec';
 import { terminalLabels, type ModPart } from './mod';
-import { DESCRIPTIONS, fpOf, PASS_L, PASS_R, STACK_PINS } from './stack';
+import { DESCRIPTIONS, fpOf, PASS_L, PASS_R, routeStackBoard, STACK_PINS } from './stack';
 
 /*
  * Пылесос S3 этажеркой под ЛУТ с масками (двусторонние платы без металлизации, прошивка 6.4):
@@ -260,6 +260,8 @@ export function floor2Parts(): ModPart[] {
       at: [100.33, rowY(4) + 8.89],
     },
     C('C5', '100 мкФ 10 В', 'Питание 5 В у ESP32', '5V', 'GND', [45.72, 63.5], EL5),
+    R('R73', '4,7k', 'Подтяжка SCL второй шины (IO14)', 'PNL_RX', '3V3', [40.64, 50.8, 90]),
+    R('R72', '4,7k', 'Подтяжка SDA второй шины (IO13)', 'PNL_TX', '3V3', [44.45, 50.8, 90]),
     ...holes(),
   ];
 }
@@ -277,6 +279,11 @@ export function floor3Parts(): ModPart[] {
       at: [24.13, 52.07],
     },
     C('C82', '10 мкФ', 'Питание 3,3 В АЦП (керамика 106)', '3V3', 'GND', [12.7, 58.42]),
+    // Делители термисторов — у АЦП (термисторы приходят с клеммника X2 этажа 4 по шине).
+    R('R25', '10k', 'Делитель термистора турбины 1: 3,3 В → A0 ADS1115', 'NTC1', '3V3', [30.48, 62.23, 90]),
+    R('R26', '10k', 'Делитель термистора турбины 2: 3,3 В → A1 ADS1115', 'NTC2', '3V3', [34.29, 62.23, 90]),
+    C('C24', '100 нФ', 'Фильтр термистора 1', 'NTC1', 'GND', [38.1, 62.23, 90]),
+    C('C25', '100 нФ', 'Фильтр термистора 2', 'NTC2', 'GND', [41.91, 62.23, 90]),
     {
       ref: 'DA1',
       value: 'DFPlayer Mini',
@@ -304,14 +311,8 @@ export function floor4Parts(): ModPart[] {
   return [
     // --- левый край: термисторы и шины I²C ---
     term('X2', 'Термисторы', 'Термисторы NTC 10 кОм B3950 на двигателях: турбина 1 — NTC1 и соседний GND, турбина 2 — NTC2 и соседний GND (меряет ADS1115 этажа 3)', ['GND', 'NTC1', 'GND', 'NTC2', 'GND'], ['GND', 'NTC1', 'GND', 'NTC2', 'GND'], 'L', 10.16),
-    C('C24', '100 нФ', 'Фильтр термистора 1 у клеммника', 'NTC1', 'GND', [15.24, 15.24, 90]),
-    C('C25', '100 нФ', 'Фильтр термистора 2 у клеммника', 'NTC2', 'GND', [15.24, 25.4, 90]),
-    R('R25', '10k', 'Делитель термистора турбины 1: 3,3 В → A0 ADS1115', 'NTC1', '3V3', [20.32, 15.24, 90]),
-    R('R26', '10k', 'Делитель термистора турбины 2: 3,3 В → A1 ADS1115', 'NTC2', '3V3', [20.32, 25.4, 90]),
     term('X3', 'I²C-A', 'Датчики I²C (3,3 В): SDP810-500 перепад на фильтре (0x25), NAU7802 весы (0x2A) — по два провода в гнездо', ['3V3', 'SCL', 'SDA', 'GND'], ['3,3В', 'SCL', 'SDA', 'GND'], 'L', 36.83),
     term('X4', 'I²C-2', 'Вторая шина I²C (3,3 В): расходомер SDP810-125Pa (0x25) — если нет SDP811 на 0x26. Тогда снимите перемычку JP1 «голос» на этаже 3', ['3V3', 'PNL_RX', 'PNL_TX', 'GND'], ['3,3В', 'SCL2', 'SDA2', 'GND'], 'L', 58.42),
-    R('R73', '4,7k', 'Подтяжка SCL второй шины (IO14)', 'PNL_RX', '3V3', [17.78, 60.96, 90]),
-    R('R72', '4,7k', 'Подтяжка SDA второй шины (IO13)', 'PNL_TX', '3V3', [20.32, 60.96, 90]),
     // --- нижний край: I²C-B, трансформаторы тока, бак, питание ---
     term('X10', 'I²C-B', 'Датчики I²C (3,3 В): SDP811 расходомер (0x26), BME280 воздух (0x76)', ['GND', 'SDA', 'SCL', '3V3'], ['GND', 'SDA', 'SCL', '3,3В'], 'B', 20.32),
     term('X1', 'Ток: ТТ1 ТТ2 ТТ3', 'Трансформаторы тока SCT-013 с выходом 1 В: S1 — на ТТ1/ТТ2/ТТ3 (турбины — 020, розетка — 030), S2 — на любой «ср» (середина 1,65 В)', ['VMID', 'VMID', 'VMID', 'CT1_IN', 'CT2_IN', 'CT3_IN'], ['ср', 'ср', 'ср', 'ТТ1', 'ТТ2', 'ТТ3'], 'B', 41.91),
@@ -510,4 +511,19 @@ export async function placeLutFloor(p0: Project, seed = 1): Promise<Project> {
   const r = await autoplace(p, { seed, effort: 2, start: 'current', yieldEvery: 1e9 });
   applyPlacement(p, r.moves);
   return structuredClone(p);
+}
+
+/**
+ * Расстановка мелочи и разводка: перебор семян расстановки, пока всё не разведётся (иначе — лучший
+ * вариант: меньше неразведённых, потом меньше переходных).
+ */
+export async function routeLutFloor(f: LutFloor, seeds = [1, 2, 3, 4, 5, 6]): Promise<{ project: Project; failed: number; seed: number; report: string[] }> {
+  let best: { project: Project; failed: number; seed: number; report: string[] } | null = null;
+  for (const seed of seeds) {
+    const r = await routeStackBoard(await placeLutFloor(buildLutFloor(f), seed));
+    const vias = (q: Project) => Object.keys(q.vias).length;
+    if (!best || r.failed < best.failed || (r.failed === best.failed && vias(r.project) < vias(best.project))) best = { project: r.project, failed: r.failed, seed, report: r.report };
+    if (r.failed === 0) break;
+  }
+  return best!;
 }
