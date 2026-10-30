@@ -1,0 +1,9280 @@
+{
+ "format": "plata-project",
+ "version": 1,
+ "meta": {
+  "name": "Пылесос S3 — этаж 1 (лицевой)",
+  "created": "2026-10-30T22:37:57.740Z",
+  "modified": "2026-10-30T22:37:57.740Z",
+  "author": "Plata",
+  "description": "Этажерка пылесоса S3 под ЛУТ с масками, этаж 1 из 4 (лицевой): двусторонняя без металлизации, все выводы паяются снизу, сверху — дорожки между переходными (проволочками). Прошивка 6.4."
+ },
+ "board": {
+  "outline": [
+   {
+    "x": 0,
+    "y": 0
+   },
+   {
+    "x": 140,
+    "y": 0
+   },
+   {
+    "x": 140,
+    "y": 90
+   },
+   {
+    "x": 0,
+    "y": 90
+   }
+  ],
+  "cornerRadius": 2,
+  "cutouts": [],
+  "copperLayers": 2,
+  "thickness": 1.6,
+  "maskColor": "#1f6b3a"
+ },
+ "rules": {
+  "minClearance": 0.4,
+  "minTrackWidth": 0.4,
+  "minViaDiameter": 1.6,
+  "minViaDrill": 0.6,
+  "minDrill": 0.6,
+  "minAnnularRing": 0.3,
+  "edgeClearance": 1,
+  "holeToHole": 0.3,
+  "classClearances": [],
+  "maskMargin": 0.1,
+  "tentVias": false,
+  "teardrops": true
+ },
+ "netClasses": {
+  "Default": {
+   "name": "Default",
+   "description": "Сигнальные цепи",
+   "clearance": 0.4,
+   "trackWidth": 0.6,
+   "viaDiameter": 2,
+   "viaDrill": 0.8
+  },
+  "Power": {
+   "name": "Power",
+   "description": "Питание и земля",
+   "clearance": 0.4,
+   "trackWidth": 0.8,
+   "viaDiameter": 2.2,
+   "viaDrill": 0.9
+  }
+ },
+ "nets": {
+  "njzdyk1ozy5u9m": {
+   "id": "njzdyk1ozy5u9m",
+   "name": "GND",
+   "netClass": "Power"
+  },
+  "njzdyk1p0dysbo": {
+   "id": "njzdyk1p0dysbo",
+   "name": "3V3",
+   "description": "3,3 В со стабилизатора DevKitC: датчики, ADS1115, DS3231, PCA9555, МР248",
+   "netClass": "Power"
+  },
+  "njzdyk1p15yz0z": {
+   "id": "njzdyk1p15yz0z",
+   "name": "5V",
+   "description": "Питание 5 В от блока питания (клеммник XP1 верхней платы): ESP32, плеер, экран, MPX5100DP",
+   "netClass": "Power"
+  },
+  "njzdyk1p3h17x8": {
+   "id": "njzdyk1p3h17x8",
+   "name": "LCD_CS",
+   "netClass": "Default"
+  },
+  "njzdyk1p4mrabq": {
+   "id": "njzdyk1p4mrabq",
+   "name": "LCD_RST",
+   "netClass": "Default"
+  },
+  "njzdyk1p5qwbnw": {
+   "id": "njzdyk1p5qwbnw",
+   "name": "LCD_DC",
+   "netClass": "Default"
+  },
+  "njzdyk1p6peeay": {
+   "id": "njzdyk1p6peeay",
+   "name": "SPI_MOSI",
+   "netClass": "Default"
+  },
+  "njzdyk1p7855zi": {
+   "id": "njzdyk1p7855zi",
+   "name": "SPI_SCK",
+   "netClass": "Default"
+  },
+  "njzdyk1p8y1e3h": {
+   "id": "njzdyk1p8y1e3h",
+   "name": "T_CS",
+   "netClass": "Default"
+  },
+  "njzdyk1p9keg7f": {
+   "id": "njzdyk1p9keg7f",
+   "name": "SPI_MISO",
+   "netClass": "Default"
+  },
+  "njzdyk1pa4b991": {
+   "id": "njzdyk1pa4b991",
+   "name": "T_IRQ",
+   "netClass": "Default"
+  },
+  "njzdyk1pcb0ei3": {
+   "id": "njzdyk1pcb0ei3",
+   "name": "SDA",
+   "description": "I²C: PCA9555 0x20, SDP810 0x25, SDP811 0x26, NAU7802 0x2A, ADS1115 0x48, DS3231 0x68, BME280 0x76 — IO11",
+   "netClass": "Default"
+  },
+  "njzdyk1pdmzo87": {
+   "id": "njzdyk1pdmzo87",
+   "name": "SCL",
+   "description": "I²C — IO12",
+   "netClass": "Default"
+  },
+  "njzdyl1pe7yr74": {
+   "id": "njzdyl1pe7yr74",
+   "name": "K1",
+   "netClass": "Default"
+  },
+  "njzdyl1pfangdv": {
+   "id": "njzdyl1pfangdv",
+   "name": "K2",
+   "netClass": "Default"
+  },
+  "njzdyl1pg9fu06": {
+   "id": "njzdyl1pg9fu06",
+   "name": "K3",
+   "netClass": "Default"
+  },
+  "njzdyl1phe7atv": {
+   "id": "njzdyl1phe7atv",
+   "name": "K4",
+   "netClass": "Default"
+  },
+  "njzdyl1pilgjql": {
+   "id": "njzdyl1pilgjql",
+   "name": "K5",
+   "netClass": "Default"
+  },
+  "njzdyl1pjlbent": {
+   "id": "njzdyl1pjlbent",
+   "name": "K6",
+   "netClass": "Default"
+  },
+  "njzdyl1pk8gg6v": {
+   "id": "njzdyl1pk8gg6v",
+   "name": "KT1",
+   "netClass": "Default"
+  },
+  "njzdyl1pl8iwgb": {
+   "id": "njzdyl1pl8iwgb",
+   "name": "KT2",
+   "netClass": "Default"
+  },
+  "njzdyl1pmf62rw": {
+   "id": "njzdyl1pmf62rw",
+   "name": "KOFF",
+   "netClass": "Default"
+  },
+  "njzdyl1pnd5via": {
+   "id": "njzdyl1pnd5via",
+   "name": "ENC_SW",
+   "netClass": "Default"
+  },
+  "njzdyl1poy5ozf": {
+   "id": "njzdyl1poy5ozf",
+   "name": "LED_K",
+   "netClass": "Default"
+  },
+  "njzdyl1ppv9uok": {
+   "id": "njzdyl1ppv9uok",
+   "name": "FLOAT",
+   "description": "Поплавок бака → P17 PCA9555 на пульте",
+   "netClass": "Default"
+  },
+  "njzdyl1q4yv29a": {
+   "id": "njzdyl1q4yv29a",
+   "name": "ENC_A",
+   "netClass": "Default"
+  },
+  "njzdyl1q5826tb": {
+   "id": "njzdyl1q5826tb",
+   "name": "ENC_B",
+   "netClass": "Default"
+  },
+  "njzdyl1qcyjkwu": {
+   "id": "njzdyl1qcyjkwu",
+   "name": "LED_A",
+   "netClass": "Default"
+  },
+  "njzdyl1qfr2i2x": {
+   "id": "njzdyl1qfr2i2x",
+   "name": "BZ_B",
+   "netClass": "Default"
+  },
+  "njzdyl1qgys882": {
+   "id": "njzdyl1qgys882",
+   "name": "BZ_K",
+   "netClass": "Default"
+  },
+  "njzdyl1qif8ke9": {
+   "id": "njzdyl1qif8ke9",
+   "name": "BZ",
+   "netClass": "Default"
+  }
+ },
+ "footprints": {
+  "LUT_MSP3520_Socket": {
+   "id": "LUT_MSP3520_Socket",
+   "name": "Экран MSP3520 (3,5″) лёжа",
+   "description": "Экран 3,5″ 480×320 MSP3520 (ILI9488, касание XPT2046) лёжа, разъём справа: гнездо 1×14 (PBS-14, 8,5 мм) и 4 стойки M3 11 мм. Плата экрана 98×56,34 мм, рабочее поле 73,44×48,96 мм",
+   "category": "Дисплеи",
+   "refPrefix": "HG",
+   "tags": [
+    "display",
+    "ili9488",
+    "msp3520"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "VCC",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 96,
+      "y": 44.68
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "GND",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 42.14
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "name": "CS",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 39.6
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "name": "RESET",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 37.06
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "name": "DC",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 34.52
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "name": "SDI",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 31.98
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "7",
+     "name": "SCK",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 29.44
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "name": "LED",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 26.9
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "name": "SDO",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 24.36
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "name": "T_CLK",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 21.82
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "11",
+     "name": "T_CS",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 19.28
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "12",
+     "name": "T_DIN",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 16.74
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "13",
+     "name": "T_DO",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 14.2
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "14",
+     "name": "T_IRQ",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 96,
+      "y": 11.66
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "M1",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 3,
+      "y": 3.42
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    },
+    {
+     "number": "M2",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 95,
+      "y": 3.42
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    },
+    {
+     "number": "M3",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 3,
+      "y": 52.92
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    },
+    {
+     "number": "M4",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 95,
+      "y": 52.92
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": 0
+     },
+     "b": {
+      "x": 98,
+      "y": 56.34
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": 0,
+      "y": 0
+     },
+     "b": {
+      "x": 98,
+      "y": 56.34
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": 9.95,
+      "y": 3.69
+     },
+     "b": {
+      "x": 83.39,
+      "y": 52.65
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": 94.67,
+      "y": 10.33
+     },
+     "b": {
+      "x": 97.33,
+      "y": 46.01
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 46.67,
+      "y": 6.5
+     },
+     "text": "экран 3,5\" MSP3520 (стойки M3 11 мм)",
+     "size": 1.4,
+     "thickness": 0.196,
+     "align": "center"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": 94.4,
+     "y": 10
+    },
+    "max": {
+     "x": 97.6,
+     "y": 46.3
+    }
+   },
+   "source": "LCDWIKI MSP3520_Size.pdf (V1.0, 2024-04-17)",
+   "verified": true,
+   "height": 17
+  },
+  "LUT_PCA9555_SOIC24_Fan": {
+   "graphics": [
+    {
+     "kind": "poly",
+     "layer": "F.Fab",
+     "pts": [
+      {
+       "x": -2.75,
+       "y": -7.7
+      },
+      {
+       "x": 3.75,
+       "y": -7.7
+      },
+      {
+       "x": 3.75,
+       "y": 7.7
+      },
+      {
+       "x": -3.75,
+       "y": 7.7
+      },
+      {
+       "x": -3.75,
+       "y": -6.7
+      }
+     ],
+     "width": 0.1,
+     "closed": true,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.85,
+      "y": -7.8
+     },
+     "b": {
+      "x": 3.85,
+      "y": -7.8
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.85,
+      "y": 7.8
+     },
+     "b": {
+      "x": 3.85,
+      "y": 7.8
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.85,
+      "y": -7.8
+     },
+     "b": {
+      "x": -5.8,
+      "y": -7.8
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -5.8,
+      "y": -7.8
+     },
+     "b": {
+      "x": -5.8,
+      "y": -7.285
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.9,
+      "y": -7.95
+     },
+     "b": {
+      "x": 5.9,
+      "y": 7.95
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -8.65
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 8.65
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": -6.985
+     },
+     "text": "INT",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.62,
+      "y": -5.715
+     },
+     "text": "A1",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.62,
+      "y": -4.445
+     },
+     "text": "A2",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": -3.175
+     },
+     "text": "P00",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": -1.905
+     },
+     "text": "P01",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": -0.635
+     },
+     "text": "P02",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 0.635
+     },
+     "text": "P03",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 1.905
+     },
+     "text": "P04",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 3.175
+     },
+     "text": "P05",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 4.445
+     },
+     "text": "P06",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 5.715
+     },
+     "text": "P07",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.958,
+      "y": 6.985
+     },
+     "text": "GND",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 6.985
+     },
+     "text": "P10",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 5.715
+     },
+     "text": "P11",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 4.445
+     },
+     "text": "P12",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 3.175
+     },
+     "text": "P13",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 1.905
+     },
+     "text": "P14",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": 0.635
+     },
+     "text": "P15",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": -0.635
+     },
+     "text": "P16",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": -1.905
+     },
+     "text": "P17",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.62,
+      "y": -3.175
+     },
+     "text": "A0",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": -4.445
+     },
+     "text": "SCL",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": -5.715
+     },
+     "text": "SDA",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.958,
+      "y": -6.985
+     },
+     "text": "VCC",
+     "size": 0.81,
+     "thickness": 0.12,
+     "rotation": 0,
+     "align": "center"
+    }
+   ],
+   "id": "LUT_PCA9555_SOIC24_Fan",
+   "name": "PCA9555 (SOIC-24) с веером",
+   "description": "Расширитель портов I²C на 16 выводов PCA9555D (NXP) в широком SO-24 — удобен для ручной пайки; подтяжки входов 100 кОм внутри. Выводы как у TSSOP: INT, A1, A2, P00–P07, GND, P10–P17, A0, SCL, SDA, VCC",
+   "category": "Микросхемы",
+   "tags": [
+    "smd",
+    "ic",
+    "pca9555",
+    "tca9555",
+    "i2c",
+    "expander"
+   ],
+   "refPrefix": "U",
+   "pads": [
+    {
+     "number": "1",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -6.985
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "INT"
+    },
+    {
+     "number": "2",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -5.715
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "A1"
+    },
+    {
+     "number": "3",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -4.445
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "A2"
+    },
+    {
+     "number": "4",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -3.175
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P00"
+    },
+    {
+     "number": "5",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -1.905
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P01"
+    },
+    {
+     "number": "6",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": -0.635
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P02"
+    },
+    {
+     "number": "7",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 0.635
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P03"
+    },
+    {
+     "number": "8",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 1.905
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P04"
+    },
+    {
+     "number": "9",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 3.175
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P05"
+    },
+    {
+     "number": "10",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 4.445
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P06"
+    },
+    {
+     "number": "11",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 5.715
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P07"
+    },
+    {
+     "number": "12",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": -4.65,
+      "y": 6.985
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "GND"
+    },
+    {
+     "number": "13",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 6.985
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P10"
+    },
+    {
+     "number": "14",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 5.715
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P11"
+    },
+    {
+     "number": "15",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 4.445
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P12"
+    },
+    {
+     "number": "16",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 3.175
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P13"
+    },
+    {
+     "number": "17",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 1.905
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P14"
+    },
+    {
+     "number": "18",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": 0.635
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P15"
+    },
+    {
+     "number": "19",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -0.635
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P16"
+    },
+    {
+     "number": "20",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -1.905
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "P17"
+    },
+    {
+     "number": "21",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -3.175
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "A0"
+    },
+    {
+     "number": "22",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -4.445
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "SCL"
+    },
+    {
+     "number": "23",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -5.715
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "SDA"
+    },
+    {
+     "number": "24",
+     "type": "smd",
+     "shape": "roundrect",
+     "at": {
+      "x": 4.65,
+      "y": -6.985
+     },
+     "size": {
+      "x": 2,
+      "y": 0.6
+     },
+     "roundness": 0.25,
+     "name": "VCC"
+    },
+    {
+     "number": "F1",
+     "name": "INT",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": -13.335
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F2",
+     "name": "A1",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": -10.795
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F3",
+     "name": "A2",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": -8.255
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F4",
+     "name": "P00",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -11.43,
+      "y": -5.715
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F5",
+     "name": "P01",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": -3.175
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F6",
+     "name": "P02",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -11.43,
+      "y": -0.635
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F7",
+     "name": "P03",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": 1.905
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F8",
+     "name": "P04",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -11.43,
+      "y": 4.445
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F9",
+     "name": "P05",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": 6.985
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F10",
+     "name": "P06",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": 9.525
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F11",
+     "name": "P07",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": 12.065
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F12",
+     "name": "GND",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": -13.97,
+      "y": 14.605
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F24",
+     "name": "VCC",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": -13.335
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F23",
+     "name": "SDA",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": -10.795
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F22",
+     "name": "SCL",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": -8.255
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F21",
+     "name": "A0",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 11.43,
+      "y": -5.715
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F20",
+     "name": "P17",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": -3.175
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F19",
+     "name": "P16",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 11.43,
+      "y": -0.635
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F18",
+     "name": "P15",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": 1.905
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F17",
+     "name": "P14",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 11.43,
+      "y": 4.445
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F16",
+     "name": "P13",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": 6.985
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F15",
+     "name": "P12",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": 9.525
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F14",
+     "name": "P11",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": 12.065
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    },
+    {
+     "number": "F13",
+     "name": "P10",
+     "type": "smd",
+     "shape": "circle",
+     "at": {
+      "x": 13.97,
+      "y": 14.605
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "layer": "F.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -14.770000000000001,
+     "y": -14.2
+    },
+    "max": {
+     "x": 14.770000000000001,
+     "y": 15.4
+    }
+   },
+   "source": "Распиновка по даташиту; корпус SOIC-24W",
+   "verified": false,
+   "height": 2.65,
+   "group": "Память, часы, АЦП, расширители"
+  },
+  "C_Disc_D5mm_W2.5mm_P2.5mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.5,
+      "y": -1.25
+     },
+     "b": {
+      "x": 2.5,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": -1.35
+     },
+     "b": {
+      "x": 2.6,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 2.6,
+      "y": -1.35
+     },
+     "b": {
+      "x": 2.6,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 2.6,
+      "y": 1.35
+     },
+     "b": {
+      "x": -2.6,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": 1.35
+     },
+     "b": {
+      "x": -2.6,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "name": "Диск Ø5, 2,5",
+   "description": "Керамический дисковый конденсатор Ø5 мм, толщина 2.5 мм, шаг 2,5 мм",
+   "category": "Конденсаторы",
+   "group": "Керамические дисковые",
+   "tags": [
+    "tht",
+    "ceramic",
+    "disc"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -1.25,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.25,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 6
+  },
+  "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.25,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.35,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 1.35,
+      "y": 0
+     },
+     "b": {
+      "x": 1.49,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -1.75,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3.84,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "name": "Резистор 0.25W стоя, 2,54 мм",
+   "description": "Резистор 0.25W с осевыми выводами, установлен вертикально, шаг 2,54 мм, корпус 6.3×2.5 мм",
+   "category": "Резисторы",
+   "group": "Выводные вертикально",
+   "tags": [
+    "tht",
+    "axial",
+    "vertical",
+    "resistor"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.75,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3.84,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 7.3
+  },
+  "SW_PUSH_12mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -6,
+      "y": -6
+     },
+     "b": {
+      "x": 6,
+      "y": 6
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": -6.1
+     },
+     "b": {
+      "x": 6.1,
+      "y": -6.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": -6.1
+     },
+     "b": {
+      "x": 6.1,
+      "y": -3.8
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": -1.2
+     },
+     "b": {
+      "x": 6.1,
+      "y": 1.2
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": 3.8
+     },
+     "b": {
+      "x": 6.1,
+      "y": 6.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": 6.1
+     },
+     "b": {
+      "x": -6.1,
+      "y": 6.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": 6.1
+     },
+     "b": {
+      "x": -6.1,
+      "y": 3.8
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": 1.2
+     },
+     "b": {
+      "x": -6.1,
+      "y": -1.2
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": -3.8
+     },
+     "b": {
+      "x": -6.1,
+      "y": -6.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.5,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -7.75,
+      "y": -6.5
+     },
+     "b": {
+      "x": 7.75,
+      "y": 6.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -7.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 7.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "SW_PUSH_12mm",
+   "name": "Кнопка 12×12",
+   "description": "Тактовая кнопка 12×12 мм, 4 вывода (12,5 × 5,0 мм), под колпачок",
+   "category": "Кнопки и переключатели",
+   "group": "Тактовые",
+   "tags": [
+    "tht",
+    "tactile",
+    "button",
+    "12mm"
+   ],
+   "refPrefix": "SW",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -6.25,
+      "y": -2.5
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1.1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 6.25,
+      "y": -2.5
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1.1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -6.25,
+      "y": 2.5
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1.1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 6.25,
+      "y": 2.5
+     },
+     "size": {
+      "x": 2,
+      "y": 2
+     },
+     "drill": 1.1,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -7.75,
+     "y": -6.5
+    },
+    "max": {
+     "x": 7.75,
+     "y": 6.5
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": false,
+   "height": 7.3
+  },
+  "RotaryEncoder_Alps_EC11E_Vertical_H20mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -6,
+      "y": -6.6
+     },
+     "b": {
+      "x": 6,
+      "y": 6.6
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": -6.7
+     },
+     "b": {
+      "x": -3.65,
+      "y": -6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.35,
+      "y": -6.7
+     },
+     "b": {
+      "x": 1.35,
+      "y": -6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.65,
+      "y": -6.7
+     },
+     "b": {
+      "x": 6.1,
+      "y": -6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": -6.7
+     },
+     "b": {
+      "x": 6.1,
+      "y": -1.4
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": 1.4
+     },
+     "b": {
+      "x": 6.1,
+      "y": 6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 6.1,
+      "y": 6.7
+     },
+     "b": {
+      "x": 3.35,
+      "y": 6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 1.65,
+      "y": 6.7
+     },
+     "b": {
+      "x": 0.85,
+      "y": 6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -0.85,
+      "y": 6.7
+     },
+     "b": {
+      "x": -1.3,
+      "y": 6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.7,
+      "y": 6.7
+     },
+     "b": {
+      "x": -6.1,
+      "y": 6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": 6.7
+     },
+     "b": {
+      "x": -6.1,
+      "y": 1.4
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -6.1,
+      "y": -1.4
+     },
+     "b": {
+      "x": -6.1,
+      "y": -6.7
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -7.7,
+      "y": -8.4
+     },
+     "b": {
+      "x": 7.7,
+      "y": 8.9
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -9.1
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 9.6
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -2.5,
+      "y": -9.025
+     },
+     "text": "SW",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.5,
+      "y": -9.025
+     },
+     "text": "SW",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "RotaryEncoder_Alps_EC11E_Vertical_H20mm",
+   "name": "Энкодер EC11",
+   "description": "Инкрементальный энкодер EC11 с кнопкой, вертикальный: выводы A, C, B (шаг 2,5 мм), кнопка (2 вывода через 5 мм), лапки крепления через 11,2 мм",
+   "category": "Кнопки и переключатели",
+   "group": "Энкодеры",
+   "tags": [
+    "tht",
+    "encoder",
+    "ec11"
+   ],
+   "refPrefix": "SW",
+   "pads": [
+    {
+     "number": "A",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -2.5,
+      "y": 7.5
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1,
+     "name": "A",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "C",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 7.5
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1,
+     "name": "C",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "B",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.5,
+      "y": 7.5
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1,
+     "name": "B",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.5,
+      "y": -7
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1,
+     "name": "SW",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.5,
+      "y": -7
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 1,
+     "name": "SW",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "MP1",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -5.6,
+      "y": 0
+     },
+     "size": {
+      "x": 3.2,
+      "y": 2.2
+     },
+     "drill": 1.6,
+     "name": "MP",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "MP2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 5.6,
+      "y": 0
+     },
+     "size": {
+      "x": 3.2,
+      "y": 2.2
+     },
+     "drill": 1.6,
+     "name": "MP",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -7.7,
+     "y": -8.4
+    },
+    "max": {
+     "x": 7.7,
+     "y": 8.9
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": false,
+   "height": 20
+  },
+  "LED_D3.0mm": {
+   "graphics": [
+    {
+     "kind": "arc",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.8,
+     "start": 146.44269023807928,
+     "sweep": -292.88538047615856,
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.5,
+      "y": -0.995
+     },
+     "b": {
+      "x": -1.5,
+      "y": 0.995
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "arc",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.86,
+     "start": 146.44269023807928,
+     "sweep": -292.88538047615856,
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.56,
+      "y": -0.995
+     },
+     "b": {
+      "x": -1.56,
+      "y": 0.995
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -2.67,
+      "y": -2.3
+     },
+     "b": {
+      "x": 2.67,
+      "y": 2.3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -3
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 3
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 1.608
+     },
+     "text": "K",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 1.608
+     },
+     "text": "A",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "LED_D3.0mm",
+   "name": "LED 3 мм",
+   "description": "Светодиод Ø3 мм, шаг 2,54 мм, катод (плоская грань) — вывод 1",
+   "category": "Светодиоды",
+   "tags": [
+    "tht",
+    "led",
+    "3mm"
+   ],
+   "refPrefix": "LED",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "K",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "A",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.67,
+     "y": -2.3
+    },
+    "max": {
+     "x": 2.67,
+     "y": 2.3
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 5.3,
+   "group": "Выводные"
+  },
+  "Q_S8050_TO-92_Wide": {
+   "graphics": [
+    {
+     "kind": "arc",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.3,
+     "start": 37.6,
+     "sweep": 284.8,
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.8248,
+      "y": -1.4
+     },
+     "b": {
+      "x": 1.8248,
+      "y": -1.4
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "arc",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.36,
+     "start": 38,
+     "sweep": 284,
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.8248,
+      "y": -1.46
+     },
+     "b": {
+      "x": 1.8248,
+      "y": -1.46
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.84,
+      "y": -1.9
+     },
+     "b": {
+      "x": 3.84,
+      "y": 2.8
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.6
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 3.5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "Q_S8050_TO-92_Wide",
+   "name": "S8050 (TO-92, широкий шаг)",
+   "description": "NPN S8050/2N2222/BC337 в TO-92 с выводами, разведёнными на 2,54 мм — удобно для ЛУТ: 1 — эмиттер, 2 — база, 3 — коллектор (сверить с корпусом: у BC337 и 2N2222 порядок бывает другим)",
+   "category": "Транзисторы",
+   "tags": [
+    "tht",
+    "to-92",
+    "transistor",
+    "transistor",
+    "s8050",
+    "npn"
+   ],
+   "refPrefix": "Q",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "E",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "B",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "C",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.84,
+     "y": -1.9
+    },
+    "max": {
+     "x": 3.84,
+     "y": 2.8
+    }
+   },
+   "source": "JEDEC TO-92",
+   "verified": true,
+   "height": 5,
+   "group": "Выводные малые"
+  },
+  "D_DO-35_P7.62mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.9,
+      "y": -0.9
+     },
+     "b": {
+      "x": 1.9,
+      "y": 0.9
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.064,
+      "y": -0.9
+     },
+     "b": {
+      "x": -1.064,
+      "y": 0.9
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.96,
+      "y": -0.96
+     },
+     "b": {
+      "x": 1.96,
+      "y": 0.96
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.214,
+      "y": -0.96
+     },
+     "b": {
+      "x": -1.214,
+      "y": 0.96
+     },
+     "width": 0.3
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.76,
+      "y": 0
+     },
+     "b": {
+      "x": -1.96,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 1.96,
+      "y": 0
+     },
+     "b": {
+      "x": 2.76,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.12,
+      "y": -1.4
+     },
+     "b": {
+      "x": 5.12,
+      "y": 1.4
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.1
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.1
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 1.508
+     },
+     "text": "K",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 1.508
+     },
+     "text": "A",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "D_DO-35_P7.62mm_Horizontal",
+   "name": "DO-35",
+   "description": "Диод DO-35, корпус 3.8×1.8 мм, шаг 7,62 мм, катод — вывод 1",
+   "category": "Диоды",
+   "tags": [
+    "tht",
+    "axial",
+    "diode",
+    "do-35"
+   ],
+   "refPrefix": "D",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "K",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "name": "A",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.12,
+     "y": -1.4
+    },
+    "max": {
+     "x": 5.12,
+     "y": 1.4
+    }
+   },
+   "source": "JEDEC / типовые",
+   "verified": true,
+   "height": 1.8,
+   "group": "Выводные"
+  },
+  "Buzzer_12x9.5RM7.6": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 6.06,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7.4,
+      "y": -1.5
+     },
+     "b": {
+      "x": -6.6,
+      "y": -1.5
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -7,
+      "y": -1.9
+     },
+     "b": {
+      "x": -7,
+      "y": -1.1
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -6.5,
+      "y": -6.5
+     },
+     "b": {
+      "x": 6.5,
+      "y": 6.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -7.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 7.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.8,
+      "y": 1.608
+     },
+     "text": "+",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.8,
+      "y": 1.608
+     },
+     "text": "-",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Buzzer_12x9.5RM7.6",
+   "name": "Зуммер Ø12",
+   "description": "Активный зуммер Ø12 мм, шаг 7,6 мм, плюс — вывод 1",
+   "category": "Дисплеи и индикаторы",
+   "tags": [
+    "tht",
+    "buzzer"
+   ],
+   "refPrefix": "BZ",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -3.8,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "+",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.8,
+      "y": 0
+     },
+     "size": {
+      "x": 1.8,
+      "y": 1.8
+     },
+     "drill": 0.9,
+     "name": "-",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -6.5,
+     "y": -6.5
+    },
+    "max": {
+     "x": 6.5,
+     "y": 6.5
+    }
+   },
+   "source": "KiCad Buzzer_12x9.5RM7.6",
+   "verified": true,
+   "height": 9.5,
+   "group": "Зуммеры и динамики"
+  },
+  "MountingHole_3.2mm_M3": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.2,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Courtyard",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.45,
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.1
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "MountingHole_3.2mm_M3",
+   "name": "Отверстие M3",
+   "description": "Крепёжное отверстие Ø3.2 мм под винт M3",
+   "category": "Крепёж и технологическое",
+   "tags": [
+    "hole",
+    "mounting",
+    "m3"
+   ],
+   "refPrefix": "H",
+   "pads": [
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.45,
+     "y": -3.45
+    },
+    "max": {
+     "x": 3.45,
+     "y": 3.45
+    }
+   },
+   "source": "ISO 273, средний ряд",
+   "verified": true,
+   "height": 0,
+   "group": "Отверстия"
+  },
+  "LUT_Bus_LongPins_1x22_F1L": {
+   "id": "LUT_Bus_LongPins_1x22_F1L",
+   "name": "Шина: длинные штыри 1×22",
+   "description": "Штыри 1×22 с длинными выводами (общая длина 25 мм): пластик — сверху, штыри насквозь, ниже платы на ~17 мм — в гнездо следующей платы (между платами 20 мм)",
+   "category": "Разъёмы",
+   "refPrefix": "XB",
+   "tags": [
+    "header",
+    "bus",
+    "1x22"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 20.32
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 22.86
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "11",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 25.4
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "17",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 40.64
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "18",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 43.18
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "21",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 50.8
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "22",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 53.34
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 54.61
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.2,
+      "y": -1.33
+     },
+     "b": {
+      "x": 1.2,
+      "y": 54.67
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.6,
+      "y": 26.67
+     },
+     "text": "лишние штыри вынуть",
+     "size": 0.9,
+     "thickness": 0.12600000000000003,
+     "align": "center"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.2,
+     "y": -1.6
+    },
+    "max": {
+     "x": 1.2,
+     "y": 54.940000000000005
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 6
+  },
+  "LUT_Bus_LongPins_1x22_F1R": {
+   "id": "LUT_Bus_LongPins_1x22_F1R",
+   "name": "Шина: длинные штыри 1×22",
+   "description": "Штыри 1×22 с длинными выводами (общая длина 25 мм): пластик — сверху, штыри насквозь, ниже платы на ~17 мм — в гнездо следующей платы (между платами 20 мм)",
+   "category": "Разъёмы",
+   "refPrefix": "XB",
+   "tags": [
+    "header",
+    "bus",
+    "1x22"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "14",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 33.02
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "15",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 35.56
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "17",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 40.64
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "18",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 43.18
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "20",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 48.26
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "21",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 50.8
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "22",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 53.34
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 54.61
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.2,
+      "y": -1.33
+     },
+     "b": {
+      "x": 1.2,
+      "y": 54.67
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 2.6,
+      "y": 26.67
+     },
+     "text": "лишние штыри вынуть",
+     "size": 0.9,
+     "thickness": 0.12600000000000003,
+     "align": "center"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.2,
+     "y": -1.6
+    },
+    "max": {
+     "x": 1.2,
+     "y": 54.940000000000005
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 6
+  }
+ },
+ "components": {
+  "cjzdyk1p21hg0k": {
+   "id": "cjzdyk1p21hg0k",
+   "ref": "HG1",
+   "value": "MSP3520 3,5″",
+   "description": "Экран 3,5″ 480×320 ILI9488 с касанием XPT2046 (MSP3520) на гнезде 1×14 и 4 стойках M3 11 мм; SDO экрана не подключён; подсветка LED — от 3,3 В",
+   "footprint": "LUT_MSP3520_Socket",
+   "at": {
+    "x": 20.84,
+    "y": 3.58
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p15yz0z",
+    "2": "njzdyk1ozy5u9m",
+    "3": "njzdyk1p3h17x8",
+    "4": "njzdyk1p4mrabq",
+    "5": "njzdyk1p5qwbnw",
+    "6": "njzdyk1p6peeay",
+    "7": "njzdyk1p7855zi",
+    "8": "njzdyk1p0dysbo",
+    "10": "njzdyk1p7855zi",
+    "11": "njzdyk1p8y1e3h",
+    "12": "njzdyk1p6peeay",
+    "13": "njzdyk1p9keg7f",
+    "14": "njzdyk1pa4b991"
+   },
+   "locked": true
+  },
+  "cjzdyk1pb1hdzq": {
+   "id": "cjzdyk1pb1hdzq",
+   "ref": "DD1",
+   "value": "PCA9555D",
+   "description": "Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется снизу платы (со стороны этажа 2), под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок",
+   "footprint": "LUT_PCA9555_SOIC24_Fan",
+   "at": {
+    "x": 69.215,
+    "y": 31.75
+   },
+   "rotation": 90,
+   "side": "bottom",
+   "padNets": {
+    "2": "njzdyk1ozy5u9m",
+    "3": "njzdyk1ozy5u9m",
+    "4": "njzdyl1pe7yr74",
+    "5": "njzdyl1pfangdv",
+    "6": "njzdyl1pg9fu06",
+    "7": "njzdyl1phe7atv",
+    "8": "njzdyl1pilgjql",
+    "9": "njzdyl1pjlbent",
+    "10": "njzdyl1pk8gg6v",
+    "11": "njzdyl1pl8iwgb",
+    "12": "njzdyk1ozy5u9m",
+    "13": "njzdyl1pmf62rw",
+    "14": "njzdyl1pnd5via",
+    "15": "njzdyk1p4mrabq",
+    "16": "njzdyl1poy5ozf",
+    "17": "njzdyk1pa4b991",
+    "20": "njzdyl1ppv9uok",
+    "21": "njzdyk1ozy5u9m",
+    "22": "njzdyk1pdmzo87",
+    "23": "njzdyk1pcb0ei3",
+    "24": "njzdyk1p0dysbo",
+    "F24": "njzdyk1p0dysbo",
+    "F12": "njzdyk1ozy5u9m",
+    "F23": "njzdyk1pcb0ei3",
+    "F22": "njzdyk1pdmzo87",
+    "F21": "njzdyk1ozy5u9m",
+    "F2": "njzdyk1ozy5u9m",
+    "F3": "njzdyk1ozy5u9m",
+    "F4": "njzdyl1pe7yr74",
+    "F5": "njzdyl1pfangdv",
+    "F6": "njzdyl1pg9fu06",
+    "F7": "njzdyl1phe7atv",
+    "F8": "njzdyl1pilgjql",
+    "F9": "njzdyl1pjlbent",
+    "F10": "njzdyl1pk8gg6v",
+    "F11": "njzdyl1pl8iwgb",
+    "F13": "njzdyl1pmf62rw",
+    "F14": "njzdyl1pnd5via",
+    "F15": "njzdyk1p4mrabq",
+    "F16": "njzdyl1poy5ozf",
+    "F17": "njzdyk1pa4b991",
+    "F20": "njzdyl1ppv9uok"
+   },
+   "locked": true
+  },
+  "cjzdyl1pqzrffm": {
+   "id": "cjzdyl1pqzrffm",
+   "ref": "C4",
+   "value": "100 нФ",
+   "description": "Питание 3,3 В PCA9555",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 111.76,
+    "y": 31.73
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p0dysbo",
+    "2": "njzdyk1ozy5u9m"
+   }
+  },
+  "cjzdyl1prhrebw": {
+   "id": "cjzdyl1prhrebw",
+   "ref": "R4",
+   "value": "10k",
+   "description": "Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 110.49,
+    "y": 45.72
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p4mrabq",
+    "2": "njzdyk1p0dysbo"
+   }
+  },
+  "cjzdyl1ps3jv88": {
+   "id": "cjzdyl1ps3jv88",
+   "ref": "R9",
+   "value": "4,7k",
+   "description": "Подтяжка SDA шины I²C",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 49.53,
+    "y": 44.45
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1pcb0ei3",
+    "2": "njzdyk1p0dysbo"
+   }
+  },
+  "cjzdyl1ptk30ef": {
+   "id": "cjzdyl1ptk30ef",
+   "ref": "R10",
+   "value": "4,7k",
+   "description": "Подтяжка SCL",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 49.53,
+    "y": 52.07
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1pdmzo87",
+    "2": "njzdyk1p0dysbo"
+   }
+  },
+  "cjzdyl1puri3wc": {
+   "id": "cjzdyl1puri3wc",
+   "ref": "C3",
+   "value": "10 мкФ",
+   "description": "Питание 5 В экрана (керамика 106: под экраном выше 9 мм нельзя)",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 118.09,
+    "y": 53.34
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p15yz0z",
+    "2": "njzdyk1ozy5u9m"
+   }
+  },
+  "cjzdyl1pvxdi97": {
+   "id": "cjzdyl1pvxdi97",
+   "ref": "SB1",
+   "value": "1 Главная",
+   "description": "Кнопка «1 Главная» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 10.06,
+    "y": 13.93
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pe7yr74",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1pwwohi2": {
+   "id": "cjzdyl1pwwohi2",
+   "ref": "SB2",
+   "value": "2 Очистка",
+   "description": "Кнопка «2 Очистка» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 10.06,
+    "y": 32.98
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pfangdv",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1pxy1q02": {
+   "id": "cjzdyl1pxy1q02",
+   "ref": "SB3",
+   "value": "3 Фильтр",
+   "description": "Кнопка «3 Фильтр» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 10.06,
+    "y": 52.03
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pg9fu06",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1pym42pj": {
+   "id": "cjzdyl1pym42pj",
+   "ref": "SB4",
+   "value": "4 Пуск/Стоп",
+   "description": "Кнопка «4 Пуск/Стоп» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 129.44,
+    "y": 13.93
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1phe7atv",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1pzf7daw": {
+   "id": "cjzdyl1pzf7daw",
+   "ref": "SB5",
+   "value": "5 Очистка",
+   "description": "Кнопка «5 Очистка» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 129.44,
+    "y": 32.98
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pilgjql",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q0mer24": {
+   "id": "cjzdyl1q0mer24",
+   "ref": "SB6",
+   "value": "6 Мощная",
+   "description": "Кнопка «6 Мощная» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 129.44,
+    "y": 52.03
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pjlbent",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q1gdur4": {
+   "id": "cjzdyl1q1gdur4",
+   "ref": "SB7",
+   "value": "Турбина 1",
+   "description": "Кнопка «Турбина 1» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 35.46,
+    "y": 74.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pk8gg6v",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q24p1qv": {
+   "id": "cjzdyl1q24p1qv",
+   "ref": "SB8",
+   "value": "Турбина 2",
+   "description": "Кнопка «Турбина 2» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 53.24,
+    "y": 74.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pl8iwgb",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q3e8xbz": {
+   "id": "cjzdyl1q3e8xbz",
+   "ref": "SA1",
+   "value": "EC11",
+   "description": "Энкодер EC11 с кнопкой, вал 20 мм: поворот — выбор и значение, нажатие — пуск/стоп на главной, иначе — на главную",
+   "footprint": "RotaryEncoder_Alps_EC11E_Vertical_H20mm",
+   "at": {
+    "x": 69.85,
+    "y": 75.25
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "A": "njzdyl1q4yv29a",
+    "B": "njzdyl1q5826tb",
+    "C": "njzdyk1ozy5u9m",
+    "S1": "njzdyl1pnd5via",
+    "S2": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q6vntcq": {
+   "id": "cjzdyl1q6vntcq",
+   "ref": "SB9",
+   "value": "Выкл",
+   "description": "Кнопка «Выкл» (тактовая 12×12, толкатель 15 мм)",
+   "footprint": "SW_PUSH_12mm",
+   "at": {
+    "x": 95.91,
+    "y": 74.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1pmf62rw",
+    "4": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1q75vqj3": {
+   "id": "cjzdyl1q75vqj3",
+   "ref": "R5",
+   "value": "10k",
+   "description": "Подтяжка энкодера A",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 81.28,
+    "y": 59.69
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1q4yv29a",
+    "2": "njzdyk1p0dysbo"
+   }
+  },
+  "cjzdyl1q867krl": {
+   "id": "cjzdyl1q867krl",
+   "ref": "R6",
+   "value": "10k",
+   "description": "Подтяжка энкодера B",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 91.44,
+    "y": 55.88
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1q5826tb",
+    "2": "njzdyk1p0dysbo"
+   }
+  },
+  "cjzdyl1q9g7uyc": {
+   "id": "cjzdyl1q9g7uyc",
+   "ref": "C1",
+   "value": "10 нФ",
+   "description": "Фильтр энкодера A",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 71.14,
+    "y": 63.5
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1q4yv29a",
+    "2": "njzdyk1ozy5u9m"
+   }
+  },
+  "cjzdyl1qaulmpe": {
+   "id": "cjzdyl1qaulmpe",
+   "ref": "C2",
+   "value": "10 нФ",
+   "description": "Фильтр энкодера B",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 80.01,
+    "y": 82.53
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1q5826tb",
+    "2": "njzdyk1ozy5u9m"
+   }
+  },
+  "cjzdyl1qbhvlxj": {
+   "id": "cjzdyl1qbhvlxj",
+   "ref": "R8",
+   "value": "1k",
+   "description": "Светодиод состояния (горит, когда P13 PCA9555 — «0»)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 111.76,
+    "y": 67.31
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p0dysbo",
+    "2": "njzdyl1qcyjkwu"
+   }
+  },
+  "cjzdyl1qdo5cbk": {
+   "id": "cjzdyl1qdo5cbk",
+   "ref": "HL1",
+   "value": "зелёный",
+   "description": "Светодиод состояния 3 мм (длинные ноги — до передней панели, световод): мигает — работа, часто — неисправность",
+   "footprint": "LED_D3.0mm",
+   "at": {
+    "x": 109.22,
+    "y": 74.93
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1poy5ozf",
+    "2": "njzdyl1qcyjkwu"
+   },
+   "locked": true
+  },
+  "cjzdyl1qe1xefb": {
+   "id": "cjzdyl1qe1xefb",
+   "ref": "VT1",
+   "value": "SS8050",
+   "description": "Ключ зуммера. NPN SS8050 в TO-92, выводы на 2,54 мм: Э — Б — К (сверить с корпусом)",
+   "footprint": "Q_S8050_TO-92_Wide",
+   "at": {
+    "x": 110.49,
+    "y": 53.34
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1ozy5u9m",
+    "2": "njzdyl1qfr2i2x",
+    "3": "njzdyl1qgys882"
+   }
+  },
+  "cjzdyl1qhjhbla": {
+   "id": "cjzdyl1qhjhbla",
+   "ref": "R7",
+   "value": "1k",
+   "description": "База ключа зуммера",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 90.17,
+    "y": 45.72
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyl1qif8ke9",
+    "2": "njzdyl1qfr2i2x"
+   }
+  },
+  "cjzdyl1qjmy2aj": {
+   "id": "cjzdyl1qjmy2aj",
+   "ref": "VD1",
+   "value": "1N4148",
+   "description": "Диод на зуммере",
+   "footprint": "D_DO-35_P7.62mm_Horizontal",
+   "at": {
+    "x": 116.84,
+    "y": 60.96
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p15yz0z",
+    "2": "njzdyl1qgys882"
+   }
+  },
+  "cjzdyl1qkdtjo7": {
+   "id": "cjzdyl1qkdtjo7",
+   "ref": "BA1",
+   "value": "TMB12A05",
+   "description": "Зуммер 12 мм на 5 В со своим генератором (TMB12A05, не 12A12!) — в прошивке «set buzz 1»",
+   "footprint": "Buzzer_12x9.5RM7.6",
+   "at": {
+    "x": 124.45,
+    "y": 77.47
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p15yz0z",
+    "2": "njzdyl1qgys882"
+   },
+   "locked": true
+  },
+  "cjzdyl1qlld1ls": {
+   "id": "cjzdyl1qlld1ls",
+   "ref": "H1",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.5,
+    "y": 3.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cjzdyl1qmi2iod": {
+   "id": "cjzdyl1qmi2iod",
+   "ref": "H2",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 136.5,
+    "y": 3.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cjzdyl1qnm6szj": {
+   "id": "cjzdyl1qnm6szj",
+   "ref": "H3",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.5,
+    "y": 86.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cjzdyl1qo4k3mp": {
+   "id": "cjzdyl1qo4k3mp",
+   "ref": "H4",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 136.5,
+    "y": 86.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cjzdyl1qplpln4": {
+   "id": "cjzdyl1qplpln4",
+   "ref": "XB1P",
+   "value": "Штыри 1×22 длинные",
+   "description": "Шина, левый ряд: длинные штыри к следующему этажу",
+   "footprint": "LUT_Bus_LongPins_1x22_F1L",
+   "at": {
+    "x": 53.34,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1p0dysbo",
+    "2": "njzdyk1p0dysbo",
+    "8": "njzdyk1p7855zi",
+    "9": "njzdyk1p6peeay",
+    "10": "njzdyk1p9keg7f",
+    "11": "njzdyk1p5qwbnw",
+    "17": "njzdyk1pcb0ei3",
+    "18": "njzdyk1pdmzo87",
+    "21": "njzdyk1p15yz0z",
+    "22": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  },
+  "cjzdyl1qqcnjw9": {
+   "id": "cjzdyl1qqcnjw9",
+   "ref": "XB2P",
+   "value": "Штыри 1×22 длинные",
+   "description": "Шина, правый ряд: длинные штыри к следующему этажу",
+   "footprint": "LUT_Bus_LongPins_1x22_F1R",
+   "at": {
+    "x": 86.36,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "njzdyk1ozy5u9m",
+    "2": "njzdyk1p3h17x8",
+    "14": "njzdyk1p8y1e3h",
+    "15": "njzdyl1qif8ke9",
+    "17": "njzdyl1q5826tb",
+    "18": "njzdyl1q4yv29a",
+    "20": "njzdyl1ppv9uok",
+    "21": "njzdyk1ozy5u9m",
+    "22": "njzdyk1ozy5u9m"
+   },
+   "locked": true
+  }
+ },
+ "tracks": {
+  "tjzdym1qr8i8un": {
+   "id": "tjzdym1qr8i8un",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 63.5,
+     "y": 27.1
+    },
+    {
+     "x": 63.5,
+     "y": 25.5
+    },
+    {
+     "x": 58.42,
+     "y": 20.42
+    },
+    {
+     "x": 58.42,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qs8mkvg": {
+   "id": "tjzdym1qs8mkvg",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 64.77,
+     "y": 27.1
+    },
+    {
+     "x": 64.77,
+     "y": 25.5
+    },
+    {
+     "x": 60.96,
+     "y": 21.69
+    },
+    {
+     "x": 60.96,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qtn9jre": {
+   "id": "tjzdym1qtn9jre",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 66.04,
+     "y": 27.1
+    },
+    {
+     "x": 66.04,
+     "y": 25.5
+    },
+    {
+     "x": 63.5,
+     "y": 22.96
+    },
+    {
+     "x": 63.5,
+     "y": 20.32
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1quwqbi2": {
+   "id": "tjzdym1quwqbi2",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 67.31,
+     "y": 27.1
+    },
+    {
+     "x": 67.31,
+     "y": 25.5
+    },
+    {
+     "x": 66.04,
+     "y": 24.23
+    },
+    {
+     "x": 66.04,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qv2fpva": {
+   "id": "tjzdym1qv2fpva",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 68.58,
+     "y": 27.1
+    },
+    {
+     "x": 68.58,
+     "y": 25.5
+    },
+    {
+     "x": 68.58,
+     "y": 20.32
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qwkzszv": {
+   "id": "tjzdym1qwkzszv",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 69.85,
+     "y": 27.1
+    },
+    {
+     "x": 69.85,
+     "y": 25.5
+    },
+    {
+     "x": 71.12,
+     "y": 24.23
+    },
+    {
+     "x": 71.12,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qxqtq02": {
+   "id": "tjzdym1qxqtq02",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 71.12,
+     "y": 27.1
+    },
+    {
+     "x": 71.12,
+     "y": 25.5
+    },
+    {
+     "x": 73.66,
+     "y": 22.96
+    },
+    {
+     "x": 73.66,
+     "y": 20.32
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qy9qjb5": {
+   "id": "tjzdym1qy9qjb5",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 27.1
+    },
+    {
+     "x": 72.39,
+     "y": 25.5
+    },
+    {
+     "x": 76.2,
+     "y": 21.69
+    },
+    {
+     "x": 76.2,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1qzxmopj": {
+   "id": "tjzdym1qzxmopj",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 73.66,
+     "y": 27.1
+    },
+    {
+     "x": 73.66,
+     "y": 25.5
+    },
+    {
+     "x": 78.74,
+     "y": 20.42
+    },
+    {
+     "x": 78.74,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r0cgxfs": {
+   "id": "tjzdym1r0cgxfs",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 74.93,
+     "y": 27.1
+    },
+    {
+     "x": 74.93,
+     "y": 25.5
+    },
+    {
+     "x": 81.28,
+     "y": 19.15
+    },
+    {
+     "x": 81.28,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r182zu2": {
+   "id": "tjzdym1r182zu2",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 76.2,
+     "y": 27.1
+    },
+    {
+     "x": 76.2,
+     "y": 25.5
+    },
+    {
+     "x": 83.82,
+     "y": 17.88
+    },
+    {
+     "x": 83.82,
+     "y": 17.78
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r2qtmu2": {
+   "id": "tjzdym1r2qtmu2",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 76.2,
+     "y": 36.4
+    },
+    {
+     "x": 76.2,
+     "y": 38
+    },
+    {
+     "x": 83.82,
+     "y": 45.62
+    },
+    {
+     "x": 83.82,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r3e6448": {
+   "id": "tjzdym1r3e6448",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 74.93,
+     "y": 36.4
+    },
+    {
+     "x": 74.93,
+     "y": 38
+    },
+    {
+     "x": 81.28,
+     "y": 44.35
+    },
+    {
+     "x": 81.28,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r4i2bqg": {
+   "id": "tjzdym1r4i2bqg",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 73.66,
+     "y": 36.4
+    },
+    {
+     "x": 73.66,
+     "y": 38
+    },
+    {
+     "x": 78.74,
+     "y": 43.08
+    },
+    {
+     "x": 78.74,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r50dcwp": {
+   "id": "tjzdym1r50dcwp",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 36.4
+    },
+    {
+     "x": 72.39,
+     "y": 38
+    },
+    {
+     "x": 76.2,
+     "y": 41.81
+    },
+    {
+     "x": 76.2,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r6cavz5": {
+   "id": "tjzdym1r6cavz5",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 71.12,
+     "y": 36.4
+    },
+    {
+     "x": 71.12,
+     "y": 38
+    },
+    {
+     "x": 73.66,
+     "y": 40.54
+    },
+    {
+     "x": 73.66,
+     "y": 43.18
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r7onnzb": {
+   "id": "tjzdym1r7onnzb",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 67.31,
+     "y": 36.4
+    },
+    {
+     "x": 67.31,
+     "y": 38
+    },
+    {
+     "x": 66.04,
+     "y": 39.27
+    },
+    {
+     "x": 66.04,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r89din3": {
+   "id": "tjzdym1r89din3",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 66.04,
+     "y": 36.4
+    },
+    {
+     "x": 66.04,
+     "y": 38
+    },
+    {
+     "x": 63.5,
+     "y": 40.54
+    },
+    {
+     "x": 63.5,
+     "y": 43.18
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1r96akoc": {
+   "id": "tjzdym1r96akoc",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 64.77,
+     "y": 36.4
+    },
+    {
+     "x": 64.77,
+     "y": 38
+    },
+    {
+     "x": 60.96,
+     "y": 41.81
+    },
+    {
+     "x": 60.96,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1rax27iv": {
+   "id": "tjzdym1rax27iv",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 63.5,
+     "y": 36.4
+    },
+    {
+     "x": 63.5,
+     "y": 38
+    },
+    {
+     "x": 58.42,
+     "y": 43.08
+    },
+    {
+     "x": 58.42,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzdym1rbxxrsq": {
+   "id": "tjzdym1rbxxrsq",
+   "layer": "B.Cu",
+   "width": 0.4,
+   "points": [
+    {
+     "x": 62.23,
+     "y": 36.4
+    },
+    {
+     "x": 62.23,
+     "y": 38
+    },
+    {
+     "x": 55.88,
+     "y": 44.35
+    },
+    {
+     "x": 55.88,
+     "y": 45.72
+    }
+   ],
+   "locked": true
+  },
+  "tjzgz71rtb0zd2": {
+   "id": "tjzgz71rtb0zd2",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 110.49,
+     "y": 74.93
+    },
+    {
+     "x": 110.49,
+     "y": 73.66
+    },
+    {
+     "x": 110.49,
+     "y": 71.12
+    },
+    {
+     "x": 111.76,
+     "y": 69.85000000000001
+    }
+   ]
+  },
+  "tjzgz71rueg2wl": {
+   "id": "tjzgz71rueg2wl",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 67.35,
+     "y": 68.25
+    },
+    {
+     "x": 66.04,
+     "y": 67.31
+    },
+    {
+     "x": 66.04,
+     "y": 64.77
+    },
+    {
+     "x": 62.23,
+     "y": 64.77
+    },
+    {
+     "x": 62.23,
+     "y": 57.15
+    }
+   ]
+  },
+  "tjzgz71rv8lhqt": {
+   "id": "tjzgz71rv8lhqt",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 62.23,
+     "y": 57.15
+    },
+    {
+     "x": 62.23,
+     "y": 52.07
+    },
+    {
+     "x": 82.55,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71rwexwv4": {
+   "id": "tjzgz71rwexwv4",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 82.55,
+     "y": 52.07
+    },
+    {
+     "x": 82.55,
+     "y": 48.26
+    },
+    {
+     "x": 81.28,
+     "y": 48.26
+    },
+    {
+     "x": 81.28,
+     "y": 46.99
+    },
+    {
+     "x": 81.28,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71rxu2u7p": {
+   "id": "tjzgz71rxu2u7p",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 107.95,
+     "y": 74.93
+    },
+    {
+     "x": 106.68,
+     "y": 73.66
+    },
+    {
+     "x": 106.68,
+     "y": 68.58
+    }
+   ]
+  },
+  "tjzgz71ry2eteu": {
+   "id": "tjzgz71ry2eteu",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 106.68,
+     "y": 68.58
+    },
+    {
+     "x": 106.68,
+     "y": 54.61
+    },
+    {
+     "x": 77.47,
+     "y": 54.61
+    }
+   ]
+  },
+  "tjzgz71rzkau3y": {
+   "id": "tjzgz71rzkau3y",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 77.47,
+     "y": 54.61
+    },
+    {
+     "x": 76.2,
+     "y": 54.61
+    },
+    {
+     "x": 76.2,
+     "y": 46.99
+    },
+    {
+     "x": 76.2,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71s0yscyw": {
+   "id": "tjzgz71s0yscyw",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 73.66,
+     "y": 43.18
+    },
+    {
+     "x": 73.66,
+     "y": 44.45
+    },
+    {
+     "x": 73.66,
+     "y": 49.53
+    }
+   ]
+  },
+  "tjzgz71s1gsyi3": {
+   "id": "tjzgz71s1gsyi3",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 73.66,
+     "y": 49.53
+    },
+    {
+     "x": 74.93,
+     "y": 49.53
+    },
+    {
+     "x": 74.93,
+     "y": 24.13
+    },
+    {
+     "x": 93.98,
+     "y": 24.13
+    },
+    {
+     "x": 93.98,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71s2mz38t": {
+   "id": "tjzgz71s2mz38t",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 93.98,
+     "y": 17.78
+    },
+    {
+     "x": 93.98,
+     "y": 15.24
+    },
+    {
+     "x": 115.57,
+     "y": 15.24
+    },
+    {
+     "x": 116.84,
+     "y": 15.24
+    }
+   ]
+  },
+  "tjzgz71s33maqm": {
+   "id": "tjzgz71s33maqm",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 89.66,
+     "y": 72.39
+    },
+    {
+     "x": 87.63,
+     "y": 72.39
+    },
+    {
+     "x": 86.36,
+     "y": 72.39
+    }
+   ]
+  },
+  "tjzgz71s4eykh7": {
+   "id": "tjzgz71s4eykh7",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 72.39
+    },
+    {
+     "x": 86.36,
+     "y": 71.12
+    },
+    {
+     "x": 109.22,
+     "y": 71.12
+    },
+    {
+     "x": 109.22,
+     "y": 46.99
+    },
+    {
+     "x": 114.3,
+     "y": 46.99
+    },
+    {
+     "x": 114.3,
+     "y": 40.64
+    },
+    {
+     "x": 107.95,
+     "y": 40.64
+    },
+    {
+     "x": 107.95,
+     "y": 41.91
+    },
+    {
+     "x": 101.6,
+     "y": 41.91
+    },
+    {
+     "x": 101.6,
+     "y": 39.37
+    }
+   ]
+  },
+  "tjzgz71s5mu5is": {
+   "id": "tjzgz71s5mu5is",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 101.6,
+     "y": 39.37
+    },
+    {
+     "x": 83.82,
+     "y": 39.37
+    },
+    {
+     "x": 83.82,
+     "y": 44.45
+    },
+    {
+     "x": 83.82000000000001,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71s659q3c": {
+   "id": "tjzgz71s659q3c",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 3.8100000000000005,
+     "y": 11.43
+    },
+    {
+     "x": 5.08,
+     "y": 10.16
+    },
+    {
+     "x": 13.97,
+     "y": 10.16
+    },
+    {
+     "x": 13.97,
+     "y": 3.81
+    },
+    {
+     "x": 55.88,
+     "y": 3.81
+    },
+    {
+     "x": 55.88,
+     "y": 15.24
+    },
+    {
+     "x": 63.5,
+     "y": 15.24
+    },
+    {
+     "x": 63.5,
+     "y": 19.05
+    },
+    {
+     "x": 63.5,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71s72y3az": {
+   "id": "tjzgz71s72y3az",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 116.84,
+     "y": 20.32
+    },
+    {
+     "x": 118.11,
+     "y": 20.32
+    },
+    {
+     "x": 120.65,
+     "y": 20.32
+    },
+    {
+     "x": 120.65,
+     "y": 35.56
+    },
+    {
+     "x": 118.11,
+     "y": 35.56
+    },
+    {
+     "x": 116.84,
+     "y": 35.56
+    }
+   ]
+  },
+  "tjzgz71s83wbfj": {
+   "id": "tjzgz71s83wbfj",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 29.21
+    },
+    {
+     "x": 52.07,
+     "y": 29.21
+    },
+    {
+     "x": 49.53,
+     "y": 29.21
+    },
+    {
+     "x": 49.53,
+     "y": 26.67
+    }
+   ]
+  },
+  "tjzgz71s9dvsgu": {
+   "id": "tjzgz71s9dvsgu",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 26.67
+    },
+    {
+     "x": 49.53,
+     "y": 20.32
+    },
+    {
+     "x": 87.63,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71saexej5": {
+   "id": "tjzgz71saexej5",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 87.63,
+     "y": 20.32
+    },
+    {
+     "x": 115.57,
+     "y": 20.32
+    },
+    {
+     "x": 116.84,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71sb9kvdr": {
+   "id": "tjzgz71sb9kvdr",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 29.21,
+     "y": 72.39
+    },
+    {
+     "x": 30.48,
+     "y": 71.12
+    },
+    {
+     "x": 30.48,
+     "y": 55.88
+    },
+    {
+     "x": 44.45,
+     "y": 55.88
+    }
+   ]
+  },
+  "tjzgz71scptvvr": {
+   "id": "tjzgz71scptvvr",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 44.45,
+     "y": 55.88
+    },
+    {
+     "x": 45.72,
+     "y": 55.88
+    },
+    {
+     "x": 45.72,
+     "y": 15.24
+    },
+    {
+     "x": 67.31,
+     "y": 15.24
+    },
+    {
+     "x": 67.31,
+     "y": 11.43
+    },
+    {
+     "x": 77.47,
+     "y": 11.43
+    }
+   ]
+  },
+  "tjzgz71sdqa4cm": {
+   "id": "tjzgz71sdqa4cm",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 77.47,
+     "y": 11.43
+    },
+    {
+     "x": 77.47,
+     "y": 15.24
+    },
+    {
+     "x": 78.74,
+     "y": 15.24
+    },
+    {
+     "x": 78.74,
+     "y": 16.51
+    },
+    {
+     "x": 78.74000000000001,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71se04c1y": {
+   "id": "tjzgz71se04c1y",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 31.75
+    },
+    {
+     "x": 54.61,
+     "y": 31.75
+    },
+    {
+     "x": 97.79,
+     "y": 31.75
+    },
+    {
+     "x": 97.79,
+     "y": 27.94
+    }
+   ]
+  },
+  "tjzgz71sfh6trw": {
+   "id": "tjzgz71sfh6trw",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 97.79,
+     "y": 27.94
+    },
+    {
+     "x": 97.79,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71sgrf847": {
+   "id": "tjzgz71sgrf847",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 97.79,
+     "y": 17.78
+    },
+    {
+     "x": 115.57,
+     "y": 17.78
+    },
+    {
+     "x": 116.84,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71shdfwk4": {
+   "id": "tjzgz71shdfwk4",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 57.15
+    },
+    {
+     "x": 85.09,
+     "y": 57.15
+    },
+    {
+     "x": 67.31,
+     "y": 57.15
+    },
+    {
+     "x": 67.31,
+     "y": 46.99
+    },
+    {
+     "x": 66.04,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71sit0yzj": {
+   "id": "tjzgz71sit0yzj",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 3.8100000000000005,
+     "y": 49.53
+    },
+    {
+     "x": 5.08,
+     "y": 48.26
+    },
+    {
+     "x": 12.7,
+     "y": 48.26
+    },
+    {
+     "x": 12.7,
+     "y": 20.32
+    },
+    {
+     "x": 17.78,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71sji24vj": {
+   "id": "tjzgz71sji24vj",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 17.78,
+     "y": 20.32
+    },
+    {
+     "x": 44.45,
+     "y": 20.32
+    },
+    {
+     "x": 44.45,
+     "y": 13.97
+    },
+    {
+     "x": 58.42,
+     "y": 13.97
+    },
+    {
+     "x": 58.42,
+     "y": 12.7
+    }
+   ]
+  },
+  "tjzgz71skhd0t9": {
+   "id": "tjzgz71skhd0t9",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 58.42,
+     "y": 12.7
+    },
+    {
+     "x": 58.42,
+     "y": 10.16
+    },
+    {
+     "x": 68.58,
+     "y": 10.16
+    },
+    {
+     "x": 68.58,
+     "y": 19.05
+    },
+    {
+     "x": 68.58,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71slb31sn": {
+   "id": "tjzgz71slb31sn",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 123.19,
+     "y": 30.479999999999997
+    },
+    {
+     "x": 121.92,
+     "y": 29.21
+    },
+    {
+     "x": 121.92,
+     "y": 19.05
+    },
+    {
+     "x": 119.38,
+     "y": 19.05
+    },
+    {
+     "x": 119.38,
+     "y": 12.7
+    },
+    {
+     "x": 90.17,
+     "y": 12.7
+    },
+    {
+     "x": 90.17,
+     "y": 13.97
+    }
+   ]
+  },
+  "tjzgz71smpj3o6": {
+   "id": "tjzgz71smpj3o6",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 90.17,
+     "y": 13.97
+    },
+    {
+     "x": 72.39,
+     "y": 13.97
+    }
+   ]
+  },
+  "tjzgz71snyj4yq": {
+   "id": "tjzgz71snyj4yq",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 13.97
+    },
+    {
+     "x": 72.39,
+     "y": 15.24
+    },
+    {
+     "x": 73.66,
+     "y": 15.24
+    },
+    {
+     "x": 73.66,
+     "y": 19.05
+    },
+    {
+     "x": 73.66,
+     "y": 20.32
+    }
+   ]
+  },
+  "tjzgz71soebg29": {
+   "id": "tjzgz71soebg29",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 3.8100000000000005,
+     "y": 30.479999999999997
+    },
+    {
+     "x": 5.08,
+     "y": 29.21
+    },
+    {
+     "x": 11.43,
+     "y": 29.21
+    },
+    {
+     "x": 11.43,
+     "y": 13.97
+    },
+    {
+     "x": 44.45,
+     "y": 13.97
+    },
+    {
+     "x": 44.45,
+     "y": 6.35
+    },
+    {
+     "x": 49.53,
+     "y": 6.35
+    }
+   ]
+  },
+  "tjzgz71sphzbnz": {
+   "id": "tjzgz71sphzbnz",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 6.35
+    },
+    {
+     "x": 55.88,
+     "y": 6.35
+    },
+    {
+     "x": 55.88,
+     "y": 10.16
+    },
+    {
+     "x": 64.77,
+     "y": 10.16
+    },
+    {
+     "x": 64.77,
+     "y": 12.7
+    }
+   ]
+  },
+  "tjzgz71sqjqe94": {
+   "id": "tjzgz71sqjqe94",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 64.77,
+     "y": 12.7
+    },
+    {
+     "x": 64.77,
+     "y": 16.51
+    },
+    {
+     "x": 66.04,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71sr82o78": {
+   "id": "tjzgz71sr82o78",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 110.49,
+     "y": 45.72
+    },
+    {
+     "x": 111.76,
+     "y": 44.45
+    },
+    {
+     "x": 111.76,
+     "y": 43.18
+    }
+   ]
+  },
+  "tjzgz71ssowhk8": {
+   "id": "tjzgz71ssowhk8",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 111.76,
+     "y": 43.18
+    },
+    {
+     "x": 99.06,
+     "y": 43.18
+    },
+    {
+     "x": 99.06,
+     "y": 30.48
+    },
+    {
+     "x": 100.33,
+     "y": 30.48
+    },
+    {
+     "x": 100.33,
+     "y": 10.16
+    },
+    {
+     "x": 121.92,
+     "y": 10.16
+    },
+    {
+     "x": 121.92,
+     "y": 8.89
+    },
+    {
+     "x": 132.08,
+     "y": 8.89
+    },
+    {
+     "x": 132.08,
+     "y": 40.64
+    },
+    {
+     "x": 123.19,
+     "y": 40.64
+    }
+   ]
+  },
+  "tjzgz71sty7e11": {
+   "id": "tjzgz71sty7e11",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 123.19,
+     "y": 40.64
+    },
+    {
+     "x": 118.11,
+     "y": 40.64
+    },
+    {
+     "x": 116.84,
+     "y": 40.64
+    }
+   ]
+  },
+  "tjzgz71suhvreu": {
+   "id": "tjzgz71suhvreu",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 78.74000000000001,
+     "y": 45.72
+    },
+    {
+     "x": 78.74,
+     "y": 46.99
+    },
+    {
+     "x": 78.74,
+     "y": 49.53
+    }
+   ]
+  },
+  "tjzgz71sv7o279": {
+   "id": "tjzgz71sv7o279",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 78.74,
+     "y": 49.53
+    },
+    {
+     "x": 83.82,
+     "y": 49.53
+    },
+    {
+     "x": 83.82,
+     "y": 46.99
+    },
+    {
+     "x": 99.06,
+     "y": 46.99
+    },
+    {
+     "x": 99.06,
+     "y": 43.18
+    }
+   ]
+  },
+  "tjzgz71swdn81o": {
+   "id": "tjzgz71swdn81o",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 34.29
+    },
+    {
+     "x": 54.61,
+     "y": 34.29
+    },
+    {
+     "x": 60.96,
+     "y": 34.29
+    },
+    {
+     "x": 60.96,
+     "y": 33.02
+    },
+    {
+     "x": 105.41,
+     "y": 33.02
+    },
+    {
+     "x": 105.41,
+     "y": 27.94
+    },
+    {
+     "x": 107.95,
+     "y": 27.94
+    }
+   ]
+  },
+  "tjzgz71sx50vto": {
+   "id": "tjzgz71sx50vto",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 107.95,
+     "y": 27.94
+    },
+    {
+     "x": 113.03,
+     "y": 27.94
+    },
+    {
+     "x": 113.03,
+     "y": 36.83
+    }
+   ]
+  },
+  "tjzgz71syn3y2g": {
+   "id": "tjzgz71syn3y2g",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 113.03,
+     "y": 36.83
+    },
+    {
+     "x": 113.03,
+     "y": 38.1
+    },
+    {
+     "x": 115.57,
+     "y": 38.1
+    },
+    {
+     "x": 116.84,
+     "y": 38.1
+    }
+   ]
+  },
+  "tjzgz71szzn82t": {
+   "id": "tjzgz71szzn82t",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 52.07
+    },
+    {
+     "x": 54.61,
+     "y": 52.07
+    },
+    {
+     "x": 60.96,
+     "y": 52.07
+    },
+    {
+     "x": 60.96,
+     "y": 46.99
+    },
+    {
+     "x": 60.96,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71t0v51o6": {
+   "id": "tjzgz71t0v51o6",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 52.07
+    },
+    {
+     "x": 50.8,
+     "y": 53.34
+    },
+    {
+     "x": 52.07,
+     "y": 53.34
+    },
+    {
+     "x": 53.34,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71t17cbad": {
+   "id": "tjzgz71t17cbad",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 11.43
+    },
+    {
+     "x": 87.63,
+     "y": 11.43
+    },
+    {
+     "x": 120.65,
+     "y": 11.43
+    },
+    {
+     "x": 120.65,
+     "y": 13.97
+    },
+    {
+     "x": 125.73,
+     "y": 13.97
+    },
+    {
+     "x": 125.73,
+     "y": 43.18
+    },
+    {
+     "x": 118.11,
+     "y": 43.18
+    },
+    {
+     "x": 116.84,
+     "y": 43.18
+    }
+   ]
+  },
+  "tjzgz71t2zuq0i": {
+   "id": "tjzgz71t2zuq0i",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 123.19,
+     "y": 11.43
+    },
+    {
+     "x": 121.92,
+     "y": 10.16
+    },
+    {
+     "x": 90.17,
+     "y": 10.16
+    },
+    {
+     "x": 90.17,
+     "y": 6.35
+    }
+   ]
+  },
+  "tjzgz71t3hbm8w": {
+   "id": "tjzgz71t3hbm8w",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 90.17,
+     "y": 6.35
+    },
+    {
+     "x": 82.55,
+     "y": 6.35
+    },
+    {
+     "x": 82.55,
+     "y": 7.62
+    },
+    {
+     "x": 72.39,
+     "y": 7.62
+    }
+   ]
+  },
+  "tjzgz71t4nu7hp": {
+   "id": "tjzgz71t4nu7hp",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 7.62
+    },
+    {
+     "x": 69.85,
+     "y": 7.62
+    },
+    {
+     "x": 69.85,
+     "y": 16.51
+    },
+    {
+     "x": 71.12,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71t52gs8j": {
+   "id": "tjzgz71t52gs8j",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 63.5
+    },
+    {
+     "x": 72.39,
+     "y": 62.23
+    },
+    {
+     "x": 72.39,
+     "y": 59.69
+    },
+    {
+     "x": 67.31,
+     "y": 59.69
+    }
+   ]
+  },
+  "tjzgz71t6xammc": {
+   "id": "tjzgz71t6xammc",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 67.31,
+     "y": 59.69
+    },
+    {
+     "x": 59.69,
+     "y": 59.69
+    },
+    {
+     "x": 59.69,
+     "y": 22.86
+    },
+    {
+     "x": 90.17,
+     "y": 22.86
+    },
+    {
+     "x": 90.17,
+     "y": 17.78
+    },
+    {
+     "x": 46.99,
+     "y": 17.78
+    },
+    {
+     "x": 46.99,
+     "y": 69.85
+    },
+    {
+     "x": 60.96,
+     "y": 69.85
+    },
+    {
+     "x": 60.96,
+     "y": 81.28
+    }
+   ]
+  },
+  "tjzgz71t7u0xyo": {
+   "id": "tjzgz71t7u0xyo",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 60.96,
+     "y": 81.28
+    },
+    {
+     "x": 66.04,
+     "y": 81.28
+    },
+    {
+     "x": 67.35,
+     "y": 82.75
+    }
+   ]
+  },
+  "tjzgz71t8d5bpr": {
+   "id": "tjzgz71t8d5bpr",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 81.28,
+     "y": 59.69
+    },
+    {
+     "x": 80.01,
+     "y": 59.69
+    },
+    {
+     "x": 72.39,
+     "y": 59.69
+    }
+   ]
+  },
+  "tjzgz71t91uwga": {
+   "id": "tjzgz71t91uwga",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 52.07
+    },
+    {
+     "x": 87.63,
+     "y": 53.34
+    },
+    {
+     "x": 88.9,
+     "y": 53.34
+    },
+    {
+     "x": 88.9,
+     "y": 69.85
+    },
+    {
+     "x": 77.47,
+     "y": 69.85
+    }
+   ]
+  },
+  "tjzgz71tajn845": {
+   "id": "tjzgz71tajn845",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 77.47,
+     "y": 69.85
+    },
+    {
+     "x": 60.96,
+     "y": 69.85
+    }
+   ]
+  },
+  "tjzgz71tbavler": {
+   "id": "tjzgz71tbavler",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 116.84,
+     "y": 25.4
+    },
+    {
+     "x": 118.11,
+     "y": 25.4
+    },
+    {
+     "x": 119.38,
+     "y": 25.4
+    },
+    {
+     "x": 119.38,
+     "y": 33.02
+    },
+    {
+     "x": 118.11,
+     "y": 33.02
+    },
+    {
+     "x": 116.84,
+     "y": 33.02
+    }
+   ]
+  },
+  "tjzgz71tch77l2": {
+   "id": "tjzgz71tch77l2",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 26.67
+    },
+    {
+     "x": 54.61,
+     "y": 26.67
+    },
+    {
+     "x": 55.88,
+     "y": 26.67
+    },
+    {
+     "x": 55.88,
+     "y": 30.48
+    },
+    {
+     "x": 83.82,
+     "y": 30.48
+    },
+    {
+     "x": 83.82,
+     "y": 25.4
+    },
+    {
+     "x": 115.57,
+     "y": 25.4
+    },
+    {
+     "x": 116.84,
+     "y": 25.4
+    }
+   ]
+  },
+  "tjzgz71tdwscuq": {
+   "id": "tjzgz71tdwscuq",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 113.03,
+     "y": 60.96
+    },
+    {
+     "x": 111.76,
+     "y": 59.69
+    },
+    {
+     "x": 111.76,
+     "y": 57.15
+    },
+    {
+     "x": 110.49,
+     "y": 55.88
+    }
+   ]
+  },
+  "tjzgz71tez4xph": {
+   "id": "tjzgz71tez4xph",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 128.25,
+     "y": 77.47
+    },
+    {
+     "x": 127,
+     "y": 76.2
+    },
+    {
+     "x": 127,
+     "y": 72.39
+    },
+    {
+     "x": 114.3,
+     "y": 72.39
+    },
+    {
+     "x": 114.3,
+     "y": 62.23
+    },
+    {
+     "x": 113.03,
+     "y": 60.96
+    }
+   ]
+  },
+  "tjzgz71tfcux7q": {
+   "id": "tjzgz71tfcux7q",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 44.45
+    },
+    {
+     "x": 87.63,
+     "y": 44.45
+    },
+    {
+     "x": 88.9,
+     "y": 44.45
+    },
+    {
+     "x": 90.17,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71tg17mg3": {
+   "id": "tjzgz71tg17mg3",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 41.910000000000004
+    },
+    {
+     "x": 87.63,
+     "y": 41.91
+    },
+    {
+     "x": 105.41,
+     "y": 41.91
+    },
+    {
+     "x": 105.41,
+     "y": 39.37
+    }
+   ]
+  },
+  "tjzgz71thfo2xd": {
+   "id": "tjzgz71thfo2xd",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 105.41,
+     "y": 39.37
+    },
+    {
+     "x": 105.41,
+     "y": 22.86
+    },
+    {
+     "x": 106.68,
+     "y": 22.86
+    }
+   ]
+  },
+  "tjzgz71ti9x10i": {
+   "id": "tjzgz71ti9x10i",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 106.68,
+     "y": 22.86
+    },
+    {
+     "x": 115.57,
+     "y": 22.86
+    },
+    {
+     "x": 116.84,
+     "y": 22.86
+    }
+   ]
+  },
+  "tjzgz71tjfpk9c": {
+   "id": "tjzgz71tjfpk9c",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 80.01,
+     "y": 81.28
+    },
+    {
+     "x": 78.74,
+     "y": 81.28
+    },
+    {
+     "x": 73.66,
+     "y": 81.28
+    },
+    {
+     "x": 72.35,
+     "y": 82.75
+    }
+   ]
+  },
+  "tjzgz71tkwrsuh": {
+   "id": "tjzgz71tkwrsuh",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 91.44,
+     "y": 55.88
+    },
+    {
+     "x": 91.44,
+     "y": 57.15
+    },
+    {
+     "x": 91.44,
+     "y": 69.85
+    },
+    {
+     "x": 92.71,
+     "y": 69.85
+    },
+    {
+     "x": 92.71,
+     "y": 80.01
+    },
+    {
+     "x": 81.28,
+     "y": 80.01
+    },
+    {
+     "x": 80.01,
+     "y": 81.28
+    }
+   ]
+  },
+  "tjzgz71tl537fx": {
+   "id": "tjzgz71tl537fx",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 49.53
+    },
+    {
+     "x": 87.63,
+     "y": 49.53
+    },
+    {
+     "x": 90.17,
+     "y": 49.53
+    },
+    {
+     "x": 90.17,
+     "y": 54.61
+    },
+    {
+     "x": 91.44,
+     "y": 55.88
+    }
+   ]
+  },
+  "tjzgz71tmss3ja": {
+   "id": "tjzgz71tmss3ja",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 49.53
+    },
+    {
+     "x": 54.61,
+     "y": 48.26
+    },
+    {
+     "x": 58.42,
+     "y": 48.26
+    },
+    {
+     "x": 58.42,
+     "y": 46.99
+    },
+    {
+     "x": 58.42,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71tnzmans": {
+   "id": "tjzgz71tnzmans",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 44.45
+    },
+    {
+     "x": 50.8,
+     "y": 45.72
+    },
+    {
+     "x": 52.07,
+     "y": 45.72
+    },
+    {
+     "x": 52.07,
+     "y": 48.26
+    },
+    {
+     "x": 53.34,
+     "y": 49.53
+    }
+   ]
+  },
+  "tjzgz71todctiw": {
+   "id": "tjzgz71todctiw",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 46.99,
+     "y": 72.39
+    },
+    {
+     "x": 45.72,
+     "y": 71.12
+    },
+    {
+     "x": 45.72,
+     "y": 59.69
+    },
+    {
+     "x": 41.91,
+     "y": 59.69
+    }
+   ]
+  },
+  "tjzgz71tpysbg0": {
+   "id": "tjzgz71tpysbg0",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 41.91,
+     "y": 59.69
+    },
+    {
+     "x": 41.91,
+     "y": 50.8
+    }
+   ]
+  },
+  "tjzgz71tqa969e": {
+   "id": "tjzgz71tqa969e",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 41.91,
+     "y": 50.8
+    },
+    {
+     "x": 41.91,
+     "y": 16.51
+    }
+   ]
+  },
+  "tjzgz71tr198z3": {
+   "id": "tjzgz71tr198z3",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 41.91,
+     "y": 16.51
+    },
+    {
+     "x": 41.91,
+     "y": 3.81
+    },
+    {
+     "x": 57.15,
+     "y": 3.81
+    },
+    {
+     "x": 57.15,
+     "y": 8.89
+    },
+    {
+     "x": 69.85,
+     "y": 8.89
+    },
+    {
+     "x": 69.85,
+     "y": 10.16
+    },
+    {
+     "x": 74.93,
+     "y": 10.16
+    },
+    {
+     "x": 74.93,
+     "y": 8.89
+    },
+    {
+     "x": 81.28,
+     "y": 8.89
+    },
+    {
+     "x": 81.28,
+     "y": 10.16
+    }
+   ]
+  },
+  "tjzgz71tssstvh": {
+   "id": "tjzgz71tssstvh",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 81.28,
+     "y": 10.16
+    },
+    {
+     "x": 81.28,
+     "y": 16.51
+    },
+    {
+     "x": 81.28,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71tt98s9c": {
+   "id": "tjzgz71tt98s9c",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 92.71000000000001,
+     "y": 45.72
+    },
+    {
+     "x": 93.98,
+     "y": 46.99
+    },
+    {
+     "x": 97.79,
+     "y": 46.99
+    },
+    {
+     "x": 97.79,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71tu20ikp": {
+   "id": "tjzgz71tu20ikp",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 97.79,
+     "y": 52.07
+    },
+    {
+     "x": 104.14,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71tv98ig9": {
+   "id": "tjzgz71tv98ig9",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 104.14,
+     "y": 52.07
+    },
+    {
+     "x": 107.95,
+     "y": 52.07
+    },
+    {
+     "x": 107.95,
+     "y": 53.34
+    },
+    {
+     "x": 109.22,
+     "y": 53.34
+    },
+    {
+     "x": 110.49,
+     "y": 53.34
+    }
+   ]
+  },
+  "tjzgz71twwlru9": {
+   "id": "tjzgz71twwlru9",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 123.19,
+     "y": 49.53
+    },
+    {
+     "x": 124.46,
+     "y": 48.26
+    },
+    {
+     "x": 127,
+     "y": 48.26
+    },
+    {
+     "x": 127,
+     "y": 3.81
+    },
+    {
+     "x": 82.55,
+     "y": 3.81
+    },
+    {
+     "x": 82.55,
+     "y": 7.62
+    },
+    {
+     "x": 74.93,
+     "y": 7.62
+    },
+    {
+     "x": 74.93,
+     "y": 16.51
+    },
+    {
+     "x": 76.2,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71tx4nekp": {
+   "id": "tjzgz71tx4nekp",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 119.34,
+     "y": 53.34
+    },
+    {
+     "x": 119.38,
+     "y": 52.07
+    },
+    {
+     "x": 119.38,
+     "y": 45.72
+    },
+    {
+     "x": 118.11,
+     "y": 45.72
+    },
+    {
+     "x": 116.84,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71tyoedth": {
+   "id": "tjzgz71tyoedth",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 110.49,
+     "y": 50.800000000000004
+    },
+    {
+     "x": 111.76,
+     "y": 49.53
+    },
+    {
+     "x": 114.3,
+     "y": 49.53
+    },
+    {
+     "x": 114.3,
+     "y": 45.72
+    },
+    {
+     "x": 115.57,
+     "y": 45.72
+    },
+    {
+     "x": 116.84,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71tzvu9w1": {
+   "id": "tjzgz71tzvu9w1",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 111.76,
+     "y": 32.980000000000004
+    },
+    {
+     "x": 110.49,
+     "y": 34.29
+    },
+    {
+     "x": 110.49,
+     "y": 40.64
+    },
+    {
+     "x": 114.3,
+     "y": 40.64
+    },
+    {
+     "x": 114.3,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71u0xbpk6": {
+   "id": "tjzgz71u0xbpk6",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 135.69,
+     "y": 54.53
+    },
+    {
+     "x": 133.35,
+     "y": 54.61
+    },
+    {
+     "x": 133.35,
+     "y": 52.07
+    },
+    {
+     "x": 120.65,
+     "y": 52.07
+    },
+    {
+     "x": 119.34,
+     "y": 53.34
+    }
+   ]
+  },
+  "tjzgz71u1ezjs5": {
+   "id": "tjzgz71u1ezjs5",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 135.69,
+     "y": 35.48
+    },
+    {
+     "x": 134.62,
+     "y": 36.83
+    },
+    {
+     "x": 132.08,
+     "y": 36.83
+    },
+    {
+     "x": 132.08,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71u2czk8f": {
+   "id": "tjzgz71u2czk8f",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 135.69,
+     "y": 16.43
+    },
+    {
+     "x": 134.62,
+     "y": 17.78
+    },
+    {
+     "x": 132.08,
+     "y": 17.78
+    },
+    {
+     "x": 132.08,
+     "y": 36.83
+    }
+   ]
+  },
+  "tjzgz71u3curuq": {
+   "id": "tjzgz71u3curuq",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 59.69
+    },
+    {
+     "x": 86.36,
+     "y": 60.96
+    },
+    {
+     "x": 86.36,
+     "y": 67.31
+    }
+   ]
+  },
+  "tjzgz71u4epdko": {
+   "id": "tjzgz71u4epdko",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 67.31
+    },
+    {
+     "x": 101.6,
+     "y": 67.31
+    },
+    {
+     "x": 101.6,
+     "y": 63.5
+    }
+   ]
+  },
+  "tjzgz71u58x4st": {
+   "id": "tjzgz71u58x4st",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 101.6,
+     "y": 63.5
+    },
+    {
+     "x": 101.6,
+     "y": 49.53
+    },
+    {
+     "x": 109.22,
+     "y": 49.53
+    },
+    {
+     "x": 110.49,
+     "y": 50.800000000000004
+    }
+   ]
+  },
+  "tjzgz71u6d1u6s": {
+   "id": "tjzgz71u6d1u6s",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 85.09,
+     "y": 62.23
+    },
+    {
+     "x": 85.09,
+     "y": 60.96
+    },
+    {
+     "x": 86.36,
+     "y": 59.69
+    }
+   ]
+  },
+  "tjzgz71u7zcahv": {
+   "id": "tjzgz71u7zcahv",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 72.35,
+     "y": 68.25
+    },
+    {
+     "x": 73.66,
+     "y": 67.31
+    },
+    {
+     "x": 86.36,
+     "y": 67.31
+    }
+   ]
+  },
+  "tjzgz71u84pjvc": {
+   "id": "tjzgz71u84pjvc",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 69.89,
+     "y": 63.5
+    },
+    {
+     "x": 69.85,
+     "y": 64.77
+    },
+    {
+     "x": 69.85,
+     "y": 67.31
+    },
+    {
+     "x": 71.12,
+     "y": 67.31
+    },
+    {
+     "x": 72.35,
+     "y": 68.25
+    }
+   ]
+  },
+  "tjzgz71u9o9ji6": {
+   "id": "tjzgz71u9o9ji6",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 69.85,
+     "y": 82.75
+    },
+    {
+     "x": 69.85,
+     "y": 81.28
+    },
+    {
+     "x": 69.85,
+     "y": 67.31
+    }
+   ]
+  },
+  "tjzgz71uaoaql9": {
+   "id": "tjzgz71uaoaql9",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 80.01,
+     "y": 83.78
+    },
+    {
+     "x": 78.74,
+     "y": 85.09
+    },
+    {
+     "x": 78.74,
+     "y": 86.36
+    },
+    {
+     "x": 69.85,
+     "y": 86.36
+    },
+    {
+     "x": 69.85,
+     "y": 85.09
+    },
+    {
+     "x": 69.85,
+     "y": 82.75
+    }
+   ]
+  },
+  "tjzgz71ubvqkzi": {
+   "id": "tjzgz71ubvqkzi",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 59.49,
+     "y": 77.39
+    },
+    {
+     "x": 60.96,
+     "y": 78.74
+    },
+    {
+     "x": 69.85,
+     "y": 78.74
+    }
+   ]
+  },
+  "tjzgz71uc48otn": {
+   "id": "tjzgz71uc48otn",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 52.07,
+     "y": 62.23
+    },
+    {
+     "x": 50.8,
+     "y": 62.23
+    },
+    {
+     "x": 50.8,
+     "y": 54.61
+    },
+    {
+     "x": 64.77,
+     "y": 54.61
+    },
+    {
+     "x": 64.77,
+     "y": 62.23
+    },
+    {
+     "x": 68.58,
+     "y": 62.23
+    },
+    {
+     "x": 69.89,
+     "y": 63.5
+    }
+   ]
+  },
+  "tjzgz71ud6cs4k": {
+   "id": "tjzgz71ud6cs4k",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 41.71,
+     "y": 77.39
+    },
+    {
+     "x": 43.18,
+     "y": 76.2
+    },
+    {
+     "x": 43.18,
+     "y": 74.93
+    },
+    {
+     "x": 52.07,
+     "y": 74.93
+    },
+    {
+     "x": 52.07,
+     "y": 63.5
+    },
+    {
+     "x": 53.34,
+     "y": 62.230000000000004
+    }
+   ]
+  },
+  "tjzgz71uegk0wh": {
+   "id": "tjzgz71uegk0wh",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 63.5,
+     "y": 43.18
+    },
+    {
+     "x": 63.5,
+     "y": 44.45
+    },
+    {
+     "x": 63.5,
+     "y": 54.61
+    }
+   ]
+  },
+  "tjzgz71ufov9hm": {
+   "id": "tjzgz71ufov9hm",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 102.16,
+     "y": 77.39
+    },
+    {
+     "x": 100.33,
+     "y": 78.74
+    },
+    {
+     "x": 100.33,
+     "y": 83.82
+    },
+    {
+     "x": 81.28,
+     "y": 83.82
+    },
+    {
+     "x": 80.01,
+     "y": 83.78
+    }
+   ]
+  },
+  "tjzgz71ug2khc5": {
+   "id": "tjzgz71ug2khc5",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 60.96,
+     "y": 17.78
+    },
+    {
+     "x": 60.96,
+     "y": 19.05
+    },
+    {
+     "x": 60.96,
+     "y": 24.13
+    },
+    {
+     "x": 46.99,
+     "y": 24.13
+    },
+    {
+     "x": 46.99,
+     "y": 38.1
+    },
+    {
+     "x": 50.8,
+     "y": 38.1
+    }
+   ]
+  },
+  "tjzgz71uhqwcr3": {
+   "id": "tjzgz71uhqwcr3",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 38.1
+    },
+    {
+     "x": 50.8,
+     "y": 55.88
+    }
+   ]
+  },
+  "tjzgz71uiordid": {
+   "id": "tjzgz71uiordid",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 58.42,
+     "y": 17.78
+    },
+    {
+     "x": 59.69,
+     "y": 19.05
+    },
+    {
+     "x": 60.96,
+     "y": 19.05
+    },
+    {
+     "x": 60.96,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71ujk83yz": {
+   "id": "tjzgz71ujk83yz",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 83.82000000000001,
+     "y": 17.78
+    },
+    {
+     "x": 85.09,
+     "y": 19.05
+    },
+    {
+     "x": 85.09,
+     "y": 22.86
+    },
+    {
+     "x": 102.87,
+     "y": 22.86
+    }
+   ]
+  },
+  "tjzgz71ukpghmd": {
+   "id": "tjzgz71ukpghmd",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 102.87,
+     "y": 22.86
+    },
+    {
+     "x": 104.14,
+     "y": 22.86
+    },
+    {
+     "x": 104.14,
+     "y": 12.7
+    },
+    {
+     "x": 120.65,
+     "y": 12.7
+    },
+    {
+     "x": 120.65,
+     "y": 21.59
+    },
+    {
+     "x": 129.54,
+     "y": 21.59
+    }
+   ]
+  },
+  "tjzgz71ulkemty": {
+   "id": "tjzgz71ulkemty",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 129.54,
+     "y": 21.59
+    },
+    {
+     "x": 132.08,
+     "y": 21.59
+    }
+   ]
+  },
+  "tjzgz71umze1ia": {
+   "id": "tjzgz71umze1ia",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 8.89
+    },
+    {
+     "x": 85.09,
+     "y": 8.89
+    },
+    {
+     "x": 83.82,
+     "y": 8.89
+    },
+    {
+     "x": 83.82,
+     "y": 16.51
+    },
+    {
+     "x": 83.82000000000001,
+     "y": 17.78
+    }
+   ]
+  },
+  "tjzgz71un5pak4": {
+   "id": "tjzgz71un5pak4",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 16.310000000000002,
+     "y": 54.53
+    },
+    {
+     "x": 17.78,
+     "y": 53.34
+    },
+    {
+     "x": 46.99,
+     "y": 53.34
+    },
+    {
+     "x": 46.99,
+     "y": 54.61
+    },
+    {
+     "x": 50.8,
+     "y": 54.61
+    }
+   ]
+  },
+  "tjzgz71uojb17f": {
+   "id": "tjzgz71uojb17f",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 16.310000000000002,
+     "y": 35.48
+    },
+    {
+     "x": 17.78,
+     "y": 36.83
+    },
+    {
+     "x": 19.05,
+     "y": 36.83
+    },
+    {
+     "x": 19.05,
+     "y": 53.34
+    }
+   ]
+  },
+  "tjzgz71upbzwfw": {
+   "id": "tjzgz71upbzwfw",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 16.310000000000002,
+     "y": 16.43
+    },
+    {
+     "x": 17.78,
+     "y": 17.78
+    },
+    {
+     "x": 20.32,
+     "y": 17.78
+    },
+    {
+     "x": 20.32,
+     "y": 34.29
+    },
+    {
+     "x": 17.78,
+     "y": 34.29
+    },
+    {
+     "x": 16.310000000000002,
+     "y": 35.48
+    }
+   ]
+  },
+  "tjzgz71uq379cm": {
+   "id": "tjzgz71uq379cm",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 116.84,
+     "y": 53.34
+    },
+    {
+     "x": 115.57,
+     "y": 52.07
+    },
+    {
+     "x": 115.57,
+     "y": 49.53
+    },
+    {
+     "x": 116.84,
+     "y": 48.26
+    }
+   ]
+  },
+  "tjzgz71ur0gosg": {
+   "id": "tjzgz71ur0gosg",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 120.65,
+     "y": 60.96
+    },
+    {
+     "x": 120.65,
+     "y": 59.69
+    },
+    {
+     "x": 120.65,
+     "y": 58.42
+    }
+   ]
+  },
+  "tjzgz71uswe9kr": {
+   "id": "tjzgz71uswe9kr",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 120.65,
+     "y": 58.42
+    },
+    {
+     "x": 120.65,
+     "y": 52.07
+    },
+    {
+     "x": 114.3,
+     "y": 52.07
+    }
+   ]
+  },
+  "tjzgz71utrjnk5": {
+   "id": "tjzgz71utrjnk5",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 114.3,
+     "y": 52.07
+    },
+    {
+     "x": 114.3,
+     "y": 53.34
+    },
+    {
+     "x": 115.57,
+     "y": 53.34
+    },
+    {
+     "x": 116.84,
+     "y": 53.34
+    }
+   ]
+  },
+  "tjzgz71uurqvyo": {
+   "id": "tjzgz71uurqvyo",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 120.65,
+     "y": 77.47
+    },
+    {
+     "x": 121.92,
+     "y": 78.74
+    },
+    {
+     "x": 121.92,
+     "y": 80.01
+    },
+    {
+     "x": 130.81,
+     "y": 80.01
+    },
+    {
+     "x": 130.81,
+     "y": 62.23
+    },
+    {
+     "x": 121.92,
+     "y": 62.23
+    },
+    {
+     "x": 120.65,
+     "y": 60.96
+    }
+   ]
+  },
+  "tjzgz71uv6j8i2": {
+   "id": "tjzgz71uv6j8i2",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 59.69
+    },
+    {
+     "x": 54.61,
+     "y": 59.69
+    },
+    {
+     "x": 55.88,
+     "y": 59.69
+    },
+    {
+     "x": 55.88,
+     "y": 87.63
+    },
+    {
+     "x": 119.38,
+     "y": 87.63
+    },
+    {
+     "x": 119.38,
+     "y": 78.74
+    },
+    {
+     "x": 120.65,
+     "y": 77.47
+    }
+   ]
+  },
+  "tjzgz71uwdimf7": {
+   "id": "tjzgz71uwdimf7",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 111.76,
+     "y": 30.48
+    },
+    {
+     "x": 113.03,
+     "y": 30.48
+    },
+    {
+     "x": 115.57,
+     "y": 30.48
+    },
+    {
+     "x": 116.84,
+     "y": 30.479999999999997
+    }
+   ]
+  },
+  "tjzgz71ux4yrz0": {
+   "id": "tjzgz71ux4yrz0",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 107.94999999999999,
+     "y": 45.72
+    },
+    {
+     "x": 107.95,
+     "y": 44.45
+    },
+    {
+     "x": 107.95,
+     "y": 30.48
+    },
+    {
+     "x": 110.49,
+     "y": 30.48
+    },
+    {
+     "x": 111.76,
+     "y": 30.48
+    }
+   ]
+  },
+  "tjzgz71uyr9w9r": {
+   "id": "tjzgz71uyr9w9r",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 93.98,
+     "y": 55.88
+    },
+    {
+     "x": 95.25,
+     "y": 54.61
+    },
+    {
+     "x": 100.33,
+     "y": 54.61
+    },
+    {
+     "x": 100.33,
+     "y": 46.99
+    },
+    {
+     "x": 106.68,
+     "y": 46.99
+    },
+    {
+     "x": 107.94999999999999,
+     "y": 45.72
+    }
+   ]
+  },
+  "tjzgz71uzxln46": {
+   "id": "tjzgz71uzxln46",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 81.28,
+     "y": 62.23
+    },
+    {
+     "x": 82.55,
+     "y": 63.5
+    },
+    {
+     "x": 82.55,
+     "y": 64.77
+    }
+   ]
+  },
+  "tjzgz71v00wvqp": {
+   "id": "tjzgz71v00wvqp",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 82.55,
+     "y": 64.77
+    },
+    {
+     "x": 95.25,
+     "y": 64.77
+    }
+   ]
+  },
+  "tjzgz71v1dk335": {
+   "id": "tjzgz71v1dk335",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 95.25,
+     "y": 64.77
+    },
+    {
+     "x": 95.25,
+     "y": 57.15
+    },
+    {
+     "x": 93.98,
+     "y": 55.88
+    }
+   ]
+  },
+  "tjzgz71v27lsp2": {
+   "id": "tjzgz71v27lsp2",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 111.76,
+     "y": 67.31
+    },
+    {
+     "x": 110.49,
+     "y": 66.04
+    },
+    {
+     "x": 95.25,
+     "y": 66.04
+    },
+    {
+     "x": 95.25,
+     "y": 64.77
+    }
+   ]
+  },
+  "tjzgz71v34w2kg": {
+   "id": "tjzgz71v34w2kg",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 55.88,
+     "y": 45.72
+    },
+    {
+     "x": 54.61,
+     "y": 44.45
+    },
+    {
+     "x": 53.34,
+     "y": 44.45
+    },
+    {
+     "x": 53.34,
+     "y": 43.18
+    }
+   ]
+  },
+  "tjzgz71v4pn442": {
+   "id": "tjzgz71v4pn442",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 43.18
+    },
+    {
+     "x": 58.42,
+     "y": 43.18
+    },
+    {
+     "x": 58.42,
+     "y": 64.77
+    },
+    {
+     "x": 82.55,
+     "y": 64.77
+    }
+   ]
+  },
+  "tjzgz71v5z14ri": {
+   "id": "tjzgz71v5z14ri",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 41.910000000000004
+    },
+    {
+     "x": 50.8,
+     "y": 41.91
+    },
+    {
+     "x": 53.34,
+     "y": 41.91
+    },
+    {
+     "x": 53.34,
+     "y": 43.18
+    }
+   ]
+  },
+  "tjzgz71v6rrabs": {
+   "id": "tjzgz71v6rrabs",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 49.53,
+     "y": 49.53
+    },
+    {
+     "x": 48.26,
+     "y": 48.26
+    },
+    {
+     "x": 46.99,
+     "y": 48.26
+    },
+    {
+     "x": 46.99,
+     "y": 41.91
+    },
+    {
+     "x": 48.26,
+     "y": 41.91
+    },
+    {
+     "x": 49.53,
+     "y": 41.910000000000004
+    }
+   ]
+  },
+  "tjzgz71v7mgzz9": {
+   "id": "tjzgz71v7mgzz9",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 11.43
+    },
+    {
+     "x": 52.07,
+     "y": 12.7
+    },
+    {
+     "x": 45.72,
+     "y": 12.7
+    },
+    {
+     "x": 45.72,
+     "y": 41.91
+    },
+    {
+     "x": 46.99,
+     "y": 41.91
+    }
+   ]
+  },
+  "tjzgz71v80stbe": {
+   "id": "tjzgz71v80stbe",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 8.89
+    },
+    {
+     "x": 54.61,
+     "y": 10.16
+    },
+    {
+     "x": 54.61,
+     "y": 11.43
+    },
+    {
+     "x": 53.34,
+     "y": 11.43
+    }
+   ]
+  }
+ },
+ "vias": {
+  "vjzgz71v9z6ob0": {
+   "id": "vjzgz71v9z6ob0",
+   "at": {
+    "x": 62.23,
+    "y": 57.15
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71va3yb0s": {
+   "id": "vjzgz71va3yb0s",
+   "at": {
+    "x": 82.55,
+    "y": 52.07
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vbp2p2y": {
+   "id": "vjzgz71vbp2p2y",
+   "at": {
+    "x": 106.68,
+    "y": 68.58
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vc2ra39": {
+   "id": "vjzgz71vc2ra39",
+   "at": {
+    "x": 77.47,
+    "y": 54.61
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vdhpq85": {
+   "id": "vjzgz71vdhpq85",
+   "at": {
+    "x": 73.66,
+    "y": 49.53
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vey9fs2": {
+   "id": "vjzgz71vey9fs2",
+   "at": {
+    "x": 93.98,
+    "y": 17.78
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vffriyy": {
+   "id": "vjzgz71vffriyy",
+   "at": {
+    "x": 86.36,
+    "y": 72.39
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vgjjrvc": {
+   "id": "vjzgz71vgjjrvc",
+   "at": {
+    "x": 101.6,
+    "y": 39.37
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vhaj9ux": {
+   "id": "vjzgz71vhaj9ux",
+   "at": {
+    "x": 49.53,
+    "y": 26.67
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vip4jdo": {
+   "id": "vjzgz71vip4jdo",
+   "at": {
+    "x": 87.63,
+    "y": 20.32
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vjzofma": {
+   "id": "vjzgz71vjzofma",
+   "at": {
+    "x": 44.45,
+    "y": 55.88
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vkdkory": {
+   "id": "vjzgz71vkdkory",
+   "at": {
+    "x": 77.47,
+    "y": 11.43
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vl5736m": {
+   "id": "vjzgz71vl5736m",
+   "at": {
+    "x": 97.79,
+    "y": 27.94
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vmnpd0k": {
+   "id": "vjzgz71vmnpd0k",
+   "at": {
+    "x": 97.79,
+    "y": 17.78
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vn2f053": {
+   "id": "vjzgz71vn2f053",
+   "at": {
+    "x": 17.78,
+    "y": 20.32
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71von6ujc": {
+   "id": "vjzgz71von6ujc",
+   "at": {
+    "x": 58.42,
+    "y": 12.7
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vplapf7": {
+   "id": "vjzgz71vplapf7",
+   "at": {
+    "x": 90.17,
+    "y": 13.97
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vqb2mmu": {
+   "id": "vjzgz71vqb2mmu",
+   "at": {
+    "x": 72.39,
+    "y": 13.97
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vrtxr2e": {
+   "id": "vjzgz71vrtxr2e",
+   "at": {
+    "x": 49.53,
+    "y": 6.35
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vsfuwhh": {
+   "id": "vjzgz71vsfuwhh",
+   "at": {
+    "x": 64.77,
+    "y": 12.7
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vtdwvc3": {
+   "id": "vjzgz71vtdwvc3",
+   "at": {
+    "x": 111.76,
+    "y": 43.18
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vuyjdeg": {
+   "id": "vjzgz71vuyjdeg",
+   "at": {
+    "x": 123.19,
+    "y": 40.64
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vv4i8ao": {
+   "id": "vjzgz71vv4i8ao",
+   "at": {
+    "x": 78.74,
+    "y": 49.53
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vwopnci": {
+   "id": "vjzgz71vwopnci",
+   "at": {
+    "x": 107.95,
+    "y": 27.94
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vx10yzr": {
+   "id": "vjzgz71vx10yzr",
+   "at": {
+    "x": 113.03,
+    "y": 36.83
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vywt2vo": {
+   "id": "vjzgz71vywt2vo",
+   "at": {
+    "x": 90.17,
+    "y": 6.35
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71vzb301k": {
+   "id": "vjzgz71vzb301k",
+   "at": {
+    "x": 72.39,
+    "y": 7.62
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w0azfrl": {
+   "id": "vjzgz71w0azfrl",
+   "at": {
+    "x": 67.31,
+    "y": 59.69
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w1ygkmr": {
+   "id": "vjzgz71w1ygkmr",
+   "at": {
+    "x": 60.96,
+    "y": 81.28
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w2f2ksn": {
+   "id": "vjzgz71w2f2ksn",
+   "at": {
+    "x": 77.47,
+    "y": 69.85
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w3pd53l": {
+   "id": "vjzgz71w3pd53l",
+   "at": {
+    "x": 105.41,
+    "y": 39.37
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w4wool8": {
+   "id": "vjzgz71w4wool8",
+   "at": {
+    "x": 106.68,
+    "y": 22.86
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w5mc4dy": {
+   "id": "vjzgz71w5mc4dy",
+   "at": {
+    "x": 41.91,
+    "y": 59.69
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w6xkv7y": {
+   "id": "vjzgz71w6xkv7y",
+   "at": {
+    "x": 41.91,
+    "y": 50.8
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w74ehvr": {
+   "id": "vjzgz71w74ehvr",
+   "at": {
+    "x": 41.91,
+    "y": 16.51
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w8bbv6i": {
+   "id": "vjzgz71w8bbv6i",
+   "at": {
+    "x": 81.28,
+    "y": 10.16
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71w9elvdp": {
+   "id": "vjzgz71w9elvdp",
+   "at": {
+    "x": 97.79,
+    "y": 52.07
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71wam7rbk": {
+   "id": "vjzgz71wam7rbk",
+   "at": {
+    "x": 104.14,
+    "y": 52.07
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vjzgz71wbyfjlw": {
+   "id": "vjzgz71wbyfjlw",
+   "at": {
+    "x": 86.36,
+    "y": 67.31
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wc7uy8v": {
+   "id": "vjzgz71wc7uy8v",
+   "at": {
+    "x": 101.6,
+    "y": 63.5
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wdjffun": {
+   "id": "vjzgz71wdjffun",
+   "at": {
+    "x": 50.8,
+    "y": 38.1
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71weezhcj": {
+   "id": "vjzgz71weezhcj",
+   "at": {
+    "x": 50.8,
+    "y": 55.88
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wf00r9a": {
+   "id": "vjzgz71wf00r9a",
+   "at": {
+    "x": 102.87,
+    "y": 22.86
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wg0dap4": {
+   "id": "vjzgz71wg0dap4",
+   "at": {
+    "x": 129.54,
+    "y": 21.59
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71whcxz50": {
+   "id": "vjzgz71whcxz50",
+   "at": {
+    "x": 120.65,
+    "y": 58.42
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wibov87": {
+   "id": "vjzgz71wibov87",
+   "at": {
+    "x": 114.3,
+    "y": 52.07
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wjlgkqe": {
+   "id": "vjzgz71wjlgkqe",
+   "at": {
+    "x": 82.55,
+    "y": 64.77
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wkbk25h": {
+   "id": "vjzgz71wkbk25h",
+   "at": {
+    "x": 95.25,
+    "y": 64.77
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vjzgz71wllfcak": {
+   "id": "vjzgz71wllfcak",
+   "at": {
+    "x": 53.34,
+    "y": 43.18
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  }
+ },
+ "wires": {},
+ "zones": {},
+ "ruleAreas": {
+  "kjzdym1rc6dyos": {
+   "id": "kjzdym1rc6dyos",
+   "name": "Под DD1",
+   "outline": [
+    {
+     "x": 54.215,
+     "y": 16.179999999999996
+    },
+    {
+     "x": 85.415,
+     "y": 16.179999999999996
+    },
+    {
+     "x": 85.415,
+     "y": 47.32
+    },
+    {
+     "x": 54.215,
+     "y": 47.32
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rdjuw98": {
+   "id": "kjzdym1rdjuw98",
+   "name": "Под SB1",
+   "outline": [
+    {
+     "x": 3.2600000000000007,
+     "y": 7.13
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 7.13
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 20.73
+    },
+    {
+     "x": 3.2600000000000007,
+     "y": 20.73
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rehruvo": {
+   "id": "kjzdym1rehruvo",
+   "name": "Под SB2",
+   "outline": [
+    {
+     "x": 3.2600000000000007,
+     "y": 26.179999999999996
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 26.179999999999996
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 39.779999999999994
+    },
+    {
+     "x": 3.2600000000000007,
+     "y": 39.779999999999994
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rfer13q": {
+   "id": "kjzdym1rfer13q",
+   "name": "Под SB3",
+   "outline": [
+    {
+     "x": 3.2600000000000007,
+     "y": 45.230000000000004
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 45.230000000000004
+    },
+    {
+     "x": 16.860000000000003,
+     "y": 58.83
+    },
+    {
+     "x": 3.2600000000000007,
+     "y": 58.83
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rg1wik6": {
+   "id": "kjzdym1rg1wik6",
+   "name": "Под SB4",
+   "outline": [
+    {
+     "x": 122.64,
+     "y": 7.13
+    },
+    {
+     "x": 136.24,
+     "y": 7.13
+    },
+    {
+     "x": 136.24,
+     "y": 20.73
+    },
+    {
+     "x": 122.64,
+     "y": 20.73
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rh3npgt": {
+   "id": "kjzdym1rh3npgt",
+   "name": "Под SB5",
+   "outline": [
+    {
+     "x": 122.64,
+     "y": 26.179999999999996
+    },
+    {
+     "x": 136.24,
+     "y": 26.179999999999996
+    },
+    {
+     "x": 136.24,
+     "y": 39.779999999999994
+    },
+    {
+     "x": 122.64,
+     "y": 39.779999999999994
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rif4drm": {
+   "id": "kjzdym1rif4drm",
+   "name": "Под SB6",
+   "outline": [
+    {
+     "x": 122.64,
+     "y": 45.230000000000004
+    },
+    {
+     "x": 136.24,
+     "y": 45.230000000000004
+    },
+    {
+     "x": 136.24,
+     "y": 58.83
+    },
+    {
+     "x": 122.64,
+     "y": 58.83
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rjf8ehf": {
+   "id": "kjzdym1rjf8ehf",
+   "name": "Под SB7",
+   "outline": [
+    {
+     "x": 28.66,
+     "y": 68.09
+    },
+    {
+     "x": 42.26,
+     "y": 68.09
+    },
+    {
+     "x": 42.26,
+     "y": 81.69
+    },
+    {
+     "x": 28.66,
+     "y": 81.69
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rkdcsxh": {
+   "id": "kjzdym1rkdcsxh",
+   "name": "Под SB8",
+   "outline": [
+    {
+     "x": 46.440000000000005,
+     "y": 68.09
+    },
+    {
+     "x": 60.04,
+     "y": 68.09
+    },
+    {
+     "x": 60.04,
+     "y": 81.69
+    },
+    {
+     "x": 46.440000000000005,
+     "y": 81.69
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rloc4ik": {
+   "id": "kjzdym1rloc4ik",
+   "name": "Под SA1",
+   "outline": [
+    {
+     "x": 63.05,
+     "y": 67.85000000000001
+    },
+    {
+     "x": 76.64999999999999,
+     "y": 67.85000000000001
+    },
+    {
+     "x": 76.64999999999999,
+     "y": 82.64999999999999
+    },
+    {
+     "x": 63.05,
+     "y": 82.64999999999999
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rmyu13n": {
+   "id": "kjzdym1rmyu13n",
+   "name": "Под SB9",
+   "outline": [
+    {
+     "x": 89.11,
+     "y": 68.09
+    },
+    {
+     "x": 102.71,
+     "y": 68.09
+    },
+    {
+     "x": 102.71,
+     "y": 81.69
+    },
+    {
+     "x": 89.11,
+     "y": 81.69
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rnvqam2": {
+   "id": "kjzdym1rnvqam2",
+   "name": "Под BA1",
+   "outline": [
+    {
+     "x": 117.15,
+     "y": 70.17
+    },
+    {
+     "x": 131.75,
+     "y": 70.17
+    },
+    {
+     "x": 131.75,
+     "y": 84.77
+    },
+    {
+     "x": 117.15,
+     "y": 84.77
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1ro1ims2": {
+   "id": "kjzdym1ro1ims2",
+   "name": "Антенна ESP32-S3",
+   "outline": [
+    {
+     "x": 57.92,
+     "y": 0
+    },
+    {
+     "x": 81.82,
+     "y": 0
+    },
+    {
+     "x": 81.82,
+     "y": 7.49
+    },
+    {
+     "x": 57.92,
+     "y": 7.49
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rpmytdf": {
+   "id": "kjzdym1rpmytdf",
+   "name": "Стойка H1",
+   "outline": [
+    {
+     "x": 6.8,
+     "y": 3.5
+    },
+    {
+     "x": 6.549,
+     "y": 4.763
+    },
+    {
+     "x": 5.833,
+     "y": 5.833
+    },
+    {
+     "x": 4.763,
+     "y": 6.549
+    },
+    {
+     "x": 3.5,
+     "y": 6.8
+    },
+    {
+     "x": 2.237,
+     "y": 6.549
+    },
+    {
+     "x": 1.167,
+     "y": 5.833
+    },
+    {
+     "x": 0.451,
+     "y": 4.763
+    },
+    {
+     "x": 0.2,
+     "y": 3.5
+    },
+    {
+     "x": 0.451,
+     "y": 2.237
+    },
+    {
+     "x": 1.167,
+     "y": 1.167
+    },
+    {
+     "x": 2.237,
+     "y": 0.451
+    },
+    {
+     "x": 3.5,
+     "y": 0.2
+    },
+    {
+     "x": 4.763,
+     "y": 0.451
+    },
+    {
+     "x": 5.833,
+     "y": 1.167
+    },
+    {
+     "x": 6.549,
+     "y": 2.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rqmrl7t": {
+   "id": "kjzdym1rqmrl7t",
+   "name": "Стойка H2",
+   "outline": [
+    {
+     "x": 139.8,
+     "y": 3.5
+    },
+    {
+     "x": 139.549,
+     "y": 4.763
+    },
+    {
+     "x": 138.833,
+     "y": 5.833
+    },
+    {
+     "x": 137.763,
+     "y": 6.549
+    },
+    {
+     "x": 136.5,
+     "y": 6.8
+    },
+    {
+     "x": 135.237,
+     "y": 6.549
+    },
+    {
+     "x": 134.167,
+     "y": 5.833
+    },
+    {
+     "x": 133.451,
+     "y": 4.763
+    },
+    {
+     "x": 133.2,
+     "y": 3.5
+    },
+    {
+     "x": 133.451,
+     "y": 2.237
+    },
+    {
+     "x": 134.167,
+     "y": 1.167
+    },
+    {
+     "x": 135.237,
+     "y": 0.451
+    },
+    {
+     "x": 136.5,
+     "y": 0.2
+    },
+    {
+     "x": 137.763,
+     "y": 0.451
+    },
+    {
+     "x": 138.833,
+     "y": 1.167
+    },
+    {
+     "x": 139.549,
+     "y": 2.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rr7j37p": {
+   "id": "kjzdym1rr7j37p",
+   "name": "Стойка H3",
+   "outline": [
+    {
+     "x": 6.8,
+     "y": 86.5
+    },
+    {
+     "x": 6.549,
+     "y": 87.763
+    },
+    {
+     "x": 5.833,
+     "y": 88.833
+    },
+    {
+     "x": 4.763,
+     "y": 89.549
+    },
+    {
+     "x": 3.5,
+     "y": 89.8
+    },
+    {
+     "x": 2.237,
+     "y": 89.549
+    },
+    {
+     "x": 1.167,
+     "y": 88.833
+    },
+    {
+     "x": 0.451,
+     "y": 87.763
+    },
+    {
+     "x": 0.2,
+     "y": 86.5
+    },
+    {
+     "x": 0.451,
+     "y": 85.237
+    },
+    {
+     "x": 1.167,
+     "y": 84.167
+    },
+    {
+     "x": 2.237,
+     "y": 83.451
+    },
+    {
+     "x": 3.5,
+     "y": 83.2
+    },
+    {
+     "x": 4.763,
+     "y": 83.451
+    },
+    {
+     "x": 5.833,
+     "y": 84.167
+    },
+    {
+     "x": 6.549,
+     "y": 85.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kjzdym1rs00kty": {
+   "id": "kjzdym1rs00kty",
+   "name": "Стойка H4",
+   "outline": [
+    {
+     "x": 139.8,
+     "y": 86.5
+    },
+    {
+     "x": 139.549,
+     "y": 87.763
+    },
+    {
+     "x": 138.833,
+     "y": 88.833
+    },
+    {
+     "x": 137.763,
+     "y": 89.549
+    },
+    {
+     "x": 136.5,
+     "y": 89.8
+    },
+    {
+     "x": 135.237,
+     "y": 89.549
+    },
+    {
+     "x": 134.167,
+     "y": 88.833
+    },
+    {
+     "x": 133.451,
+     "y": 87.763
+    },
+    {
+     "x": 133.2,
+     "y": 86.5
+    },
+    {
+     "x": 133.451,
+     "y": 85.237
+    },
+    {
+     "x": 134.167,
+     "y": 84.167
+    },
+    {
+     "x": 135.237,
+     "y": 83.451
+    },
+    {
+     "x": 136.5,
+     "y": 83.2
+    },
+    {
+     "x": 137.763,
+     "y": 83.451
+    },
+    {
+     "x": 138.833,
+     "y": 84.167
+    },
+    {
+     "x": 139.549,
+     "y": 85.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  }
+ },
+ "drawings": {}
+}

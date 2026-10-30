@@ -112,7 +112,7 @@ describe('пылесос S3 этажеркой под ЛУТ (4 платы)', ()
       const base = safeName(p.meta.name);
       for (const g of exportGerbers(p)) files[`${dir}/gerber/${g.name}`] = strToU8(g.content);
       // ЛУТ: верх зеркально (рисунок кладут лицом к меди), низ — как есть; маски — так же.
-      const sheets = (mirror: boolean) => (['B.Cu', 'F.Cu', 'B.Mask', 'F.Mask', 'F.Silk'] as LayerId[]).map((layer) => ({ layer, mirror: mirror && layer.startsWith('F.') }));
+      const sheets = (mirror: boolean) => (['B.Cu', 'F.Cu', 'B.Mask', 'F.Mask', 'F.Silk', 'B.Silk'] as LayerId[]).map((layer) => ({ layer, mirror: mirror && layer.startsWith('F.') }));
       files[`${dir}/${base}-LUT-zerkalno.pdf`] = exportLutPdf(p, { sheets: sheets(true) }).bytes;
       files[`${dir}/${base}-vid-sverhu.pdf`] = exportLutPdf(p, { sheets: sheets(false) }).bytes;
       files[`${dir}/${base}-sborka.svg`] = strToU8(exportAssemblySvg(p, 'top'));
