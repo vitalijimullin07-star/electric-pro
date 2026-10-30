@@ -1,0 +1,7107 @@
+{
+ "format": "plata-project",
+ "version": 1,
+ "meta": {
+  "name": "Пылесос S3 — этаж 3 (датчики и голос)",
+  "created": "2026-10-30T21:54:51.693Z",
+  "modified": "2026-10-30T21:54:51.693Z",
+  "author": "Plata",
+  "description": "Этажерка пылесоса S3 под ЛУТ с масками, этаж 3 из 4 (датчики и голос): двусторонняя без металлизации, все выводы паяются снизу, сверху — дорожки между переходными (проволочками). Прошивка 6.4."
+ },
+ "board": {
+  "outline": [
+   {
+    "x": 0,
+    "y": 0
+   },
+   {
+    "x": 140,
+    "y": 0
+   },
+   {
+    "x": 140,
+    "y": 90
+   },
+   {
+    "x": 0,
+    "y": 90
+   }
+  ],
+  "cornerRadius": 2,
+  "cutouts": [],
+  "copperLayers": 2,
+  "thickness": 1.6,
+  "maskColor": "#1f6b3a"
+ },
+ "rules": {
+  "minClearance": 0.4,
+  "minTrackWidth": 0.4,
+  "minViaDiameter": 1.6,
+  "minViaDrill": 0.6,
+  "minDrill": 0.6,
+  "minAnnularRing": 0.3,
+  "edgeClearance": 1,
+  "holeToHole": 0.3,
+  "classClearances": [],
+  "maskMargin": 0.1,
+  "tentVias": false,
+  "teardrops": true
+ },
+ "netClasses": {
+  "Default": {
+   "name": "Default",
+   "description": "Сигнальные цепи",
+   "clearance": 0.4,
+   "trackWidth": 0.6,
+   "viaDiameter": 2,
+   "viaDrill": 0.8
+  },
+  "Power": {
+   "name": "Power",
+   "description": "Питание и земля",
+   "clearance": 0.4,
+   "trackWidth": 0.8,
+   "viaDiameter": 2.2,
+   "viaDrill": 0.9
+  }
+ },
+ "nets": {
+  "nifyjx1c4l26": {
+   "id": "nifyjx1c4l26",
+   "name": "GND",
+   "netClass": "Power"
+  },
+  "nifyjx2rntup": {
+   "id": "nifyjx2rntup",
+   "name": "3V3",
+   "description": "3,3 В со стабилизатора DevKitC: датчики, ADS1115, DS3231, PCA9555, МР248",
+   "netClass": "Power"
+  },
+  "nifyjx3abiat": {
+   "id": "nifyjx3abiat",
+   "name": "5V",
+   "description": "Питание 5 В от блока питания (клеммник XP1 верхней платы): ESP32, плеер, экран, MPX5100DP",
+   "netClass": "Power"
+  },
+  "nifyjz52w1x2": {
+   "id": "nifyjz52w1x2",
+   "name": "SCL",
+   "description": "I²C — IO12",
+   "netClass": "Default"
+  },
+  "nifyjz6wsl7i": {
+   "id": "nifyjz6wsl7i",
+   "name": "SDA",
+   "description": "I²C: PCA9555 0x20, SDP810 0x25, SDP811 0x26, NAU7802 0x2A, ADS1115 0x48, DS3231 0x68, BME280 0x76 — IO11",
+   "netClass": "Default"
+  },
+  "nifyk08f95yr": {
+   "id": "nifyk08f95yr",
+   "name": "NTC1",
+   "description": "Термистор турбины 1 → A0 ADS1115",
+   "netClass": "Default"
+  },
+  "nifyk0968x6r": {
+   "id": "nifyk0968x6r",
+   "name": "NTC2",
+   "description": "Термистор турбины 2 → A1 ADS1115",
+   "netClass": "Default"
+  },
+  "nifyk0gui1y8": {
+   "id": "nifyk0gui1y8",
+   "name": "DF_RX",
+   "netClass": "Default"
+  },
+  "nifyk0h6xp5f": {
+   "id": "nifyk0h6xp5f",
+   "name": "SPK1",
+   "netClass": "Default"
+  },
+  "nifyk0inqymr": {
+   "id": "nifyk0inqymr",
+   "name": "SPK2",
+   "netClass": "Default"
+  },
+  "nifyk0mly5xm": {
+   "id": "nifyk0mly5xm",
+   "name": "DF_J",
+   "netClass": "Default"
+  },
+  "nifyk0o7w9b1": {
+   "id": "nifyk0o7w9b1",
+   "name": "PNL_TX",
+   "description": "IO13: голос DFPlayer (9600) через перемычку JP1, или SDA второй шины I²C (расходомер SDP810-125)",
+   "netClass": "Default"
+  },
+  "nifyk0rql3rn": {
+   "id": "nifyk0rql3rn",
+   "name": "VAC_S",
+   "netClass": "Default"
+  },
+  "nifyk0unaxj1": {
+   "id": "nifyk0unaxj1",
+   "name": "VAC",
+   "netClass": "Default"
+  },
+  "nifyk112nyha0": {
+   "id": "nifyk112nyha0",
+   "name": "CT1~L4",
+   "netClass": "Default"
+  },
+  "nifyk113urji0": {
+   "id": "nifyk113urji0",
+   "name": "CT2~L5",
+   "netClass": "Default"
+  },
+  "nifyk1140349u": {
+   "id": "nifyk1140349u",
+   "name": "CT3~L6",
+   "netClass": "Default"
+  },
+  "nifyk1153yd7n": {
+   "id": "nifyk1153yd7n",
+   "name": "UAC~L7",
+   "description": "ZMPT101B через делитель 10к/20к → IO7 (напряжение сети) и IO48 (ноль сети)",
+   "netClass": "Default"
+  },
+  "nifyk1162xlu6": {
+   "id": "nifyk1162xlu6",
+   "name": "WL1~L13",
+   "netClass": "Default"
+  },
+  "nifyk117si80l": {
+   "id": "nifyk117si80l",
+   "name": "WL_DRV~L14",
+   "netClass": "Default"
+  },
+  "nifyk118ongep": {
+   "id": "nifyk118ongep",
+   "name": "WL2~L15",
+   "netClass": "Default"
+  },
+  "nifyk119wxsgt": {
+   "id": "nifyk119wxsgt",
+   "name": "PNL_RX~L20",
+   "description": "IO14: SCL второй шины I²C",
+   "netClass": "Default"
+  },
+  "nifyk11c02tak": {
+   "id": "nifyk11c02tak",
+   "name": "RL1_K~R3",
+   "netClass": "Default"
+  },
+  "nifyk11d3dwg9": {
+   "id": "nifyk11d3dwg9",
+   "name": "VLV2~R7",
+   "description": "Клапан 2: IO41 → ULN2003 вход 4 и 100 Ом на H2",
+   "netClass": "Default"
+  },
+  "nifyk11ejajy5": {
+   "id": "nifyk11ejajy5",
+   "name": "VLV1~R8",
+   "description": "Клапан 1: IO40 → ULN2003 вход 5 и 100 Ом на H1",
+   "netClass": "Default"
+  },
+  "nifyk11f55t6j": {
+   "id": "nifyk11f55t6j",
+   "name": "T1~R9",
+   "description": "ШИМ МР248 турбины 1: IO39",
+   "netClass": "Default"
+  },
+  "nifyk11gwd8qb": {
+   "id": "nifyk11gwd8qb",
+   "name": "T2~R10",
+   "description": "ШИМ МР248 турбины 2: IO38",
+   "netClass": "Default"
+  },
+  "nifyk11h6ysyl": {
+   "id": "nifyk11h6ysyl",
+   "name": "RL2_K~R11",
+   "netClass": "Default"
+  },
+  "nifyk11ixuttm": {
+   "id": "nifyk11ixuttm",
+   "name": "RL3_K~R12",
+   "netClass": "Default"
+  },
+  "nifyk11j7c459": {
+   "id": "nifyk11j7c459",
+   "name": "VLV2_K~R13",
+   "netClass": "Default"
+  },
+  "nifyk11kav2rk": {
+   "id": "nifyk11kav2rk",
+   "name": "VLV1_K~R19",
+   "netClass": "Default"
+  },
+  "nifyk11losqha": {
+   "id": "nifyk11losqha",
+   "name": "FLOAT~R20",
+   "description": "Поплавок бака → P17 PCA9555 на пульте",
+   "netClass": "Default"
+  }
+ },
+ "footprints": {
+  "LUT_DS3231_ZS042_Sockets": {
+   "id": "LUT_DS3231_ZS042_Sockets",
+   "name": "Часы ZS-042 (DS3231) на гнёздах",
+   "description": "Модуль часов ZS-042 (DS3231 + AT24C32, CR2032) лёжа: свои штыри 1×6 — в гнездо 1×6, штыри 1×4 с другого конца — в гнездо-опору (не соединено). Модуль заряжает батарейку: для CR2032 выпаять диод зарядки (или ставить LIR2032)",
+   "category": "Модули",
+   "refPrefix": "DD",
+   "tags": [
+    "ds3231",
+    "rtc",
+    "module",
+    "zs-042"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "32K",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "SQW",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "name": "SCL",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "name": "SDA",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "name": "VCC",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "name": "GND",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S1",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 33.5,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 33.5,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S3",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 33.5,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "S4",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 33.5,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.2,
+      "y": -4.65
+     },
+     "b": {
+      "x": 35.8,
+      "y": 17.35
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.33,
+      "y": -1.33
+     },
+     "b": {
+      "x": 1.33,
+      "y": 14.03
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": 32.17,
+      "y": 1.21
+     },
+     "b": {
+      "x": 34.83,
+      "y": 11.49
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 17,
+      "y": 6.35
+     },
+     "text": "DS3231 ZS-042",
+     "size": 1.2,
+     "thickness": 0.168,
+     "align": "center"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.5,
+     "y": -5
+    },
+    "max": {
+     "x": 36.1,
+     "y": 17.7
+    }
+   },
+   "source": "ZS-042, типовые размеры 38×22 мм — сверить",
+   "verified": false,
+   "height": 15
+  },
+  "Module_ADS1115": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -13.75,
+      "y": -12.5
+     },
+     "b": {
+      "x": 13.75,
+      "y": 2.5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -13.81,
+      "y": -12.56
+     },
+     "b": {
+      "x": 13.81,
+      "y": 2.56
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": -13.03,
+      "y": 0
+     },
+     "r": 0.3,
+     "width": 0.12,
+     "fill": true
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -11.43,
+      "y": -1.25
+     },
+     "text": "VDD",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -8.89,
+      "y": -1.25
+     },
+     "text": "GND",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -6.35,
+      "y": -1.25
+     },
+     "text": "SCL",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -3.81,
+      "y": -1.25
+     },
+     "text": "SDA",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": -1.27,
+      "y": -1.25
+     },
+     "text": "ADDR",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 1.27,
+      "y": -1.25
+     },
+     "text": "ALRT",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 3.81,
+      "y": -1.25
+     },
+     "text": "A0",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 6.35,
+      "y": -1.25
+     },
+     "text": "A1",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 8.89,
+      "y": -1.25
+     },
+     "text": "A2",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 11.43,
+      "y": -1.25
+     },
+     "text": "A3",
+     "size": 0.6,
+     "thickness": 0.1,
+     "rotation": 90,
+     "align": "left"
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -14.25,
+      "y": -13
+     },
+     "b": {
+      "x": 14.25,
+      "y": 3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -13.7
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": -5
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -11.43,
+      "y": 2.392
+     },
+     "text": "VDD",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -8.89,
+      "y": 2.392
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.35,
+      "y": 2.392
+     },
+     "text": "SCL",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.392
+     },
+     "text": "SDA",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 2.808
+     },
+     "text": "ADDR",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 2.808
+     },
+     "text": "ALRT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 1.975
+     },
+     "text": "A0",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.35,
+      "y": 1.975
+     },
+     "text": "A1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 8.89,
+      "y": 1.975
+     },
+     "text": "A2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 11.43,
+      "y": 1.975
+     },
+     "text": "A3",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Module_ADS1115",
+   "name": "ADS1115",
+   "description": "Модуль АЦП ADS1115 (CJMCU), 1×10 выводов, платка 27,5×15 мм",
+   "category": "Модули",
+   "group": "Прочее",
+   "tags": [
+    "module",
+    "tht",
+    "adc",
+    "i2c",
+    "ads1115"
+   ],
+   "refPrefix": "M",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -11.43,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "VDD",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -8.89,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "GND",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SCL",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "SDA",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "ADDR",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "ALRT",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "7",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A0",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A1",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 8.89,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A2",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 11.43,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "name": "A3",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -14.25,
+     "y": -13
+    },
+    "max": {
+     "x": 14.25,
+     "y": 3
+    }
+   },
+   "source": "Габариты модуля и шаг штырей",
+   "verified": false,
+   "height": 5
+  },
+  "C_Disc_D5mm_W2.5mm_P2.5mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.5,
+      "y": -1.25
+     },
+     "b": {
+      "x": 2.5,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": -1.35
+     },
+     "b": {
+      "x": 2.6,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 2.6,
+      "y": -1.35
+     },
+     "b": {
+      "x": 2.6,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 2.6,
+      "y": 1.35
+     },
+     "b": {
+      "x": -2.6,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": 1.35
+     },
+     "b": {
+      "x": -2.6,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "name": "Диск Ø5, 2,5",
+   "description": "Керамический дисковый конденсатор Ø5 мм, толщина 2.5 мм, шаг 2,5 мм",
+   "category": "Конденсаторы",
+   "group": "Керамические дисковые",
+   "tags": [
+    "tht",
+    "ceramic",
+    "disc"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -1.25,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.25,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 6
+  },
+  "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.25,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 1.35,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 1.35,
+      "y": 0
+     },
+     "b": {
+      "x": 1.49,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -1.75,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3.84,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "name": "Резистор 0.25W стоя, 2,54 мм",
+   "description": "Резистор 0.25W с осевыми выводами, установлен вертикально, шаг 2,54 мм, корпус 6.3×2.5 мм",
+   "category": "Резисторы",
+   "group": "Выводные вертикально",
+   "tags": [
+    "tht",
+    "axial",
+    "vertical",
+    "resistor"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.54,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.75,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3.84,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 7.3
+  },
+  "Module_DFPlayer_Mini_P18.03": {
+   "id": "Module_DFPlayer_Mini_P18.03",
+   "name": "DFPlayer Mini (18,03 мм)",
+   "description": "MP3-плеер DFPlayer Mini на гнёздах 1×8: ряды через 18,03 мм, платка 20,32×20,32 мм; слот карты microSD — у края с выводами 8 и 9",
+   "category": "Модули",
+   "refPrefix": "DA",
+   "tags": [
+    "dfplayer",
+    "mp3",
+    "module"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "VCC",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "RX",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "name": "TX",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "name": "DAC_R",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "name": "DAC_L",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "name": "SPK_1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "7",
+     "name": "GND",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "name": "SPK_2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "16",
+     "name": "BUSY",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "15",
+     "name": "USB-",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "14",
+     "name": "USB+",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "13",
+     "name": "ADKEY_2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "12",
+     "name": "ADKEY_1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "11",
+     "name": "IO_2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "name": "GND",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "name": "IO_1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 18.03,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.145,
+      "y": -1.27
+     },
+     "b": {
+      "x": 19.175,
+      "y": 19.03
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.2,
+      "y": -1.33
+     },
+     "b": {
+      "x": 19.23,
+      "y": 19.09
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9,
+      "y": 8
+     },
+     "text": "DFPlayer",
+     "size": 1.3,
+     "thickness": 0.18200000000000002,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 9,
+      "y": 17
+     },
+     "text": "карта SD",
+     "size": 1.1,
+     "thickness": 0.15400000000000003,
+     "align": "center"
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 9,
+      "y": 18.3
+     },
+     "b": {
+      "x": 9,
+      "y": 21
+     },
+     "width": 0.2
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.5,
+     "y": -1.6
+    },
+    "max": {
+     "x": 19.5,
+     "y": 19.4
+    }
+   },
+   "source": "DFRobot DFR0299, чертёж размеров: 20,32×20,32, 18,03 между рядами",
+   "verified": true,
+   "height": 14
+  },
+  "CP_Radial_D5mm_P2mm": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.5,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Silk",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 2.56,
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.7,
+      "y": -1.25
+     },
+     "b": {
+      "x": -2.9,
+      "y": -1.25
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.3,
+      "y": -1.65
+     },
+     "b": {
+      "x": -3.3,
+      "y": -0.85
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "poly",
+     "layer": "F.Fab",
+     "pts": [
+      {
+       "x": 1.375,
+       "y": -2
+      },
+      {
+       "x": 1.375,
+       "y": 2
+      }
+     ],
+     "width": 0.1,
+     "closed": false,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3,
+      "y": -3
+     },
+     "b": {
+      "x": 3,
+      "y": 3
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -3.7
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 3.7
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1,
+      "y": 1.358
+     },
+     "text": "+",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1,
+      "y": 1.358
+     },
+     "text": "-",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "CP_Radial_D5mm_P2mm",
+   "name": "Электролит Ø5",
+   "description": "Электролитический конденсатор Ø5 мм, шаг 2 мм, плюс — вывод 1",
+   "category": "Конденсаторы",
+   "tags": [
+    "tht",
+    "radial",
+    "electrolytic",
+    "capacitor"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1,
+      "y": 0
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "drill": 0.6,
+     "name": "+",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1,
+      "y": 0
+     },
+     "size": {
+      "x": 1.3,
+      "y": 1.3
+     },
+     "drill": 0.6,
+     "name": "-",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3,
+     "y": -3
+    },
+    "max": {
+     "x": 3,
+     "y": 3
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 11,
+   "group": "Электролитические выводные"
+  },
+  "R_Axial_0.25W_L6.3mm_D2.5mm_P7.62mm_Horizontal": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.15,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3.15,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3.81,
+      "y": 0
+     },
+     "b": {
+      "x": -3.15,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 3.15,
+      "y": 0
+     },
+     "b": {
+      "x": 3.81,
+      "y": 0
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.21,
+      "y": -1.31
+     },
+     "b": {
+      "x": 3.21,
+      "y": 1.31
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.76,
+      "y": 0
+     },
+     "b": {
+      "x": -3.21,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.21,
+      "y": 0
+     },
+     "b": {
+      "x": 2.76,
+      "y": 0
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -5.12,
+      "y": -1.75
+     },
+     "b": {
+      "x": 5.12,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "text": "${VALUE}",
+     "size": 0.875,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "R_Axial_0.25W_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+   "name": "Резистор 0.25W, 7,62 мм",
+   "description": "Резистор 0.25W с осевыми выводами, корпус 6.3×2.5 мм, шаг 7,62 мм",
+   "category": "Резисторы",
+   "tags": [
+    "tht",
+    "axial",
+    "resistor",
+    "0.25W"
+   ],
+   "refPrefix": "R",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -5.12,
+     "y": -1.75
+    },
+    "max": {
+     "x": 5.12,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 2.5,
+   "group": "Выводные горизонтально"
+  },
+  "PinHeader_1x02_P2.54mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -1.27
+     },
+     "b": {
+      "x": 2.54,
+      "y": 1.27
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": -1.33
+     },
+     "b": {
+      "x": 2.6,
+      "y": 1.33
+     },
+     "width": 0.12,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": 1.27
+     },
+     "b": {
+      "x": -2.6,
+      "y": 1.27
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.04,
+      "y": -1.33
+     },
+     "b": {
+      "x": -3.04,
+      "y": 0
+     },
+     "width": 0.15
+    },
+    {
+     "kind": "line",
+     "layer": "F.Fab",
+     "a": {
+      "x": 0,
+      "y": -1.27
+     },
+     "b": {
+      "x": 0,
+      "y": 1.27
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.04,
+      "y": -1.77
+     },
+     "b": {
+      "x": 3.04,
+      "y": 1.77
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.47
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.47
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "PinHeader_1x02_P2.54mm",
+   "name": "Штыри 1×2",
+   "description": "Штыри 1×2, шаг 2,54 мм",
+   "category": "Разъёмы",
+   "tags": [
+    "tht",
+    "header",
+    "connector",
+    "1x2"
+   ],
+   "refPrefix": "J",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "oval",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.04,
+     "y": -1.77
+    },
+    "max": {
+     "x": 3.04,
+     "y": 1.77
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5,
+   "group": "Штыри 2,54"
+  },
+  "LUT_KF2EDGR_1x02_P5.08mm": {
+   "id": "LUT_KF2EDGR_1x02_P5.08mm",
+   "name": "KF2EDGR 2, 5,08 угловой",
+   "description": "Разъёмный клеммник 5,08, 2 конт., угловой (на плате — KF2EDGR, на проводе — KF2EDGK с винтами); вход провода — к краю платы",
+   "category": "Разъёмы",
+   "refPrefix": "X",
+   "tags": [
+    "terminal",
+    "pluggable",
+    "kf2edg",
+    "angled"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 5.08,
+      "y": 0
+     },
+     "size": {
+      "x": 2.4,
+      "y": 2.4
+     },
+     "drill": 1.3,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -2.54,
+      "y": -2.6
+     },
+     "b": {
+      "x": 7.62,
+      "y": 8.2
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -2.6,
+      "y": -2.66
+     },
+     "b": {
+      "x": 7.68,
+      "y": 8.26
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 2.54,
+      "y": 5.5
+     },
+     "text": "вход",
+     "size": 1,
+     "thickness": 0.14,
+     "align": "center"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -2.5,
+     "y": -9.5
+    },
+    "max": {
+     "x": 7.58,
+     "y": 8.3
+    }
+   },
+   "source": "KF2EDGR-5.08 (типовой чертёж), сверить",
+   "verified": false,
+   "height": 12.5
+  },
+  "Sensor_MPX5100DP": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -8.9,
+      "y": -8
+     },
+     "b": {
+      "x": 8.9,
+      "y": 5
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -9,
+      "y": -8.1
+     },
+     "b": {
+      "x": 9,
+      "y": -8.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 9,
+      "y": -8.1
+     },
+     "b": {
+      "x": 9,
+      "y": 5.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 9,
+      "y": 5.1
+     },
+     "b": {
+      "x": -9,
+      "y": 5.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -9,
+      "y": 5.1
+     },
+     "b": {
+      "x": -9,
+      "y": -8.1
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -9.4,
+      "y": -8.5
+     },
+     "b": {
+      "x": 9.4,
+      "y": 5.5
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -9.2
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 6.2
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -6.35,
+      "y": 2.758
+     },
+     "text": "VOUT",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -3.81,
+      "y": 2.342
+     },
+     "text": "GND",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": -1.27,
+      "y": 1.925
+     },
+     "text": "VS",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 1.27,
+      "y": 1.925
+     },
+     "text": "V1",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 3.81,
+      "y": 1.925
+     },
+     "text": "V2",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 6.35,
+      "y": 2.342
+     },
+     "text": "VEX",
+     "size": 1,
+     "thickness": 0.15,
+     "rotation": 90,
+     "align": "center"
+    }
+   ],
+   "id": "Sensor_MPX5100DP",
+   "name": "MPX5100DP",
+   "description": "Датчик давления Freescale MPX5100DP/MPX5010DP (корпус 867C, два порта), 6 выводов с шагом 2,54 мм (1 — VOUT, 2 — GND, 3 — VS)",
+   "category": "Датчики",
+   "group": "Давление и газ",
+   "tags": [
+    "tht",
+    "mpx5100",
+    "pressure"
+   ],
+   "refPrefix": "U",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": -6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "VOUT",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "GND",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "VS",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 1.27,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "V1",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 3.81,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "V2",
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 6.35,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.9,
+     "name": "VEX",
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -9.4,
+     "y": -8.5
+    },
+    "max": {
+     "x": 9.4,
+     "y": 5.5
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": false,
+   "height": 17
+  },
+  "C_Disc_D6mm_W2.5mm_P5mm": {
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -3,
+      "y": -1.25
+     },
+     "b": {
+      "x": 3,
+      "y": 1.25
+     },
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": -1.35
+     },
+     "b": {
+      "x": 3.1,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": -1.35
+     },
+     "b": {
+      "x": 3.1,
+      "y": -0.9
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": 0.9
+     },
+     "b": {
+      "x": 3.1,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": 3.1,
+      "y": 1.35
+     },
+     "b": {
+      "x": -3.1,
+      "y": 1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": 1.35
+     },
+     "b": {
+      "x": -3.1,
+      "y": 0.9
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "line",
+     "layer": "F.Silk",
+     "a": {
+      "x": -3.1,
+      "y": -0.9
+     },
+     "b": {
+      "x": -3.1,
+      "y": -1.35
+     },
+     "width": 0.12
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Courtyard",
+     "a": {
+      "x": -3.8,
+      "y": -1.75
+     },
+     "b": {
+      "x": 3.8,
+      "y": 1.75
+     },
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -2.45
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    },
+    {
+     "kind": "text",
+     "layer": "F.Fab",
+     "at": {
+      "x": 0,
+      "y": 2.45
+     },
+     "text": "${VALUE}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "C_Disc_D6mm_W2.5mm_P5mm",
+   "name": "Диск Ø6, 5",
+   "description": "Керамический дисковый конденсатор Ø6 мм, толщина 2.5 мм, шаг 5 мм",
+   "category": "Конденсаторы",
+   "group": "Керамические дисковые",
+   "tags": [
+    "tht",
+    "ceramic",
+    "disc"
+   ],
+   "refPrefix": "C",
+   "pads": [
+    {
+     "number": "1",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": -2.5,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 2.5,
+      "y": 0
+     },
+     "size": {
+      "x": 1.6,
+      "y": 1.6
+     },
+     "drill": 0.8,
+     "layer": "B.Cu"
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.8,
+     "y": -1.75
+    },
+    "max": {
+     "x": 3.8,
+     "y": 1.75
+    }
+   },
+   "source": "Типовые размеры",
+   "verified": true,
+   "height": 7
+  },
+  "MountingHole_3.2mm_M3": {
+   "graphics": [
+    {
+     "kind": "circle",
+     "layer": "F.Fab",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.2,
+     "width": 0.1,
+     "fill": false
+    },
+    {
+     "kind": "circle",
+     "layer": "F.Courtyard",
+     "c": {
+      "x": 0,
+      "y": 0
+     },
+     "r": 3.45,
+     "width": 0.05,
+     "fill": false
+    },
+    {
+     "kind": "text",
+     "layer": "F.Silk",
+     "at": {
+      "x": 0,
+      "y": -4.1
+     },
+     "text": "${REF}",
+     "size": 1,
+     "thickness": 0.15,
+     "align": "center"
+    }
+   ],
+   "id": "MountingHole_3.2mm_M3",
+   "name": "Отверстие M3",
+   "description": "Крепёжное отверстие Ø3.2 мм под винт M3",
+   "category": "Крепёж и технологическое",
+   "tags": [
+    "hole",
+    "mounting",
+    "m3"
+   ],
+   "refPrefix": "H",
+   "pads": [
+    {
+     "number": "",
+     "type": "npth",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 3.2,
+      "y": 3.2
+     },
+     "drill": 3.2
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -3.45,
+     "y": -3.45
+    },
+    "max": {
+     "x": 3.45,
+     "y": 3.45
+    }
+   },
+   "source": "ISO 273, средний ряд",
+   "verified": true,
+   "height": 0,
+   "group": "Отверстия"
+  },
+  "LUT_Bus_Socket_1x22": {
+   "id": "LUT_Bus_Socket_1x22",
+   "name": "Шина: гнездо 1×22",
+   "description": "Гнездо 1×22 (PBS, высота 8,5 мм): в него входят длинные штыри предыдущей платы",
+   "category": "Разъёмы",
+   "refPrefix": "XB",
+   "tags": [
+    "header",
+    "bus",
+    "1x22"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "7",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 20.32
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 22.86
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "11",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 25.4
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "12",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 27.94
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "13",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 30.48
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "14",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 33.02
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "15",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 35.56
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "16",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 38.1
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "17",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 40.64
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "18",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 43.18
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "19",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 45.72
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "20",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 48.26
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "21",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 50.8
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "22",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 53.34
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 54.61
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.2,
+      "y": -1.33
+     },
+     "b": {
+      "x": 1.2,
+      "y": 54.67
+     },
+     "width": 0.12
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.2,
+     "y": -1.6
+    },
+    "max": {
+     "x": 1.2,
+     "y": 54.940000000000005
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 8.5
+  },
+  "LUT_Bus_LongPins_1x22": {
+   "id": "LUT_Bus_LongPins_1x22",
+   "name": "Шина: длинные штыри 1×22",
+   "description": "Штыри 1×22 с длинными выводами (общая длина 25 мм): пластик — сверху, штыри насквозь, ниже платы на ~17 мм — в гнездо следующей платы (между платами 20 мм)",
+   "category": "Разъёмы",
+   "refPrefix": "XB",
+   "tags": [
+    "header",
+    "bus",
+    "1x22"
+   ],
+   "pads": [
+    {
+     "number": "1",
+     "name": "",
+     "type": "tht",
+     "shape": "rect",
+     "at": {
+      "x": 0,
+      "y": 0
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "2",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 2.54
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "3",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 5.08
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "4",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 7.62
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "5",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 10.16
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "6",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 12.7
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "7",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 15.24
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "8",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 17.78
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "9",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 20.32
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "10",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 22.86
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "11",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 25.4
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "12",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 27.94
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "13",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 30.48
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "14",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 33.02
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "15",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 35.56
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "16",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 38.1
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "17",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 40.64
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "18",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 43.18
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "19",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 45.72
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "20",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 48.26
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "21",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 50.8
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    },
+    {
+     "number": "22",
+     "name": "",
+     "type": "tht",
+     "shape": "circle",
+     "at": {
+      "x": 0,
+      "y": 53.34
+     },
+     "size": {
+      "x": 1.7,
+      "y": 1.7
+     },
+     "drill": 1,
+     "layer": "B.Cu"
+    }
+   ],
+   "graphics": [
+    {
+     "kind": "rect",
+     "layer": "F.Fab",
+     "a": {
+      "x": -1.27,
+      "y": -1.27
+     },
+     "b": {
+      "x": 1.27,
+      "y": 54.61
+     },
+     "width": 0.1
+    },
+    {
+     "kind": "rect",
+     "layer": "F.Silk",
+     "a": {
+      "x": -1.2,
+      "y": -1.33
+     },
+     "b": {
+      "x": 1.2,
+      "y": 54.67
+     },
+     "width": 0.12
+    }
+   ],
+   "courtyard": {
+    "min": {
+     "x": -1.2,
+     "y": -1.6
+    },
+    "max": {
+     "x": 1.2,
+     "y": 54.940000000000005
+    }
+   },
+   "source": "Стандарт 2,54 мм",
+   "verified": true,
+   "height": 6
+  }
+ },
+ "components": {
+  "cifyjz4y16m2": {
+   "id": "cifyjz4y16m2",
+   "ref": "DD4",
+   "value": "DS3231 (ZS-042)",
+   "description": "Часы DS3231 (I²C 0x68) — модуль ZS-042 лёжа на гнёздах. Батарейка CR2032 — только если выпаян диод зарядки модуля (или LIR2032)",
+   "footprint": "LUT_DS3231_ZS042_Sockets",
+   "at": {
+    "x": 10.16,
+    "y": 12.7
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "3": "nifyjz52w1x2",
+    "4": "nifyjz6wsl7i",
+    "5": "nifyjx2rntup",
+    "6": "nifyjx1c4l26"
+   },
+   "locked": true
+  },
+  "cifyk07qx6oq": {
+   "id": "cifyk07qx6oq",
+   "ref": "DD3",
+   "value": "ADS1115 (модуль)",
+   "description": "АЦП ADS1115 (I²C 0x48, ADDR на земле) на гнезде 1×10, платкой вверх (опора — стойка в его отверстие): A0 — термистор турбины 1, A1 — турбины 2",
+   "footprint": "Module_ADS1115",
+   "at": {
+    "x": 24.13,
+    "y": 52.07
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx2rntup",
+    "2": "nifyjx1c4l26",
+    "3": "nifyjz52w1x2",
+    "4": "nifyjz6wsl7i",
+    "5": "nifyjx1c4l26",
+    "7": "nifyk08f95yr",
+    "8": "nifyk0968x6r"
+   },
+   "locked": true
+  },
+  "cifyk0aal7q1": {
+   "id": "cifyk0aal7q1",
+   "ref": "C82",
+   "value": "10 мкФ",
+   "description": "Питание 3,3 В АЦП (керамика 106)",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 5.08,
+    "y": 24.11
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx2rntup",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0b1vx65": {
+   "id": "cifyk0b1vx65",
+   "ref": "R25",
+   "value": "10k",
+   "description": "Делитель термистора турбины 1: 3,3 В → A0 ADS1115",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 43.18,
+    "y": 52.07
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk08f95yr",
+    "2": "nifyjx2rntup"
+   }
+  },
+  "cifyk0c5lzbb": {
+   "id": "cifyk0c5lzbb",
+   "ref": "R26",
+   "value": "10k",
+   "description": "Делитель термистора турбины 2: 3,3 В → A1 ADS1115",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P2.54mm_Vertical",
+   "at": {
+    "x": 30.48,
+    "y": 59.69
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0968x6r",
+    "2": "nifyjx2rntup"
+   }
+  },
+  "cifyk0dgtk4u": {
+   "id": "cifyk0dgtk4u",
+   "ref": "C24",
+   "value": "100 нФ",
+   "description": "Фильтр термистора 1",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 36.85,
+    "y": 33.02
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk08f95yr",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0erqm37": {
+   "id": "cifyk0erqm37",
+   "ref": "C25",
+   "value": "100 нФ",
+   "description": "Фильтр термистора 2",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 41.89,
+    "y": 58.42
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0968x6r",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0fslwq5": {
+   "id": "cifyk0fslwq5",
+   "ref": "DA1",
+   "value": "DFPlayer Mini",
+   "description": "MP3-плеер голоса на гнёздах 1×8 (9600 бод с IO13 через перемычку JP1 и 1 кОм): карта microSD с папкой mp3 из прошивки; динамик 8 Ом 1–3 Вт — на XA1",
+   "footprint": "Module_DFPlayer_Mini_P18.03",
+   "at": {
+    "x": 60.96,
+    "y": 15.24
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx3abiat",
+    "2": "nifyk0gui1y8",
+    "6": "nifyk0h6xp5f",
+    "7": "nifyjx1c4l26",
+    "8": "nifyk0inqymr",
+    "10": "nifyjx1c4l26"
+   },
+   "locked": true
+  },
+  "cifyk0jkdk6v": {
+   "id": "cifyk0jkdk6v",
+   "ref": "C81",
+   "value": "100 нФ",
+   "description": "Питание плеера у вывода VCC",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 45.74,
+    "y": 33.02
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx3abiat",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0kh3112": {
+   "id": "cifyk0kh3112",
+   "ref": "C80",
+   "value": "100 мкФ 10 В",
+   "description": "Питание плеера: накопитель (усилитель динамика до 0,5 А)",
+   "footprint": "CP_Radial_D5mm_P2mm",
+   "at": {
+    "x": 45.99,
+    "y": 39.37
+   },
+   "rotation": 180,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx3abiat",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0lxq7c1": {
+   "id": "cifyk0lxq7c1",
+   "ref": "R80",
+   "value": "1k",
+   "description": "RX плеера: последовательно (3,3 В на вход 5-вольтового плеера)",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+   "at": {
+    "x": 60.96,
+    "y": 43.18
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0mly5xm",
+    "2": "nifyk0gui1y8"
+   }
+  },
+  "cifyk0n1miot": {
+   "id": "cifyk0n1miot",
+   "ref": "JP1",
+   "value": "Голос",
+   "description": "Перемычка «голос»: IO13 → плеер. Снять, если IO13 занят второй шиной I²C (расходомер SDP810-125 на X4 этажа 4)",
+   "footprint": "PinHeader_1x02_P2.54mm",
+   "at": {
+    "x": 54.61,
+    "y": 67.31
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0o7w9b1",
+    "2": "nifyk0mly5xm"
+   }
+  },
+  "cifyk0pqee0i": {
+   "id": "cifyk0pqee0i",
+   "ref": "XA1",
+   "value": "Динамик",
+   "description": "Динамик 8 Ом 1–3 Вт (Ø28–40 мм) на корпусе: два провода, полярность не важна",
+   "footprint": "LUT_KF2EDGR_1x02_P5.08mm",
+   "at": {
+    "x": 132,
+    "y": 20.32
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0inqymr",
+    "2": "nifyk0h6xp5f"
+   },
+   "locked": true
+  },
+  "cifyk0q5w8m6": {
+   "id": "cifyk0q5w8m6",
+   "ref": "B1",
+   "value": "MPX5100DP",
+   "description": "Датчик разрежения 0–100 кПа (NXP): трубка ко входу турбин (на P2, вакуумный) — к правому краю; выход 0,2–4,7 В",
+   "footprint": "Sensor_MPX5100DP",
+   "at": {
+    "x": 124.46,
+    "y": 55.88
+   },
+   "rotation": 90,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0rql3rn",
+    "2": "nifyjx1c4l26",
+    "3": "nifyjx3abiat"
+   },
+   "fields": {
+    "Где стоит": "вход турбин"
+   },
+   "locked": true
+  },
+  "cifyk0s7nwe0": {
+   "id": "cifyk0s7nwe0",
+   "ref": "C13",
+   "value": "1 мкФ",
+   "description": "Питание датчика разрежения",
+   "footprint": "C_Disc_D6mm_W2.5mm_P5mm",
+   "at": {
+    "x": 67.27,
+    "y": 39.37
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx3abiat",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0t6dn20": {
+   "id": "cifyk0t6dn20",
+   "ref": "R27",
+   "value": "6,8k",
+   "description": "Делитель датчика разрежения 4,7 → 2,8 В: верхнее плечо",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+   "at": {
+    "x": 99.06,
+    "y": 55.88
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0unaxj1",
+    "2": "nifyk0rql3rn"
+   }
+  },
+  "cifyk0vdpk81": {
+   "id": "cifyk0vdpk81",
+   "ref": "R28",
+   "value": "10k",
+   "description": "Делитель датчика разрежения: нижнее плечо",
+   "footprint": "R_Axial_0.25W_L6.3mm_D2.5mm_P7.62mm_Horizontal",
+   "at": {
+    "x": 66.04,
+    "y": 50.8
+   },
+   "rotation": 270,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0unaxj1",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0wd2ard": {
+   "id": "cifyk0wd2ard",
+   "ref": "C14",
+   "value": "10 нФ",
+   "description": "Фильтр датчика разрежения",
+   "footprint": "C_Disc_D5mm_W2.5mm_P2.5mm",
+   "at": {
+    "x": 73.64,
+    "y": 52.07
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyk0unaxj1",
+    "2": "nifyjx1c4l26"
+   }
+  },
+  "cifyk0xg4336": {
+   "id": "cifyk0xg4336",
+   "ref": "H1",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.5,
+    "y": 3.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cifyk0y5gz7q": {
+   "id": "cifyk0y5gz7q",
+   "ref": "H2",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 136.5,
+    "y": 3.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cifyk0zfvhmz": {
+   "id": "cifyk0zfvhmz",
+   "ref": "H3",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 3.5,
+    "y": 86.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cifyk0108yldt": {
+   "id": "cifyk0108yldt",
+   "ref": "H4",
+   "value": "",
+   "description": "Крепёжное отверстие M3: стойка между платами (20 мм) или к корпусу",
+   "footprint": "MountingHole_3.2mm_M3",
+   "at": {
+    "x": 136.5,
+    "y": 86.5
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {},
+   "locked": true,
+   "hideValue": true
+  },
+  "cifyk1110tiw0": {
+   "id": "cifyk1110tiw0",
+   "ref": "XB1S",
+   "value": "Гнездо 1×22",
+   "description": "Шина, левый ряд: гнездо от предыдущего этажа",
+   "footprint": "LUT_Bus_Socket_1x22",
+   "at": {
+    "x": 50.8,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx2rntup",
+    "2": "nifyjx2rntup",
+    "3": "nifyk08f95yr",
+    "4": "nifyk112nyha0",
+    "5": "nifyk113urji0",
+    "6": "nifyk1140349u",
+    "7": "nifyk1153yd7n",
+    "12": "nifyk0968x6r",
+    "13": "nifyk1162xlu6",
+    "14": "nifyk117si80l",
+    "15": "nifyk118ongep",
+    "16": "nifyk0unaxj1",
+    "17": "nifyjz6wsl7i",
+    "18": "nifyjz52w1x2",
+    "19": "nifyk0o7w9b1",
+    "20": "nifyk119wxsgt",
+    "21": "nifyjx3abiat",
+    "22": "nifyjx1c4l26"
+   },
+   "locked": true
+  },
+  "cifyk11a6a0m9": {
+   "id": "cifyk11a6a0m9",
+   "ref": "XB1P",
+   "value": "Штыри 1×22 длинные",
+   "description": "Шина, левый ряд: длинные штыри к следующему этажу",
+   "footprint": "LUT_Bus_LongPins_1x22",
+   "at": {
+    "x": 53.34,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx2rntup",
+    "2": "nifyjx2rntup",
+    "3": "nifyk08f95yr",
+    "4": "nifyk112nyha0",
+    "5": "nifyk113urji0",
+    "6": "nifyk1140349u",
+    "7": "nifyk1153yd7n",
+    "12": "nifyk0968x6r",
+    "13": "nifyk1162xlu6",
+    "14": "nifyk117si80l",
+    "15": "nifyk118ongep",
+    "16": "nifyk0unaxj1",
+    "17": "nifyjz6wsl7i",
+    "18": "nifyjz52w1x2",
+    "19": "nifyk0o7w9b1",
+    "20": "nifyk119wxsgt",
+    "21": "nifyjx3abiat",
+    "22": "nifyjx1c4l26"
+   },
+   "locked": true
+  },
+  "cifyk11bgdizg": {
+   "id": "cifyk11bgdizg",
+   "ref": "XB2S",
+   "value": "Гнездо 1×22",
+   "description": "Шина, правый ряд: гнездо от предыдущего этажа",
+   "footprint": "LUT_Bus_Socket_1x22",
+   "at": {
+    "x": 88.9,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx1c4l26",
+    "3": "nifyk11c02tak",
+    "7": "nifyk11d3dwg9",
+    "8": "nifyk11ejajy5",
+    "9": "nifyk11f55t6j",
+    "10": "nifyk11gwd8qb",
+    "11": "nifyk11h6ysyl",
+    "12": "nifyk11ixuttm",
+    "13": "nifyk11j7c459",
+    "19": "nifyk11kav2rk",
+    "20": "nifyk11losqha",
+    "21": "nifyjx1c4l26",
+    "22": "nifyjx1c4l26"
+   },
+   "locked": true
+  },
+  "cifyk11mgd3i0": {
+   "id": "cifyk11mgd3i0",
+   "ref": "XB2P",
+   "value": "Штыри 1×22 длинные",
+   "description": "Шина, правый ряд: длинные штыри к следующему этажу",
+   "footprint": "LUT_Bus_LongPins_1x22",
+   "at": {
+    "x": 86.36,
+    "y": 8.89
+   },
+   "rotation": 0,
+   "side": "top",
+   "padNets": {
+    "1": "nifyjx1c4l26",
+    "3": "nifyk11c02tak",
+    "7": "nifyk11d3dwg9",
+    "8": "nifyk11ejajy5",
+    "9": "nifyk11f55t6j",
+    "10": "nifyk11gwd8qb",
+    "11": "nifyk11h6ysyl",
+    "12": "nifyk11ixuttm",
+    "13": "nifyk11j7c459",
+    "19": "nifyk11kav2rk",
+    "20": "nifyk11losqha",
+    "21": "nifyjx1c4l26",
+    "22": "nifyjx1c4l26"
+   },
+   "locked": true
+  }
+ },
+ "tracks": {
+  "tigp325f48q5p": {
+   "id": "tigp325f48q5p",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 29.21
+    },
+    {
+     "x": 87.63,
+     "y": 29.21
+    },
+    {
+     "x": 88.9,
+     "y": 29.21
+    }
+   ]
+  },
+  "tigp325gieg3h": {
+   "id": "tigp325gieg3h",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 54.61
+    },
+    {
+     "x": 87.63,
+     "y": 54.61
+    },
+    {
+     "x": 88.9,
+     "y": 54.61
+    }
+   ]
+  },
+  "tigp325hdhufx": {
+   "id": "tigp325hdhufx",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 60.96,
+     "y": 39.37
+    },
+    {
+     "x": 59.69,
+     "y": 38.1
+    },
+    {
+     "x": 58.42,
+     "y": 38.1
+    },
+    {
+     "x": 58.42,
+     "y": 17.78
+    },
+    {
+     "x": 59.69,
+     "y": 17.78
+    },
+    {
+     "x": 60.96,
+     "y": 17.78
+    }
+   ]
+  },
+  "tigp325i7ds6h": {
+   "id": "tigp325i7ds6h",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 13.97
+    },
+    {
+     "x": 87.63,
+     "y": 13.97
+    },
+    {
+     "x": 88.9,
+     "y": 13.97
+    }
+   ]
+  },
+  "tigp325jxzw84": {
+   "id": "tigp325jxzw84",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 34.29
+    },
+    {
+     "x": 87.63,
+     "y": 34.29
+    },
+    {
+     "x": 88.9,
+     "y": 34.29
+    }
+   ]
+  },
+  "tigp325kkuety": {
+   "id": "tigp325kkuety",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 43.18,
+     "y": 52.07
+    },
+    {
+     "x": 41.91,
+     "y": 52.07
+    },
+    {
+     "x": 38.1,
+     "y": 52.07
+    },
+    {
+     "x": 38.1,
+     "y": 49.53
+    },
+    {
+     "x": 27.94,
+     "y": 49.53
+    },
+    {
+     "x": 27.94,
+     "y": 50.8
+    },
+    {
+     "x": 27.939999999999998,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp325l20vmm": {
+   "id": "tigp325l20vmm",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 38.1,
+     "y": 33.02
+    },
+    {
+     "x": 39.37,
+     "y": 34.29
+    },
+    {
+     "x": 39.37,
+     "y": 43.18
+    }
+   ]
+  },
+  "tigp325mo87td": {
+   "id": "tigp325mo87td",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 39.37,
+     "y": 43.18
+    },
+    {
+     "x": 39.37,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp325nrbt2q": {
+   "id": "tigp325nrbt2q",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 13.97
+    },
+    {
+     "x": 49.53,
+     "y": 13.97
+    },
+    {
+     "x": 45.72,
+     "y": 13.97
+    },
+    {
+     "x": 45.72,
+     "y": 11.43
+    },
+    {
+     "x": 44.45,
+     "y": 11.43
+    }
+   ]
+  },
+  "tigp325ojip2b": {
+   "id": "tigp325ojip2b",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 44.45,
+     "y": 11.43
+    },
+    {
+     "x": 43.18,
+     "y": 11.43
+    },
+    {
+     "x": 43.18,
+     "y": 13.97
+    },
+    {
+     "x": 40.64,
+     "y": 13.97
+    },
+    {
+     "x": 40.64,
+     "y": 43.18
+    },
+    {
+     "x": 39.37,
+     "y": 43.18
+    }
+   ]
+  },
+  "tigp325pheqsr": {
+   "id": "tigp325pheqsr",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 13.97
+    },
+    {
+     "x": 52.07,
+     "y": 13.97
+    },
+    {
+     "x": 50.8,
+     "y": 13.97
+    }
+   ]
+  },
+  "tigp325ql1jrt": {
+   "id": "tigp325ql1jrt",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 54.61
+    },
+    {
+     "x": 46.99,
+     "y": 54.61
+    },
+    {
+     "x": 46.99,
+     "y": 60.96
+    },
+    {
+     "x": 45.72,
+     "y": 60.96
+    },
+    {
+     "x": 45.72,
+     "y": 67.31
+    },
+    {
+     "x": 52.07,
+     "y": 67.31
+    },
+    {
+     "x": 53.339999999999996,
+     "y": 67.31
+    }
+   ]
+  },
+  "tigp325r8xzkf": {
+   "id": "tigp325r8xzkf",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 54.61
+    },
+    {
+     "x": 52.07,
+     "y": 54.61
+    },
+    {
+     "x": 53.34,
+     "y": 54.61
+    }
+   ]
+  },
+  "tigp325satzh8": {
+   "id": "tigp325satzh8",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 52.07
+    },
+    {
+     "x": 72.39,
+     "y": 53.34
+    },
+    {
+     "x": 72.39,
+     "y": 64.77
+    },
+    {
+     "x": 96.52,
+     "y": 64.77
+    },
+    {
+     "x": 96.52,
+     "y": 53.34
+    },
+    {
+     "x": 97.79,
+     "y": 53.34
+    },
+    {
+     "x": 99.06,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp325t7bh46": {
+   "id": "tigp325t7bh46",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 66.04,
+     "y": 46.989999999999995
+    },
+    {
+     "x": 67.31,
+     "y": 48.26
+    },
+    {
+     "x": 71.12,
+     "y": 48.26
+    },
+    {
+     "x": 71.12,
+     "y": 50.8
+    },
+    {
+     "x": 72.39,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp325u0na04": {
+   "id": "tigp325u0na04",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 46.99
+    },
+    {
+     "x": 54.61,
+     "y": 46.99
+    },
+    {
+     "x": 58.42,
+     "y": 46.99
+    },
+    {
+     "x": 58.42,
+     "y": 44.45
+    },
+    {
+     "x": 64.77,
+     "y": 44.45
+    },
+    {
+     "x": 64.77,
+     "y": 45.72
+    },
+    {
+     "x": 66.04,
+     "y": 46.989999999999995
+    }
+   ]
+  },
+  "tigp325ve7oaz": {
+   "id": "tigp325ve7oaz",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 46.99
+    },
+    {
+     "x": 52.07,
+     "y": 46.99
+    },
+    {
+     "x": 53.34,
+     "y": 46.99
+    }
+   ]
+  },
+  "tigp325w0kpa5": {
+   "id": "tigp325w0kpa5",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 26.67
+    },
+    {
+     "x": 87.63,
+     "y": 26.67
+    },
+    {
+     "x": 88.9,
+     "y": 26.67
+    }
+   ]
+  },
+  "tigp325xz1e04": {
+   "id": "tigp325xz1e04",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 21.59
+    },
+    {
+     "x": 52.07,
+     "y": 21.59
+    },
+    {
+     "x": 50.8,
+     "y": 21.59
+    }
+   ]
+  },
+  "tigp325yh9zco": {
+   "id": "tigp325yh9zco",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 44.45
+    },
+    {
+     "x": 52.07,
+     "y": 44.45
+    },
+    {
+     "x": 50.8,
+     "y": 44.45
+    }
+   ]
+  },
+  "tigp325zw8f2h": {
+   "id": "tigp325zw8f2h",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 39.370000000000005
+    },
+    {
+     "x": 87.63,
+     "y": 39.37
+    },
+    {
+     "x": 88.9,
+     "y": 39.370000000000005
+    }
+   ]
+  },
+  "tigp32601k6k1": {
+   "id": "tigp32601k6k1",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 36.83
+    },
+    {
+     "x": 87.63,
+     "y": 36.83
+    },
+    {
+     "x": 88.9,
+     "y": 36.83
+    }
+   ]
+  },
+  "tigp3261i8rdo": {
+   "id": "tigp3261i8rdo",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 24.130000000000003
+    },
+    {
+     "x": 52.07,
+     "y": 24.13
+    },
+    {
+     "x": 50.8,
+     "y": 24.130000000000003
+    }
+   ]
+  },
+  "tigp3262ordal": {
+   "id": "tigp3262ordal",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 55.88,
+     "y": 67.31
+    },
+    {
+     "x": 57.15,
+     "y": 66.04
+    },
+    {
+     "x": 60.96,
+     "y": 66.04
+    },
+    {
+     "x": 60.96,
+     "y": 48.26
+    },
+    {
+     "x": 60.96,
+     "y": 46.99
+    }
+   ]
+  },
+  "tigp3263vxzf4": {
+   "id": "tigp3263vxzf4",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 132,
+     "y": 15.24
+    },
+    {
+     "x": 129.54,
+     "y": 15.24
+    },
+    {
+     "x": 129.54,
+     "y": 5.08
+    },
+    {
+     "x": 82.55,
+     "y": 5.08
+    },
+    {
+     "x": 82.55,
+     "y": 7.62
+    },
+    {
+     "x": 64.77,
+     "y": 7.62
+    },
+    {
+     "x": 64.77,
+     "y": 27.94
+    },
+    {
+     "x": 62.23,
+     "y": 27.94
+    },
+    {
+     "x": 60.96,
+     "y": 27.939999999999998
+    }
+   ]
+  },
+  "tigp326415lqa": {
+   "id": "tigp326415lqa",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 19.05
+    },
+    {
+     "x": 52.07,
+     "y": 19.05
+    },
+    {
+     "x": 50.8,
+     "y": 19.05
+    }
+   ]
+  },
+  "tigp326515sjg": {
+   "id": "tigp326515sjg",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 24.130000000000003
+    },
+    {
+     "x": 87.63,
+     "y": 24.13
+    },
+    {
+     "x": 88.9,
+     "y": 24.130000000000003
+    }
+   ]
+  },
+  "tigp3266o0u5o": {
+   "id": "tigp3266o0u5o",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 20.32,
+     "y": 52.07
+    },
+    {
+     "x": 20.32,
+     "y": 50.8
+    },
+    {
+     "x": 20.32,
+     "y": 33.02
+    }
+   ]
+  },
+  "tigp3267w9ddv": {
+   "id": "tigp3267w9ddv",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 20.32,
+     "y": 33.02
+    },
+    {
+     "x": 20.32,
+     "y": 24.13
+    }
+   ]
+  },
+  "tigp3268e9p6i": {
+   "id": "tigp3268e9p6i",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 20.32,
+     "y": 24.13
+    },
+    {
+     "x": 20.32,
+     "y": 21.59
+    },
+    {
+     "x": 12.7,
+     "y": 21.59
+    },
+    {
+     "x": 12.7,
+     "y": 20.32
+    },
+    {
+     "x": 11.43,
+     "y": 20.32
+    },
+    {
+     "x": 10.16,
+     "y": 20.32
+    }
+   ]
+  },
+  "tigp32699acn2": {
+   "id": "tigp32699acn2",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 49.53
+    },
+    {
+     "x": 49.53,
+     "y": 49.53
+    },
+    {
+     "x": 39.37,
+     "y": 49.53
+    },
+    {
+     "x": 39.37,
+     "y": 48.26
+    },
+    {
+     "x": 20.32,
+     "y": 48.26
+    }
+   ]
+  },
+  "tigp326af5rde": {
+   "id": "tigp326af5rde",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 49.53
+    },
+    {
+     "x": 52.07,
+     "y": 49.53
+    },
+    {
+     "x": 50.8,
+     "y": 49.53
+    }
+   ]
+  },
+  "tigp326bur7xg": {
+   "id": "tigp326bur7xg",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 132,
+     "y": 20.32
+    },
+    {
+     "x": 130.81,
+     "y": 17.78
+    },
+    {
+     "x": 92.71,
+     "y": 17.78
+    },
+    {
+     "x": 92.71,
+     "y": 7.62
+    }
+   ]
+  },
+  "tigp326c9nid5": {
+   "id": "tigp326c9nid5",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 92.71,
+     "y": 7.62
+    },
+    {
+     "x": 92.71,
+     "y": 6.35
+    },
+    {
+     "x": 82.55,
+     "y": 6.35
+    },
+    {
+     "x": 82.55,
+     "y": 12.7
+    },
+    {
+     "x": 72.39,
+     "y": 12.7
+    },
+    {
+     "x": 72.39,
+     "y": 31.75
+    }
+   ]
+  },
+  "tigp326d8zbsj": {
+   "id": "tigp326d8zbsj",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 72.39,
+     "y": 31.75
+    },
+    {
+     "x": 72.39,
+     "y": 33.02
+    },
+    {
+     "x": 62.23,
+     "y": 33.02
+    },
+    {
+     "x": 60.96,
+     "y": 33.02
+    }
+   ]
+  },
+  "tigp326eavx8i": {
+   "id": "tigp326eavx8i",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 17.78,
+     "y": 52.07
+    },
+    {
+     "x": 17.78,
+     "y": 50.8
+    },
+    {
+     "x": 17.78,
+     "y": 29.21
+    }
+   ]
+  },
+  "tigp326fzklr0": {
+   "id": "tigp326fzklr0",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 17.78,
+     "y": 29.21
+    },
+    {
+     "x": 17.78,
+     "y": 19.05
+    }
+   ]
+  },
+  "tigp326g1sysb": {
+   "id": "tigp326g1sysb",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 17.78,
+     "y": 19.05
+    },
+    {
+     "x": 17.78,
+     "y": 17.78
+    },
+    {
+     "x": 11.43,
+     "y": 17.78
+    },
+    {
+     "x": 10.16,
+     "y": 17.78
+    }
+   ]
+  },
+  "tigp326hz9e24": {
+   "id": "tigp326hz9e24",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 52.07
+    },
+    {
+     "x": 52.07,
+     "y": 52.07
+    },
+    {
+     "x": 58.42,
+     "y": 52.07
+    },
+    {
+     "x": 58.42,
+     "y": 57.15
+    }
+   ]
+  },
+  "tigp326iq8nz3": {
+   "id": "tigp326iq8nz3",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 58.42,
+     "y": 57.15
+    },
+    {
+     "x": 58.42,
+     "y": 58.42
+    },
+    {
+     "x": 67.31,
+     "y": 58.42
+    },
+    {
+     "x": 67.31,
+     "y": 72.39
+    },
+    {
+     "x": 10.16,
+     "y": 72.39
+    },
+    {
+     "x": 10.16,
+     "y": 29.21
+    },
+    {
+     "x": 17.78,
+     "y": 29.21
+    }
+   ]
+  },
+  "tigp326j19ds6": {
+   "id": "tigp326j19ds6",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 52.07
+    },
+    {
+     "x": 52.07,
+     "y": 52.07
+    },
+    {
+     "x": 50.8,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp326kboxq2": {
+   "id": "tigp326kboxq2",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 16.51
+    },
+    {
+     "x": 52.07,
+     "y": 16.51
+    },
+    {
+     "x": 50.8,
+     "y": 16.51
+    }
+   ]
+  },
+  "tigp326lknx5d": {
+   "id": "tigp326lknx5d",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 57.15
+    },
+    {
+     "x": 87.63,
+     "y": 57.15
+    },
+    {
+     "x": 88.9,
+     "y": 57.15
+    }
+   ]
+  },
+  "tigp326mo6bpn": {
+   "id": "tigp326mo6bpn",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 41.910000000000004
+    },
+    {
+     "x": 52.07,
+     "y": 41.91
+    },
+    {
+     "x": 50.8,
+     "y": 41.910000000000004
+    }
+   ]
+  },
+  "tigp326nkfbzl": {
+   "id": "tigp326nkfbzl",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 57.15
+    },
+    {
+     "x": 52.07,
+     "y": 57.15
+    },
+    {
+     "x": 50.8,
+     "y": 57.15
+    }
+   ]
+  },
+  "tigp326ob6vmd": {
+   "id": "tigp326ob6vmd",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 31.75
+    },
+    {
+     "x": 87.63,
+     "y": 31.75
+    },
+    {
+     "x": 88.9,
+     "y": 31.75
+    }
+   ]
+  },
+  "tigp326p5l7ti": {
+   "id": "tigp326p5l7ti",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 39.370000000000005
+    },
+    {
+     "x": 52.07,
+     "y": 39.37
+    },
+    {
+     "x": 50.8,
+     "y": 39.370000000000005
+    }
+   ]
+  },
+  "tigp326qxe13c": {
+   "id": "tigp326qxe13c",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 30.48,
+     "y": 59.69
+    },
+    {
+     "x": 29.21,
+     "y": 59.69
+    },
+    {
+     "x": 27.94,
+     "y": 59.69
+    },
+    {
+     "x": 27.94,
+     "y": 54.61
+    },
+    {
+     "x": 30.48,
+     "y": 54.61
+    },
+    {
+     "x": 30.48,
+     "y": 53.34
+    },
+    {
+     "x": 30.479999999999997,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp326rgwoxh": {
+   "id": "tigp326rgwoxh",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 40.64,
+     "y": 58.42
+    },
+    {
+     "x": 39.37,
+     "y": 59.69
+    },
+    {
+     "x": 31.75,
+     "y": 59.69
+    },
+    {
+     "x": 30.48,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp326sp05es": {
+   "id": "tigp326sp05es",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 36.83
+    },
+    {
+     "x": 52.07,
+     "y": 36.83
+    },
+    {
+     "x": 55.88,
+     "y": 36.83
+    },
+    {
+     "x": 55.88,
+     "y": 5.08
+    },
+    {
+     "x": 48.26,
+     "y": 5.08
+    }
+   ]
+  },
+  "tigp326t9u8qi": {
+   "id": "tigp326t9u8qi",
+   "layer": "F.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 48.26,
+     "y": 5.08
+    },
+    {
+     "x": 48.26,
+     "y": 59.69
+    },
+    {
+     "x": 38.1,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp326uvsfvh": {
+   "id": "tigp326uvsfvh",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 36.83
+    },
+    {
+     "x": 52.07,
+     "y": 36.83
+    },
+    {
+     "x": 50.8,
+     "y": 36.83
+    }
+   ]
+  },
+  "tigp326v9zn32": {
+   "id": "tigp326v9zn32",
+   "layer": "B.Cu",
+   "width": 0.6,
+   "points": [
+    {
+     "x": 99.06,
+     "y": 59.690000000000005
+    },
+    {
+     "x": 100.33,
+     "y": 60.96
+    },
+    {
+     "x": 121.92,
+     "y": 60.96
+    },
+    {
+     "x": 121.92,
+     "y": 62.23
+    },
+    {
+     "x": 123.19,
+     "y": 62.23
+    },
+    {
+     "x": 124.46,
+     "y": 62.230000000000004
+    }
+   ]
+  },
+  "tigp326w6zi7q": {
+   "id": "tigp326w6zi7q",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 5.08,
+     "y": 22.86
+    },
+    {
+     "x": 6.35,
+     "y": 22.86
+    },
+    {
+     "x": 8.89,
+     "y": 22.86
+    },
+    {
+     "x": 10.16,
+     "y": 22.86
+    }
+   ]
+  },
+  "tigp326xtkuu9": {
+   "id": "tigp326xtkuu9",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 12.7,
+     "y": 52.07
+    },
+    {
+     "x": 11.43,
+     "y": 50.8
+    },
+    {
+     "x": 2.54,
+     "y": 50.8
+    },
+    {
+     "x": 2.54,
+     "y": 22.86
+    },
+    {
+     "x": 3.81,
+     "y": 22.86
+    },
+    {
+     "x": 5.08,
+     "y": 22.86
+    }
+   ]
+  },
+  "tigp326yfq1wi": {
+   "id": "tigp326yfq1wi",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 30.48,
+     "y": 57.15
+    },
+    {
+     "x": 31.75,
+     "y": 57.15
+    },
+    {
+     "x": 34.29,
+     "y": 57.15
+    }
+   ]
+  },
+  "tigp326zcpcqb": {
+   "id": "tigp326zcpcqb",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 34.29,
+     "y": 57.15
+    },
+    {
+     "x": 34.29,
+     "y": 55.88
+    },
+    {
+     "x": 25.4,
+     "y": 55.88
+    }
+   ]
+  },
+  "tigp32701aokh": {
+   "id": "tigp32701aokh",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 25.4,
+     "y": 55.88
+    },
+    {
+     "x": 12.7,
+     "y": 55.88
+    },
+    {
+     "x": 12.7,
+     "y": 53.34
+    },
+    {
+     "x": 12.7,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp3271j2obw": {
+   "id": "tigp3271j2obw",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 45.72,
+     "y": 52.07
+    },
+    {
+     "x": 45.72,
+     "y": 53.34
+    },
+    {
+     "x": 45.72,
+     "y": 54.61
+    },
+    {
+     "x": 34.29,
+     "y": 54.61
+    },
+    {
+     "x": 34.29,
+     "y": 57.15
+    }
+   ]
+  },
+  "tigp3272oxiak": {
+   "id": "tigp3272oxiak",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 11.43
+    },
+    {
+     "x": 49.53,
+     "y": 11.43
+    },
+    {
+     "x": 49.53,
+     "y": 7.62
+    },
+    {
+     "x": 7.62,
+     "y": 7.62
+    },
+    {
+     "x": 7.62,
+     "y": 22.86
+    }
+   ]
+  },
+  "tigp3273iiohg": {
+   "id": "tigp3273iiohg",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 8.89
+    },
+    {
+     "x": 52.07,
+     "y": 10.16
+    },
+    {
+     "x": 52.07,
+     "y": 11.43
+    },
+    {
+     "x": 50.8,
+     "y": 11.43
+    }
+   ]
+  },
+  "tigp3274gl3vn": {
+   "id": "tigp3274gl3vn",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 8.89
+    },
+    {
+     "x": 53.34,
+     "y": 10.16
+    },
+    {
+     "x": 52.07,
+     "y": 10.16
+    },
+    {
+     "x": 50.8,
+     "y": 8.89
+    }
+   ]
+  },
+  "tigp3275tiw7p": {
+   "id": "tigp3275tiw7p",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 11.43
+    },
+    {
+     "x": 54.61,
+     "y": 11.43
+    },
+    {
+     "x": 54.61,
+     "y": 10.16
+    },
+    {
+     "x": 53.34,
+     "y": 8.89
+    }
+   ]
+  },
+  "tigp3276ycna3": {
+   "id": "tigp3276ycna3",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 46.99,
+     "y": 33.02
+    },
+    {
+     "x": 46.99,
+     "y": 31.75
+    },
+    {
+     "x": 46.99,
+     "y": 27.94
+    },
+    {
+     "x": 40.64,
+     "y": 27.94
+    },
+    {
+     "x": 40.64,
+     "y": 10.16
+    }
+   ]
+  },
+  "tigp32778diur": {
+   "id": "tigp32778diur",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 40.64,
+     "y": 10.16
+    },
+    {
+     "x": 40.64,
+     "y": 5.08
+    }
+   ]
+  },
+  "tigp3278d9ln8": {
+   "id": "tigp3278d9ln8",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 40.64,
+     "y": 5.08
+    },
+    {
+     "x": 40.64,
+     "y": 2.54
+    },
+    {
+     "x": 57.15,
+     "y": 2.54
+    },
+    {
+     "x": 57.15,
+     "y": 13.97
+    },
+    {
+     "x": 59.69,
+     "y": 13.97
+    },
+    {
+     "x": 60.96,
+     "y": 15.24
+    }
+   ]
+  },
+  "tigp3279k7nit": {
+   "id": "tigp3279k7nit",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 46.99,
+     "y": 39.37
+    },
+    {
+     "x": 48.26,
+     "y": 38.1
+    },
+    {
+     "x": 48.26,
+     "y": 34.29
+    },
+    {
+     "x": 46.99,
+     "y": 33.02
+    }
+   ]
+  },
+  "tigp327ar8nqg": {
+   "id": "tigp327ar8nqg",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 64.77,
+     "y": 39.37
+    },
+    {
+     "x": 63.5,
+     "y": 40.64
+    },
+    {
+     "x": 63.5,
+     "y": 41.91
+    },
+    {
+     "x": 57.15,
+     "y": 41.91
+    },
+    {
+     "x": 57.15,
+     "y": 13.97
+    }
+   ]
+  },
+  "tigp327bgkmyr": {
+   "id": "tigp327bgkmyr",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 59.69
+    },
+    {
+     "x": 52.07,
+     "y": 59.69
+    },
+    {
+     "x": 57.15,
+     "y": 59.69
+    },
+    {
+     "x": 57.15,
+     "y": 60.96
+    }
+   ]
+  },
+  "tigp327csl76i": {
+   "id": "tigp327csl76i",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 57.15,
+     "y": 60.96
+    },
+    {
+     "x": 55.88,
+     "y": 60.96
+    },
+    {
+     "x": 55.88,
+     "y": 41.91
+    },
+    {
+     "x": 57.15,
+     "y": 41.91
+    }
+   ]
+  },
+  "tigp327d3z82o": {
+   "id": "tigp327d3z82o",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 59.69
+    },
+    {
+     "x": 52.07,
+     "y": 59.69
+    },
+    {
+     "x": 50.8,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp327ey6jbc": {
+   "id": "tigp327ey6jbc",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 124.46,
+     "y": 57.150000000000006
+    },
+    {
+     "x": 125.73,
+     "y": 57.15
+    },
+    {
+     "x": 127,
+     "y": 57.15
+    },
+    {
+     "x": 127,
+     "y": 66.04
+    },
+    {
+     "x": 64.77,
+     "y": 66.04
+    },
+    {
+     "x": 64.77,
+     "y": 60.96
+    }
+   ]
+  },
+  "tigp327f8awih": {
+   "id": "tigp327f8awih",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 64.77,
+     "y": 60.96
+    },
+    {
+     "x": 57.15,
+     "y": 60.96
+    }
+   ]
+  },
+  "tigp327gljtbh": {
+   "id": "tigp327gljtbh",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 5.08,
+     "y": 25.36
+    },
+    {
+     "x": 6.35,
+     "y": 26.67
+    },
+    {
+     "x": 8.89,
+     "y": 26.67
+    },
+    {
+     "x": 10.16,
+     "y": 25.4
+    }
+   ]
+  },
+  "tigp327hmwc65": {
+   "id": "tigp327hmwc65",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 35.6,
+     "y": 33.02
+    },
+    {
+     "x": 34.29,
+     "y": 31.75
+    },
+    {
+     "x": 34.29,
+     "y": 26.67
+    },
+    {
+     "x": 11.43,
+     "y": 26.67
+    },
+    {
+     "x": 10.16,
+     "y": 25.4
+    }
+   ]
+  },
+  "tigp327i8ndsk": {
+   "id": "tigp327i8ndsk",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 44.49,
+     "y": 33.02
+    },
+    {
+     "x": 43.18,
+     "y": 31.75
+    },
+    {
+     "x": 43.18,
+     "y": 30.48
+    },
+    {
+     "x": 34.29,
+     "y": 30.48
+    }
+   ]
+  },
+  "tigp327j1pg9j": {
+   "id": "tigp327j1pg9j",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 44.99,
+     "y": 39.37
+    },
+    {
+     "x": 44.45,
+     "y": 38.1
+    },
+    {
+     "x": 44.45,
+     "y": 34.29
+    },
+    {
+     "x": 44.49,
+     "y": 33.02
+    }
+   ]
+  },
+  "tigp327kxifv2": {
+   "id": "tigp327kxifv2",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 60.96,
+     "y": 30.48
+    },
+    {
+     "x": 62.23,
+     "y": 30.48
+    },
+    {
+     "x": 67.31,
+     "y": 30.48
+    },
+    {
+     "x": 67.31,
+     "y": 10.16
+    }
+   ]
+  },
+  "tigp327ldrmxz": {
+   "id": "tigp327ldrmxz",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 67.31,
+     "y": 10.16
+    },
+    {
+     "x": 67.31,
+     "y": 7.62
+    },
+    {
+     "x": 54.61,
+     "y": 7.62
+    },
+    {
+     "x": 54.61,
+     "y": 2.54
+    },
+    {
+     "x": 36.83,
+     "y": 2.54
+    },
+    {
+     "x": 36.83,
+     "y": 10.16
+    }
+   ]
+  },
+  "tigp327mq9596": {
+   "id": "tigp327mq9596",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 36.83,
+     "y": 10.16
+    },
+    {
+     "x": 36.83,
+     "y": 30.48
+    }
+   ]
+  },
+  "tigp327njvbdv": {
+   "id": "tigp327njvbdv",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 69.77,
+     "y": 39.37
+    },
+    {
+     "x": 71.12,
+     "y": 38.1
+    },
+    {
+     "x": 74.93,
+     "y": 38.1
+    },
+    {
+     "x": 74.93,
+     "y": 29.21
+    },
+    {
+     "x": 67.31,
+     "y": 29.21
+    }
+   ]
+  },
+  "tigp327oyp562": {
+   "id": "tigp327oyp562",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 78.99000000000001,
+     "y": 30.48
+    },
+    {
+     "x": 77.47,
+     "y": 30.48
+    },
+    {
+     "x": 74.93,
+     "y": 30.48
+    }
+   ]
+  },
+  "tigp327p70x75": {
+   "id": "tigp327p70x75",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 74.89,
+     "y": 52.07
+    },
+    {
+     "x": 74.93,
+     "y": 50.8
+    },
+    {
+     "x": 74.93,
+     "y": 38.1
+    }
+   ]
+  },
+  "tigp327qwop0u": {
+   "id": "tigp327qwop0u",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 66.04,
+     "y": 54.61
+    },
+    {
+     "x": 64.77,
+     "y": 53.34
+    },
+    {
+     "x": 63.5,
+     "y": 53.34
+    },
+    {
+     "x": 63.5,
+     "y": 50.8
+    }
+   ]
+  },
+  "tigp327r65keg": {
+   "id": "tigp327r65keg",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 63.5,
+     "y": 50.8
+    },
+    {
+     "x": 63.5,
+     "y": 7.62
+    }
+   ]
+  },
+  "tigp327sa1o46": {
+   "id": "tigp327sa1o46",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 59.69
+    },
+    {
+     "x": 85.09,
+     "y": 59.69
+    },
+    {
+     "x": 76.2,
+     "y": 59.69
+    },
+    {
+     "x": 76.2,
+     "y": 53.34
+    },
+    {
+     "x": 74.89,
+     "y": 52.07
+    }
+   ]
+  },
+  "tigp327ti3frl": {
+   "id": "tigp327ti3frl",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 88.9,
+     "y": 59.69
+    },
+    {
+     "x": 87.63,
+     "y": 59.69
+    },
+    {
+     "x": 86.36,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp327u8jnjp": {
+   "id": "tigp327u8jnjp",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 88.9,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 87.63,
+     "y": 62.23
+    },
+    {
+     "x": 87.63,
+     "y": 60.96
+    },
+    {
+     "x": 88.9,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp327vf0seu": {
+   "id": "tigp327vf0seu",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 85.09,
+     "y": 62.23
+    },
+    {
+     "x": 85.09,
+     "y": 60.96
+    },
+    {
+     "x": 86.36,
+     "y": 59.69
+    }
+   ]
+  },
+  "tigp327w4umn5": {
+   "id": "tigp327w4umn5",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 53.34,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 53.34,
+     "y": 63.5
+    },
+    {
+     "x": 48.26,
+     "y": 63.5
+    },
+    {
+     "x": 48.26,
+     "y": 64.77
+    }
+   ]
+  },
+  "tigp327x9h59o": {
+   "id": "tigp327x9h59o",
+   "layer": "F.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 48.26,
+     "y": 64.77
+    },
+    {
+     "x": 48.26,
+     "y": 69.85
+    }
+   ]
+  },
+  "tigp327yt6fy7": {
+   "id": "tigp327yt6fy7",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 48.26,
+     "y": 69.85
+    },
+    {
+     "x": 62.23,
+     "y": 69.85
+    },
+    {
+     "x": 62.23,
+     "y": 55.88
+    },
+    {
+     "x": 64.77,
+     "y": 55.88
+    },
+    {
+     "x": 66.04,
+     "y": 54.61
+    }
+   ]
+  },
+  "tigp337ztzhss": {
+   "id": "tigp337ztzhss",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 50.8,
+     "y": 62.230000000000004
+    },
+    {
+     "x": 49.53,
+     "y": 63.5
+    },
+    {
+     "x": 48.26,
+     "y": 63.5
+    }
+   ]
+  },
+  "tigp3380hr3i9": {
+   "id": "tigp3380hr3i9",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 43.14,
+     "y": 58.42
+    },
+    {
+     "x": 44.45,
+     "y": 59.69
+    },
+    {
+     "x": 44.45,
+     "y": 69.85
+    },
+    {
+     "x": 48.26,
+     "y": 69.85
+    }
+   ]
+  },
+  "tigp3381f6ypv": {
+   "id": "tigp3381f6ypv",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 22.86,
+     "y": 52.07
+    },
+    {
+     "x": 22.86,
+     "y": 53.34
+    },
+    {
+     "x": 22.86,
+     "y": 54.61
+    },
+    {
+     "x": 15.24,
+     "y": 54.61
+    },
+    {
+     "x": 15.24,
+     "y": 26.67
+    }
+   ]
+  },
+  "tigp3382npl7v": {
+   "id": "tigp3382npl7v",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 15.239999999999998,
+     "y": 52.07
+    },
+    {
+     "x": 15.24,
+     "y": 50.8
+    },
+    {
+     "x": 15.24,
+     "y": 49.53
+    }
+   ]
+  },
+  "tigp3383yo5qi": {
+   "id": "tigp3383yo5qi",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 86.36,
+     "y": 8.89
+    },
+    {
+     "x": 85.09,
+     "y": 8.89
+    },
+    {
+     "x": 67.31,
+     "y": 8.89
+    },
+    {
+     "x": 67.31,
+     "y": 10.16
+    }
+   ]
+  },
+  "tigp3384z0tbh": {
+   "id": "tigp3384z0tbh",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 88.9,
+     "y": 8.89
+    },
+    {
+     "x": 87.63,
+     "y": 7.62
+    },
+    {
+     "x": 86.36,
+     "y": 7.62
+    },
+    {
+     "x": 86.36,
+     "y": 8.89
+    }
+   ]
+  },
+  "tigp3385yjh4f": {
+   "id": "tigp3385yjh4f",
+   "layer": "B.Cu",
+   "width": 0.8,
+   "points": [
+    {
+     "x": 124.46,
+     "y": 59.690000000000005
+    },
+    {
+     "x": 123.19,
+     "y": 59.69
+    },
+    {
+     "x": 101.6,
+     "y": 59.69
+    },
+    {
+     "x": 101.6,
+     "y": 49.53
+    },
+    {
+     "x": 91.44,
+     "y": 49.53
+    },
+    {
+     "x": 91.44,
+     "y": 59.69
+    },
+    {
+     "x": 90.17,
+     "y": 59.69
+    },
+    {
+     "x": 88.9,
+     "y": 59.69
+    }
+   ]
+  }
+ },
+ "vias": {
+  "vigp3386nta48": {
+   "id": "vigp3386nta48",
+   "at": {
+    "x": 39.37,
+    "y": 43.18
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp33876g8bj": {
+   "id": "vigp33876g8bj",
+   "at": {
+    "x": 39.37,
+    "y": 52.07
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp3388gkukf": {
+   "id": "vigp3388gkukf",
+   "at": {
+    "x": 44.45,
+    "y": 11.43
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp3389qy6gi": {
+   "id": "vigp3389qy6gi",
+   "at": {
+    "x": 20.32,
+    "y": 33.02
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338axczyk": {
+   "id": "vigp338axczyk",
+   "at": {
+    "x": 20.32,
+    "y": 24.13
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338bt0eny": {
+   "id": "vigp338bt0eny",
+   "at": {
+    "x": 92.71,
+    "y": 7.62
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338c6hnhy": {
+   "id": "vigp338c6hnhy",
+   "at": {
+    "x": 72.39,
+    "y": 31.75
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338d26thl": {
+   "id": "vigp338d26thl",
+   "at": {
+    "x": 17.78,
+    "y": 29.21
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338egw6i2": {
+   "id": "vigp338egw6i2",
+   "at": {
+    "x": 17.78,
+    "y": 19.05
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338f6f0wa": {
+   "id": "vigp338f6f0wa",
+   "at": {
+    "x": 58.42,
+    "y": 57.15
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338g28a0c": {
+   "id": "vigp338g28a0c",
+   "at": {
+    "x": 48.26,
+    "y": 5.08
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338hecx91": {
+   "id": "vigp338hecx91",
+   "at": {
+    "x": 38.1,
+    "y": 59.69
+   },
+   "diameter": 2,
+   "drill": 0.8
+  },
+  "vigp338i2ll5h": {
+   "id": "vigp338i2ll5h",
+   "at": {
+    "x": 34.29,
+    "y": 57.15
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338jowkmp": {
+   "id": "vigp338jowkmp",
+   "at": {
+    "x": 25.4,
+    "y": 55.88
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338kym3ex": {
+   "id": "vigp338kym3ex",
+   "at": {
+    "x": 40.64,
+    "y": 10.16
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338lt06im": {
+   "id": "vigp338lt06im",
+   "at": {
+    "x": 40.64,
+    "y": 5.08
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338mn06p3": {
+   "id": "vigp338mn06p3",
+   "at": {
+    "x": 57.15,
+    "y": 60.96
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338ne5m3x": {
+   "id": "vigp338ne5m3x",
+   "at": {
+    "x": 57.15,
+    "y": 41.91
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338o2ed7m": {
+   "id": "vigp338o2ed7m",
+   "at": {
+    "x": 64.77,
+    "y": 60.96
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338pevhf5": {
+   "id": "vigp338pevhf5",
+   "at": {
+    "x": 67.31,
+    "y": 10.16
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338q5ypnp": {
+   "id": "vigp338q5ypnp",
+   "at": {
+    "x": 36.83,
+    "y": 10.16
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338runp20": {
+   "id": "vigp338runp20",
+   "at": {
+    "x": 63.5,
+    "y": 50.8
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338sdxw1c": {
+   "id": "vigp338sdxw1c",
+   "at": {
+    "x": 48.26,
+    "y": 64.77
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  },
+  "vigp338tdnc2d": {
+   "id": "vigp338tdnc2d",
+   "at": {
+    "x": 48.26,
+    "y": 69.85
+   },
+   "diameter": 2.2,
+   "drill": 0.9
+  }
+ },
+ "wires": {},
+ "zones": {},
+ "ruleAreas": {
+  "kifyk41p34svk": {
+   "id": "kifyk41p34svk",
+   "name": "Под XA1",
+   "outline": [
+    {
+     "x": 128.6,
+     "y": 11.899999999999999
+    },
+    {
+     "x": 140,
+     "y": 11.899999999999999
+    },
+    {
+     "x": 140,
+     "y": 23.66
+    },
+    {
+     "x": 128.6,
+     "y": 23.66
+    }
+   ],
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kifyk41qfnme4": {
+   "id": "kifyk41qfnme4",
+   "name": "Антенна ESP32-S3",
+   "outline": [
+    {
+     "x": 57.92,
+     "y": 0
+    },
+    {
+     "x": 81.82,
+     "y": 0
+    },
+    {
+     "x": 81.82,
+     "y": 7.49
+    },
+    {
+     "x": 57.92,
+     "y": 7.49
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kifyk41runfdf": {
+   "id": "kifyk41runfdf",
+   "name": "Стойка H1",
+   "outline": [
+    {
+     "x": 6.8,
+     "y": 3.5
+    },
+    {
+     "x": 6.549,
+     "y": 4.763
+    },
+    {
+     "x": 5.833,
+     "y": 5.833
+    },
+    {
+     "x": 4.763,
+     "y": 6.549
+    },
+    {
+     "x": 3.5,
+     "y": 6.8
+    },
+    {
+     "x": 2.237,
+     "y": 6.549
+    },
+    {
+     "x": 1.167,
+     "y": 5.833
+    },
+    {
+     "x": 0.451,
+     "y": 4.763
+    },
+    {
+     "x": 0.2,
+     "y": 3.5
+    },
+    {
+     "x": 0.451,
+     "y": 2.237
+    },
+    {
+     "x": 1.167,
+     "y": 1.167
+    },
+    {
+     "x": 2.237,
+     "y": 0.451
+    },
+    {
+     "x": 3.5,
+     "y": 0.2
+    },
+    {
+     "x": 4.763,
+     "y": 0.451
+    },
+    {
+     "x": 5.833,
+     "y": 1.167
+    },
+    {
+     "x": 6.549,
+     "y": 2.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kifyk41ssh5rl": {
+   "id": "kifyk41ssh5rl",
+   "name": "Стойка H2",
+   "outline": [
+    {
+     "x": 139.8,
+     "y": 3.5
+    },
+    {
+     "x": 139.549,
+     "y": 4.763
+    },
+    {
+     "x": 138.833,
+     "y": 5.833
+    },
+    {
+     "x": 137.763,
+     "y": 6.549
+    },
+    {
+     "x": 136.5,
+     "y": 6.8
+    },
+    {
+     "x": 135.237,
+     "y": 6.549
+    },
+    {
+     "x": 134.167,
+     "y": 5.833
+    },
+    {
+     "x": 133.451,
+     "y": 4.763
+    },
+    {
+     "x": 133.2,
+     "y": 3.5
+    },
+    {
+     "x": 133.451,
+     "y": 2.237
+    },
+    {
+     "x": 134.167,
+     "y": 1.167
+    },
+    {
+     "x": 135.237,
+     "y": 0.451
+    },
+    {
+     "x": 136.5,
+     "y": 0.2
+    },
+    {
+     "x": 137.763,
+     "y": 0.451
+    },
+    {
+     "x": 138.833,
+     "y": 1.167
+    },
+    {
+     "x": 139.549,
+     "y": 2.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kifyk41tr1whj": {
+   "id": "kifyk41tr1whj",
+   "name": "Стойка H3",
+   "outline": [
+    {
+     "x": 6.8,
+     "y": 86.5
+    },
+    {
+     "x": 6.549,
+     "y": 87.763
+    },
+    {
+     "x": 5.833,
+     "y": 88.833
+    },
+    {
+     "x": 4.763,
+     "y": 89.549
+    },
+    {
+     "x": 3.5,
+     "y": 89.8
+    },
+    {
+     "x": 2.237,
+     "y": 89.549
+    },
+    {
+     "x": 1.167,
+     "y": 88.833
+    },
+    {
+     "x": 0.451,
+     "y": 87.763
+    },
+    {
+     "x": 0.2,
+     "y": 86.5
+    },
+    {
+     "x": 0.451,
+     "y": 85.237
+    },
+    {
+     "x": 1.167,
+     "y": 84.167
+    },
+    {
+     "x": 2.237,
+     "y": 83.451
+    },
+    {
+     "x": 3.5,
+     "y": 83.2
+    },
+    {
+     "x": 4.763,
+     "y": 83.451
+    },
+    {
+     "x": 5.833,
+     "y": 84.167
+    },
+    {
+     "x": 6.549,
+     "y": 85.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  },
+  "kifyk41u38yn6": {
+   "id": "kifyk41u38yn6",
+   "name": "Стойка H4",
+   "outline": [
+    {
+     "x": 139.8,
+     "y": 86.5
+    },
+    {
+     "x": 139.549,
+     "y": 87.763
+    },
+    {
+     "x": 138.833,
+     "y": 88.833
+    },
+    {
+     "x": 137.763,
+     "y": 89.549
+    },
+    {
+     "x": 136.5,
+     "y": 89.8
+    },
+    {
+     "x": 135.237,
+     "y": 89.549
+    },
+    {
+     "x": 134.167,
+     "y": 88.833
+    },
+    {
+     "x": 133.451,
+     "y": 87.763
+    },
+    {
+     "x": 133.2,
+     "y": 86.5
+    },
+    {
+     "x": 133.451,
+     "y": 85.237
+    },
+    {
+     "x": 134.167,
+     "y": 84.167
+    },
+    {
+     "x": 135.237,
+     "y": 83.451
+    },
+    {
+     "x": 136.5,
+     "y": 83.2
+    },
+    {
+     "x": 137.763,
+     "y": 83.451
+    },
+    {
+     "x": 138.833,
+     "y": 84.167
+    },
+    {
+     "x": 139.549,
+     "y": 85.237
+    }
+   ],
+   "keepoutTracks": true,
+   "keepoutVias": true,
+   "showLabel": false
+  }
+ },
+ "drawings": {
+  "gifyk41ngn16r": {
+   "id": "gifyk41ngn16r",
+   "kind": "text",
+   "layer": "F.Silk",
+   "at": {
+    "x": 125.7,
+    "y": 20.32
+   },
+   "text": "ДИН",
+   "size": 1.1,
+   "thickness": 0.15,
+   "rotation": 0,
+   "align": "right"
+  },
+  "gifyk41o8dcb4": {
+   "id": "gifyk41o8dcb4",
+   "kind": "text",
+   "layer": "F.Silk",
+   "at": {
+    "x": 125.7,
+    "y": 15.24
+   },
+   "text": "ДИН",
+   "size": 1.1,
+   "thickness": 0.15,
+   "rotation": 0,
+   "align": "right"
+  }
+ }
+}
