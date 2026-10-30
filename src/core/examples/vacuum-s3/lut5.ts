@@ -65,13 +65,16 @@ const tht = (number: string, name: string, x: number, y: number, o: { d?: number
 const rect = (layer: Graphic['layer'], x0: number, y0: number, x1: number, y1: number, width = 0.12): Graphic => ({ kind: 'rect', layer, a: { x: +x0.toFixed(3), y: +y0.toFixed(3) }, b: { x: +x1.toFixed(3), y: +y1.toFixed(3) }, width });
 const text = (layer: Graphic['layer'], x: number, y: number, s: string, size = 1.0): Graphic => ({ kind: 'text', layer, at: { x: +x.toFixed(3), y: +y.toFixed(3) }, text: s, size, thickness: size * 0.14, align: 'center' });
 
-/** Ряд шины 1×22 вертикально (вывод 1 сверху): гнездо PBS или длинные штыри 25 мм. */
-function busRow(kind: 'socket' | 'header'): FootprintDef {
+/**
+ * Ряд шины 1×22 вертикально (вывод 1 сверху): гнездо PBS или длинные штыри 25 мм. only — только эти
+ * выводы (у крайнего этажа лишние штыри вынимаются из пластика): между ними свободно для дорожек.
+ */
+function busRow(kind: 'socket' | 'header', only?: Set<number>, id?: string): FootprintDef {
   const n = 22;
   const L = (n - 1) * 2.54;
   const socket = kind === 'socket';
   return {
-    id: socket ? 'LUT_Bus_Socket_1x22' : 'LUT_Bus_LongPins_1x22',
+    id: id ?? (socket ? 'LUT_Bus_Socket_1x22' : 'LUT_Bus_LongPins_1x22'),
     name: socket ? 'Шина: гнездо 1×22' : 'Шина: длинные штыри 1×22',
     description: socket
       ? 'Гнездо 1×22 (PBS, высота 8,5 мм): в него входят длинные штыри предыдущей платы'
@@ -79,8 +82,8 @@ function busRow(kind: 'socket' | 'header'): FootprintDef {
     category: 'Разъёмы',
     refPrefix: 'XB',
     tags: ['header', 'bus', '1x22'],
-    pads: Array.from({ length: n }, (_, k) => tht(String(k + 1), '', 0, k * 2.54, { rect: k === 0 })),
-    graphics: [rect('F.Fab', -1.27, -1.27, 1.27, L + 1.27, 0.1), rect('F.Silk', -1.2, -1.33, 1.2, L + 1.33)],
+    pads: Array.from({ length: n }, (_, k) => tht(String(k + 1), '', 0, k * 2.54, { rect: k === 0 })).filter((_, k) => !only || only.has(k + 1)),
+    graphics: [rect('F.Fab', -1.27, -1.27, 1.27, L + 1.27, 0.1), rect('F.Silk', -1.2, -1.33, 1.2, L + 1.33), ...(only ? [text('F.Silk', 2.6, L / 2, 'лишние штыри вынуть', 0.9)] : [])],
     courtyard: { min: { x: -1.2, y: -1.6 }, max: { x: 1.2, y: L + 1.6 } },
     source: 'Стандарт 2,54 мм',
     verified: true,
@@ -204,13 +207,13 @@ export function floor1Parts(): ModPart[] {
       description: 'Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется снизу платы (со стороны этажа 2), под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок',
       fp: 'IC_PCA9555_SOIC-24W',
       pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL', A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
-      // Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними), левый ряд — и по горизонтали.
-      at: [101.17, 31.115],
+      // Между рядами шины. Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними).
+      at: [69.85, 31.115],
     },
-    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [93.98, 45.72, 90]),
-    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [95.25, 49.53, 90]),
-    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [99.06, 49.53, 90]),
-    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [102.87, 49.53, 90]),
+    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [78.74, 25.4, 90]),
+    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [78.74, 41.91, 90]),
+    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [62.23, 44.45, 90]),
+    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [66.04, 44.45, 90]),
     C('C3', '10 мкФ', 'Питание 5 В экрана (керамика 106: под экраном выше 9 мм нельзя)', '5V', 'GND', [110.49, 53.34]),
     key('SB1', '1 Главная', 'K1', 10.5, 14),
     key('SB2', '2 Очистка', 'K2', 10.5, 33),
@@ -463,11 +466,14 @@ export function buildLutFloor(f: LutFloor): Project {
         if (n) pins[String(c)] = n;
       }
       const ref = `XB${side === 'L' ? 1 : 2}${kind === 'socket' ? 'S' : 'P'}`;
+      // Лицевой этаж — конец шины: отверстия только под нужные ему штыри, между ними идут дорожки.
+      const fpId = f === 1 ? `LUT_Bus_LongPins_1x22_F1${side}` : kind === 'socket' ? 'LUT_Bus_Socket_1x22' : 'LUT_Bus_LongPins_1x22';
+      if (f === 1 && !LUT_FOOTPRINTS.some((x) => x.id === fpId)) LUT_FOOTPRINTS.push(busRow(kind, new Set(Object.keys(pins).map(Number)), fpId));
       parts.push({
         ref,
         value: kind === 'socket' ? 'Гнездо 1×22' : 'Штыри 1×22 длинные',
         description: `Шина, ${side === 'L' ? 'левый' : 'правый'} ряд: ${kind === 'socket' ? 'гнездо от предыдущего этажа' : 'длинные штыри к следующему этажу'}`,
-        fp: kind === 'socket' ? 'LUT_Bus_Socket_1x22' : 'LUT_Bus_LongPins_1x22',
+        fp: fpId,
         pins,
         at: [BUS_X[side][row], DK.y],
       });

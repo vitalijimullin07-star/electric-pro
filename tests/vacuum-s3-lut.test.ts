@@ -9,6 +9,7 @@ import { parseProjectFile, serializeProject } from '../src/core/io/project-file'
 import { exportAssemblySvg } from '../src/core/io/svg-export';
 import { exportBomCsv } from '../src/core/io/bom';
 import { runDrc } from '../src/core/model/drc';
+import { lutGuideHtml } from '../src/core/examples/vacuum-s3/lut5-notes';
 import type { LayerId, Project } from '../src/core/model/types';
 
 /*
@@ -118,6 +119,10 @@ describe('пылесос S3 этажеркой под ЛУТ (4 платы)', ()
       files[`${dir}/${base}-perechen.csv`] = strToU8(exportBomCsv(p));
       files[`${dir}/${base}.plata.json`] = strToU8(serializeProject(p, true));
     }
+    // Памятка: HTML в архиве; PDF из неё печатает tools/lut5/build.sh (LUT_HTML — куда положить HTML).
+    const html = lutGuideHtml({ 1: load(1), 2: load(2), 3: load(3), 4: load(4) });
+    files['pamyatka.html'] = strToU8(html);
+    if (process.env.LUT_HTML) writeFileSync(process.env.LUT_HTML, html);
     writeFileSync(ZIP, zipSync(files, { level: 6 }));
   });
 });
