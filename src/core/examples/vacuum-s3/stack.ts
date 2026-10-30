@@ -256,7 +256,8 @@ function mspSocket(): FootprintDef {
 
 const STACK_FOOTPRINTS: FootprintDef[] = [devkitSockets(), ...[22, 11, 2].flatMap((n) => [stackRow(n, false), stackRow(n, true)]), dfplayer(), ds3231Pi(), idcAngled(10), mspSocket()];
 
-function fpOf(id: string): FootprintDef {
+/** Корпус этажерки (свои: гнёзда ESP32, ряды, плеер, часы, экран) или из библиотеки. */
+export function fpOf(id: string): FootprintDef {
   return STACK_FOOTPRINTS.find((f) => f.id === id) ?? footprintOf(id);
 }
 
@@ -309,11 +310,11 @@ const col = (c: number) => +(DK.x + 2.54 * (c - 1)).toFixed(2);
  * ULN2003, PT_L 7 — земля к разъёму пульта (на верхней плате ни с чем не соединена), PT_L 3 (под RST) —
  * середина 1,65 В с делителя нижней платы к клеммнику ТТ. Остальные пустые столбцы не заняты.
  */
-const PASS_R: Record<number, string> = {
+export const PASS_R: Record<number, string> = {
   1: 'GND', 2: 'LCD_CS', 4: 'RL1', 5: 'RL2', 6: 'RL3', 7: 'VLV2', 8: 'VLV1', 9: 'T1', 10: 'T2', 11: 'GND',
   14: 'T_CS', 15: 'BZ', 16: 'UAC', 17: 'ENC_B', 18: 'ENC_A', 21: 'GND', 22: 'GND',
 };
-const PASS_L: Record<number, string> = {
+export const PASS_L: Record<number, string> = {
   1: '3V3', 2: '3V3', 3: 'VMID', 4: 'CT1', 5: 'CT2', 6: 'CT3', 7: 'GND', 8: 'SPI_SCK', 9: 'SPI_MOSI', 10: 'SPI_MISO', 11: 'LCD_DC',
   13: 'WL1', 14: 'WL_DRV', 15: 'WL2', 16: 'VAC', 17: 'SDA', 18: 'SCL', 19: 'PNL_TX', 20: 'PNL_RX', 21: '5V', 22: 'GND',
 };
@@ -364,7 +365,7 @@ export const PANEL_CABLE: Record<string, string> = {
   '11': 'LCD_CS', '12': 'SPI_SCK', '13': '5V', '14': 'SPI_MOSI', '15': 'PNL_TX', '16': 'SPI_MISO', '17': 'FLOAT', '18': 'LCD_DC', '19': 'SCL', '20': 'SDA',
 };
 
-const DESCRIPTIONS: Record<string, string> = {
+export const DESCRIPTIONS: Record<string, string> = {
   '5V': 'Питание 5 В от блока питания (клеммник XP1 верхней платы): ESP32, плеер, экран, MPX5100DP',
   '3V3': '3,3 В со стабилизатора DevKitC: датчики, ADS1115, DS3231, PCA9555, МР248',
   UAC: 'ZMPT101B через делитель 10к/20к → IO7 (напряжение сети) и IO48 (ноль сети)',
