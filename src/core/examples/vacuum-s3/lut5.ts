@@ -237,8 +237,8 @@ export function floor1Parts(): ModPart[] {
       description: 'Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется снизу платы (со стороны этажа 2), под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок',
       fp: PCA_FAN,
       pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL', A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
-      // Между рядами шины. Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними).
-      at: [69.85, 31.115],
+      // Повёрнута: веер — вверх и вниз, в поле между рядами шины; выводы и концы веера — на сетке 1,27.
+      at: [69.215, 31.75, 90],
     },
     C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [68.58, 48.26, 0]),
     R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [63.5, 55.88, 90]),
@@ -474,10 +474,21 @@ function fanOutPca(p: Project): void {
   for (const q of pads) {
     if (q.pad.number.startsWith('F') || !q.net) continue;
     const e = pads.find((x) => x.pad.number === `F${q.pad.number}`)!.center;
-    const sx = Math.sign(e.x - q.center.x);
-    const x1 = q.center.x + sx * 1.6;
-    const dy = Math.abs(e.y - q.center.y);
-    const pts = [q.center, { x: x1, y: q.center.y }, { x: x1 + sx * dy, y: e.y }, e].map((v) => ({ x: +v.x.toFixed(3), y: +v.y.toFixed(3) }));
+    // Наружу вдоль площадки на 1,6, под 45° до высоты (или ширины) конца, затем прямо к нему.
+    const o = q.center;
+    const along = Math.abs(e.x - o.x) > Math.abs(e.y - o.y);
+    const raw = along
+      ? (() => {
+          const sx = Math.sign(e.x - o.x);
+          const x1 = o.x + sx * 1.6;
+          return [o, { x: x1, y: o.y }, { x: x1 + sx * Math.abs(e.y - o.y), y: e.y }, e];
+        })()
+      : (() => {
+          const sy = Math.sign(e.y - o.y);
+          const y1 = o.y + sy * 1.6;
+          return [o, { x: o.x, y: y1 }, { x: e.x, y: y1 + sy * Math.abs(e.x - o.x) }, e];
+        })();
+    const pts = raw.map((v) => ({ x: +v.x.toFixed(3), y: +v.y.toFixed(3) }));
     addTrack(p, { layer: 'B.Cu', width: 0.4, points: pts.filter((v, k) => k === 0 || Math.hypot(v.x - pts[k - 1].x, v.y - pts[k - 1].y) > 1e-6), locked: true });
   }
 }
@@ -545,7 +556,7 @@ export function buildLutFloor(f: LutFloor): Project {
     const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0, side });
     if (part.fields) c.fields = { ...part.fields };
     // Мелочь (резисторы, конденсаторы, ключ зуммера, перемычка) расставит autoplace, остальное — на своих местах.
-    if (!/^(R\d+|C\d+|VT\d+|VD\d+|JP\d+)$/.test(part.ref) || (f === 1 && /^(C4|R4|R9|R10)$/.test(part.ref))) c.locked = true;
+    if (!/^(R\d+|C\d+|VT\d+|VD\d+|JP\d+)$/.test(part.ref)) c.locked = true;
     if (!part.value) c.hideValue = true;
     const fpc = p.footprints[c.footprint];
     for (const [pin, net] of Object.entries(part.pins)) {
