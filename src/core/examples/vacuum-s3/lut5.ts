@@ -141,6 +141,26 @@ function zs042(): FootprintDef {
 }
 
 /**
+ * PCA9555 с веером: на сетке разводки 1,27 к площадкам SOIC с шагом 1,27 не подойти (зоны соседних
+ * площадок смыкаются). У каждого вывода — своя круглая площадка на конце веера (та же цепь): левый
+ * ряд — у x = −13,97 от середины, правый — у +13,97, через 2,54 по высоте (на сетке, если середина
+ * корпуса — на 0,635 от неё). Дорожки веера (0,4 мм: наружу и под 45°) кладёт fanOutPca, при
+ * разводке выводы SOIC временно без цепей — к ним идут только дорожки веера.
+ */
+const PCA_FAN = 'LUT_PCA9555_SOIC24_Fan';
+const FAN_X = 13.97;
+function pcaFan(): FootprintDef {
+  const base = fpOf('IC_PCA9555_SOIC-24W');
+  const pads = [...base.pads];
+  for (const side of [-1, 1]) {
+    const col = base.pads.filter((q) => Math.sign(q.at.x) === side).sort((a, b) => a.at.y - b.at.y);
+    col.forEach((q, i) => pads.push({ number: `F${q.number}`, name: q.name, type: 'smd', shape: 'circle', at: { x: side * FAN_X, y: +((i - (col.length - 1) / 2) * 2.54 + 0.635).toFixed(3) }, size: { x: 1.3, y: 1.3 }, layer: 'F.Cu' }));
+  }
+  // Ограждение — с веером: мелочь на нём не встанет.
+  return { ...base, id: PCA_FAN, name: 'PCA9555 (SOIC-24) с веером', pads, courtyard: { min: { x: -FAN_X - 0.8, y: -14.2 }, max: { x: FAN_X + 0.8, y: 15.4 } } };
+}
+
+/**
  * Экран и ESP32 стоят над платой (на стойках и гнёздах): их ограждение — только по самой плате у
  * разъёма, иначе под ними нельзя было бы ставить детали.
  */
@@ -149,6 +169,7 @@ function overBoard(id: string, newId: string, court: FootprintDef['courtyard']):
 }
 
 const LUT_FOOTPRINTS: FootprintDef[] = [
+  pcaFan(),
   busRow('socket'),
   busRow('header'),
   zs042(),
@@ -208,15 +229,15 @@ export function floor1Parts(): ModPart[] {
       ref: 'DD1',
       value: 'PCA9555D',
       description: 'Расширитель PCA9555/TCA9555 в SOIC-24 (I²C 0x20 — A0, A1, A2 на земле), паяется снизу платы (со стороны этажа 2), под экраном: кнопки, кнопка энкодера, сброс экрана, касание, светодиод, поплавок',
-      fp: 'IC_PCA9555_SOIC-24W',
+      fp: PCA_FAN,
       pins: { VCC: '3V3', GND: 'GND', SDA: 'SDA', SCL: 'SCL', A0: 'GND', A1: 'GND', A2: 'GND', P00: 'K1', P01: 'K2', P02: 'K3', P03: 'K4', P04: 'K5', P05: 'K6', P06: 'KT1', P07: 'KT2', P10: 'KOFF', P11: 'ENC_SW', P12: 'LCD_RST', P13: 'LED_K', P14: 'T_IRQ', P17: 'FLOAT' },
       // Между рядами шины. Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними).
       at: [69.85, 31.115],
     },
-    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [68.58, 44.45, 0]),
-    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [63.5, 50.8, 90]),
-    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [67.31, 50.8, 90]),
-    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [71.12, 50.8, 90]),
+    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [68.58, 48.26, 0]),
+    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [63.5, 55.88, 90]),
+    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [67.31, 55.88, 90]),
+    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [71.12, 55.88, 90]),
     C('C3', '10 мкФ', 'Питание 5 В экрана (керамика 106: под экраном выше 9 мм нельзя)', '5V', 'GND', [110.49, 53.34]),
     key('SB1', '1 Главная', 'K1', 10.06, 13.93),
     key('SB2', '2 Очистка', 'K2', 10.06, 32.98),
@@ -440,29 +461,30 @@ function fabBox(c: Component, fp: FootprintDef, m: number): [Vec2, Vec2] {
   return r ? courtBox(c, { ...fp, courtyard: { min: r.a, max: r.b } }, m) : courtBox(c, fp, m);
 }
 
-/**
- * Веер от PCA9555: на сетке разводки 1,27 к площадкам SOIC с шагом 1,27 не подойти (зоны соседних
- * площадок смыкаются). Каждый подключённый вывод — заранее проложенной дорожкой 0,4 мм наружу и под
- * 45° к точке на сетке, точки — через 2,54: левый ряд — к x = 55,88, правый — к 83,82 (до рядов шины).
- */
 function fanOutPca(p: Project): void {
-  const c = Object.values(p.components).find((x) => x.footprint === 'IC_PCA9555_SOIC-24W');
+  const c = Object.values(p.components).find((x) => x.footprint === PCA_FAN);
   if (!c) return;
   const pads = getWorld(p).pads.filter((q) => q.component.id === c.id);
-  const mid = c.at.x;
-  for (const left of [true, false]) {
-    const col = pads.filter((q) => (q.center.x < mid) === left).sort((a, b) => a.center.y - b.center.y);
-    const yc = col.reduce((a, q) => a + q.center.y, 0) / col.length;
-    const xt = left ? 55.88 : 83.82;
-    col.forEach((q, i) => {
-      if (!q.net) return;
-      const ty = +(yc + (i - (col.length - 1) / 2) * 2.54 + 0.635).toFixed(3);
-      const x1 = q.center.x + (left ? -1.6 : 1.6);
-      const dy = Math.abs(ty - q.center.y);
-      const x2 = x1 + (left ? -dy : dy);
-      const pts = [q.center, { x: x1, y: q.center.y }, { x: x2, y: ty }, { x: xt, y: ty }].map((v) => ({ x: +v.x.toFixed(3), y: +v.y.toFixed(3) }));
-      addTrack(p, { layer: 'B.Cu', width: 0.4, points: pts.filter((v, k) => k === 0 || Math.hypot(v.x - pts[k - 1].x, v.y - pts[k - 1].y) > 1e-6), locked: true });
-    });
+  for (const q of pads) {
+    if (q.pad.number.startsWith('F') || !q.net) continue;
+    const e = pads.find((x) => x.pad.number === `F${q.pad.number}`)!.center;
+    const sx = Math.sign(e.x - q.center.x);
+    const x1 = q.center.x + sx * 1.6;
+    const dy = Math.abs(e.y - q.center.y);
+    const pts = [q.center, { x: x1, y: q.center.y }, { x: x1 + sx * dy, y: e.y }, e].map((v) => ({ x: +v.x.toFixed(3), y: +v.y.toFixed(3) }));
+    addTrack(p, { layer: 'B.Cu', width: 0.4, points: pts.filter((v, k) => k === 0 || Math.hypot(v.x - pts[k - 1].x, v.y - pts[k - 1].y) > 1e-6), locked: true });
+  }
+}
+
+/** Выводы SOIC с веером — без цепей (на время разводки) или снова с цепями своих площадок веера. */
+function pcaPadsNets(p: Project, on: boolean): void {
+  const c = Object.values(p.components).find((x) => x.footprint === PCA_FAN);
+  if (!c) return;
+  for (const q of p.footprints[c.footprint].pads) {
+    if (q.number.startsWith('F')) continue;
+    const fan = c.padNets[`F${q.number}`];
+    if (on && fan) c.padNets[q.number] = fan;
+    else if (!on) delete c.padNets[q.number];
   }
 }
 
@@ -513,7 +535,7 @@ export function buildLutFloor(f: LutFloor): Project {
     const fp = { ...fp0, pads: fp0.pads.map((q) => (q.type === 'tht' ? { ...q, layer: 'B.Cu' as const } : q)) };
     const at = part.at ?? [0, 0, 0];
     // PCA9555 (SOIC) — снизу: там вся разводка и пайка, сверху к мелким площадкам не подойти.
-    const side = part.fp === 'IC_PCA9555_SOIC-24W' ? ('bottom' as const) : ('top' as const);
+    const side = part.fp === PCA_FAN ? ('bottom' as const) : ('top' as const);
     const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0, side });
     if (part.fields) c.fields = { ...part.fields };
     // Мелочь (резисторы, конденсаторы, ключ зуммера, перемычка) расставит autoplace, остальное — на своих местах.
@@ -558,7 +580,11 @@ export async function placeLutFloor(p0: Project, seed = 1): Promise<Project> {
 export async function routeLutFloor(f: LutFloor, seeds = [1, 2, 3, 4, 5, 6]): Promise<{ project: Project; failed: number; seed: number; report: string[] }> {
   let best: { project: Project; failed: number; seed: number; report: string[] } | null = null;
   for (const seed of seeds) {
-    const r = await routeStackBoard(await placeLutFloor(buildLutFloor(f), seed));
+    const placed = await placeLutFloor(buildLutFloor(f), seed);
+    pcaPadsNets(placed, false);
+    const r = await routeStackBoard(structuredClone(placed));
+    pcaPadsNets(r.project, true);
+    r.project = structuredClone(r.project);
     const vias = (q: Project) => Object.keys(q.vias).length;
     if (!best || r.failed < best.failed || (r.failed === best.failed && vias(r.project) < vias(best.project))) best = { project: r.project, failed: r.failed, seed, report: r.report };
     if (r.failed === 0) break;
