@@ -1,4 +1,5 @@
-import { addComponent, addRuleArea, connectPad, ensureNet } from '../../model/edit';
+import { addComponent, addRuleArea, addTrack, connectPad, ensureNet } from '../../model/edit';
+import { getWorld } from '../../model/world';
 import { applyPlacement, autoplace } from '../../place/autoplace';
 import { placementOf, toWorld } from '../../model/placement';
 import { createProject } from '../../model/project';
@@ -212,10 +213,10 @@ export function floor1Parts(): ModPart[] {
       // Между рядами шины. Выводы — на сетке 1,27 по вертикали (шаг 1,27, середина — между ними).
       at: [69.85, 31.115],
     },
-    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [78.74, 25.4, 90]),
-    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [78.74, 41.91, 90]),
-    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [62.23, 44.45, 90]),
-    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [66.04, 44.45, 90]),
+    C('C4', '100 нФ', 'Питание 3,3 В PCA9555', '3V3', 'GND', [68.58, 44.45, 0]),
+    R('R4', '10k', 'Сброс экрана: подтяжка (сбрасывает PCA9555, вывод P12)', 'LCD_RST', '3V3', [63.5, 50.8, 90]),
+    R('R9', '4,7k', 'Подтяжка SDA шины I²C', 'SDA', '3V3', [67.31, 50.8, 90]),
+    R('R10', '4,7k', 'Подтяжка SCL', 'SCL', '3V3', [71.12, 50.8, 90]),
     C('C3', '10 мкФ', 'Питание 5 В экрана (керамика 106: под экраном выше 9 мм нельзя)', '5V', 'GND', [110.49, 53.34]),
     key('SB1', '1 Главная', 'K1', 10.06, 13.93),
     key('SB2', '2 Очистка', 'K2', 10.06, 32.98),
@@ -439,6 +440,32 @@ function fabBox(c: Component, fp: FootprintDef, m: number): [Vec2, Vec2] {
   return r ? courtBox(c, { ...fp, courtyard: { min: r.a, max: r.b } }, m) : courtBox(c, fp, m);
 }
 
+/**
+ * Веер от PCA9555: на сетке разводки 1,27 к площадкам SOIC с шагом 1,27 не подойти (зоны соседних
+ * площадок смыкаются). Каждый подключённый вывод — заранее проложенной дорожкой 0,4 мм наружу и под
+ * 45° к точке на сетке, точки — через 2,54: левый ряд — к x = 55,88, правый — к 83,82 (до рядов шины).
+ */
+function fanOutPca(p: Project): void {
+  const c = Object.values(p.components).find((x) => x.footprint === 'IC_PCA9555_SOIC-24W');
+  if (!c) return;
+  const pads = getWorld(p).pads.filter((q) => q.component.id === c.id);
+  const mid = c.at.x;
+  for (const left of [true, false]) {
+    const col = pads.filter((q) => (q.center.x < mid) === left).sort((a, b) => a.center.y - b.center.y);
+    const yc = col.reduce((a, q) => a + q.center.y, 0) / col.length;
+    const xt = left ? 55.88 : 83.82;
+    col.forEach((q, i) => {
+      if (!q.net) return;
+      const ty = +(yc + (i - (col.length - 1) / 2) * 2.54 + 0.635).toFixed(3);
+      const x1 = q.center.x + (left ? -1.6 : 1.6);
+      const dy = Math.abs(ty - q.center.y);
+      const x2 = x1 + (left ? -dy : dy);
+      const pts = [q.center, { x: x1, y: q.center.y }, { x: x2, y: ty }, { x: xt, y: ty }].map((v) => ({ x: +v.x.toFixed(3), y: +v.y.toFixed(3) }));
+      addTrack(p, { layer: 'B.Cu', width: 0.4, points: pts.filter((v, k) => k === 0 || Math.hypot(v.x - pts[k - 1].x, v.y - pts[k - 1].y) > 1e-6), locked: true });
+    });
+  }
+}
+
 /** Плата этажа без дорожек: детали, шина, цепи, правила под ЛУТ. */
 export function buildLutFloor(f: LutFloor): Project {
   const { w, h } = LUT_BOARD;
@@ -490,7 +517,7 @@ export function buildLutFloor(f: LutFloor): Project {
     const c = addComponent(p, fp, { x: at[0], y: at[1] }, { ref: part.ref, value: part.value, description: part.description, rotation: at[2] ?? 0, side });
     if (part.fields) c.fields = { ...part.fields };
     // Мелочь (резисторы, конденсаторы, ключ зуммера, перемычка) расставит autoplace, остальное — на своих местах.
-    if (!/^(R\d+|C\d+|VT\d+|VD\d+|JP\d+)$/.test(part.ref)) c.locked = true;
+    if (!/^(R\d+|C\d+|VT\d+|VD\d+|JP\d+)$/.test(part.ref) || (f === 1 && /^(C4|R4|R9|R10)$/.test(part.ref))) c.locked = true;
     if (!part.value) c.hideValue = true;
     const fpc = p.footprints[c.footprint];
     for (const [pin, net] of Object.entries(part.pins)) {
@@ -503,6 +530,7 @@ export function buildLutFloor(f: LutFloor): Project {
     }
   }
   for (const part of parts) if (part.labels) terminalLabels(p, part.ref, part.labels);
+  if (f === 1) fanOutPca(p);
   // Под плоскими корпусами (кнопки, энкодер, зуммер, клеммники, PCA9555) проволочек-переходных нет.
   for (const c of Object.values(p.components)) {
     if (!/^(SB\d+|SA1|BA1|X\d+|XP1|XA1|DD1)$/.test(c.ref)) continue;
