@@ -1,4 +1,4 @@
-import { addComponent, addRuleArea, addTrack, connectPad, ensureNet } from '../../model/edit';
+import { addComponent, addDrawing, addRuleArea, addTrack, connectPad, ensureNet } from '../../model/edit';
 import { getWorld } from '../../model/world';
 import { applyPlacement, autoplace } from '../../place/autoplace';
 import { placementOf, toWorld } from '../../model/placement';
@@ -607,4 +607,24 @@ export async function routeLutFloor(f: LutFloor, seeds = [1, 2, 3, 4, 5, 6]): Pr
     if (r.failed === 0) break;
   }
   return best!;
+}
+
+/**
+ * Номиналы на шелкографию (для мастера, который наносит её на плату): под ограждением каждой детали,
+ * мелким шрифтом; у деталей снизу (PCA9555) — на нижней шелкографии зеркально. Крепёж и шина — без.
+ */
+export function addSilkValues(p0: Project): Project {
+  const p = structuredClone(p0);
+  for (const c of Object.values(p.components)) {
+    // Экран подписан своим корпусом; ″ и ² в шрифте шелкографии нет.
+    if (!c.value || /^(H\d|XB|HG)/.test(c.ref)) continue;
+    const fp = p.footprints[c.footprint];
+    if (!fp?.courtyard) continue;
+    const [a, b] = courtBox(c, fp, 0);
+    const small = /^(R|C|VD|VT|HL|JP)\d/.test(c.ref);
+    const size = small ? 0.8 : 1.1;
+    const bottom = c.side === 'bottom';
+    addDrawing(p, { kind: 'text', layer: bottom ? 'B.Silk' : 'F.Silk', at: { x: +((a.x + b.x) / 2).toFixed(2), y: +Math.min(b.y + size * 0.9, LUT_BOARD.h - 0.8).toFixed(2) }, text: c.value.replace(/″/g, '"').replace(/²/g, '2'), size, thickness: size * 0.14, align: 'center', ...(bottom ? { mirror: true } : {}) });
+  }
+  return structuredClone(p);
 }

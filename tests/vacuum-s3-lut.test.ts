@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { strToU8, zipSync } from 'fflate';
-import { BUS, BUS_DOORS, buildLutFloor, busTaps, FLOOR_PARTS, LUT_BOARD, routeLutFloor, type LutFloor } from '../src/core/examples/vacuum-s3/lut5';
+import { addSilkValues, BUS, BUS_DOORS, buildLutFloor, busTaps, FLOOR_PARTS, LUT_BOARD, routeLutFloor, type LutFloor } from '../src/core/examples/vacuum-s3/lut5';
 import { buildStackBoard, logicalNet } from '../src/core/examples/vacuum-s3/stack';
 import { exportGerbers, safeName } from '../src/core/io/gerber';
 import { exportLutPdf } from '../src/core/io/lut-pdf';
@@ -107,7 +107,7 @@ describe('пылесос S3 этажеркой под ЛУТ (4 платы)', ()
   it.runIf(PACK)('архив для мастера: Gerber и PDF', () => {
     const files: Record<string, Uint8Array> = {};
     for (const f of FLOORS) {
-      const p = load(f);
+      const p = addSilkValues(load(f));
       const dir = `etazh-${f}`;
       const base = safeName(p.meta.name);
       for (const g of exportGerbers(p)) files[`${dir}/gerber/${g.name}`] = strToU8(g.content);
