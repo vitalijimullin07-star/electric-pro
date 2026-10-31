@@ -51,7 +51,7 @@ export function exportSchematicPdf(p: Project): { bytes: Uint8Array; paper: 'A4'
   pg.strokeColor(0).polyline([{ x: 10, y: 10 }, { x: W - 10, y: 10 }, { x: W - 10, y: H - 10 }, { x: 10, y: H - 10 }], 0.35, true);
   pg.polyline([{ x: W - 130, y: H - 28 }, { x: W - 10, y: H - 28 }], 0.3).polyline([{ x: W - 130, y: H - 28 }, { x: W - 130, y: H - 10 }], 0.3);
   txt(pg, p.meta.name, { x: W - 125, y: H - 22 }, 3.2, 'left', '#000000');
-  txt(pg, `Схема электрическая принципиальная · ${new Date().toISOString().slice(0, 10)}`, { x: W - 125, y: H - 15 }, 2, 'left', '#000000');
+  txt(pg, `Схема электрическая принципиальная, ${new Date().toISOString().slice(0, 10)}`, { x: W - 125, y: H - 15 }, 2, 'left', '#000000');
   // Масштаб «вписать».
   const areaW = W - 30;
   const areaH = H - 50;
