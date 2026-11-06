@@ -4,7 +4,7 @@ import { libraryFootprint, libraryFootprints } from '../src/core/library';
 import { addComponent, connectPad, ensureNet } from '../src/core/model/edit';
 import { createProject } from '../src/core/model/project';
 import { pinKey, refPrefix, replaceFootprints, replaceGroups, replacementCandidates, typeName } from '../src/core/model/replace';
-import { EXAMPLES } from '../src/core/examples';
+import { sampleBoard } from './helpers/sample-board';
 
 describe('массовая замена корпусов', () => {
   test('обозначения и типы', () => {
@@ -42,7 +42,7 @@ describe('массовая замена корпусов', () => {
   });
 
   test('детали с разными выводами вместе не заменить', () => {
-    const p = EXAMPLES[0].create();
+    const p = sampleBoard();
     const ids = Object.values(p.components).slice(0, 40).map((c) => c.id);
     const keys = new Set(ids.map((id) => pinKey(p.footprints[p.components[id].footprint])));
     if (keys.size > 1) expect(replacementCandidates(p, ids, libraryFootprints()).key).toBeNull();

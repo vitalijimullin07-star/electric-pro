@@ -1,27 +1,20 @@
-import { padKey, type Firmware, type Project } from '../model/types';
+import { padKey, type Project } from '../model/types';
 import { Circuit, findMcu } from './circuit';
 import { buildDevices, type Device, type DeviceView } from './devices';
-import { Esp32 } from './esp32';
-import { BleRemote, BleTag } from './ble-remote';
 import { AnalogSim } from './analog/build';
 import { analogDevices } from './analog/devices';
 import { NullMcu, noMcuFound } from './null-mcu';
 import { Avr, pinTitle } from './mcu';
-import { PanelS3 } from './panel-s3';
-import { VOICE_PHRASES } from './voice-phrases';
 import type { McuPin, PinMode, SimMcu } from './types';
-import type { VacuumPlant, VacuumView } from './vacuum';
 
 /*
  * Симуляция проекта с прошивкой: контроллер + детали схемы. Время — такты контроллера
- * (у ESP32 такт — микросекунда); интерфейс вызывает run() порциями (обычно раз в кадр)
+ ; интерфейс вызывает run() порциями (обычно раз в кадр)
  * и забирает view().
  */
 
 export { MCU_FREQ, MCU_TITLES } from './mcu';
-export { PANEL_H, PANEL_W } from './panel-s3';
 export type { DeviceView, SimParam } from './devices';
-export type { VacuumView } from './vacuum';
 export type { AnalogPart, AnalogReading, ScopeProbe } from './analog/build';
 export { fmtSi, WAVE_TITLES } from './analog/build';
 export { KIND_INFO, detectKind, kindChoices, type SimKind } from './analog/kinds';
@@ -47,8 +40,6 @@ export interface SimView {
   baud: number;
   /** Контроллер и частота: «ATmega32A, 11,0592 МГц (кварц BQ1)». */
   mcu: string;
-  /** Установка «пылесос» (мнемосхема во весь экран). */
-  plant?: VacuumView;
   /** Аналоговый расчёт: напряжения цепей и токи через выводы деталей. */
   analog?: AnalogSnapshot;
 }
@@ -61,10 +52,6 @@ export interface AnalogSnapshot {
   /** Наибольшее напряжение (для шкалы цвета). */
   vmax: number;
 }
-
-/** Настройки ESP32 между запусками — как энергонезависимая память (по проекту). */
-const nvsStore = new Map<string, Uint8Array>();
-const nvsKey = (p: Project) => `${p.meta.created}|${p.meta.name}`;
 
 export function base64ToBytes(b64: string): Uint8Array {
   const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
@@ -79,10 +66,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return typeof btoa === 'function' ? btoa(s) : Buffer.from(s, 'binary').toString('base64');
 }
 
-function espFirmware(fw: Firmware | undefined): Uint8Array {
-  if (!fw?.wasm) throw new Error('Для ESP32 нужна прошивка для симуляции (.wasm): ядро прошивки, собранное в WebAssembly (firmware/vacuum-esp32/build-sim.sh).');
-  return base64ToBytes(fw.wasm);
-}
+const ESP32_OFF = 'Симуляция ESP32 в этом редакторе недоступна: симулируются Arduino (AVR), ATmega и схемы без контроллера.';
 
 export interface SimOptions {
   /** Аналоговый расчёт схемы (токи, напряжения, номиналы на ходу). */
@@ -96,13 +80,10 @@ export class Simulation {
   readonly circuit: Circuit;
   readonly devices: Device[];
   unknown: string[];
-  readonly plant: VacuumPlant | null;
   /** Всё, что контроллер отправил в порт. */
   serial = '';
   readonly mcuTitle: string;
   onSerial: ((text: string) => void) | null = null;
-  /** Голос (DFPlayer у пылесоса «S3» 6.0): номер фразы, её текст и громкость 0…30. */
-  onVoice: ((track: number, text: string, volume: number) => void) | null = null;
   /** Аналоговый расчёт схемы (если включён и схема собралась). */
   readonly analog: AnalogSim | null = null;
   /** Почему аналоговый расчёт не включился. */
@@ -111,34 +92,28 @@ export class Simulation {
   /** Схема без контроллера: время отсчитывает NullMcu, всё считает аналоговый расчёт. */
   readonly noMcu: boolean;
 
-  /** AVR: прошивка .hex текстом; ESP32 — готовый контроллер (см. create); без контроллера — null. */
+  /** AVR: прошивка .hex текстом (или готовый контроллер); без контроллера — null. */
   constructor(
     readonly project: Project,
     firmware: string | SimMcu | null,
-    panels: Map<string, PanelS3> = new Map(),
     opts: SimOptions = {},
   ) {
     const found = findMcu(project) ?? noMcuFound();
     this.noMcu = found.kind === 'none';
     if (this.noMcu && firmware)
       throw new Error(
-        'Прошивка есть, а контроллера на плате нет: поставьте Arduino Nano/Uno/Pro Mini, ATmega или ESP32. Без прошивки схема симулируется и без контроллера.',
+        'Прошивка есть, а контроллера на плате нет: поставьте Arduino Nano/Uno/Pro Mini или ATmega. Без прошивки схема симулируется и без контроллера.',
       );
     if (this.noMcu) {
       this.mcu = new NullMcu();
       opts = { ...opts, analog: true };
     } else if (typeof firmware === 'string') {
-      if (found.kind === 'esp32') throw new Error('Для ESP32 прошивка .hex не подходит: нужна прошивка для симуляции (.wasm).');
+      if (found.kind === 'esp32') throw new Error(ESP32_OFF);
       this.mcu = Avr.fromHex(firmware, found.kind, found.freq);
     } else if (firmware) this.mcu = firmware;
     else throw new Error('Сначала загрузите прошивку (.hex).');
     this.circuit = new Circuit(project, this.mcu, found);
-    if (this.mcu instanceof Esp32) {
-      const esp = this.mcu;
-      esp.analogRead = (pin) => this.circuit.pinVolts(pin);
-      esp.onLog = (text) => this.log(text);
-      this.mcuTitle = `${esp.title}, 240 МГц · ядро прошивки в WebAssembly`;
-    } else if (this.noMcu) this.mcuTitle = 'схема без контроллера';
+    if (this.noMcu) this.mcuTitle = 'схема без контроллера';
     else this.mcuTitle = `${this.mcu.title}, ${(found.freq / 1e6).toLocaleString('ru', { maximumFractionDigits: 4 })} МГц (${found.freqFrom})`;
     if (opts.analog) {
       try {
@@ -171,96 +146,15 @@ export class Simulation {
       this.devices = analogDevices(this.analog!);
       for (const d of this.devices) this.analogIds.add(d.id);
       this.unknown = this.analog!.skipped.map((r) => `${r} (нет модели)`);
-      this.plant = null;
       return;
     }
     const b = buildDevices(this.circuit, project, { analog: !!this.analog });
     this.devices = b.devices;
     this.unknown = b.unknown;
-    this.plant = b.plant;
     if (this.analog) this.mergeAnalogDevices(analogDevices(this.analog));
-    if (this.mcu instanceof Esp32) {
-      const esp = this.mcu;
-      const prev = esp.onVoice;
-      esp.onVoice = (track, vol) => {
-        prev?.(track, vol);
-        this.onVoice?.(track, VOICE_PHRASES[track] ?? '', vol);
-      };
-    }
     if (this.mcu instanceof Avr) this.mcu.usart.onByteTransmit = (v) => this.log(String.fromCharCode(v));
-    for (const [ref, panel] of panels) this.attachPanel(ref, panel);
-    // Беспроводной пульт (выносная деталь с меткой ble-remote), если прошивка его принимает.
-    const esp = this.mcu;
-    if (esp instanceof Esp32 && esp.hasRemote)
-      for (const comp of Object.values(project.components))
-        if ((project.footprints[comp.footprint]?.tags ?? []).includes('ble-remote')) {
-          this.remote = new BleRemote(esp);
-          this.devices.push(this.remote.device(comp));
-          this.unknown = this.unknown.filter((u) => !u.startsWith(`${comp.ref} `));
-        } else if ((project.footprints[comp.footprint]?.tags ?? []).includes('ble-tag')) {
-          // Метки на инструмент: у каждой свой номер и ключ.
-          const tag = new BleTag(esp, 0x7a6c0de + this.tags.length * 7919);
-          this.tags.push(tag);
-          this.devices.push(tag.device(comp));
-          this.unknown = this.unknown.filter((u) => !u.startsWith(`${comp.ref} `));
-        }
   }
 
-  /** Метки на инструмент (Bluetooth). */
-  tags: BleTag[] = [];
-
-  /** Беспроводной пульт в симуляции (если есть на схеме и прошивка его принимает). */
-  remote: BleRemote | null = null;
-
-  /** Пульт на своей плате: UART к контроллеру, такт 10 мс, кадр и касания. */
-  private attachPanel(ref: string, panel: PanelS3): void {
-    const esp = this.mcu;
-    const comp = Object.values(this.project.components).find((x) => x.ref === ref);
-    if (!(esp instanceof Esp32) || !comp) return;
-    this.unknown = this.unknown.filter((u) => !u.startsWith(`${ref} `));
-    const fp = this.project.footprints[comp.footprint];
-    // Экран SPI на самом контроллере (ILI9488): интерфейс пульта работает в его прошивке, строки
-    // те же, что по UART; проверяем, что экран подключён к выводам контроллера.
-    const spi = (fp?.tags ?? []).includes('ili9488');
-    // Экран 3,5″ на контроллере: интерфейс 480×320 (если прошивка экрана его умеет).
-    if (spi) panel.small = true;
-    esp.onUart = (bytes) => panel.rx(bytes);
-    panel.onTx = (bytes) => esp.uartWrite(bytes, spi);
-    const tick = () => {
-      panel.loop(esp.cycles / 1000);
-      esp.schedule(tick, 10_000);
-    };
-    esp.schedule(tick, 1);
-    const padNet = (name: string) => {
-      const pad = fp?.pads.find((q) => (q.name ?? q.number).toUpperCase() === name);
-      return pad ? comp.padNets[pad.number] : undefined;
-    };
-    const c = this.circuit;
-    // Проводка: TX пульта — к RX контроллера, RX пульта — к TX.
-    const wiring = (): string | undefined => {
-      if (spi) {
-        const bad = ['CS', 'DC', 'SCK', 'SDI'].find((name) => {
-          const g = c.netGroup.get(padNet(name) ?? '');
-          return g === undefined || !c.groups[g].pins.length;
-        });
-        return bad ? `${bad} экрана не соединён с контроллером` : undefined;
-      }
-      const u = esp.uart;
-      if (!u) return 'прошивка контроллера не открыла UART к пульту';
-      const same = (net: string | undefined, pin: McuPin) => net !== undefined && c.netGroup.get(net) !== undefined && c.netGroup.get(net) === c.pinGroup.get(pin);
-      if (!same(padNet('TX'), u.rx)) return `TX пульта не соединён с ${u.rx} контроллера (RX)`;
-      if (!same(padNet('RX'), u.tx)) return `RX пульта не соединён с ${u.tx} контроллера (TX)`;
-      return undefined;
-    };
-    this.panels.set(comp.id, panel);
-    this.devices.push({
-      id: comp.id,
-      comp,
-      view: () => ({ id: comp.id, comp: comp.id, ref, kind: 'panel', title: spi ? (panel.hasSmall ? `${ref} экран ${comp.value} (480×320, касания)` : `${ref} экран ${comp.value} (кадр интерфейса 800×480, на экране — в 0,6 раза)`) : `${ref} пульт: ${comp.value}`, width: panel.width, height: panel.height, pixels: panel.pixels(), version: panel.version, warning: wiring() }),
-    });
-  }
-
-  private panels = new Map<string, PanelS3>();
   /** Карточки аналогового расчёта (их нажатия не повторяются в расчёт второй раз). */
   private analogIds = new Set<string>();
 
@@ -283,41 +177,19 @@ export class Simulation {
     }
   }
 
-  /** Касание экрана пульта (координаты кадра 800×480). */
-  touch(id: string, x: number, y: number, down: boolean): void {
-    this.panels.get(id)?.touch(x, y, down);
-  }
-
-  /** Создать симуляцию: для ESP32 прошивка WebAssembly компилируется асинхронно. */
+  /** Создать симуляцию (для совместимости — то же, что createSync). */
   static async create(project: Project, opts: SimOptions = {}): Promise<Simulation> {
-    const found = findMcu(project);
-    if (!found) return new Simulation(project, null, new Map(), opts);
-    const fw = project.firmware;
-    if (found.kind === 'esp32') {
-      const key = nvsKey(project);
-      const esp = await Esp32.create(espFirmware(fw), {
-        s3: found.s3,
-        nvs: nvsStore.get(key),
-        onNvs: (d) => nvsStore.set(key, d),
-      });
-      const panels = new Map<string, PanelS3>();
-      for (const [ref, m] of Object.entries(fw?.modules ?? {})) panels.set(ref, await PanelS3.create(base64ToBytes(m.wasm)));
-      return new Simulation(project, esp, panels, opts);
-    }
-    if (!fw?.hex) throw new Error('Сначала загрузите прошивку (.hex) — или уберите контроллер со схемы, чтобы симулировать только схему.');
-    return new Simulation(project, fw.hex, new Map(), opts);
+    return Simulation.createSync(project, opts);
   }
 
   /** Синхронно (Node, тесты). */
-  static createSync(project: Project, opts: { nvs?: Uint8Array; onNvs?: (data: Uint8Array) => void } & SimOptions = {}): Simulation {
+  static createSync(project: Project, opts: SimOptions = {}): Simulation {
     const found = findMcu(project);
-    if (!found) return new Simulation(project, null, new Map(), opts);
-    if (found.kind === 'esp32') {
-      const panels = new Map<string, PanelS3>();
-      for (const [ref, m] of Object.entries(project.firmware?.modules ?? {})) panels.set(ref, PanelS3.createSync(base64ToBytes(m.wasm)));
-      return new Simulation(project, Esp32.createSync(espFirmware(project.firmware), { nvs: opts.nvs, onNvs: opts.onNvs, s3: found.s3 }), panels, opts);
-    }
-    return new Simulation(project, project.firmware?.hex ?? '', new Map(), opts);
+    if (!found) return new Simulation(project, null, opts);
+    if (found.kind === 'esp32') throw new Error(ESP32_OFF);
+    const fw = project.firmware;
+    if (!fw?.hex) throw new Error('Сначала загрузите прошивку (.hex) — или уберите контроллер со схемы, чтобы симулировать только схему.');
+    return new Simulation(project, fw.hex, opts);
   }
 
   private log(text: string): void {
@@ -338,7 +210,6 @@ export class Simulation {
   /** Отправить текст в порт контроллера (как из монитора порта). */
   serialWrite(text: string): void {
     const mcu = this.mcu;
-    if (mcu instanceof Esp32) return mcu.serialWrite(text);
     if (!(mcu instanceof Avr)) return;
     // Байты уходят по одному с паузой, как по настоящей линии.
     const bytes = [...new TextEncoder().encode(text)];
@@ -374,7 +245,7 @@ export class Simulation {
 
   private get baud(): number {
     const m = this.mcu;
-    return m instanceof Avr ? m.usart.baudRate : m instanceof Esp32 ? m.baud : 0;
+    return m instanceof Avr ? m.usart.baudRate : 0;
   }
 
   /** Снимок для интерфейса; сбрасывает статистику кадра (яркость ШИМ, частоты). */
@@ -395,7 +266,7 @@ export class Simulation {
     const devices = this.devices.map((d) => d.view());
     const a = this.analog;
     c.endFrame();
-    return { seconds: this.seconds, pins, devices, nets, baud: this.baud, mcu: this.mcuTitle, plant: this.plant?.view(), analog: a ? this.analogSnapshot(a) : undefined };
+    return { seconds: this.seconds, pins, devices, nets, baud: this.baud, mcu: this.mcuTitle, analog: a ? this.analogSnapshot(a) : undefined };
   }
 
   private analogSnapshot(a: AnalogSim): AnalogSnapshot {

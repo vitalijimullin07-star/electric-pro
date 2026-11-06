@@ -100,13 +100,13 @@ async function openPage(viewport, touch = false) {
   const downloads = [];
   page.on('download', (d) => downloads.push(d.suggestedFilename()));
 
-  await step('запуск: пустая плата; открытие файла import/plata-dip-razvedena — 49 цепей разведены', async () => {
+  await step('запуск: пустая плата; открытие файла import/quasar-avr-desalex — все цепи разведены', async () => {
     expect(/Разведено 0 из 0/.test(await h.chips()), 'при запуске не пусто: ' + (await h.chips()));
     const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
-    await fc.setFiles(new URL('../import/plata-dip-razvedena.plata.json', import.meta.url).pathname);
+    await fc.setFiles(new URL('../import/quasar-avr-desalex.plata.json', import.meta.url).pathname);
     await page.waitForTimeout(800);
     const c = await h.chips();
-    expect(/Разведено 49 из 49/.test(c), c);
+    expect(/Разведено (\d+) из \1\b/.test(c), c);
   });
 
   const menuItems = {
@@ -1736,133 +1736,6 @@ async function openPage(viewport, touch = false) {
     expect(/Пик: (7|8|9)[,\d]* кГц/.test(ac), 'АЧХ: ' + ac.slice(-200));
     await page.screenshot({ path: `${out}/quasar-analog.png` });
     await page.screenshot({ path: `${out}/quasar-analog-board.png`, clip: { x: 0, y: 0, width: 1000, height: 900 } });
-    await h.menu('Симуляция', 'Стоп');
-  });
-
-  await step('Пылесос ESP32: плата разведена; во весь экран — сенсорный пульт 800×480, пуск турбин, касания, графики, настройки, «Назад»', async () => {
-    await stopSim();
-    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
-    await fc.setFiles(new URL('../import/vacuum-esp32.plata.json', import.meta.url).pathname);
-    await page.waitForTimeout(1200);
-    const p = await h.project();
-    expect(p.firmware?.wasm && p.firmware.mcu === 'esp32', 'прошивка ESP32 не в проекте');
-    expect(p.firmware?.modules?.HG1?.wasm, 'прошивки пульта нет в проекте');
-    const chips = await h.chips();
-    expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
-    await page.screenshot({ path: `${out}/vacuum-board.png` });
-    await h.menu('Симуляция', 'Во весь экран');
-    const screen = page.locator('.simfs .sim-panel-screen').first();
-    const shown = await screen
-      .waitFor({ timeout: 15000 })
-      .then(() => true)
-      .catch(() => false);
-    expect(shown, 'во весь экран нет экрана пульта: ' + (await page.locator('.simfs').innerText().catch(() => '')).slice(0, 200));
-    // Экран нарисован прошивкой пульта: светлых точек много.
-    let litPx = 0;
-    for (let i = 0; i < 20 && litPx < 5000; i++) {
-      await page.waitForTimeout(250);
-      litPx = await screen.evaluate((c) => {
-        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-        let n = 0;
-        for (let k = 0; k < d.length; k += 4) if (d[k] + d[k + 1] + d[k + 2] > 150) n++;
-        return n;
-      });
-    }
-    expect(litPx > 5000, 'экран пульта пуст: ' + litPx);
-    // Касание экрана: «Режим» (слева сверху) → «Ручной».
-    const sb = await screen.boundingBox();
-    const touch = async (x, y) => {
-      await page.mouse.click(sb.x + (x / 800) * sb.width, sb.y + (y / 480) * sb.height);
-      await page.waitForTimeout(250);
-    };
-    await touch(60, 78);
-    await touch(60, 182);
-    await page.screenshot({ path: `${out}/vacuum-pult-mode.png` });
-    await touch(740, 286);
-    // «Пуск турбин» — держим 0,3 с, как пальцем.
-    const start = page.locator('.simfs-round', { hasText: 'пуск' });
-    const bb = await start.boundingBox();
-    expect(bb, 'нет кнопки «Пуск турбин»');
-    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(300);
-    await page.mouse.up();
-    let scheme = '';
-    for (let i = 0; i < 60; i++) {
-      await page.waitForTimeout(250);
-      scheme = (await page.locator('.simfs-scheme').textContent()) ?? '';
-      if (/M1 (2\d|3\d),\d тыс/.test(scheme) && /M2 (2\d|3\d),\d тыс/.test(scheme)) break;
-    }
-    expect(/M1 (2\d|3\d),\d тыс/.test(scheme) && /M2 (2\d|3\d),\d тыс/.test(scheme), 'турбины не разогнались: ' + scheme.slice(0, 300));
-    expect(/разрежение [1-9]/.test(scheme) && /расход [1-9]\d/.test(scheme), 'нет воздуха: ' + scheme.slice(0, 300));
-    expect((await page.locator('.simfs-chart canvas').count()) >= 4, 'нет графиков');
-    // Настройки: сеть 170 В — прошивка замечает по ширине импульса детектора нуля.
-    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Настройки' }));
-    const set = await page.evaluate(() => {
-      const card = [...document.querySelectorAll('.simfs-card')].find((c) => /сеть/.test(c.querySelector('summary')?.textContent ?? ''));
-      const r = card?.querySelector('input[type=range]');
-      if (!r) return false;
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(r, '170');
-      r.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    });
-    expect(set, 'нет ползунка напряжения сети');
-    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Порт' }));
-    let port = '';
-    for (let i = 0; i < 40 && !/Напряжение сети/.test(port); i++) {
-      await page.waitForTimeout(250);
-      port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
-    }
-    expect(/Напряжение сети/.test(port), 'прошивка не заметила низкое напряжение: ' + port.slice(-300));
-    expect(/Режим: ручной/.test(port) && /Пульт на связи/.test(port), 'касания пульта не дошли до контроллера: ' + port.slice(0, 400));
-    await page.screenshot({ path: `${out}/vacuum-fullscreen.png` });
-    await page.evaluate(() => history.back());
-    await page.waitForTimeout(400);
-    expect(!(await page.locator('.simfs').count()), '«Назад» не закрыл полноэкранную симуляцию');
-    await h.menu('Симуляция', 'Стоп');
-  });
-
-  await step('Пылесос S3: плата разведена; во весь экран — кнопки у экрана, «Турбина 1», продувка кнопкой 5, бак', async () => {
-    await stopSim();
-    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
-    await fc.setFiles(new URL('../import/vacuum-s3.plata.json', import.meta.url).pathname);
-    await page.waitForTimeout(1500);
-    const chips = await h.chips();
-    expect(/Ошибок 0\b/.test(chips) && /Разведено (\d+) из \1/.test(chips), 'проверка: ' + chips);
-    await page.screenshot({ path: `${out}/vacuum-s3-board.png` });
-    await h.menu('Симуляция', 'Во весь экран');
-    const screen = page.locator('.simfs .sim-panel-screen').first();
-    await screen.waitFor({ timeout: 15000 });
-    const press = async (text) => {
-      const b = page.locator('.simfs-round', { hasText: text }).first();
-      await b.scrollIntoViewIfNeeded();
-      const bb = await b.boundingBox();
-      expect(bb, 'нет кнопки ' + text);
-      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
-      await page.mouse.down();
-      await page.waitForTimeout(250);
-      await page.mouse.up();
-    };
-    await page.waitForTimeout(1500);
-    await press('турбина');
-    let scheme = '';
-    for (let i = 0; i < 60; i++) {
-      await page.waitForTimeout(250);
-      scheme = (await page.locator('.simfs-scheme').textContent()) ?? '';
-      if (/M1 (1\d|2\d|3\d),\d тыс/.test(scheme)) break;
-    }
-    expect(/M1 (1\d|2\d|3\d),\d тыс/.test(scheme), 'турбина 1 не разогналась: ' + scheme.slice(0, 300));
-    await press('5');
-    await h.hit(page.locator('.simfs-side .tabs button', { hasText: 'Порт' }));
-    let port = '';
-    for (let i = 0; i < 40 && !/Продувка/.test(port); i++) {
-      await page.waitForTimeout(250);
-      port = (await page.locator('.simfs .sim-serial').textContent()) ?? '';
-    }
-    await page.screenshot({ path: `${out}/vacuum-s3-fullscreen.png` });
-    expect(/Продувка/.test(port) && /Экран на связи/.test(port), 'кнопка 5 у экрана не дала продувку: ' + port.slice(-700));
-    await page.evaluate(() => history.back());
-    await page.waitForTimeout(400);
     await h.menu('Симуляция', 'Стоп');
   });
 

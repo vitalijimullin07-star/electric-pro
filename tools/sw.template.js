@@ -22,9 +22,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
-    // Страницы: редактор (index.html), приложение пылесоса (pylesos.html) и монтажка на макетке (maketka.html).
-    const m = /(pylesos|maketka)\.html$/.exec(new URL(req.url).pathname);
-    const page = m ? m[1] + '.html' : 'index.html';
+    // Страница одна — редактор (index.html).
+    const page = 'index.html';
     e.respondWith(
       fetch(req)
         .then((res) => {

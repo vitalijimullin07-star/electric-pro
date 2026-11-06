@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { convertLegacyBoard } from '../src/core/io/legacy-plata';
-import { VACUUM_BOARD } from '../src/core/examples/vacuum-controller/board';
+import { sampleBoard } from './helpers/sample-board';
 import { autoroute } from '../src/core/router/autoroute';
 import { addTrack, addVia, addWire, clearRouting } from '../src/core/model/edit';
 import { computeConnectivity } from '../src/core/model/connectivity';
@@ -19,8 +18,8 @@ function applyResult(p: Project, r: Awaited<ReturnType<typeof autoroute>>): Proj
 }
 
 describe('автотрассировка', () => {
-  test('плата пылесоса с нуля: один слой с перемычками, всё разведено и без ошибок', { timeout: 300_000 }, async () => {
-    const p = convertLegacyBoard(VACUUM_BOARD).project;
+  test('образец платы с нуля: один слой с перемычками, всё разведено и без ошибок', { timeout: 300_000 }, async () => {
+    const p = sampleBoard();
     clearRouting(p);
     const r = await autoroute(p, { iterations: 40, hopCost: 60, yieldEvery: 1000 });
     const q = applyResult(p, r);

@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { unzipSync, strFromU8 } from 'fflate';
-import { convertLegacyBoard } from '../src/core/io/legacy-plata';
-import { VACUUM_BOARD } from '../src/core/examples/vacuum-controller/board';
+import { boardSize, sampleBoard } from './helpers/sample-board';
 import { exportGerbers } from '../src/core/io/gerber';
 import { exportCopperSvg, exportAssemblySvg } from '../src/core/io/svg-export';
 import { bomRows, exportBomCsv, exportNetlistText, exportPickPlaceCsv } from '../src/core/io/bom';
@@ -11,7 +10,8 @@ import { textStrokes, unsupportedChars } from '../src/core/render/stroke-font';
 import { computeConnectivity } from '../src/core/model/connectivity';
 import { runDrc } from '../src/core/model/drc';
 
-const p = convertLegacyBoard(VACUUM_BOARD).project;
+const p = sampleBoard();
+const size = boardSize(p);
 
 describe('экспорт', () => {
   test('Gerber: слои и сверловка, правильные заголовки, координаты в пределах платы', () => {
@@ -32,9 +32,9 @@ describe('экспорт', () => {
     const coords = [...cu.matchAll(/X(-?\d+)Y(-?\d+)D0[123]\*/g)].map((m) => [+m[1] / 1e6, +m[2] / 1e6]);
     for (const [x, y] of coords) {
       expect(x).toBeGreaterThanOrEqual(-0.01);
-      expect(x).toBeLessThanOrEqual(203.3);
+      expect(x).toBeLessThanOrEqual(size.w + 0.1);
       expect(y).toBeGreaterThanOrEqual(-0.01);
-      expect(y).toBeLessThanOrEqual(132.2);
+      expect(y).toBeLessThanOrEqual(size.h + 0.1);
     }
     const drl = files.find((f) => f.layer === 'PTH')!.content;
     expect(drl).toMatch(/^M48/);
@@ -45,7 +45,7 @@ describe('экспорт', () => {
 
   test('SVG меди и сборочный вид', () => {
     const svg = exportCopperSvg(p, 'B.Cu');
-    expect(svg).toMatch(/^<svg[^>]+width="203\.2mm"/);
+    expect(svg).toMatch(new RegExp(`^<svg[^>]+width="${size.w}mm"`));
     expect(svg.match(/<circle/g)!.length).toBeGreaterThan(100);
     const asm = exportAssemblySvg(p);
     expect(asm).toContain('<path');
@@ -54,12 +54,12 @@ describe('экспорт', () => {
 
   test('перечень элементов и расстановка', () => {
     const rows = bomRows(p);
-    const r10k = rows.find((r) => r.value === '10k' && r.footprint === 'R_1206_3216Metric');
-    expect(r10k?.qty).toBe(4);
+    const parts = Object.values(p.components).filter((c) => !/^H\d+$/.test(c.ref));
+    expect(rows.reduce((k, r) => k + r.qty, 0)).toBe(parts.length);
     expect(rows.some((r) => r.refs.includes('H1'))).toBe(false);
     const csv = exportBomCsv(p);
     expect(csv.startsWith('﻿№;Позиции;Кол-во')).toBe(true);
-    expect(exportPickPlaceCsv(p)).toContain('U1;ESP32;ESP32 DevKit 30;');
+    expect(exportPickPlaceCsv(p)).toContain('U2;');
     expect(exportNetlistText(p)).toContain('GND');
   });
 
@@ -106,7 +106,7 @@ describe('экспорт', () => {
 describe('имена файлов', () => {
   test('латиница без пробелов, кириллица транслитерируется', async () => {
     const { safeName } = await import('../src/core/io/gerber');
-    expect(safeName('Плата контроллера пылесоса')).toBe('Plata_kontrollera_pylesosa');
+    expect(safeName('Плата контроллера')).toBe('Plata_kontrollera');
     expect(safeName('  ESP32 — блок №2 (v1.0) ')).toBe('ESP32_blok_No2_v1_0');
     expect(safeName('Щёткин Ёж')).toBe('Schetkin_Ezh');
     expect(safeName('***')).toBe('plata');

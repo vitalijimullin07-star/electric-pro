@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { parseProjectFile } from '../src/core/io/project-file';
-import { componentPinCurrents, netCurrents, netWidth, parseAmps, widthForCurrent } from '../src/core/model/currents';
+import { netWidth, parseAmps, widthForCurrent } from '../src/core/model/currents';
 import { applyFit, fitTrackWidths, fitTrackWidthsSafe } from '../src/core/model/track-fit';
 import { addComponent, addTrack, connectPad, ensureNet } from '../src/core/model/edit';
 import { createProject } from '../src/core/model/project';
@@ -16,12 +14,6 @@ import type { Project } from '../src/core/model/types';
  * (расширение, где хватает зазора, и сужение у чужой меди), замечания проверки правил.
  */
 
-function file(name: string): Project {
-  const r = parseProjectFile(readFileSync(name, 'utf8'));
-  if (r.kind !== 'project') throw new Error('не проект');
-  return r.project;
-}
-const byName = (p: Project, name: string) => Object.values(p.nets).find((n) => n.name === name)!.id;
 /** Ошибки проверки правил, кроме неразведённых цепей (на пробных платах резисторы нарочно не соединены). */
 const errors = (p: Project) => runDrc(structuredClone(p)).markers.filter((m) => m.severity === 'error' && m.code !== 'unrouted').map((m) => m.message);
 
@@ -45,44 +37,6 @@ describe('ток и ширина', () => {
     expect(parseAmps('BTA41-600B')).toBeNull();
   });
 
-  test('плата пылесоса ESP32: токи по стабилизаторам, модулям, предохранителю, трансформатору', () => {
-    const p = file('import/vacuum-esp32.plata.json');
-    const cur = netCurrents(p);
-    const I = (name: string) => cur.get(byName(p, name))?.current ?? 0;
-    // Понижающий AP63205 — 2 А: выход, ключ SW и земля; вход — примерно половина.
-    expect(I('SW5')).toBeCloseTo(2, 5);
-    expect(I('5V')).toBeGreaterThanOrEqual(2);
-    expect(I('GND')).toBeGreaterThanOrEqual(2);
-    expect(I('+12V')).toBeCloseTo(1, 5);
-    // AMS1117 — 1 А; предохранитель T1A — 1 А; вторичная обмотка 10 ВА / 9 В — 1,1 А.
-    expect(I('3V3')).toBeCloseTo(1, 5);
-    expect(I('L')).toBeCloseTo(1, 5);
-    expect(I('AC1')).toBeCloseTo(10 / 9, 3);
-    // Цепь ключа турбины на плате — только управление оптрона: ток мотора по ней не идёт.
-    expect(I('M1_SW')).toBe(0);
-    // Выводы стабилизатора: вход, выход, земля — по 1 А.
-    const da2 = Object.values(p.components).find((c) => c.ref === 'DA2')!;
-    const pins = componentPinCurrents(p, da2);
-    expect([...pins.values()].map((x) => x.current)).toEqual([1, 1, 1, 1]);
-    // Ширина: по току шире класса Power (0,4 мм).
-    expect(netWidth(p, byName(p, 'SW5')).width).toBeCloseTo(0.8, 5);
-    expect(netWidth(p, byName(p, '3V3')).width).toBeCloseTo(0.4, 5);
-    // Ток, заданный вручную, главнее оценки.
-    const q = structuredClone(p);
-    q.nets[byName(q, 'N')].current = 1;
-    const n = netCurrents(q).get(byName(q, 'N'))!;
-    expect(n.manual).toBe(true);
-    expect(n.current).toBe(1);
-    expect(netWidth(q, byName(q, 'N')).capped).toBe(false);
-  });
-
-  test('плата на выводных деталях: HLK-PM01 — 0,6 А, предохранители 0,5 А; классы и так шире', () => {
-    const p = file('import/plata-dip.plata.json');
-    const cur = netCurrents(p);
-    expect(cur.get(byName(p, '5V'))!.current).toBeCloseTo(0.6, 5);
-    expect(cur.get(byName(p, 'AC_L'))!.current).toBeCloseTo(0.5, 5);
-    for (const id of cur.keys()) expect(netWidth(p, id).width).toBeCloseTo(netWidth(p, id).classWidth, 5);
-  });
 });
 
 /** Плата: SOIC-8 и клеммник, цепь PWR на 3 А между ними; посредине — два резистора чужой цепи с узким проходом. */
@@ -154,24 +108,6 @@ describe('подгонка ширины', () => {
     const after = runDrc(done).markers.filter((m) => m.code === 'width');
     expect(after).toHaveLength(1);
     expect(after[0].items.length).toBeLessThan(tracks.length);
-  });
-
-  test('плата пылесоса ESP32: расширение не рвёт заливку и не добавляет ошибок', () => {
-    const p = file('import/vacuum-esp32.plata.json');
-    expect(errors(p)).toEqual([]);
-    const fit = fitTrackWidthsSafe(p);
-    const names = fit.nets.map((n) => p.nets[n.net].name);
-    expect(names).toEqual(expect.arrayContaining(['SW5', 'GND', '5V']));
-    const q = structuredClone(p);
-    applyFit(q, fit);
-    const done = structuredClone(q);
-    expect(errors(done)).toEqual([]);
-    expect(computeConnectivity(done).unrouted).toBe(0);
-    // Тронуты только цепи, которым по току нужно шире класса (сужения сигнальных дорожек — нет).
-    for (const id of fit.remove) {
-      const nw = netWidth(p, computeConnectivity(p).itemNet.get(id) as string);
-      expect(nw.width).toBeGreaterThan(nw.classWidth);
-    }
   });
 
   test('вариант автотрассировки: дорожки сильноточной цепи шире класса', async () => {

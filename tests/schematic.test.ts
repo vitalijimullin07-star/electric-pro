@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { convertLegacyBoard } from '../src/core/io/legacy-plata';
-import { VACUUM_BOARD } from '../src/core/examples/vacuum-controller/board';
+import { sampleBoard } from './helpers/sample-board';
 import { libraryFootprint, libraryFootprints } from '../src/core/library';
 import { addComponent, connectPad, ensureNet } from '../src/core/model/edit';
 import { createProject } from '../src/core/model/project';
@@ -32,8 +31,9 @@ describe('схема', () => {
     expect(symToWorld({ x: 5.08, y: 0 }, { x: 10, y: 10 }, 0, true)).toEqual({ x: 4.92, y: 10 });
   });
 
-  test('схема из платы пылесоса и обратно: цепи на плате не меняются', () => {
-    const p = structuredClone(convertLegacyBoard(VACUUM_BOARD).project);
+  test('схема из образца платы и обратно: цепи на плате не меняются', () => {
+    const p = structuredClone(sampleBoard());
+    p.schematic = undefined;
     const before = JSON.stringify(Object.values(p.components).map((c) => [c.ref, Object.entries(c.padNets).map(([k, v]) => [k, p.nets[v].name]).sort()]));
     const n = syncSymbolsFromBoard(p);
     expect(n).toBeGreaterThan(40);

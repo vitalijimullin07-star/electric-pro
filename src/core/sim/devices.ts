@@ -1,13 +1,10 @@
 import type { TWIEventHandler, AVRTWI } from 'avr8js';
 import type { Component, FootprintDef, Id, Project } from '../model/types';
 import { parseOhms, type Circuit, type Level } from './circuit';
-import { Esp32 } from './esp32';
 import { Hd44780 } from './hd44780';
 import { Avr, type McuPin } from './mcu';
 import { CoilModel } from './metal-detector';
 import { Ssd1306 } from './ssd1306';
-import { placeOf, VacuumPlant } from './vacuum';
-import { VOICE_PHRASES } from './voice-phrases';
 
 /*
  * Детали вокруг контроллера: распознаются по корпусу из библиотеки и именам выводов,
@@ -75,6 +72,9 @@ export interface Device {
 const up = (s: string | undefined) => (s ?? '').toUpperCase();
 
 /** Выводы корпуса по имени (без учёта регистра). */
+/** Где стоит датчик (поле детали) — для подписи. */
+const placeOf = (c: Component): string => c.fields?.['Где стоит'] ?? '';
+
 function padsOf(fp: FootprintDef): Map<string, string[]> {
   const m = new Map<string, string[]>();
   for (const p of fp.pads) {
@@ -176,8 +176,6 @@ export interface BuildResult {
   devices: Device[];
   /** Детали, которые симуляция не знает (для подсказки). */
   unknown: string[];
-  /** Установка «пылесос», если она есть на схеме. */
-  plant: VacuumPlant | null;
 }
 
 export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } = {}): BuildResult {
@@ -196,15 +194,11 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
     coils.push(coil);
     devices.push({ id: comp.id, comp, view: () => coil.view(), set: (k, v) => coil.set(k, v), act: (k) => coil.act(k) });
   }
-  // Установка «пылесос»: сеть, симисторы, двигатели, пневматика.
-  const plant = VacuumPlant.detect(c, p);
-  if (plant) devices.push(...plant.devices);
   const i2c = new I2cNetwork();
   const avr = mcu instanceof Avr ? mcu : null;
   const sda = c.pinGroup.get('PC4');
   const scl = c.pinGroup.get('PC5');
   if (avr) avr.twi.eventHandler = new TwiBus(avr.twi, i2c, sda, scl);
-  if (mcu instanceof Esp32) mcu.i2cTransfer = (sdaPin, sclPin, addr, write, len) => i2c.transfer(c.pinGroup.get(sdaPin), c.pinGroup.get(sclPin), addr, write, len);
   const spiDevs: { cs: number | undefined; next: () => number }[] = [];
   if (avr)
     avr.spi.onTransfer = () => {
@@ -214,7 +208,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
   const hasLcd2004 = Object.values(p.components).some((x) => /LCD2004/.test(x.footprint));
 
   for (const comp of Object.values(p.components)) {
-    if (comp.id === c.mcuComp.id || plant?.claimed.has(comp.id)) continue;
+    if (comp.id === c.mcuComp.id) continue;
     const fp = p.footprints[comp.footprint];
     if (!fp || (fp.tags ?? []).includes('dd-coil')) continue;
     const tags = fp.tags ?? [];
@@ -810,7 +804,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
     if ((tags.includes('ntc') || /NTC/i.test(id)) && fp.pads.filter((q) => q.type !== 'npth').length === 2) {
       const r25 = parseOhms(comp.value) ?? 10_000;
       const b = +(/B\s*=?\s*(\d{4})/i.exec(comp.value)?.[1] ?? 3950);
-      const src = plant?.temperatureOf(placeOf(comp)) ?? null;
+      const src = null as (() => number) | null;
       const params = [...(src ? [] : [param('t', 'температура', 25, -40, 200, 0.5, '°C')]), { ...param('fault', 'датчик', 0, 0, 2, 1, ''), options: ['исправен', 'обрыв', 'замыкание'] }];
       const temp = () => (src ? src() : params[0].value);
       const ohms = () => {
@@ -975,7 +969,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
 
     // --- весы: АЦП NAU7802 (I²C 0x2A) и тензодатчик под колесом бака ---
     if (/NAU7802/i.test(`${comp.value} ${id}`) || tags.includes('nau7802')) {
-      const mass = plant?.massOf() ?? null;
+      const mass = null as (() => number) | null;
       const params = [...(mass ? [] : [param('kg', 'масса', 10, 0, 100, 0.1, 'кг')]), param('extra', 'груз сверху (калибровка)', 0, 0, 50, 0.5, 'кг'), { ...param('fault', 'тензодатчик', 0, 0, 1, 1, ''), options: ['исправен', 'обрыв'] }];
       const kg = () => (mass ? mass() : params[0].value) + params[params.length - 2].value;
       /* Отсчёты АЦП: смещение моста и ~8000 на кг (усиление 128, датчик 50 кг 1 мВ/В), шум ±12. */
@@ -1117,7 +1111,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
     // --- воздух: BME280 / BMP280 (I²C 0x76): температура, влажность, давление ---
     if (/BME280|BMP280/i.test(`${comp.value} ${id}`) || tags.includes('bme280') || tags.includes('bmp280')) {
       const bme = !/BMP280/i.test(comp.value);
-      const amb = plant?.ambient() ?? null;
+      const amb = null as (() => number) | null;
       const params = [...(amb ? [] : [param('t', 'температура', 22, -20, 60, 0.5, '°C')]), param('rh', 'влажность', 45, 0, 100, 1, '%'), param('hpa', 'давление', 1005, 900, 1080, 1, 'гПа')];
       const get = (k: string) => params.find((x) => x.key === k)!.value;
       const t = () => (amb ? amb() : get('t'));
@@ -1174,33 +1168,6 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       continue;
     }
 
-    // --- голос: плеер DFPlayer Mini (команды по UART — от прошивки через hal_voice_write) ---
-    if (/DFPlayer/i.test(`${comp.value} ${id}`) || tags.includes('dfplayer')) {
-      let last = 0;
-      let lastAt = -1;
-      let count = 0;
-      if (mcu instanceof Esp32) {
-        const prev = mcu.onVoice;
-        mcu.onVoice = (track, vol) => {
-          last = track;
-          lastAt = mcu.cycles;
-          count++;
-          prev?.(track, vol);
-        };
-      }
-      use('VCC', 'GND', 'RX', 'TX', 'SPK1', 'SPK2');
-      devices.push({
-        id: comp.id,
-        comp,
-        view: () => {
-          const esp = mcu instanceof Esp32 ? mcu : null;
-          const ago = lastAt >= 0 ? (mcu.cycles - lastAt) / mcu.freq : -1;
-          const text = last ? `«${VOICE_PHRASES[last] ?? `фраза ${last}`}»${ago >= 0 && ago < 4 ? ' — говорит' : ''}` : 'молчит';
-          return { id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} голос DFPlayer: ${text}`, readings: [{ label: 'громкость', value: esp?.voiceVolume ?? 0, unit: '/30' }, { label: 'фраз', value: count, unit: '' }], warning: esp && !esp.voiceOn && mcu.cycles > mcu.freq * 6 ? 'линия 5 не отдана голосу (голос выключен или по UART говорит пульт)' : undefined };
-        },
-      });
-      continue;
-    }
     if (tags.includes('speaker') && !opts.analog) {
       devices.push({ id: comp.id, comp, view: () => ({ id: comp.id, comp: comp.id, ref: comp.ref, kind: 'sensor', title: `${comp.ref} динамик ${comp.value}` }) });
       continue;
@@ -1213,7 +1180,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       const sdpAddr = /SDP8\d1/i.test(comp.value) ? 0x26 : 0x25;
       const range = /125/.test(comp.value) ? 125 : /25\s*Pa/i.test(comp.value) ? 25 : 500;
       const scale = range === 125 ? 240 : range === 25 ? 1200 : 60;
-      const src = plant?.pressureOf(placeOf(comp)) ?? null;
+      const src = null as (() => number) | null;
       const params = [...(src ? [] : [param('dp', 'перепад', 0, -range, range, 1, 'Па')]), { ...param('fault', 'связь', 0, 0, 1, 1, ''), options: ['есть', 'нет (обрыв провода)'] }];
       const dp = () => (src ? src() : params[0].value);
       let measuring = false;
@@ -1279,7 +1246,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       const vs = g('VS');
       const k = /5050/.test(comp.value) ? 0.018 : /5010/.test(comp.value) ? 0.09 : /5500/.test(comp.value) ? 0.0018 : 0.009;
       const fullKpa = /5050/.test(comp.value) ? 50 : /5010/.test(comp.value) ? 10 : /5500/.test(comp.value) ? 500 : 100;
-      const src = plant?.pressureOf(placeOf(comp)) ?? null;
+      const src = null as (() => number) | null;
       const params = [...(src ? [] : [param('p', 'давление', fullKpa / 5, 0, fullKpa, fullKpa / 500, 'кПа')]), { ...param('fault', 'датчик', 0, 0, 1, 1, ''), options: ['исправен', 'обрыв выхода'] }];
       const kpa = () => (src ? src() / 1000 : params[0].value);
       const volts = () => (params[params.length - 1].value ? 0 : (vs !== undefined ? c.voltsOf(vs) || 5 : 5) * (k * Math.max(0, kpa()) + 0.04));
@@ -1299,7 +1266,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
     }
 
     // --- трансформатор тока без установки: ток задаётся ползунком (50 Гц) ---
-    if (tags.includes('current-transformer') && !plant) {
+    if (tags.includes('current-transformer')) {
       const s1 = comp.padNets[fp.pads.find((q) => up(q.name) === 'S1')?.number ?? ''];
       const s2 = comp.padNets[fp.pads.find((q) => up(q.name) === 'S2')?.number ?? ''];
       const ratio = +(/(\d+)\s*[:/]\s*1\b/.exec(comp.value)?.[1] ?? 1000);
@@ -1345,7 +1312,7 @@ export function buildDevices(c: Circuit, p: Project, opts: { analog?: boolean } 
       if (!added && Object.keys(comp.padNets).length) unknown.push(`${comp.ref} (${fp.name})`);
     }
   }
-  return { devices, unknown, plant };
+  return { devices, unknown };
 }
 
 /** Потенциометр или аналоговый выход: напряжение на цепи = доля × (верх − низ) + низ. */

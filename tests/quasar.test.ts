@@ -131,7 +131,7 @@ describe('Квазар AVR (DesAlex)', () => {
   });
 
   test('аналоговый расчёт: настоящая цепь TX/RX, металлы по фазе вихревых токов', () => {
-    const sim = new Simulation(p, p.firmware!.hex, new Map(), { analog: true, analogDt: 2e-6 });
+    const sim = new Simulation(p, p.firmware!.hex, { analog: true, analogDt: 2e-6 });
     expect(sim.analogError).toBeNull();
     const a = sim.analog!;
     const volts = (name: string) => a.netVolts(Object.values(p.nets).find((n) => n.name === name)!.id)!;

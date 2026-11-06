@@ -86,7 +86,7 @@ describe('библиотека корпусов', () => {
     expect(noGroup.map((f) => f.id)).toEqual([]);
   });
 
-  test('старые идентификаторы на месте (их использует плата пылесоса)', () => {
+  test('старые идентификаторы на месте (ими пользуются сохранённые проекты)', () => {
     for (const id of ['R_1206_3216Metric', 'C_1206_3216Metric', 'R_Axial_0.25W_L6.3mm_D2.5mm_P10.16mm_Horizontal', 'R_Axial_1W_L11mm_D4mm_P15.24mm_Horizontal', 'C_Rect_L7.2mm_W2.5mm_P5.08mm', 'CP_Radial_D8mm_P3.5mm', 'RV_Disc_D14mm_P7.5mm', 'Fuseholder_Clip-5x20mm_P22.6mm_Horizontal', 'Buzzer_12x9.5RM7.6', 'TO-92_Inline_Wide', 'DIP-6_W7.62mm', 'TerminalBlock_1x02_P5.08mm', 'PinHeader_1x10_P2.54mm', 'Module_ESP32_DevKit_30pin', 'Module_HLK-PM01', 'MountingHole_3.2mm_M3'])
       expect(libraryFootprint(id), id).toBeTruthy();
   });

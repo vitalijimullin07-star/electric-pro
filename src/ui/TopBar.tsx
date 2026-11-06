@@ -150,7 +150,7 @@ export async function openProject(): Promise<void> {
       } catch {
         /* хранилище недоступно — проект всё равно открыт */
       }
-    } else s.setMessage('Это файл первой версии Plata (плата пылесоса) — такие файлы больше не открываются.');
+    } else s.setMessage('Это файл первой версии Plata — такие файлы больше не открываются.');
   } catch (e) {
     s.setMessage((e as Error).message || 'Не удалось открыть файл.');
   }
@@ -303,7 +303,7 @@ export function TopBar() {
       id: 'sim',
       label: 'Симуляция',
       items: [
-        { label: 'Загрузить прошивку (.hex, .wasm)…', action: () => void loadFirmware() },
+        { label: 'Загрузить прошивку (.hex)…', action: () => void loadFirmware() },
         s.sim.status === 'running'
           ? { label: 'Пауза', action: () => simRuntime.pause() }
           : { label: s.sim.status === 'paused' ? 'Продолжить' : 'Старт', action: () => (s.sim.status === 'paused' ? simRuntime.resume() : (simRuntime.start(), s.patch({ panelTab: 'sim', panelOpen: true }))), disabled: !p.firmware && hasMcu(p) },

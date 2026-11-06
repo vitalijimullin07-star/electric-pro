@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { convertLegacyBoard } from '../src/core/io/legacy-plata';
-import { VACUUM_BOARD } from '../src/core/examples/vacuum-controller/board';
+import { boardSize, sampleBoard } from './helpers/sample-board';
 import { libraryFootprint } from '../src/core/library';
 import { computeConnectivity, getTeardrops } from '../src/core/model/connectivity';
 import { runDrc } from '../src/core/model/drc';
@@ -58,10 +57,10 @@ describe('каплевидные переходы', () => {
     expect(runDrc(q).errors).toBe(0);
   });
 
-  test('плата пылесоса с каплями и полигоном: без ошибок, всё разведено', () => {
-    const p = structuredClone(convertLegacyBoard(VACUUM_BOARD).project);
+  test('образец платы с каплями и полигоном: без ошибок, всё разведено', () => {
+    const p = structuredClone(sampleBoard());
     p.rules.teardrops = true;
-    addZone(p, { layer: 'B.Cu', net: findNetByName(p, 'GND')!.id, outline: rectOutline(203.2, 132.08), clearance: 0.4, minWidth: 0.3, priority: 0 });
+    addZone(p, { layer: 'B.Cu', net: findNetByName(p, 'GND')!.id, outline: rectOutline(boardSize(p).w, boardSize(p).h), clearance: 0.4, minWidth: 0.3, priority: 0 });
     const q = structuredClone(p);
     const c = computeConnectivity(q);
     expect(c.teardrops.length).toBeGreaterThan(80);

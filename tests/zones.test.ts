@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { convertLegacyBoard } from '../src/core/io/legacy-plata';
-import { VACUUM_BOARD } from '../src/core/examples/vacuum-controller/board';
+import { sampleBoard } from './helpers/sample-board';
 import { libraryFootprint } from '../src/core/library';
 import { computeConnectivity, getZoneFills } from '../src/core/model/connectivity';
 import { runDrc } from '../src/core/model/drc';
@@ -8,7 +7,7 @@ import { addComponent, addRuleArea, addTrack, addVia, addZone, connectPad, ensur
 import { createProject, rectOutline } from '../src/core/model/project';
 import { getWorld } from '../src/core/model/world';
 import { distPointShape } from '../src/core/math/shape';
-import { distToPolygonEdge, pointInPolygon, signedArea } from '../src/core/math/geom';
+import { pointInPolygon, signedArea } from '../src/core/math/geom';
 import { exportGerbers } from '../src/core/io/gerber';
 import { exportCopperSvg } from '../src/core/io/svg-export';
 import type { Project } from '../src/core/model/types';
@@ -196,8 +195,8 @@ describe('полигоны меди', () => {
     expect(svg).toContain('fill-rule="evenodd"');
   });
 
-  test('плата пылесоса с полигоном GND снизу: без ошибок, всё разведено', () => {
-    const p = structuredClone(convertLegacyBoard(VACUUM_BOARD).project);
+  test('образец платы с полигоном GND снизу: без ошибок, всё разведено', () => {
+    const p = structuredClone(sampleBoard());
     const gnd = findNetByName(p, 'GND')!;
     addZone(p, { layer: 'B.Cu', net: gnd.id, outline: p.board.outline.map((q) => ({ ...q })), clearance: 0.4, minWidth: 0.3, priority: 0 });
     const q = structuredClone(p);
@@ -208,11 +207,6 @@ describe('полигоны меди', () => {
     expect(c.shorts).toHaveLength(0);
     expect(c.zoneFills[0].islands.length).toBeGreaterThan(0);
     expect(runDrc(q).markers.filter((m) => m.severity === 'error')).toHaveLength(0);
-    // Зона 230 В: полигон земли туда не заходит.
-    const mains = Object.values(q.ruleAreas).find((r) => r.onlyClasses?.length);
-    expect(mains).toBeTruthy();
-    const deep = c.zoneFills[0].loops.flat().filter((pt) => pointInPolygon(pt, mains!.outline) && distToPolygonEdge(pt, mains!.outline) > 0.05);
-    expect(deep).toHaveLength(0);
     expect(ms).toBeLessThan(2000);
   });
 });

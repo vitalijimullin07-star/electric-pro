@@ -3,7 +3,7 @@ import { libraryFootprint } from '../src/core/library';
 import { addComponent, addTrack, addVia, connectPad, ensureNet } from '../src/core/model/edit';
 import { createProject } from '../src/core/model/project';
 import { defaultFabProfile, dfmReportText, fabProfile, runDfm } from '../src/core/fab/dfm';
-import { EXAMPLES } from '../src/core/examples';
+import { sampleBoard } from './helpers/sample-board';
 
 describe('проверка для производства', () => {
   test('чистая плата: замечаний нет, параметры заказа посчитаны', () => {
@@ -73,8 +73,8 @@ describe('проверка для производства', () => {
     expect(r.order.find((o) => o.label === 'Маска')!.value).toMatch(/нет/);
   });
 
-  test('плата пылесоса проверяется по всем профилям за разумное время', () => {
-    const p = EXAMPLES[0].create();
+  test('образец платы проверяется по всем профилям за разумное время', () => {
+    const p = sampleBoard();
     for (const id of ['typical', 'gost3', 'gost4', 'gost5', 'home']) {
       const r = runDfm(p, fabProfile(id));
       expect(r.order.length).toBeGreaterThan(10);

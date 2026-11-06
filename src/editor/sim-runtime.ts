@@ -15,13 +15,6 @@ const BUDGET_MS = 12;
 
 type Listener = () => void;
 
-/** Показания установки для графиков: раз в 0,1 с времени симуляции, последние ~2 минуты. */
-export interface SimHistory {
-  t: number[];
-  s: Record<string, number[]>;
-}
-const HISTORY_MAX = 1200;
-
 function readPref(key: string, def: string): string {
   try {
     return localStorage.getItem(key) ?? def;
@@ -57,7 +50,6 @@ class SimRuntime {
   private speedAcc = { sim: 0, wall: 0 };
   private startId = 0;
   sound = true;
-  history: SimHistory = { t: [], s: {} };
   /** Аналоговый расчёт схемы (токи и напряжения, номиналы на ходу), шаг и шум — на следующий запуск. */
   analog = readPref('plata.sim.analog', '1') === '1';
   analogDt = Number(readPref('plata.sim.dt', '2e-6')) || 2e-6;
@@ -86,14 +78,14 @@ class SimRuntime {
     s.patch({ sim: { ...s.sim, ...p, tick: s.sim.tick + 1 } });
   }
 
-  /** Запуск с начала (прошивка из проекта). Прошивка ESP32 (WebAssembly) компилируется асинхронно. */
+  /** Запуск с начала (прошивка из проекта). */
   start(): void {
     const s = useEditor.getState();
     const fw = s.project.firmware;
     this.stop(true);
     const withMcu = !!findMcu(s.project);
     if (!fw && withMcu) {
-      this.patch({ error: 'Сначала загрузите прошивку (.hex или .wasm). Без контроллера на схеме симуляция идёт и без прошивки.', status: 'off' });
+      this.patch({ error: 'Сначала загрузите прошивку (.hex). Без контроллера на схеме симуляция идёт и без прошивки.', status: 'off' });
       return;
     }
     // Звук разрешается только из обработчика нажатия — заводим его сразу, до ожидания.
@@ -111,10 +103,7 @@ class SimRuntime {
         if (id !== this.startId) return;
         this.sim = sim;
         this.synced = project;
-        // Голос пылесоса: фразы DFPlayer произносит браузер.
-        sim.onVoice = (_track, text, volume) => this.say(text, volume);
         if (sim.analog) sim.analog.engine.noise = this.noise;
-        this.history = { t: [], s: {} };
         this.view = sim.view();
         this.patch({ status: 'running', error: null, seconds: 0, speed: 0 });
         useEditor
@@ -122,7 +111,7 @@ class SimRuntime {
           .setMessage(
             sim.noMcu
               ? 'Симуляция схемы без контроллера: схема включается с нуля, как при подаче питания. Кнопки и тумблеры на плате нажимаются касанием; тройной щелчок или удержание на детали — её параметры на ходу; осциллограф и генераторы — на вкладке «Симуляция → Цепь».'
-              : `Симуляция идёт: ${fw?.name}. Кнопки на плате нажимаются касанием, тройной щелчок или удержание на детали — её параметры на ходу; монитор порта — на вкладке «Симуляция»; «Во весь экран» — пульт и графики.`,
+              : `Симуляция идёт: ${fw?.name}. Кнопки на плате нажимаются касанием, тройной щелчок или удержание на детали — её параметры на ходу; монитор порта — на вкладке «Симуляция»; «Во весь экран» — экраны и кнопки крупно.`,
           );
         this.last = performance.now();
         this.loop();
@@ -133,23 +122,6 @@ class SimRuntime {
         this.patch({ error: e.message, status: 'off' });
       },
     );
-  }
-
-  /** Произнести фразу голосом браузера (громкость 0…30, как у DFPlayer). */
-  private say(text: string, volume: number): void {
-    try {
-      const synth = globalThis.speechSynthesis;
-      if (!synth || !text || !volume) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ru-RU';
-      u.volume = Math.max(0, Math.min(1, volume / 30));
-      u.rate = 1.05;
-      const ru = synth.getVoices().find((v) => v.lang.startsWith('ru'));
-      if (ru) u.voice = ru;
-      synth.speak(u);
-    } catch {
-      /* голоса в браузере нет — не страшно */
-    }
   }
 
   pause(): void {
@@ -184,7 +156,7 @@ class SimRuntime {
     const dt = Math.min(50, now - this.last);
     this.last = now;
     const target = Math.round((dt / 1000) * sim.mcu.freq * this.timeScale);
-    // Порция — 1 мс времени контроллера (у AVR 16 000 тактов, у ESP32 такт — микросекунда).
+    // Порция — 1 мс времени контроллера (у AVR 16 000 тактов).
     const slice = Math.max(100, Math.round(sim.mcu.freq / 1000));
     const t0 = performance.now();
     // Кадр и так медленный (отрисовка на слабом устройстве) — расчёту можно отдать больше,
@@ -199,7 +171,6 @@ class SimRuntime {
     this.speedAcc.sim += done / sim.mcu.freq;
     this.speedAcc.wall += dt / 1000;
     this.view = sim.view();
-    this.record();
     this.updateSound();
     this.emit();
     const st = useEditor.getState().sim;
@@ -218,37 +189,9 @@ class SimRuntime {
     for (const l of this.listeners) l();
   }
 
-  /** Во весь экран: пульт, мнемосхема установки, графики. */
+  /** Во весь экран: экраны, кнопки и детали крупно. */
   setFull(on: boolean): void {
     this.patch({ full: on });
-  }
-
-  private record(): void {
-    const v = this.view;
-    const p = v?.plant;
-    if (!v || !p) return;
-    const h = this.history;
-    if (h.t.length && v.seconds - h.t[h.t.length - 1] < 0.1) return;
-    const m = p.motors;
-    const vals: Record<string, number> = {
-      rpm1: m[0]?.rpm ?? 0,
-      rpm2: m[1]?.rpm ?? 0,
-      amps1: m[0]?.amps ?? 0,
-      amps2: m[1]?.amps ?? 0,
-      temp1: m[0]?.temp ?? 0,
-      temp2: m[1]?.temp ?? 0,
-      vacuum: p.air.vacuum,
-      flow: p.air.flow,
-      filter: p.air.filterDp,
-      volts: p.mains.volts,
-      tool: p.tool?.amps ?? 0,
-    };
-    h.t.push(v.seconds);
-    for (const [k, x] of Object.entries(vals)) (h.s[k] ??= []).push(x);
-    if (h.t.length > HISTORY_MAX) {
-      h.t.splice(0, 200);
-      for (const a of Object.values(h.s)) a.splice(0, 200);
-    }
   }
 
   /** Перерисовать снимок без хода времени (после нажатия кнопки на паузе). */
@@ -292,12 +235,6 @@ class SimRuntime {
   /** Действие устройства: провести катушкой над целью. */
   act(id: string, key: string): void {
     this.sim?.act(id, key);
-    if (!this.running) this.refresh();
-  }
-
-  /** Касание экрана пульта (координаты кадра). */
-  touch(id: string, x: number, y: number, down: boolean): void {
-    this.sim?.touch(id, x, y, down);
     if (!this.running) this.refresh();
   }
 
@@ -380,11 +317,6 @@ class SimRuntime {
       }
     }
     this.tones.clear();
-    try {
-      globalThis.speechSynthesis?.cancel();
-    } catch {
-      /* нет голоса */
-    }
   }
 }
 

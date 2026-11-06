@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '@editor/store';
 import { simRuntime } from '@editor/sim-runtime';
 import { findMcu } from '@core/sim/circuit';
 import { parseHex } from '@core/sim/hex';
 import type { DeviceView, SimView } from '@core/sim';
 import { openFileBytes } from '../files';
-import { bytesToBase64 } from '@core/sim';
 import { charOf } from '@core/sim/hd44780';
 import { AnalogPanel } from './AnalogPanel';
 
@@ -41,18 +40,9 @@ function useSimView(): SimView | null {
 }
 
 export async function loadFirmware(): Promise<void> {
-  const f = await openFileBytes('.hex,.ihex,.txt,.wasm');
+  const f = await openFileBytes('.hex,.ihex,.txt');
   if (!f) return;
   const s = useEditor.getState();
-  if (/\.wasm$/i.test(f.name)) {
-    // Ядро прошивки ESP32, собранное в WebAssembly: проверяем, что браузер его примет.
-    if (!WebAssembly.validate(f.bytes as BufferSource)) return s.setMessage(`«${f.name}» — не модуль WebAssembly.`);
-    // Прошивки других плат проекта (экран пульта — modules) остаются: меняется только контроллер.
-    s.commit((d) => void (d.firmware = { name: f.name, hex: '', mcu: 'esp32', wasm: bytesToBase64(f.bytes), ...(d.firmware?.modules ? { modules: d.firmware.modules } : {}) }));
-    s.setMessage(`Прошивка для симуляции ESP32 «${f.name}» загружена: ${(f.bytes.length / 1024).toFixed(1).replace('.', ',')} КБ. Нажмите «Старт».`);
-    if (simRuntime.active) simRuntime.start();
-    return;
-  }
   try {
     const flash = parseHex(f.text());
     let used = flash.length;
@@ -142,13 +132,13 @@ export function SimPanel() {
       )}
       <div className="row">
         <button className="btn" onClick={() => void loadFirmware()}>
-          Загрузить прошивку (.hex, .wasm)…
+          Загрузить прошивку (.hex)…
         </button>
         <span className="hint">{fw ? fw.name : withMcu ? 'не загружена' : 'не нужна'}</span>
       </div>
       {!fw && withMcu && (
         <p className="hint">
-          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме. Для ESP32 — ядро прошивки, собранное в WebAssembly (<b>.wasm</b>, см. firmware/vacuum-esp32/build-sim.sh).
+          В Arduino IDE: «Скетч → Экспорт бинарного файла» — рядом со скетчем появится файл <b>.ino.hex</b> (без «with_bootloader»). Плата в IDE — Uno, Nano или Pro Mini 16 МГц. Для ATmega32A подойдёт .hex из CodeVision, WinAVR или Atmel Studio; частота берётся по кварцу на схеме. 
         </p>
       )}
       {sim.error && <p className="hint" style={{ color: 'var(--err)' }}>{sim.error}</p>}
@@ -219,7 +209,6 @@ export function Devices({ view, only }: { view: SimView; only?: boolean }) {
           {d.readings && d.readings.length > 0 && <Readings d={d} />}
           {d.kind === 'lcd' && d.lines && <Lcd d={d} />}
           {d.kind === 'oled' && d.frame && <Oled frame={d.frame} w={d.width!} h={d.height!} />}
-          {d.kind === 'panel' && d.pixels && <PanelScreen d={d} />}
           {d.kind === 'button' && <HoldButton id={d.id} pressed={!!d.pressed} label={d.toggle ? (d.pressed ? 'включено — переключить' : 'выключено — переключить') : undefined} />}
           {d.kind === 'digital' && (
             <button className={`btn sm ${d.on ? 'primary' : ''}`} onClick={() => simRuntime.set(d.id, 'v', d.on ? 0 : 1)}>
@@ -362,68 +351,6 @@ export function Oled({ frame, w, h }: { frame: Uint8Array; w: number; h: number 
     ctx.putImageData(img, 0, 0);
   }, [frame, w, h]);
   return <canvas ref={ref} className="sim-oled" width={w} height={h} style={{ aspectRatio: `${w} / ${h}` }} />;
-}
-
-/**
- * Экран пульта (кадр RGB565 из прошивки пульта) с касаниями: палец или мышь — как по
- * сенсору, координаты пересчитываются в точки кадра.
- */
-export function PanelScreen({ d }: { d: DeviceView }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const img = useRef<ImageData | null>(null);
-  const w = d.width!;
-  const h = d.height!;
-  useEffect(() => {
-    const cv = ref.current;
-    const px = d.pixels;
-    if (!cv || !px) return;
-    const ctx = cv.getContext('2d')!;
-    if (!img.current) img.current = ctx.createImageData(w, h);
-    const out = img.current.data;
-    for (let i = 0, j = 0; i < w * h; i++, j += 4) {
-      const c = px[i];
-      const r = c >> 11;
-      const g = (c >> 5) & 63;
-      const b = c & 31;
-      out[j] = (r << 3) | (r >> 2);
-      out[j + 1] = (g << 2) | (g >> 4);
-      out[j + 2] = (b << 3) | (b >> 2);
-      out[j + 3] = 255;
-    }
-    ctx.putImageData(img.current, 0, 0);
-    // Кадр перерисовывается, только когда пульт его поменял.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d.version, w, h]);
-  const at = (e: RPointerEvent<HTMLCanvasElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * w, ((e.clientY - r.top) / r.height) * h] as const;
-  };
-  const down = useRef(false);
-  return (
-    <canvas
-      ref={ref}
-      className="sim-panel-screen"
-      width={w}
-      height={h}
-      style={{ aspectRatio: `${w} / ${h}` }}
-      aria-label="Экран пульта: касания работают"
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-        down.current = true;
-        simRuntime.touch(d.id, ...at(e), true);
-      }}
-      onPointerMove={(e) => down.current && simRuntime.touch(d.id, ...at(e), true)}
-      onPointerUp={(e) => {
-        down.current = false;
-        simRuntime.touch(d.id, ...at(e), false);
-      }}
-      onPointerCancel={(e) => {
-        down.current = false;
-        simRuntime.touch(d.id, ...at(e), false);
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    />
-  );
 }
 
 export function Serial({ baud }: { baud: number }) {
